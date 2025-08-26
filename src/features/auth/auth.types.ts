@@ -1,7 +1,7 @@
 import { Request } from 'express';
 
 // Request types
-export interface RegisterRequest {
+export interface CreateUserRequest {
   email: string;
   password: string;
   name?: string;
@@ -12,7 +12,7 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface ProfileUpdateRequest {
+export interface UpdateProfileRequest {
   name?: string;
   avatar?: string;
   preferences?: {
@@ -20,20 +20,37 @@ export interface ProfileUpdateRequest {
     language?: string;
     timezone?: string;
     notifications?: boolean;
-    emailNotifications?: boolean;
-    pushNotifications?: boolean;
-    privacyLevel?: 'public' | 'friends' | 'private';
   };
 }
 
-// Response types
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    name?: string;
+export interface User {
+  _id: string;
+  email: string;
+  password: string;
+  name?: string;
+  avatar?: string;
+  preferences: {
+    theme: 'light' | 'dark' | 'auto';
+    language: string;
+    timezone: string;
+    notifications: boolean;
   };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  data?: {
+    token: string;
+    user: {
+      _id: string;
+      email: string;
+      name?: string;
+    };
+  };
+  message?: string;
+  error?: string;
 }
 
 export interface ProfileResponse {
@@ -189,3 +206,4 @@ export const profileUpdateSchema = {
     },
   },
 };
+

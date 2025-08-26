@@ -19,7 +19,7 @@ export class AuthService {
   /**
    * Register a new user
    */
-  async registerUser(email: string, password: string, name?: string): Promise<ApiResponse<{ token: string; user: { id: string; email: string; name?: string } }>> {
+  async registerUser(email: string, password: string, name?: string): Promise<ApiResponse<{ token: string; user: { _id: string; email: string; name?: string } }>> {
     try {
       // Check if user already exists
       const existingUser = inMemoryUsers.find(u => u.email === email);
@@ -30,16 +30,19 @@ export class AuthService {
         };
       }
 
-      // Hash password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
       // Create new user
       const newUser = {
-        id: userIdCounter.toString(),
+        _id: userIdCounter.toString(),
         email,
-        password: hashedPassword,
+        password: await bcrypt.hash(password, 10),
         name,
+        avatar: undefined,
+        preferences: {
+          theme: 'auto',
+          language: 'en',
+          timezone: 'UTC',
+          notifications: true,
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -47,15 +50,15 @@ export class AuthService {
       inMemoryUsers.push(newUser);
       userIdCounter++;
 
-      // Generate JWT token
-      const token = this.generateToken(newUser.id, newUser.email);
+      // Generate token
+      const token = this.generateToken(newUser._id, newUser.email);
 
       return {
         success: true,
         data: {
           token,
           user: {
-            id: newUser.id,
+            _id: newUser._id,
             email: newUser.email,
             name: newUser.name,
           },
@@ -63,7 +66,7 @@ export class AuthService {
         message: 'User registered successfully',
       };
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Register user error:', error);
       return {
         success: false,
         error: 'Failed to register user',
@@ -74,7 +77,7 @@ export class AuthService {
   /**
    * Login user
    */
-  async loginUser(email: string, password: string): Promise<ApiResponse<{ token: string; user: { id: string; email: string; name?: string } }>> {
+  async loginUser(email: string, password: string): Promise<ApiResponse<{ token: string; user: { _id: string; email: string; name?: string } }>> {
     try {
       // Find user by email
       const user = inMemoryUsers.find(u => u.email === email);
@@ -85,27 +88,24 @@ export class AuthService {
         };
       }
 
-      // Check password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
         return {
           success: false,
           error: 'Invalid email or password',
         };
       }
 
-      // Update last login
-      user.lastLogin = new Date();
-
-      // Generate JWT token
-      const token = this.generateToken(user.id, user.email);
+      // Generate token
+      const token = this.generateToken(user._id, user.email);
 
       return {
         success: true,
         data: {
           token,
           user: {
-            id: user.id,
+            _id: user._id,
             email: user.email,
             name: user.name,
           },
@@ -124,10 +124,9 @@ export class AuthService {
   /**
    * Get user profile
    */
-  async getUserProfile(userId: string): Promise<ApiResponse<{ id: string; email: string; name?: string; avatar?: string; preferences: any; stats: any }>> {
+  async getUserProfile(userId: string): Promise<ApiResponse<{ _id: string; email: string; name?: string; avatar?: string; preferences: any; stats: any }>> {
     try {
-      const user = inMemoryUsers.find(u => u.id === userId);
-      
+      const user = inMemoryUsers.find(u => u._id === userId);
       if (!user) {
         return {
           success: false,
@@ -135,36 +134,31 @@ export class AuthService {
         };
       }
 
+      // Calculate stats (for demo purposes)
+      const stats = {
+        totalEntries: Math.floor(Math.random() * 100),
+        totalPeople: Math.floor(Math.random() * 50),
+        totalCategories: Math.floor(Math.random() * 20),
+        lastActive: new Date(),
+        streakDays: Math.floor(Math.random() * 30),
+      };
+
       return {
         success: true,
         data: {
-          id: user.id,
+          _id: user._id,
           email: user.email,
           name: user.name,
           avatar: user.avatar,
-          preferences: user.preferences || {
-            theme: 'auto',
-            language: 'en',
-            timezone: 'UTC',
-            notifications: true,
-            emailNotifications: true,
-            pushNotifications: true,
-            privacyLevel: 'private',
-          },
-          stats: user.stats || {
-            totalEntries: 0,
-            totalPeople: 0,
-            totalCategories: 0,
-            lastActive: new Date(),
-            streakDays: 0,
-          },
+          preferences: user.preferences,
+          stats,
         },
       };
     } catch (error) {
-      console.error('Get profile error:', error);
+      console.error('Get user profile error:', error);
       return {
         success: false,
-        error: 'Failed to get profile',
+        error: 'Failed to fetch user profile',
       };
     }
   }
@@ -172,11 +166,11 @@ export class AuthService {
   /**
    * Verify JWT token
    */
-  verifyToken(token: string): { id: string; email: string } | null {
+  verifyToken(token: string): { _id: string; email: string } | null {
     try {
       const decoded = jwt.verify(token, this.JWT_SECRET) as any;
       return {
-        id: decoded.id,
+        _id: decoded._id,
         email: decoded.email,
       };
     } catch (error) {
@@ -189,7 +183,7 @@ export class AuthService {
    */
   private generateToken(userId: string, email: string): string {
     return jwt.sign(
-      { id: userId, email },
+      { _id: userId, email },
       this.JWT_SECRET,
       { expiresIn: this.JWT_EXPIRES_IN }
     );
