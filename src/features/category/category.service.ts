@@ -12,16 +12,16 @@ export class CategoryService {
   async createCategory(categoryData: Partial<CategoryInterface>): Promise<ApiResponse<CategoryInterface>> {
     try {
       const category = {
-        id: categoryIdCounter.toString(),
-        name: categoryData.name || '',
-        displayName: categoryData.displayName || categoryData.name || '',
+        _id: categoryIdCounter.toString(),
+        name: categoryData.name,
+        displayName: categoryData.displayName,
         color: categoryData.color || '#3B82F6',
         icon: categoryData.icon || '📝',
         description: categoryData.description,
-        isActive: categoryData.isActive !== undefined ? categoryData.isActive : true,
+        isActive: true,
         parentCategoryId: categoryData.parentCategoryId,
         sortOrder: categoryData.sortOrder || 0,
-        usageCount: categoryData.usageCount || 0,
+        usageCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -68,9 +68,9 @@ export class CategoryService {
   /**
    * Get category by ID
    */
-  async getCategoryById(id: string): Promise<ApiResponse<CategoryInterface>> {
+  async getCategoryById(_id: string): Promise<ApiResponse<CategoryInterface>> {
     try {
-      const category = inMemoryCategories.find(cat => cat.id === id);
+      const category = inMemoryCategories.find(cat => cat._id === _id && cat.isActive);
 
       if (!category) {
         return {
@@ -95,9 +95,10 @@ export class CategoryService {
   /**
    * Update category
    */
-  async updateCategory(id: string, updates: Partial<CategoryInterface>): Promise<ApiResponse<CategoryInterface>> {
+  async updateCategory(_id: string, updates: Partial<CategoryInterface>): Promise<ApiResponse<CategoryInterface>> {
     try {
-      const categoryIndex = inMemoryCategories.findIndex(cat => cat.id === id);
+      const categoryIndex = inMemoryCategories.findIndex(cat => cat._id === _id && cat.isActive);
+
       if (categoryIndex === -1) {
         return {
           success: false,
@@ -105,6 +106,7 @@ export class CategoryService {
         };
       }
 
+      // Update the category
       inMemoryCategories[categoryIndex] = {
         ...inMemoryCategories[categoryIndex],
         ...updates,
@@ -128,9 +130,9 @@ export class CategoryService {
   /**
    * Delete category
    */
-  async deleteCategory(id: string): Promise<ApiResponse<void>> {
+  async deleteCategory(_id: string): Promise<ApiResponse<void>> {
     try {
-      const categoryIndex = inMemoryCategories.findIndex(cat => cat.id === id);
+      const categoryIndex = inMemoryCategories.findIndex(cat => cat._id === _id);
       if (categoryIndex === -1) {
         return {
           success: false,
@@ -208,7 +210,7 @@ export class CategoryService {
    */
   private mapCategoryToInterface(category: any): CategoryInterface {
     return {
-      id: category.id,
+      _id: category._id,
       name: category.name,
       displayName: category.displayName,
       color: category.color,

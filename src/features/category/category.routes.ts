@@ -8,12 +8,12 @@ const router = Router();
 // Public routes (with optional auth)
 router.get('/', optionalAuth, getCategories);
 router.get('/search', optionalAuth, searchCategories);
-router.get('/category/:id', optionalAuth, getCategoryById);
+router.get('/category/:_id', optionalAuth, getCategoryById);
 router.get('/category/:parentId/subcategories', optionalAuth, getSubcategories);
 
 // Protected routes (require auth)
 router.post('/', auth, validateCategory, handleValidationErrors, createCategory);
-router.put('/category/:id', auth, validateCategory, handleValidationErrors, updateCategory);
-router.delete('/category/:id', auth, deleteCategory);
+router.put('/category/:_id', auth, validateCategory, handleValidationErrors, updateCategory);
+router.delete('/category/:_id', auth, deleteCategory);
 
 export default router;
