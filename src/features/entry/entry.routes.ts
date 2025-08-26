@@ -20,12 +20,12 @@ router.get('/', optionalAuth, getEntries);
 router.get('/stats', getEntryStats);
 router.post('/search', optionalAuth, searchEntries);
 router.get('/person/:personId', optionalAuth, getEntriesByPerson);
-router.get('/entry/:id', optionalAuth, getEntryById);
+router.get('/entry/:_id', optionalAuth, getEntryById);
 
 // Protected routes (require auth)
 router.post('/', auth, validateEntry, handleValidationErrors, createEntry);
-router.put('/entry/:id', auth, validateEntry, handleValidationErrors, updateEntry);
-router.delete('/entry/:id', auth, deleteEntry);
-router.post('/entry/:id/reactions', auth, toggleReaction);
+router.put('/entry/:_id', auth, validateEntry, handleValidationErrors, updateEntry);
+router.delete('/entry/:_id', auth, deleteEntry);
+router.post('/entry/:_id/reactions', auth, toggleReaction);
 
 export default router;

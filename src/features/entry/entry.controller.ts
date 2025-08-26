@@ -1,22 +1,23 @@
 import { Request, Response } from 'express';
 import entryService from './entry.service';
 import { AuthRequest } from '../../interfaces';
+import { 
+  sendCreated, sendSuccess, sendBadRequest, sendNotFound, sendInternalServerError, 
+  sendPaginationResponse, sendSearchResponse, sendDeleteResponse, sendUpdateResponse, sendUnauthorized 
+} from '../../utils/response.utils';
 
 export const createEntry = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await entryService.createEntry(req.body);
     
     if (result.success) {
-      res.status(201).json(result);
+      sendCreated({ res, data: result.data, message: 'Entry created successfully' });
     } else {
-      res.status(400).json(result);
+      sendBadRequest({ res, error: result.error, message: 'Failed to create entry' });
     }
   } catch (error) {
     console.error('Create entry error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create entry',
-    });
+    sendInternalServerError({ res, error: 'Failed to create entry' });
   }
 };
 
@@ -24,21 +25,28 @@ export const getEntries = async (req: AuthRequest, res: Response): Promise<void>
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     const result = await entryService.getEntries(userId, page, limit);
     
     if (result.success) {
-      res.json(result);
+      sendPaginationResponse({ 
+        res, 
+        data: result.data, 
+        pagination: { 
+          currentPage: page, 
+          limit, 
+          totalCount: (result.pagination as any)?.total || 0, 
+          totalPages: (result.pagination as any)?.pages || 0 
+        },
+        message: 'Entries retrieved successfully'
+      });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch entries' });
     }
   } catch (error) {
     console.error('Get entries error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch entries',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch entries' });
   }
 };
 
@@ -51,16 +59,23 @@ export const getEntriesByPerson = async (req: Request<{ personId: string }>, res
     const result = await entryService.getEntriesByPerson(personId, page, limit);
     
     if (result.success) {
-      res.json(result);
+      sendPaginationResponse({ 
+        res, 
+        data: result.data, 
+        pagination: { 
+          currentPage: page, 
+          limit, 
+          totalCount: (result.pagination as any)?.total || 0, 
+          totalPages: (result.pagination as any)?.pages || 0 
+        },
+        message: 'Entries by person retrieved successfully'
+      });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch entries' });
     }
   } catch (error) {
     console.error('Get entries by person error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch entries',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch entries' });
   }
 };
 
@@ -69,10 +84,7 @@ export const searchEntries = async (req: Request, res: Response): Promise<void> 
     const { query, filters, sortBy = 'relevance', sortOrder = 'desc' } = req.body;
 
     if (!query) {
-      res.status(400).json({
-        success: false,
-        error: 'Search query is required',
-      });
+      sendBadRequest({ res, error: 'Search query is required', message: 'Please provide a search query' });
       return;
     }
 
@@ -84,103 +96,91 @@ export const searchEntries = async (req: Request, res: Response): Promise<void> 
     });
     
     if (result.success) {
-      res.json(result);
+      sendSearchResponse({ 
+        res, 
+        data: result.data, 
+        query, 
+        total: result.data?.length || 0, 
+        message: 'Search completed successfully' 
+      });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Search failed' });
     }
   } catch (error) {
     console.error('Search entries error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to search entries',
-    });
+    sendInternalServerError({ res, error: 'Failed to search entries' });
   }
 };
 
-export const getEntryById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+export const getEntryById = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const result = await entryService.getEntryById(id);
+    const { _id } = req.params;
+    const result = await entryService.getEntryById(_id);
     
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'Entry retrieved successfully' });
     } else {
-      res.status(404).json(result);
+      sendNotFound({ res, error: result.error || 'Entry not found' });
     }
   } catch (error) {
     console.error('Get entry by ID error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch entry',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch entry' });
   }
 };
 
-export const updateEntry = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+export const updateEntry = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const result = await entryService.updateEntry(id, req.body);
+    const { _id } = req.params;
+    const result = await entryService.updateEntry(_id, req.body);
     
     if (result.success) {
-      res.json(result);
+      sendUpdateResponse({ res, data: result.data, message: 'Entry updated successfully' });
     } else {
-      res.status(404).json(result);
+      sendBadRequest({ res, error: result.error || 'Failed to update entry' });
     }
   } catch (error) {
     console.error('Update entry error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update entry',
-    });
+    sendInternalServerError({ res, error: 'Failed to update entry' });
   }
 };
 
-export const deleteEntry = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+export const deleteEntry = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const result = await entryService.deleteEntry(id);
+    const { _id } = req.params;
+    const result = await entryService.deleteEntry(_id);
     
     if (result.success) {
-      res.json(result);
+      sendDeleteResponse({ res, id: _id, message: 'Entry deleted successfully' });
     } else {
-      res.status(404).json(result);
+      sendBadRequest({ res, error: result.error || 'Failed to delete entry' });
     }
   } catch (error) {
     console.error('Delete entry error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete entry',
-    });
+    sendInternalServerError({ res, error: 'Failed to delete entry' });
   }
 };
 
-export const toggleReaction = async (req: AuthRequest<{ id: string }>, res: Response): Promise<void> => {
+export const toggleReaction = async (req: AuthRequest<{ _id: string }>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const { _id } = req.params;
     const { type, customEmoji } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     if (!userId) {
-      res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-      });
+      sendUnauthorized({ res, error: 'Authentication required' });
       return;
     }
 
-    const result = await entryService.toggleReaction(id, userId, type, customEmoji);
+    const result = await entryService.toggleReaction(_id, userId, type, customEmoji);
     
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'Reaction toggled successfully' });
     } else {
-      res.status(404).json(result);
+      sendBadRequest({ res, error: result.error || 'Failed to toggle reaction' });
     }
   } catch (error) {
     console.error('Toggle reaction error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to toggle reaction',
-    });
+    sendInternalServerError({ res, error: 'Failed to toggle reaction' });
   }
 };
 

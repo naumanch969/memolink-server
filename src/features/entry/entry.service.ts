@@ -14,7 +14,7 @@ export class EntryService {
   async createEntry(entryData: Partial<EntryInterface>): Promise<ApiResponse<EntryInterface>> {
     try {
       const entry = {
-        id: entryIdCounter.toString(),
+        _id: entryIdCounter.toString(),
         content: entryData.content || '',
         timestamp: entryData.timestamp ? new Date(entryData.timestamp) : new Date(),
         mood: entryData.mood,
@@ -69,7 +69,7 @@ export class EntryService {
       // If user is authenticated, show their private entries too
       if (userId) {
         entries = inMemoryEntries.filter(entry => 
-          !entry.isPrivate || entry.people.some((p: any) => p.id === userId)
+          !entry.isPrivate || entry.people.some((p: any) => p._id === userId)
         );
       }
 
@@ -101,7 +101,7 @@ export class EntryService {
       const skip = (page - 1) * limit;
 
       const entries = inMemoryEntries.filter(entry => 
-        entry.people.some((p: any) => p.id === personId) && !entry.isPrivate
+        entry.people.some((p: any) => p._id === personId) && !entry.isPrivate
       );
 
       // Sort by timestamp (newest first)
@@ -231,12 +231,12 @@ export class EntryService {
   async getEntryById(id: string): Promise<ApiResponse<EntryInterface>> {
     try {
       // Increment view count
-      const entryIndex = inMemoryEntries.findIndex(e => e.id === id);
+      const entryIndex = inMemoryEntries.findIndex(e => e._id === id);
       if (entryIndex !== -1) {
         inMemoryEntries[entryIndex].viewCount = (inMemoryEntries[entryIndex].viewCount || 0) + 1;
       }
 
-      const entry = inMemoryEntries.find(e => e.id === id);
+      const entry = inMemoryEntries.find(e => e._id === id);
 
       if (!entry) {
         return {
@@ -263,7 +263,7 @@ export class EntryService {
    */
   async updateEntry(id: string, updates: Partial<EntryInterface>): Promise<ApiResponse<EntryInterface>> {
     try {
-      const entryIndex = inMemoryEntries.findIndex(e => e.id === id);
+      const entryIndex = inMemoryEntries.findIndex(e => e._id === id);
       if (entryIndex === -1) {
         return {
           success: false,
@@ -309,7 +309,7 @@ export class EntryService {
    */
   async deleteEntry(id: string): Promise<ApiResponse<void>> {
     try {
-      const entryIndex = inMemoryEntries.findIndex(e => e.id === id);
+      const entryIndex = inMemoryEntries.findIndex(e => e._id === id);
       if (entryIndex === -1) {
         return {
           success: false,
@@ -337,7 +337,7 @@ export class EntryService {
    */
   async toggleReaction(entryId: string, userId: string, type: 'like' | 'love' | 'laugh' | 'wow' | 'sad' | 'angry' | 'custom', customEmoji?: string): Promise<ApiResponse<EntryInterface>> {
     try {
-      const entryIndex = inMemoryEntries.findIndex(e => e.id === entryId);
+      const entryIndex = inMemoryEntries.findIndex(e => e._id === entryId);
       if (entryIndex === -1) {
         return {
           success: false,
@@ -443,7 +443,7 @@ export class EntryService {
       const personName = match[1];
       // For in-memory testing, we'll just create a mention without looking up the person
       mentions.push({
-        id: Math.random().toString(36).substr(2, 9),
+        _id: Math.random().toString(36).substr(2, 9),
         personId: 'unknown',
         personName: personName,
         startIndex: match.index,
@@ -459,7 +459,7 @@ export class EntryService {
    */
   private mapEntryToInterface(entry: any): EntryInterface {
     return {
-      id: entry.id,
+      _id: entry._id,
       content: entry.content,
       timestamp: entry.timestamp,
       mood: entry.mood,
