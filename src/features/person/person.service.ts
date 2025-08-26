@@ -12,23 +12,29 @@ export class PersonService {
    */
   async createPerson(personData: CreatePersonRequest): Promise<ApiResponse<PersonInterface>> {
     try {
-      // Convert string dates to Date objects
-      const processedData = this.processPersonData(personData);
-
-      const newPerson = {
-        id: personIdCounter.toString(),
-        ...processedData,
+      const person = {
+        _id: personIdCounter.toString(),
+        name: personData.name,
+        avatar: personData.avatar,
+        email: personData.email,
+        phone: personData.phone,
+        relationship: personData.relationship,
+        tags: personData.tags || [],
+        notes: personData.notes,
+        birthday: personData.birthday,
+        lastContact: personData.lastContact,
+        contactFrequency: personData.contactFrequency,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      inMemoryPeople.push(newPerson);
+      inMemoryPeople.push(person);
       personIdCounter++;
 
       return {
         success: true,
-        data: this.mapPersonToInterface(newPerson),
+        data: this.mapPersonToInterface(person),
         message: 'Person created successfully',
       };
     } catch (error) {
@@ -63,9 +69,9 @@ export class PersonService {
   /**
    * Get person by ID
    */
-  async getPersonById(id: string): Promise<ApiResponse<PersonInterface>> {
+  async getPersonById(_id: string): Promise<ApiResponse<PersonInterface>> {
     try {
-      const person = inMemoryPeople.find(p => p.id === id);
+      const person = inMemoryPeople.find(p => p._id === _id && p.isActive);
 
       if (!person) {
         return {
@@ -90,12 +96,10 @@ export class PersonService {
   /**
    * Update person
    */
-  async updatePerson(id: string, updates: UpdatePersonRequest): Promise<ApiResponse<PersonInterface>> {
+  async updatePerson(_id: string, updates: UpdatePersonRequest): Promise<ApiResponse<PersonInterface>> {
     try {
-      // Convert string dates to Date objects
-      const processedUpdates = this.processPersonData(updates);
+      const personIndex = inMemoryPeople.findIndex(p => p._id === _id && p.isActive);
 
-      const personIndex = inMemoryPeople.findIndex(p => p.id === id);
       if (personIndex === -1) {
         return {
           success: false,
@@ -103,6 +107,10 @@ export class PersonService {
         };
       }
 
+      // Convert string dates to Date objects
+      const processedUpdates = this.processPersonData(updates);
+
+      // Update the person
       inMemoryPeople[personIndex] = {
         ...inMemoryPeople[personIndex],
         ...processedUpdates,
@@ -126,9 +134,10 @@ export class PersonService {
   /**
    * Delete person
    */
-  async deletePerson(id: string): Promise<ApiResponse<void>> {
+  async deletePerson(_id: string): Promise<ApiResponse<void>> {
     try {
-      const personIndex = inMemoryPeople.findIndex(p => p.id === id);
+      const personIndex = inMemoryPeople.findIndex(p => p._id === _id && p.isActive);
+
       if (personIndex === -1) {
         return {
           success: false,
@@ -136,7 +145,9 @@ export class PersonService {
         };
       }
 
-      inMemoryPeople.splice(personIndex, 1);
+      // Soft delete by setting isActive to false
+      inMemoryPeople[personIndex].isActive = false;
+      inMemoryPeople[personIndex].updatedAt = new Date();
 
       return {
         success: true,
@@ -221,7 +232,7 @@ export class PersonService {
    */
   private mapPersonToInterface(person: any): PersonInterface {
     return {
-      id: person.id,
+      _id: person._id,
       name: person.name,
       avatar: person.avatar,
       email: person.email,

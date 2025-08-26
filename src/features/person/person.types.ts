@@ -14,7 +14,12 @@ export interface CreatePersonRequest {
   contactFrequency?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'rarely';
 }
 
+export interface GetPersonByIdRequest {
+  _id: string;
+}
+
 export interface UpdatePersonRequest {
+  _id: string;
   name?: string;
   avatar?: string;
   email?: string;
@@ -26,6 +31,10 @@ export interface UpdatePersonRequest {
   lastContact?: string | Date; // Accept both string and Date
   contactFrequency?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'rarely';
   isActive?: boolean;
+}
+
+export interface DeletePersonRequest {
+  _id: string;
 }
 
 export interface SearchPeopleRequest {

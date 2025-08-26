@@ -10,11 +10,11 @@ const router = Router();
 router.get('/', optionalAuth, getPeople);
 router.get('/search', optionalAuth, validateSearchPeople, handleValidationErrors, searchPeople);
 router.get('/relationship/:relationship', optionalAuth, getPeopleByRelationship);
-router.get('/person/:id', optionalAuth, getPersonById);
+router.get('/person/:_id', optionalAuth, getPersonById);
 
 // Protected routes (require auth)
 router.post('/', auth, validateCreatePerson, handleValidationErrors, createPerson);
-router.put('/person/:id', auth, validateUpdatePerson, handleValidationErrors, updatePerson);
-router.delete('/person/:id', auth, deletePerson);
+router.put('/person/:_id', auth, validateUpdatePerson, handleValidationErrors, updatePerson);
+router.delete('/person/:_id', auth, deletePerson);
 
 export default router;

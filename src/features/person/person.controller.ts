@@ -6,22 +6,23 @@ import {
   SearchPeopleRequest,
   PersonRequest 
 } from './person.types';
+import { 
+  sendCreated, sendSuccess, sendBadRequest, sendNotFound, sendInternalServerError,
+  sendPaginationResponse, sendSearchResponse, sendDeleteResponse, sendUpdateResponse
+} from '../../utils/response.utils';
 
 export const createPerson = async (req: Request<{}, {}, CreatePersonRequest>, res: Response): Promise<void> => {
   try {
     const result = await personService.createPerson(req.body);
     
     if (result.success) {
-      res.status(201).json(result);
+      sendCreated({ res, data: result.data, message: 'Person created successfully' });
     } else {
-      res.status(400).json(result);
+      sendBadRequest({ res, error: result.error, message: 'Failed to create person' });
     }
   } catch (error) {
     console.error('Create person error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create person',
-    });
+    sendInternalServerError({ res, error: 'Failed to create person' });
   }
 };
 
@@ -30,73 +31,61 @@ export const getPeople = async (req: Request, res: Response): Promise<void> => {
     const result = await personService.getPeople();
     
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'People retrieved successfully' });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch people' });
     }
   } catch (error) {
     console.error('Get people error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch people',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch people' });
   }
 };
 
-export const getPersonById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+export const getPersonById = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const result = await personService.getPersonById(id);
-    
+    const { _id } = req.params;
+    const result = await personService.getPersonById(_id);
+
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'Person retrieved successfully' });
     } else {
-      res.status(404).json(result);
+      sendNotFound({ res, error: result.error || 'Person not found' });
     }
   } catch (error) {
     console.error('Get person by ID error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch person',
-    });
+    sendInternalServerError({ res, error: 'Failed to retrieve person' });
   }
 };
 
-export const updatePerson = async (req: Request<{ id: string }, {}, UpdatePersonRequest>, res: Response): Promise<void> => {
+export const updatePerson = async (req: Request<{ _id: string }, {}, UpdatePersonRequest>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const result = await personService.updatePerson(id, req.body);
-    
+    const { _id } = req.params;
+    const result = await personService.updatePerson(_id, req.body);
+
     if (result.success) {
-      res.json(result);
+      sendUpdateResponse({ res, data: result.data, message: 'Person updated successfully' });
     } else {
-      res.status(404).json(result);
+      sendBadRequest({ res, error: result.error || 'Failed to update person' });
     }
   } catch (error) {
     console.error('Update person error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update person',
-    });
+    sendInternalServerError({ res, error: 'Failed to update person' });
   }
 };
 
-export const deletePerson = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+export const deletePerson = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const result = await personService.deletePerson(id);
-    
+    const { _id } = req.params;
+    const result = await personService.deletePerson(_id);
+
     if (result.success) {
-      res.json(result);
+      sendDeleteResponse({ res, id: _id, message: 'Person deleted successfully' });
     } else {
-      res.status(404).json(result);
+      sendBadRequest({ res, error: result.error || 'Failed to delete person' });
     }
   } catch (error) {
     console.error('Delete person error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete person',
-    });
+    sendInternalServerError({ res, error: 'Failed to delete person' });
   }
 };
 
@@ -105,26 +94,26 @@ export const searchPeople = async (req: Request<{}, {}, {}, SearchPeopleRequest>
     const { query, relationship, tags } = req.query;
     
     if (!query) {
-      res.status(400).json({
-        success: false,
-        error: 'Search query is required',
-      });
+      sendBadRequest({ res, error: 'Search query is required', message: 'Please provide a search query' });
       return;
     }
     
     const result = await personService.searchPeople(query);
     
     if (result.success) {
-      res.json(result);
+      sendSearchResponse({ 
+        res, 
+        data: result.data, 
+        query: query as string, 
+        total: result.data?.length || 0, 
+        message: 'Search completed successfully' 
+      });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Search failed' });
     }
   } catch (error) {
     console.error('Search people error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to search people',
-    });
+    sendInternalServerError({ res, error: 'Failed to search people' });
   }
 };
 
@@ -134,15 +123,12 @@ export const getPeopleByRelationship = async (req: Request<{ relationship: strin
     const result = await personService.getPeopleByRelationship(relationship);
     
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: `People with relationship '${relationship}' retrieved successfully` });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch people by relationship' });
     }
   } catch (error) {
     console.error('Get people by relationship error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch people by relationship',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch people by relationship' });
   }
 };
