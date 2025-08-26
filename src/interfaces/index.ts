@@ -2,7 +2,7 @@
 import { Request } from 'express';
 
 export interface Person {
-  id: string;
+  _id: string;
   name: string;
   avatar?: string;
   email?: string;
@@ -19,7 +19,7 @@ export interface Person {
 }
 
 export interface Media {
-  id: string;
+  _id: string;
   type: 'image' | 'video' | 'audio';
   url: string;
   thumbnail?: string;
@@ -34,7 +34,7 @@ export interface Media {
 }
 
 export interface Reaction {
-  id: string;
+  _id: string;
   userId: string;
   type: 'like' | 'love' | 'laugh' | 'wow' | 'sad' | 'angry' | 'custom';
   customEmoji?: string;
@@ -42,7 +42,7 @@ export interface Reaction {
 }
 
 export interface Mention {
-  id: string;
+  _id: string;
   personId: string;
   personName: string;
   startIndex: number;
@@ -50,14 +50,14 @@ export interface Mention {
 }
 
 export interface Entry {
-  id: string;
+  _id: string;
   content: string;
   timestamp: Date;
   mood?: string;
   weather?: string;
   location?: string;
   people: Array<{
-    id: string;
+    _id: string;
     name: string;
     avatar?: string;
   }>;
@@ -75,7 +75,7 @@ export interface Entry {
 }
 
 export interface Category {
-  id: string;
+  _id: string;
   name: string;
   displayName: string;
   color?: string;
@@ -90,7 +90,7 @@ export interface Category {
 }
 
 export interface User {
-  id: string;
+  _id: string;
   email: string;
   password: string;
   name?: string;
@@ -107,7 +107,7 @@ export interface User {
 
 export interface AuthRequest<P = any, ResBody = any, ReqBody = any, ReqQuery = any> extends Request<P, ResBody, ReqBody, ReqQuery> {
   user?: {
-    id: string;
+    _id: string;
     email: string;
   };
 }
@@ -127,24 +127,14 @@ export interface ApiResponse<T = any> {
   data?: T;
   message?: string;
   error?: string;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-    nextCursor?: string;
-    prevCursor?: string;
-  };
+  pagination?: PaginationParams;
 }
 
 export interface PaginationParams {
-  page?: number;
+  currentPage?: number;
   limit?: number;
-  cursor?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  totalPages?: number;
+  totalCount?: number;
 }
 
 export interface SearchParams {

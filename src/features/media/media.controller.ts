@@ -1,22 +1,20 @@
 import { Request, Response } from 'express';
 import mediaService from './media.service';
+import { sendCreated, sendSuccess, sendBadRequest, sendNotFound, sendInternalServerError, sendDeleteResponse } from '../../utils/response.utils';
 
 export const uploadMedia = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
-      res.status(400).json({ 
-        success: false,
-        error: 'No file uploaded',
-      });
+      sendBadRequest({ res, error: 'No file uploaded', message: 'Please select a file to upload' });
       return;
     }
 
-    const { type, description, tags } = req.body;
+    const { description, tags } = req.body;
     const file = req.file;
 
     // Determine media type from MIME type
     let mediaType: 'image' | 'video' | 'audio' = 'image';
-    if (file.mimetype.startsWith('video/')) {
+    if (file.mimetype.startsWith('video/')) { 
       mediaType = 'video';
     } else if (file.mimetype.startsWith('audio/')) {
       mediaType = 'audio';
@@ -32,18 +30,15 @@ export const uploadMedia = async (req: Request, res: Response): Promise<void> =>
     };
 
     const result = await mediaService.uploadMedia(file, metadata);
-    
+
     if (result.success) {
-      res.status(201).json(result);
+      sendCreated({ res, data: result.data, message: 'Media uploaded successfully' });
     } else {
-      res.status(400).json(result);
+      sendBadRequest({ res, error: result.error, message: 'Failed to upload media' });
     }
   } catch (error) {
     console.error('Media upload error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to upload media',
-    });
+    sendInternalServerError({ res, error: 'Failed to upload media' });
   }
 };
 
@@ -52,26 +47,20 @@ export const deleteMedia = async (req: Request<{ publicId: string }>, res: Respo
     const { publicId } = req.params;
 
     if (!publicId) {
-      res.status(400).json({
-        success: false,
-        error: 'Public ID is required',
-      });
+      sendBadRequest({ res, error: 'Public ID is required', message: 'Please provide a public ID' });
       return;
     }
 
     const result = await mediaService.deleteMedia(publicId);
-    
+
     if (result.success) {
-      res.json(result);
+      sendDeleteResponse({ res, id: publicId, message: 'Media deleted successfully' });
     } else {
-      res.status(404).json(result);
+      sendNotFound({ res, error: result.error, message: 'Media not found' });
     }
   } catch (error) {
     console.error('Media delete error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete media',
-    });
+    sendInternalServerError({ res, error: 'Failed to delete media' });
   }
 };
 
@@ -80,26 +69,20 @@ export const getMediaInfo = async (req: Request<{ publicId: string }>, res: Resp
     const { publicId } = req.params;
 
     if (!publicId) {
-      res.status(400).json({
-        success: false,
-        error: 'Public ID is required',
-      });
+      sendBadRequest({ res, error: 'Public ID is required', message: 'Please provide a public ID' });
       return;
     }
 
     const result = await mediaService.getMediaInfo(publicId);
-    
+
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'Media info retrieved successfully' });
     } else {
-      res.status(404).json(result);
+      sendNotFound({ res, error: result.error, message: 'Media not found' });
     }
   } catch (error) {
     console.error('Get media info error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get media info',
-    });
+    sendInternalServerError({ res, error: 'Failed to get media info' });
   }
 };
 
@@ -108,26 +91,20 @@ export const generateThumbnail = async (req: Request, res: Response): Promise<vo
     const { publicId, width = 300, height = 300, crop = 'fill' } = req.body;
 
     if (!publicId) {
-      res.status(400).json({
-        success: false,
-        error: 'Public ID is required',
-      });
+      sendBadRequest({ res, error: 'Public ID is required', message: 'Please provide a public ID' });
       return;
     }
 
     const result = await mediaService.generateThumbnail(publicId, width, height, crop);
-    
+
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'Thumbnail generated successfully' });
     } else {
-      res.status(404).json(result);
+      sendNotFound({ res, error: result.error, message: 'Media not found' });
     }
   } catch (error) {
     console.error('Generate thumbnail error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate thumbnail',
-    });
+    sendInternalServerError({ res, error: 'Failed to generate thumbnail' });
   }
 };
 
@@ -136,44 +113,35 @@ export const transformMedia = async (req: Request, res: Response): Promise<void>
     const { publicId, transformations } = req.body;
 
     if (!publicId || !transformations) {
-      res.status(400).json({
-        success: false,
-        error: 'Public ID and transformations are required',
-      });
+      sendBadRequest({ res, error: 'Public ID and transformations are required', message: 'Please provide both public ID and transformations' });
       return;
     }
 
     const result = await mediaService.transformMedia(publicId, transformations);
-    
+
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'Media transformed successfully' });
     } else {
-      res.status(404).json(result);
+      sendNotFound({ res, error: result.error, message: 'Media not found' });
     }
   } catch (error) {
     console.error('Transform media error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to transform media',
-    });
+    sendInternalServerError({ res, error: 'Failed to transform media' });
   }
 };
 
 export const getAllMedia = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await mediaService.getAllMedia();
-    
+
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: 'All media retrieved successfully' });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch media' });
     }
   } catch (error) {
     console.error('Get all media error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch media',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch media' });
   }
 };
 
@@ -181,17 +149,14 @@ export const getMediaByType = async (req: Request<{ type: string }>, res: Respon
   try {
     const { type } = req.params;
     const result = await mediaService.getMediaByType(type);
-    
+
     if (result.success) {
-      res.json(result);
+      sendSuccess({ res, data: result.data, message: `Media of type '${type}' retrieved successfully` });
     } else {
-      res.status(500).json(result);
+      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch media by type' });
     }
   } catch (error) {
     console.error('Get media by type error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch media by type',
-    });
+    sendInternalServerError({ res, error: 'Failed to fetch media by type' });
   }
 };

@@ -11,7 +11,7 @@ export class MediaService {
   async uploadMedia(fileData: any, metadata: any): Promise<ApiResponse<UploadResult>> {
     try {
       const media = {
-        id: mediaIdCounter.toString(),
+        _id: mediaIdCounter.toString(),
         type: metadata.type || 'image',
         url: `https://example.com/media/${mediaIdCounter}`,
         thumbnail: `https://example.com/media/${mediaIdCounter}/thumb`,
@@ -227,7 +227,7 @@ export class MediaService {
    */
   private mapMediaToInterface(media: any): MediaInterface {
     return {
-      id: media.id,
+      _id: media._id,
       type: media.type,
       url: media.url,
       thumbnail: media.thumbnail,

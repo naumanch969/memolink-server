@@ -24,15 +24,15 @@ app.use(cors({ origin: ENV.CORS_ORIGIN || 'http://localhost:3000', credentials: 
 
 app.use(compression());
 
-const limiter = rateLimit({
-  windowMs: Number(ENV.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: Number(ENV.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    error: 'Too many requests from this IP, please try again later.',
-  },
-});
-app.use('/api/', limiter);
+// const limiter = rateLimit({
+//   windowMs: Number(ENV.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+//   max: Number(ENV.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+//   message: {
+//     success: false,
+//     error: 'Too many requests from this IP, please try again later.',
+//   },
+// });
+// app.use('/api/', limiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
