@@ -1,162 +1,103 @@
-import { Request, Response } from 'express';
-import mediaService from './media.service';
-import { sendCreated, sendSuccess, sendBadRequest, sendNotFound, sendInternalServerError, sendDeleteResponse } from '../../utils/response.utils';
+import { Request, Response, NextFunction } from 'express';
+import { mediaService } from './media.service';
+import { ResponseHelper } from '../../core/utils/response';
+import { asyncHandler } from '../../core/middleware/errorHandler';
+import { AuthenticatedRequest } from '../../shared/types';
+import { CreateMediaRequest } from './media.interfaces';
+import { Helpers } from '../../shared/helpers';
+import { CloudinaryService } from '../../config/cloudinary';
+import { uploadSingle } from '../../core/middleware/uploadMiddleware';
 
-export const uploadMedia = async (req: Request, res: Response): Promise<void> => {
-  try {
+export class MediaController {
+  static uploadMedia = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+
     if (!req.file) {
-      sendBadRequest({ res, error: 'No file uploaded', message: 'Please select a file to upload' });
-      return;
+      return ResponseHelper.badRequest(res, 'No file uploaded');
     }
 
-    const { description, tags } = req.body;
-    const file = req.file;
+    try {
+      // Upload to Cloudinary
+      const cloudinaryResult = await CloudinaryService.uploadFile(req.file, 'memolink');
 
-    // Determine media type from MIME type
-    let mediaType: 'image' | 'video' | 'audio' = 'image';
-    if (file.mimetype.startsWith('video/')) { 
-      mediaType = 'video';
-    } else if (file.mimetype.startsWith('audio/')) {
-      mediaType = 'audio';
+      // Determine media type
+      let mediaType: 'image' | 'video' | 'document' | 'audio' = 'document';
+      if (req.file.mimetype.startsWith('image/')) {
+        mediaType = 'image';
+      } else if (req.file.mimetype.startsWith('video/')) {
+        mediaType = 'video';
+      } else if (req.file.mimetype.startsWith('audio/')) {
+        mediaType = 'audio';
+      }
+
+      // Create media record
+      const mediaData: CreateMediaRequest = {
+        filename: cloudinaryResult.public_id,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        url: cloudinaryResult.secure_url,
+        cloudinaryId: cloudinaryResult.public_id,
+        type: mediaType,
+        metadata: {
+          width: cloudinaryResult.width,
+          height: cloudinaryResult.height,
+          duration: cloudinaryResult.duration,
+        },
+      };
+
+      const media = await mediaService.createMedia(userId, mediaData);
+
+      ResponseHelper.created(res, media, 'Media uploaded successfully');
+    } catch (error) {
+      ResponseHelper.error(res, 'File upload failed', 500, error);
     }
+  });
 
-    const metadata = {
-      type: mediaType,
-      description,
-      tags: tags ? tags.split(',').map((tag: string) => tag.trim()) : [],
-      filename: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
+  static createMedia = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const mediaData: CreateMediaRequest = req.body;
+    const media = await mediaService.createMedia(userId, mediaData);
+
+    ResponseHelper.created(res, media, 'Media created successfully');
+  });
+
+  static getMediaById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const media = await mediaService.getMediaById(id, userId);
+
+    ResponseHelper.success(res, media, 'Media retrieved successfully');
+  });
+
+  static getUserMedia = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { page, limit, type } = req.query;
+    const { page: pageNum, limit: limitNum } = Helpers.getPaginationParams({ page, limit });
+
+    const options = {
+      page: pageNum,
+      limit: limitNum,
+      filter: type ? { type } : {},
     };
 
-    const result = await mediaService.uploadMedia(file, metadata);
+    const result = await mediaService.getUserMedia(userId, options);
 
-    if (result.success) {
-      sendCreated({ res, data: result.data, message: 'Media uploaded successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error, message: 'Failed to upload media' });
-    }
-  } catch (error) {
-    console.error('Media upload error:', error);
-    sendInternalServerError({ res, error: 'Failed to upload media' });
-  }
-};
+    ResponseHelper.paginated(res, result.media, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+    }, 'Media retrieved successfully');
+  });
 
-export const deleteMedia = async (req: Request<{ publicId: string }>, res: Response): Promise<void> => {
-  try {
-    const { publicId } = req.params;
+  static deleteMedia = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    await mediaService.deleteMedia(id, userId);
 
-    if (!publicId) {
-      sendBadRequest({ res, error: 'Public ID is required', message: 'Please provide a public ID' });
-      return;
-    }
+    ResponseHelper.success(res, null, 'Media deleted successfully');
+  });
+}
 
-    const result = await mediaService.deleteMedia(publicId);
-
-    if (result.success) {
-      sendDeleteResponse({ res, id: publicId, message: 'Media deleted successfully' });
-    } else {
-      sendNotFound({ res, error: result.error, message: 'Media not found' });
-    }
-  } catch (error) {
-    console.error('Media delete error:', error);
-    sendInternalServerError({ res, error: 'Failed to delete media' });
-  }
-};
-
-export const getMediaInfo = async (req: Request<{ publicId: string }>, res: Response): Promise<void> => {
-  try {
-    const { publicId } = req.params;
-
-    if (!publicId) {
-      sendBadRequest({ res, error: 'Public ID is required', message: 'Please provide a public ID' });
-      return;
-    }
-
-    const result = await mediaService.getMediaInfo(publicId);
-
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'Media info retrieved successfully' });
-    } else {
-      sendNotFound({ res, error: result.error, message: 'Media not found' });
-    }
-  } catch (error) {
-    console.error('Get media info error:', error);
-    sendInternalServerError({ res, error: 'Failed to get media info' });
-  }
-};
-
-export const generateThumbnail = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { publicId, width = 300, height = 300, crop = 'fill' } = req.body;
-
-    if (!publicId) {
-      sendBadRequest({ res, error: 'Public ID is required', message: 'Please provide a public ID' });
-      return;
-    }
-
-    const result = await mediaService.generateThumbnail(publicId, width, height, crop);
-
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'Thumbnail generated successfully' });
-    } else {
-      sendNotFound({ res, error: result.error, message: 'Media not found' });
-    }
-  } catch (error) {
-    console.error('Generate thumbnail error:', error);
-    sendInternalServerError({ res, error: 'Failed to generate thumbnail' });
-  }
-};
-
-export const transformMedia = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { publicId, transformations } = req.body;
-
-    if (!publicId || !transformations) {
-      sendBadRequest({ res, error: 'Public ID and transformations are required', message: 'Please provide both public ID and transformations' });
-      return;
-    }
-
-    const result = await mediaService.transformMedia(publicId, transformations);
-
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'Media transformed successfully' });
-    } else {
-      sendNotFound({ res, error: result.error, message: 'Media not found' });
-    }
-  } catch (error) {
-    console.error('Transform media error:', error);
-    sendInternalServerError({ res, error: 'Failed to transform media' });
-  }
-};
-
-export const getAllMedia = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await mediaService.getAllMedia();
-
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'All media retrieved successfully' });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch media' });
-    }
-  } catch (error) {
-    console.error('Get all media error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch media' });
-  }
-};
-
-export const getMediaByType = async (req: Request<{ type: string }>, res: Response): Promise<void> => {
-  try {
-    const { type } = req.params;
-    const result = await mediaService.getMediaByType(type);
-
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: `Media of type '${type}' retrieved successfully` });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch media by type' });
-    }
-  } catch (error) {
-    console.error('Get media by type error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch media by type' });
-  }
-};
+export default MediaController;

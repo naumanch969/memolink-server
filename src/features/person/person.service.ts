@@ -1,253 +1,99 @@
-import Person from './person.model';
-import { Person as PersonInterface, ApiResponse } from '../../interfaces';
-import { CreatePersonRequest, UpdatePersonRequest } from './person.types';
+import { Person } from './person.model';
+import { logger } from '../../config/logger';
+import { createNotFoundError } from '../../core/middleware/errorHandler';
+import { CreatePersonRequest, UpdatePersonRequest, IPersonService } from './person.interfaces';
+import { IPerson } from '../../shared/types';
+import { Helpers } from '../../shared/helpers';
+import { Types } from 'mongoose';
 
-// In-memory storage for testing when database is not available
-const inMemoryPeople: any[] = [];
-let personIdCounter = 1;
-
-export class PersonService {
-  /**
-   * Create a new person
-   */
-  async createPerson(personData: CreatePersonRequest): Promise<ApiResponse<PersonInterface>> {
+export class PersonService implements IPersonService {
+  async createPerson(userId: string, personData: CreatePersonRequest): Promise<IPerson> {
     try {
-      const person = {
-        _id: personIdCounter.toString(),
-        name: personData.name,
-        avatar: personData.avatar,
-        email: personData.email,
-        phone: personData.phone,
-        relationship: personData.relationship,
-        tags: personData.tags || [],
-        notes: personData.notes,
-        birthday: personData.birthday,
-        lastContact: personData.lastContact,
-        contactFrequency: personData.contactFrequency,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const person = new Person({
+        userId: new Types.ObjectId(userId),
+        ...personData,
+      });
 
-      inMemoryPeople.push(person);
-      personIdCounter++;
-
-      return {
-        success: true,
-        data: this.mapPersonToInterface(person),
-        message: 'Person created successfully',
-      };
+      await person.save();
+      logger.info('Person created successfully', { personId: person._id, userId });
+      return person;
     } catch (error) {
-      console.error('Create person error:', error);
-      return {
-        success: false,
-        error: 'Failed to create person',
-      };
+      logger.error('Person creation failed:', error);
+      throw error;
     }
   }
 
-  /**
-   * Get all active people
-   */
-  async getPeople(): Promise<ApiResponse<PersonInterface[]>> {
+  async getPersonById(personId: string, userId: string): Promise<IPerson> {
     try {
-      const people = inMemoryPeople.filter(p => p.isActive).sort((a, b) => a.name.localeCompare(b.name));
-
-      return {
-        success: true,
-        data: people.map(person => this.mapPersonToInterface(person)),
-      };
+      const person = await Person.findOne({ _id: personId, userId });
+      if (!person) {
+        throw createNotFoundError('Person');
+      }
+      return person;
     } catch (error) {
-      console.error('Get people error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch people',
-      };
+      logger.error('Get person by ID failed:', error);
+      throw error;
     }
   }
 
-  /**
-   * Get person by ID
-   */
-  async getPersonById(_id: string): Promise<ApiResponse<PersonInterface>> {
+  async getUserPersons(userId: string, options: any = {}): Promise<{
+    persons: IPerson[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     try {
-      const person = inMemoryPeople.find(p => p._id === _id && p.isActive);
+      const { page, limit, skip } = Helpers.getPaginationParams(options);
+      const sort = Helpers.getSortParams(options, 'interactionCount');
+
+      const [persons, total] = await Promise.all([
+        Person.find({ userId }).sort(sort as any).skip(skip).limit(limit),
+        Person.countDocuments({ userId }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+      return { persons, total, page, limit, totalPages };
+    } catch (error) {
+      logger.error('Get user persons failed:', error);
+      throw error;
+    }
+  }
+
+  async updatePerson(personId: string, userId: string, updateData: UpdatePersonRequest): Promise<IPerson> {
+    try {
+      const person = await Person.findOneAndUpdate(
+        { _id: personId, userId },
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
 
       if (!person) {
-        return {
-          success: false,
-          error: 'Person not found',
-        };
+        throw createNotFoundError('Person');
       }
 
-      return {
-        success: true,
-        data: this.mapPersonToInterface(person),
-      };
+      logger.info('Person updated successfully', { personId: person._id, userId });
+      return person;
     } catch (error) {
-      console.error('Get person by ID error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch person',
-      };
+      logger.error('Person update failed:', error);
+      throw error;
     }
   }
 
-  /**
-   * Update person
-   */
-  async updatePerson(_id: string, updates: UpdatePersonRequest): Promise<ApiResponse<PersonInterface>> {
+  async deletePerson(personId: string, userId: string): Promise<void> {
     try {
-      const personIndex = inMemoryPeople.findIndex(p => p._id === _id && p.isActive);
-
-      if (personIndex === -1) {
-        return {
-          success: false,
-          error: 'Person not found',
-        };
+      const person = await Person.findOneAndDelete({ _id: personId, userId });
+      if (!person) {
+        throw createNotFoundError('Person');
       }
-
-      // Convert string dates to Date objects
-      const processedUpdates = this.processPersonData(updates);
-
-      // Update the person
-      inMemoryPeople[personIndex] = {
-        ...inMemoryPeople[personIndex],
-        ...processedUpdates,
-        updatedAt: new Date(),
-      };
-
-      return {
-        success: true,
-        data: this.mapPersonToInterface(inMemoryPeople[personIndex]),
-        message: 'Person updated successfully',
-      };
+      logger.info('Person deleted successfully', { personId: person._id, userId });
     } catch (error) {
-      console.error('Update person error:', error);
-      return {
-        success: false,
-        error: 'Failed to update person',
-      };
+      logger.error('Person deletion failed:', error);
+      throw error;
     }
-  }
-
-  /**
-   * Delete person
-   */
-  async deletePerson(_id: string): Promise<ApiResponse<void>> {
-    try {
-      const personIndex = inMemoryPeople.findIndex(p => p._id === _id && p.isActive);
-
-      if (personIndex === -1) {
-        return {
-          success: false,
-          error: 'Person not found',
-        };
-      }
-
-      // Soft delete by setting isActive to false
-      inMemoryPeople[personIndex].isActive = false;
-      inMemoryPeople[personIndex].updatedAt = new Date();
-
-      return {
-        success: true,
-        message: 'Person deleted successfully',
-      };
-    } catch (error) {
-      console.error('Delete person error:', error);
-      return {
-        success: false,
-        error: 'Failed to delete person',
-      };
-    }
-  }
-
-  /**
-   * Search people by name or tags
-   */
-  async searchPeople(query: string): Promise<ApiResponse<PersonInterface[]>> {
-    try {
-      const people = inMemoryPeople.filter(p =>
-        p.isActive && (
-          p.name.toLowerCase().includes(query.toLowerCase()) ||
-          (p.tags && p.tags.some((tag: string) => tag.toLowerCase().includes(query.toLowerCase())))
-        )
-      ).sort((a, b) => a.name.localeCompare(b.name));
-
-      return {
-        success: true,
-        data: people.map(person => this.mapPersonToInterface(person)),
-      };
-    } catch (error) {
-      console.error('Search people error:', error);
-      return {
-        success: false,
-        error: 'Failed to search people',
-      };
-    }
-  }
-
-  /**
-   * Get people by relationship
-   */
-  async getPeopleByRelationship(relationship: string): Promise<ApiResponse<PersonInterface[]>> {
-    try {
-      const people = inMemoryPeople.filter(p =>
-        p.isActive && p.relationship &&
-        p.relationship.toLowerCase().includes(relationship.toLowerCase())
-      ).sort((a, b) => a.name.localeCompare(b.name));
-
-      return {
-        success: true,
-        data: people.map(person => this.mapPersonToInterface(person)),
-      };
-    } catch (error) {
-      console.error('Get people by relationship error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch people by relationship',
-      };
-    }
-  }
-
-  /**
-   * Process person data to convert string dates to Date objects
-   */
-  private processPersonData(data: CreatePersonRequest | UpdatePersonRequest): any {
-    const processed = { ...data };
-
-    if (processed.birthday && typeof processed.birthday === 'string') {
-      processed.birthday = new Date(processed.birthday).toISOString();
-    }
-
-    if (processed.lastContact && typeof processed.lastContact === 'string') {
-      processed.lastContact = new Date(processed.lastContact).toISOString();
-    }
-
-    return processed;
-  }
-
-  /**
-   * Map database person to interface
-   */
-  private mapPersonToInterface(person: any): PersonInterface {
-    return {
-      _id: person._id,
-      name: person.name,
-      avatar: person.avatar,
-      email: person.email,
-      phone: person.phone,
-      relationship: person.relationship,
-      isActive: person.isActive,
-      tags: person.tags,
-      notes: person.notes,
-      birthday: person.birthday,
-      lastContact: person.lastContact,
-      contactFrequency: person.contactFrequency,
-      createdAt: person.createdAt,
-      updatedAt: person.updatedAt,
-    };
   }
 }
 
-export default new PersonService();
+export const personService = new PersonService();
+
+export default PersonService;

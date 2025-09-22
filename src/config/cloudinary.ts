@@ -1,47 +1,83 @@
 import { v2 as cloudinary } from 'cloudinary';
-import dotenv from 'dotenv';
+import { config } from './env';
+import { logger } from './logger';
 
-dotenv.config();
-
+// Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: config.CLOUDINARY_CLOUD_NAME,
+  api_key: config.CLOUDINARY_API_KEY,
+  api_secret: config.CLOUDINARY_API_SECRET,
 });
 
-export default cloudinary;
+export class CloudinaryService {
+  // Upload file to Cloudinary
+  static async uploadFile(
+    file: Express.Multer.File,
+    folder: string = 'memolink',
+    options: any = {}
+  ): Promise<{
+    url: string;
+    public_id: string;
+    secure_url: string;
+    format: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+  }> {
+    try {
+      const uploadOptions = {
+        folder,
+        resource_type: 'auto' as const,
+        ...options,
+      };
 
-export interface UploadResult {
-  url: string;
-  publicId: string;
-  width: number;
-  height: number;
+      const result = await cloudinary.uploader.upload(
+        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+        uploadOptions
+      );
+
+      logger.info('File uploaded to Cloudinary successfully', {
+        public_id: result.public_id,
+        format: result.format,
+        size: result.bytes,
+      });
+
+      return {
+        url: result.secure_url,
+        public_id: result.public_id,
+        secure_url: result.secure_url,
+        format: result.format,
+        width: result.width,
+        height: result.height,
+        duration: result.duration,
+      };
+    } catch (error) {
+      logger.error('Cloudinary upload failed:', error);
+      throw error;
+    }
+  }
+
+  // Delete file from Cloudinary
+  static async deleteFile(publicId: string): Promise<void> {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+      logger.info('File deleted from Cloudinary successfully', { public_id: publicId });
+    } catch (error) {
+      logger.error('Cloudinary delete failed:', error);
+      throw error;
+    }
+  }
+
+  // Get file info
+  static async getFileInfo(publicId: string): Promise<any> {
+    try {
+      const result = await cloudinary.api.resource(publicId);
+      return result;
+    } catch (error) {
+      logger.error('Get file info failed:', error);
+      throw error;
+    }
+  }
 }
 
-export const uploadImage = async (file: Express.Multer.File): Promise<UploadResult> => {
-  try {
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: 'memolink',
-      resource_type: 'auto',
-    });
-
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      width: result.width,
-      height: result.height,
-    };
-  } catch (error) {
-    console.error('Cloudinary upload error:', error);
-    throw new Error('Failed to upload image');
-  }
-};
-
-export const deleteImage = async (publicId: string): Promise<void> => {
-  try {
-    await cloudinary.uploader.destroy(publicId);
-  } catch (error) {
-    console.error('Cloudinary delete error:', error);
-    throw new Error('Failed to delete image');
-  }
-};
+export default cloudinary;

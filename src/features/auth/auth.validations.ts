@@ -1,76 +1,123 @@
-import { body } from 'express-validator';
+import { body, param, query } from 'express-validator';
+import { VALIDATION } from '../../shared/constants';
 
-// Register validation rules
-export const validateRegister = [
+export const registerValidation = [
   body('email')
     .isEmail()
-    .withMessage('Must be a valid email address')
+    .withMessage('Please provide a valid email')
     .normalizeEmail()
-    .trim(),
+    .isLength({ max: VALIDATION.EMAIL_MAX_LENGTH })
+    .withMessage(`Email cannot exceed ${VALIDATION.EMAIL_MAX_LENGTH} characters`),
+  
   body('password')
-    .isLength({ min: 6, max: 100 })
-    .withMessage('Password must be between 6 and 100 characters')
-    .trim(),
+    .isLength({ min: VALIDATION.PASSWORD_MIN_LENGTH, max: VALIDATION.PASSWORD_MAX_LENGTH })
+    .withMessage(`Password must be between ${VALIDATION.PASSWORD_MIN_LENGTH} and ${VALIDATION.PASSWORD_MAX_LENGTH} characters`)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+  
   body('name')
-    .optional()
-    .isLength({ max: 100 })
-    .withMessage('Name must be less than 100 characters')
-    .trim(),
+    .trim()
+    .isLength({ min: 1, max: VALIDATION.NAME_MAX_LENGTH })
+    .withMessage(`Name must be between 1 and ${VALIDATION.NAME_MAX_LENGTH} characters`)
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('Name can only contain letters and spaces'),
 ];
 
-// Login validation rules
-export const validateLogin = [
+export const loginValidation = [
   body('email')
     .isEmail()
-    .withMessage('Must be a valid email address')
-    .normalizeEmail()
-    .trim(),
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  
   body('password')
     .notEmpty()
-    .withMessage('Password is required')
-    .trim(),
+    .withMessage('Password is required'),
 ];
 
-// Profile update validation rules
-export const validateProfileUpdate = [
+export const changePasswordValidation = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  
+  body('newPassword')
+    .isLength({ min: VALIDATION.PASSWORD_MIN_LENGTH, max: VALIDATION.PASSWORD_MAX_LENGTH })
+    .withMessage(`Password must be between ${VALIDATION.PASSWORD_MIN_LENGTH} and ${VALIDATION.PASSWORD_MAX_LENGTH} characters`)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+];
+
+export const refreshTokenValidation = [
+  body('refreshToken')
+    .notEmpty()
+    .withMessage('Refresh token is required')
+    .isJWT()
+    .withMessage('Invalid refresh token format'),
+];
+
+export const forgotPasswordValidation = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+];
+
+export const resetPasswordValidation = [
+  body('token')
+    .notEmpty()
+    .withMessage('Reset token is required'),
+  
+  body('newPassword')
+    .isLength({ min: VALIDATION.PASSWORD_MIN_LENGTH, max: VALIDATION.PASSWORD_MAX_LENGTH })
+    .withMessage(`Password must be between ${VALIDATION.PASSWORD_MIN_LENGTH} and ${VALIDATION.PASSWORD_MAX_LENGTH} characters`)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+];
+
+export const verifyEmailValidation = [
+  body('token')
+    .notEmpty()
+    .withMessage('Verification token is required'),
+];
+
+export const resendVerificationValidation = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+];
+
+export const updateProfileValidation = [
   body('name')
     .optional()
-    .isLength({ max: 100 })
-    .withMessage('Name must be less than 100 characters')
-    .trim(),
+    .trim()
+    .isLength({ min: 1, max: VALIDATION.NAME_MAX_LENGTH })
+    .withMessage(`Name must be between 1 and ${VALIDATION.NAME_MAX_LENGTH} characters`)
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('Name can only contain letters and spaces'),
+  
   body('avatar')
     .optional()
     .isURL()
-    .withMessage('Avatar must be a valid URL')
-    .trim(),
+    .withMessage('Avatar must be a valid URL'),
+  
   body('preferences.theme')
     .optional()
     .isIn(['light', 'dark', 'auto'])
     .withMessage('Theme must be light, dark, or auto'),
-  body('preferences.language')
-    .optional()
-    .isLength({ max: 10 })
-    .withMessage('Language must be less than 10 characters')
-    .trim(),
-  body('preferences.timezone')
-    .optional()
-    .isLength({ max: 50 })
-    .withMessage('Timezone must be less than 50 characters')
-    .trim(),
+  
   body('preferences.notifications')
     .optional()
     .isBoolean()
-    .withMessage('Notifications must be a boolean'),
-  body('preferences.emailNotifications')
+    .withMessage('Notifications preference must be a boolean'),
+  
+  body('preferences.privacy')
     .optional()
-    .isBoolean()
-    .withMessage('Email notifications must be a boolean'),
-  body('preferences.pushNotifications')
-    .optional()
-    .isBoolean()
-    .withMessage('Push notifications must be a boolean'),
-  body('preferences.privacyLevel')
-    .optional()
-    .isIn(['public', 'friends', 'private'])
-    .withMessage('Privacy level must be public, friends, or private'),
+    .isIn(['public', 'private'])
+    .withMessage('Privacy preference must be public or private'),
+];
+
+export const userIdValidation = [
+  param('id')
+    .isMongoId()
+    .withMessage('Invalid user ID format'),
 ];

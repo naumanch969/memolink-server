@@ -1,0 +1,86 @@
+import app from './app';
+import { config } from '../config/env';
+import { logger } from '../config/logger';
+import database from '../config/database';
+
+class Server {
+  private server: any;
+
+  public async start(): Promise<void> {
+    try {
+      // Connect to database
+      await database.connect();
+
+      // Start server
+      this.server = app.listen(config.PORT, () => {
+        logger.info(`🚀 Server running on port ${config.PORT}`, {
+          environment: config.NODE_ENV,
+          port: config.PORT,
+          timestamp: new Date().toISOString(),
+        });
+      });
+
+      // Handle server errors
+      this.server.on('error', (error: any) => {
+        if (error.syscall !== 'listen') {
+          throw error;
+        }
+
+        const bind = typeof config.PORT === 'string' ? 'Pipe ' + config.PORT : 'Port ' + config.PORT;
+
+        switch (error.code) {
+          case 'EACCES':
+            logger.error(`${bind} requires elevated privileges`);
+            process.exit(1);
+            break;
+          case 'EADDRINUSE':
+            logger.error(`${bind} is already in use`);
+            process.exit(1);
+            break;
+          default:
+            throw error;
+        }
+      });
+
+      // Graceful shutdown
+      process.on('SIGTERM', this.gracefulShutdown.bind(this));
+      process.on('SIGINT', this.gracefulShutdown.bind(this));
+
+    } catch (error) {
+      logger.error('Failed to start server:', error);
+      process.exit(1);
+    }
+  }
+
+  private async gracefulShutdown(signal: string): Promise<void> {
+    logger.info(`${signal} received, shutting down gracefully`);
+
+    if (this.server) {
+      this.server.close(async () => {
+        logger.info('HTTP server closed');
+
+        try {
+          await database.disconnect();
+          logger.info('Database connection closed');
+          process.exit(0);
+        } catch (error) {
+          logger.error('Error during database disconnection:', error);
+          process.exit(1);
+        }
+      });
+    } else {
+      process.exit(0);
+    }
+  }
+}
+
+// Start server if this file is run directly
+if (require.main === module) {
+  const server = new Server();
+  server.start().catch((error) => {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  });
+}
+
+export default Server;

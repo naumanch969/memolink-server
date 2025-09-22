@@ -1,31 +1,21 @@
 import { Router } from 'express';
-import {
-  createEntry,
-  getEntries,
-  getEntryById,
-  updateEntry,
-  deleteEntry,
-  searchEntries,
-  getEntriesByPerson,
-  toggleReaction,
-  getEntryStats,
-} from './entry.controller';
-import { auth, optionalAuth } from '../../middlewares/auth';
-import { validateEntry, handleValidationErrors } from '../../middlewares/validation';
+import { EntryController } from './entry.controller';
+import { authenticate } from '../../core/middleware/authMiddleware';
+import { createEntryValidation, updateEntryValidation, entryIdValidation, searchEntriesValidation } from './entry.validations';
+import { validationMiddleware } from '../../core/middleware/validationMiddleware';
 
 const router = Router();
 
-// Public routes (with optional auth)
-router.get('/', optionalAuth, getEntries);
-router.get('/stats', getEntryStats);
-router.post('/search', optionalAuth, searchEntries);
-router.get('/person/:personId', optionalAuth, getEntriesByPerson);
-router.get('/entry/:_id', optionalAuth, getEntryById);
+// All routes require authentication
+router.use(authenticate);
 
-// Protected routes (require auth)
-router.post('/', auth, validateEntry, handleValidationErrors, createEntry);
-router.put('/entry/:_id', auth, validateEntry, handleValidationErrors, updateEntry);
-router.delete('/entry/:_id', auth, deleteEntry);
-router.post('/entry/:_id/reactions', auth, toggleReaction);
+// Entry routes
+router.post('/', createEntryValidation, validationMiddleware, EntryController.createEntry);
+router.get('/search', searchEntriesValidation, validationMiddleware, EntryController.searchEntries);
+router.get('/stats', EntryController.getEntryStats);
+router.get('/', EntryController.getUserEntries);
+router.get('/:id', entryIdValidation, validationMiddleware, EntryController.getEntryById);
+router.put('/:id', entryIdValidation, updateEntryValidation, validationMiddleware, EntryController.updateEntry);
+router.delete('/:id', entryIdValidation, validationMiddleware, EntryController.deleteEntry);
 
 export default router;

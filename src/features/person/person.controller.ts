@@ -1,134 +1,59 @@
-import { Request, Response } from 'express';
-import personService from './person.service';
-import { 
-  CreatePersonRequest, 
-  UpdatePersonRequest, 
-  SearchPeopleRequest,
-  PersonRequest 
-} from './person.types';
-import { 
-  sendCreated, sendSuccess, sendBadRequest, sendNotFound, sendInternalServerError,
-  sendPaginationResponse, sendSearchResponse, sendDeleteResponse, sendUpdateResponse
-} from '../../utils/response.utils';
+import { Request, Response, NextFunction } from 'express';
+import { personService } from './person.service';
+import { ResponseHelper } from '../../core/utils/response';
+import { asyncHandler } from '../../core/middleware/errorHandler';
+import { AuthenticatedRequest } from '../../shared/types';
+import { CreatePersonRequest, UpdatePersonRequest } from './person.interfaces';
+import { Helpers } from '../../shared/helpers';
 
-export const createPerson = async (req: Request<{}, {}, CreatePersonRequest>, res: Response): Promise<void> => {
-  try {
-    const result = await personService.createPerson(req.body);
-    
-    if (result.success) {
-      sendCreated({ res, data: result.data, message: 'Person created successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error, message: 'Failed to create person' });
-    }
-  } catch (error) {
-    console.error('Create person error:', error);
-    sendInternalServerError({ res, error: 'Failed to create person' });
-  }
-};
+export class PersonController {
+  static createPerson = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const personData: CreatePersonRequest = req.body;
+    const person = await personService.createPerson(userId, personData);
 
-export const getPeople = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await personService.getPeople();
-    
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'People retrieved successfully' });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch people' });
-    }
-  } catch (error) {
-    console.error('Get people error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch people' });
-  }
-};
+    ResponseHelper.created(res, person, 'Person created successfully');
+  });
 
-export const getPersonById = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const result = await personService.getPersonById(_id);
+  static getPersonById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const person = await personService.getPersonById(id, userId);
 
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'Person retrieved successfully' });
-    } else {
-      sendNotFound({ res, error: result.error || 'Person not found' });
-    }
-  } catch (error) {
-    console.error('Get person by ID error:', error);
-    sendInternalServerError({ res, error: 'Failed to retrieve person' });
-  }
-};
+    ResponseHelper.success(res, person, 'Person retrieved successfully');
+  });
 
-export const updatePerson = async (req: Request<{ _id: string }, {}, UpdatePersonRequest>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const result = await personService.updatePerson(_id, req.body);
+  static getUserPersons = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { page, limit } = req.query;
+    const { page: pageNum, limit: limitNum } = Helpers.getPaginationParams({ page, limit });
 
-    if (result.success) {
-      sendUpdateResponse({ res, data: result.data, message: 'Person updated successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error || 'Failed to update person' });
-    }
-  } catch (error) {
-    console.error('Update person error:', error);
-    sendInternalServerError({ res, error: 'Failed to update person' });
-  }
-};
+    const result = await personService.getUserPersons(userId, { page: pageNum, limit: limitNum });
 
-export const deletePerson = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const result = await personService.deletePerson(_id);
+    ResponseHelper.paginated(res, result.persons, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+    }, 'Persons retrieved successfully');
+  });
 
-    if (result.success) {
-      sendDeleteResponse({ res, id: _id, message: 'Person deleted successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error || 'Failed to delete person' });
-    }
-  } catch (error) {
-    console.error('Delete person error:', error);
-    sendInternalServerError({ res, error: 'Failed to delete person' });
-  }
-};
+  static updatePerson = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const updateData: UpdatePersonRequest = req.body;
+    const person = await personService.updatePerson(id, userId, updateData);
 
-export const searchPeople = async (req: Request<{}, {}, {}, SearchPeopleRequest>, res: Response): Promise<void> => {
-  try {
-    const { query, relationship, tags } = req.query;
-    
-    if (!query) {
-      sendBadRequest({ res, error: 'Search query is required', message: 'Please provide a search query' });
-      return;
-    }
-    
-    const result = await personService.searchPeople(query);
-    
-    if (result.success) {
-      sendSearchResponse({ 
-        res, 
-        data: result.data, 
-        query: query as string, 
-        total: result.data?.length || 0, 
-        message: 'Search completed successfully' 
-      });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Search failed' });
-    }
-  } catch (error) {
-    console.error('Search people error:', error);
-    sendInternalServerError({ res, error: 'Failed to search people' });
-  }
-};
+    ResponseHelper.success(res, person, 'Person updated successfully');
+  });
 
-export const getPeopleByRelationship = async (req: Request<{ relationship: string }>, res: Response): Promise<void> => {
-  try {
-    const { relationship } = req.params;
-    const result = await personService.getPeopleByRelationship(relationship);
-    
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: `People with relationship '${relationship}' retrieved successfully` });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch people by relationship' });
-    }
-  } catch (error) {
-    console.error('Get people by relationship error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch people by relationship' });
-  }
-};
+  static deletePerson = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    await personService.deletePerson(id, userId);
+
+    ResponseHelper.success(res, null, 'Person deleted successfully');
+  });
+}
+
+export default PersonController;

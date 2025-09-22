@@ -1,203 +1,96 @@
-import { Request, Response } from 'express';
-import entryService from './entry.service';
-import { AuthRequest } from '../../interfaces';
-import { 
-  sendCreated, sendSuccess, sendBadRequest, sendNotFound, sendInternalServerError, 
-  sendPaginationResponse, sendSearchResponse, sendDeleteResponse, sendUpdateResponse, sendUnauthorized 
-} from '../../utils/response.utils';
+import { Request, Response, NextFunction } from 'express';
+import { entryService } from './entry.service';
+import { ResponseHelper } from '../../core/utils/response';
+import { asyncHandler } from '../../core/middleware/errorHandler';
+import { AuthenticatedRequest } from '../../shared/types';
+import { CreateEntryRequest, UpdateEntryRequest, EntrySearchRequest } from './entry.interfaces';
+import { Helpers } from '../../shared/helpers';
 
-export const createEntry = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await entryService.createEntry(req.body);
-    
-    if (result.success) {
-      sendCreated({ res, data: result.data, message: 'Entry created successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error, message: 'Failed to create entry' });
-    }
-  } catch (error) {
-    console.error('Create entry error:', error);
-    sendInternalServerError({ res, error: 'Failed to create entry' });
-  }
-};
+export class EntryController {
+  // Create new entry
+  static createEntry = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const entryData: CreateEntryRequest = req.body;
+    const entry = await entryService.createEntry(userId, entryData);
 
-export const getEntries = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const userId = req.user?._id;
+    ResponseHelper.created(res, entry, 'Entry created successfully');
+  });
 
-    const result = await entryService.getEntries(userId, page, limit);
-    
-    if (result.success) {
-      sendPaginationResponse({ 
-        res, 
-        data: result.data, 
-        pagination: { 
-          currentPage: page, 
-          limit, 
-          totalCount: (result.pagination as any)?.total || 0, 
-          totalPages: (result.pagination as any)?.pages || 0 
-        },
-        message: 'Entries retrieved successfully'
-      });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch entries' });
-    }
-  } catch (error) {
-    console.error('Get entries error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch entries' });
-  }
-};
+  // Get entry by ID
+  static getEntryById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const entry = await entryService.getEntryById(id, userId);
 
-export const getEntriesByPerson = async (req: Request<{ personId: string }>, res: Response): Promise<void> => {
-  try {
-    const { personId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    ResponseHelper.success(res, entry, 'Entry retrieved successfully');
+  });
 
-    const result = await entryService.getEntriesByPerson(personId, page, limit);
-    
-    if (result.success) {
-      sendPaginationResponse({ 
-        res, 
-        data: result.data, 
-        pagination: { 
-          currentPage: page, 
-          limit, 
-          totalCount: (result.pagination as any)?.total || 0, 
-          totalPages: (result.pagination as any)?.pages || 0 
-        },
-        message: 'Entries by person retrieved successfully'
-      });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Failed to fetch entries' });
-    }
-  } catch (error) {
-    console.error('Get entries by person error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch entries' });
-  }
-};
+  // Get user entries
+  static getUserEntries = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { page, limit, type, isPrivate } = req.query;
+    const { page: pageNum, limit: limitNum } = Helpers.getPaginationParams({ page, limit });
 
-export const searchEntries = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { query, filters, sortBy = 'relevance', sortOrder = 'desc' } = req.body;
+    const options = {
+      page: pageNum,
+      limit: limitNum,
+      filter: {
+        ...(type && { type }),
+        ...(isPrivate !== undefined && { isPrivate: isPrivate === 'true' }),
+      },
+    };
 
-    if (!query) {
-      sendBadRequest({ res, error: 'Search query is required', message: 'Please provide a search query' });
-      return;
-    }
+    const result = await entryService.getUserEntries(userId, options);
 
-    const result = await entryService.searchEntries({
-      query,
-      filters,
-      sortBy,
-      sortOrder,
-    });
-    
-    if (result.success) {
-      sendSearchResponse({ 
-        res, 
-        data: result.data, 
-        query, 
-        total: result.data?.length || 0, 
-        message: 'Search completed successfully' 
-      });
-    } else {
-      sendInternalServerError({ res, error: result.error, message: 'Search failed' });
-    }
-  } catch (error) {
-    console.error('Search entries error:', error);
-    sendInternalServerError({ res, error: 'Failed to search entries' });
-  }
-};
+    ResponseHelper.paginated(res, result.entries, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+    }, 'Entries retrieved successfully');
+  });
 
-export const getEntryById = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const result = await entryService.getEntryById(_id);
-    
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'Entry retrieved successfully' });
-    } else {
-      sendNotFound({ res, error: result.error || 'Entry not found' });
-    }
-  } catch (error) {
-    console.error('Get entry by ID error:', error);
-    sendInternalServerError({ res, error: 'Failed to fetch entry' });
-  }
-};
+  // Search entries
+  static searchEntries = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const searchParams: EntrySearchRequest = req.query;
 
-export const updateEntry = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const result = await entryService.updateEntry(_id, req.body);
-    
-    if (result.success) {
-      sendUpdateResponse({ res, data: result.data, message: 'Entry updated successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error || 'Failed to update entry' });
-    }
-  } catch (error) {
-    console.error('Update entry error:', error);
-    sendInternalServerError({ res, error: 'Failed to update entry' });
-  }
-};
+    const result = await entryService.searchEntries(userId, searchParams);
 
-export const deleteEntry = async (req: Request<{ _id: string }>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const result = await entryService.deleteEntry(_id);
-    
-    if (result.success) {
-      sendDeleteResponse({ res, id: _id, message: 'Entry deleted successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error || 'Failed to delete entry' });
-    }
-  } catch (error) {
-    console.error('Delete entry error:', error);
-    sendInternalServerError({ res, error: 'Failed to delete entry' });
-  }
-};
+    ResponseHelper.paginated(res, result.entries, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+    }, 'Search completed successfully');
+  });
 
-export const toggleReaction = async (req: AuthRequest<{ _id: string }>, res: Response): Promise<void> => {
-  try {
-    const { _id } = req.params;
-    const { type, customEmoji } = req.body;
-    const userId = req.user?._id;
+  // Update entry
+  static updateEntry = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const updateData: UpdateEntryRequest = req.body;
+    const entry = await entryService.updateEntry(id, userId, updateData);
 
-    if (!userId) {
-      sendUnauthorized({ res, error: 'Authentication required' });
-      return;
-    }
+    ResponseHelper.success(res, entry, 'Entry updated successfully');
+  });
 
-    const result = await entryService.toggleReaction(_id, userId, type, customEmoji);
-    
-    if (result.success) {
-      sendSuccess({ res, data: result.data, message: 'Reaction toggled successfully' });
-    } else {
-      sendBadRequest({ res, error: result.error || 'Failed to toggle reaction' });
-    }
-  } catch (error) {
-    console.error('Toggle reaction error:', error);
-    sendInternalServerError({ res, error: 'Failed to toggle reaction' });
-  }
-};
+  // Delete entry
+  static deleteEntry = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    await entryService.deleteEntry(id, userId);
 
-export const getEntryStats = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await entryService.getEntryStats();
-    
-    if (result.success) {
-      res.json(result);
-    } else {
-      res.status(500).json(result);
-    }
-  } catch (error) {
-    console.error('Get entry stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch entry stats',
-    });
-  }
-};
+    ResponseHelper.success(res, null, 'Entry deleted successfully');
+  });
+
+  // Get entry statistics
+  static getEntryStats = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const stats = await entryService.getEntryStats(userId);
+
+    ResponseHelper.success(res, stats, 'Entry statistics retrieved successfully');
+  });
+}
+
+export default EntryController;

@@ -1,139 +1,107 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { IEntry } from '../../shared/types';
+import { ENTRY_TYPES } from '../../shared/constants';
 
-export interface IEntry extends Document {
-  content: string;
-  mood?: string;
-  weather?: string;
-  location?: string;
-  people: Array<{
-    id: string;
-    name: string;
-    avatar?: string;
-  }>;
-  mentions: Array<{
-    id: string;
-    personId: string;
-    personName: string;
-    startIndex: number;
-    endIndex: number;
-  }>;
-  tags: string[];
-  media: Array<{
-    id: string;
-    type: 'image' | 'video' | 'audio';
-    url: string;
-    thumbnail?: string;
-    publicId: string;
-    filename: string;
-    mimeType: string;
-    size: number;
-    duration?: number;
-    width?: number;
-    height?: number;
-    metadata?: Record<string, any>;
-  }>;
-  reactions: Array<{
-    id: string;
-    userId: string;
-    type: 'like' | 'love' | 'laugh' | 'wow' | 'sad' | 'angry' | 'custom';
-    customEmoji?: string;
-    createdAt: Date;
-  }>;
-  isPrivate: boolean;
-  isPinned: boolean;
-  parentEntryId?: string;
-  replyCount: number;
-  viewCount: number;
-}
-
-const EntrySchema: Schema = new Schema({
-  content: { type: String, required: true, trim: true, maxlength: 10000, },
-  mood: { type: String, trim: true, maxlength: 50, index: true, },
-  weather: { type: String, trim: true, maxlength: 100, index: true, },
-  location: { type: String, trim: true, maxlength: 200, index: true, },
-  people: [{
-    _id: { type: String, required: true, },
-    name: { type: String, required: true, trim: true, },
-    avatar: { type: String, },
-  }],
+const entrySchema = new Schema<IEntry>({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'User ID is required'],
+    index: true,
+  },
+  content: {
+    type: String,
+    required: [true, 'Content is required'],
+    trim: true,
+    maxlength: [10000, 'Content cannot exceed 10000 characters'],
+  },
+  type: {
+    type: String,
+    enum: Object.values(ENTRY_TYPES),
+    default: ENTRY_TYPES.TEXT,
+  },
   mentions: [{
-    _id: { type: String, required: true, },
-    personId: { type: String, required: true, },
-    personName: { type: String, required: true, trim: true, },
-    startIndex: { type: Number, required: true, },
-    endIndex: { type: Number, required: true, },
+    type: Schema.Types.ObjectId,
+    ref: 'Person',
   }],
-  tags: [{ type: String, trim: true, maxlength: 50, index: true, }],
+  tags: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Tag',
+  }],
   media: [{
-    _id: { type: String, required: true, },
-    type: { type: String, enum: ['image', 'video', 'audio'], required: true, },
-    url: { type: String, required: true, },
-    thumbnail: { type: String, },
-    publicId: { type: String, required: true, },
-    filename: { type: String, required: true, },
-    mimeType: { type: String, required: true, },
-    size: { type: Number, required: true, },
-    duration: { type: Number, },
-    width: { type: Number, },
-    height: { type: Number, },
-    metadata: { type: Schema.Types.Mixed, },
+    type: Schema.Types.ObjectId,
+    ref: 'Media',
   }],
-  reactions: [{
-    _id: { type: String, required: true, },
-    userId: { type: String, required: true, },
-    type: {
-      type: String,
-      enum: ['like', 'love', 'laugh', 'wow', 'sad', 'angry', 'custom'],
-      required: true,
-    },
-    customEmoji: { type: String, },
-    createdAt: { type: Date, default: Date.now, },
-  }],
-  isPrivate: { type: Boolean, default: false, index: true, },
-  isPinned: { type: Boolean, default: false, index: true, },
-  parentEntryId: { type: Schema.Types.ObjectId, ref: 'Entry', index: true, },
-  replyCount: { type: Number, default: 0, min: 0, },
-  viewCount: { type: Number, default: 0, min: 0, },
+  isPrivate: {
+    type: Boolean,
+    default: false,
+  },
+  mood: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Mood cannot exceed 50 characters'],
+  },
+  location: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Location cannot exceed 200 characters'],
+  },
 }, {
   timestamps: true,
 });
 
-// Create indexes for better search performance
-EntrySchema.index({ content: 'text', tags: 'text', 'people.name': 'text' });
-EntrySchema.index({ timestamp: -1 });
-EntrySchema.index({ createdAt: -1 });
-EntrySchema.index({ isPinned: -1, timestamp: -1 });
-EntrySchema.index({ 'people._id': 1 });
-EntrySchema.index({ 'mentions.personId': 1 });
-EntrySchema.index({ parentEntryId: 1 });
-EntrySchema.index({ isPrivate: 1, timestamp: -1 });
+// Indexes
+entrySchema.index({ userId: 1, createdAt: -1 });
+entrySchema.index({ userId: 1, type: 1 });
+entrySchema.index({ mentions: 1 });
+entrySchema.index({ tags: 1 });
+entrySchema.index({ media: 1 });
+entrySchema.index({ isPrivate: 1 });
 
-// Virtual for reaction counts
-EntrySchema.virtual('reactionCounts').get(function (this: any) {
-  const counts: Record<string, number> = {};
-  const reactions = this.reactions as any[];
-  if (reactions && Array.isArray(reactions)) {
-    reactions.forEach((reaction: any) => {
-      counts[reaction.type] = (counts[reaction.type] || 0) + 1;
-    });
-  }
-  return counts;
+// Text search index
+entrySchema.index({ content: 'text', mood: 'text', location: 'text' });
+
+// Virtual for formatted content
+entrySchema.virtual('formattedContent').get(function() {
+  return this.content.replace(/\n/g, '<br>');
 });
 
-// Virtual for media counts by type
-EntrySchema.virtual('mediaCounts').get(function (this: any) {
-  const counts: Record<string, number> = {};
-  const media = this.media as any[];
-  if (media && Array.isArray(media)) {
-    media.forEach((item: any) => {
-      counts[item.type] = (counts[item.type] || 0) + 1;
-    });
-  }
-  return counts;
+// Virtual for word count
+entrySchema.virtual('wordCount').get(function() {
+  return this.content.split(/\s+/).filter(word => word.length > 0).length;
 });
 
-// Ensure virtuals are serialized
-EntrySchema.set('toJSON', { virtuals: true });
-EntrySchema.set('toObject', { virtuals: true });
+// Pre-save middleware
+entrySchema.pre('save', function(next) {
+  // Auto-detect entry type based on content
+  if (this.media && this.media.length > 0) {
+    this.type = this.content.trim() ? ENTRY_TYPES.MIXED : ENTRY_TYPES.MEDIA;
+  } else {
+    this.type = ENTRY_TYPES.TEXT;
+  }
+  next();
+});
 
-export default mongoose.model<IEntry>('Entry', EntrySchema);
+// Static methods
+entrySchema.statics.findByUser = function(userId: string, options: any = {}) {
+  const query = { userId, ...options };
+  return this.find(query).sort({ createdAt: -1 });
+};
+
+entrySchema.statics.findByMention = function(personId: string) {
+  return this.find({ mentions: personId }).sort({ createdAt: -1 });
+};
+
+entrySchema.statics.findByTag = function(tagId: string) {
+  return this.find({ tags: tagId }).sort({ createdAt: -1 });
+};
+
+entrySchema.statics.searchEntries = function(userId: string, searchQuery: string) {
+  return this.find({
+    userId,
+    $text: { $search: searchQuery },
+  }).sort({ score: { $meta: 'textScore' } });
+};
+
+export const Entry = mongoose.model<IEntry>('Entry', entrySchema);
+export default Entry;

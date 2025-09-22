@@ -1,20 +1,21 @@
 import { Router } from 'express';
-import { createPerson, getPeople, getPersonById, updatePerson, deletePerson, searchPeople, getPeopleByRelationship, } from './person.controller';
-import { auth, optionalAuth } from '../../middlewares/auth';
-import { validateCreatePerson, validateUpdatePerson, validateSearchPeople } from './person.validations';
-import { handleValidationErrors } from '../../middlewares/validation';
+import { PersonController } from './person.controller';
+import { authenticate } from '../../core/middleware/authMiddleware';
+import { 
+  createPersonValidation,
+  updatePersonValidation,
+  personIdValidation
+} from './person.validations';
+import { validationMiddleware } from '../../core/middleware/validationMiddleware';
 
 const router = Router();
 
-// Public routes (with optional auth)
-router.get('/', optionalAuth, getPeople);
-router.get('/search', optionalAuth, validateSearchPeople, handleValidationErrors, searchPeople);
-router.get('/relationship/:relationship', optionalAuth, getPeopleByRelationship);
-router.get('/person/:_id', optionalAuth, getPersonById);
+router.use(authenticate);
 
-// Protected routes (require auth)
-router.post('/', auth, validateCreatePerson, handleValidationErrors, createPerson);
-router.put('/person/:_id', auth, validateUpdatePerson, handleValidationErrors, updatePerson);
-router.delete('/person/:_id', auth, deletePerson);
+router.post('/', createPersonValidation, validationMiddleware, PersonController.createPerson);
+router.get('/', PersonController.getUserPersons);
+router.get('/:id', personIdValidation, validationMiddleware, PersonController.getPersonById);
+router.put('/:id', personIdValidation, updatePersonValidation, validationMiddleware, PersonController.updatePerson);
+router.delete('/:id', personIdValidation, validationMiddleware, PersonController.deletePerson);
 
 export default router;

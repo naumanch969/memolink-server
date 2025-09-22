@@ -1,0 +1,71 @@
+import { Router } from 'express';
+import { config } from '../config/env';
+import { logger } from '../config/logger';
+
+// Import feature routes
+import authRoutes from '../features/auth/auth.routes';
+import entryRoutes from '../features/entry/entry.routes';
+import personRoutes from '../features/person/person.routes';
+import tagRoutes from '../features/tag/tag.routes';
+import mediaRoutes from '../features/media/media.routes';
+import habitRoutes from '../features/habit/habit.routes';
+import analyticsRoutes from '../features/analytics/analytics.routes';
+import exportRoutes from '../features/export/export.routes';
+
+const router = Router();
+
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: config.NODE_ENV,
+    version: config.npm_package_version || '1.0.0',
+  });
+});
+
+// API documentation endpoint
+router.get('/docs', (req, res) => {
+  res.json({
+    name: 'MemoLink API',
+    version: '1.0.0',
+    description: 'Personal journaling and life tracking API',
+    endpoints: {
+      auth: '/api/auth',
+      entries: '/api/entries',
+      people: '/api/people',
+      tags: '/api/tags',
+      media: '/api/media',
+      habits: '/api/habits',
+      analytics: '/api/analytics',
+      export: '/api/export',
+    },
+    documentation: 'https://github.com/your-repo/memolink-api',
+  });
+});
+
+// Feature routes
+router.use('/auth', authRoutes);
+router.use('/entries', entryRoutes);
+router.use('/people', personRoutes);
+router.use('/tags', tagRoutes);
+router.use('/media', mediaRoutes);
+router.use('/habits', habitRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/export', exportRoutes);
+
+// Log route registration
+logger.info('Routes registered successfully', {
+  features: [
+    'auth',
+    'entries',
+    'people',
+    'tags',
+    'media',
+    'habits',
+    'analytics',
+    'export',
+  ],
+});
+
+export default router;

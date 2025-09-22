@@ -1,27 +1,21 @@
 import { Router } from 'express';
-import {
-  uploadMedia,
-  deleteMedia,
-  getMediaInfo,
-  generateThumbnail,
-  transformMedia,
-  getAllMedia,
-  getMediaByType,
-} from './media.controller';
-import { auth, optionalAuth } from '../../middlewares/auth';
-import { upload } from '../../middlewares/upload';
+import { MediaController } from './media.controller';
+import { authenticate } from '../../core/middleware/authMiddleware';
+import { 
+  createMediaValidation,
+  mediaIdValidation
+} from './media.validations';
+import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { uploadSingle } from '../../core/middleware/uploadMiddleware';
 
 const router = Router();
 
-// Public routes (with optional auth)
-router.get('/', optionalAuth, getAllMedia);
-router.get('/type/:type', optionalAuth, getMediaByType);
-router.get('/info/:publicId', optionalAuth, getMediaInfo);
+router.use(authenticate);
 
-// Protected routes (require auth)
-router.post('/upload', auth, upload.single('media'), uploadMedia);
-router.delete('/media/:publicId', auth, deleteMedia);
-router.post('/thumbnail', auth, generateThumbnail);
-router.post('/transform', auth, transformMedia);
+router.post('/upload', uploadSingle('file'), MediaController.uploadMedia);
+router.post('/', createMediaValidation, validationMiddleware, MediaController.createMedia);
+router.get('/', MediaController.getUserMedia);
+router.get('/:id', mediaIdValidation, validationMiddleware, MediaController.getMediaById);
+router.delete('/:id', mediaIdValidation, validationMiddleware, MediaController.deleteMedia);
 
 export default router;

@@ -1,484 +1,275 @@
-import Entry from './entry.model';
-import Person from '../person/person.model';
-import { Entry as EntryInterface, ApiResponse } from '../../interfaces';
-import { getPaginationParams, getSortParams, createPaginationResponse } from '../../utils/helpers';
+import { Entry } from './entry.model';
+import { logger } from '../../config/logger';
+import { createNotFoundError } from '../../core/middleware/errorHandler';
+import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
+import { Helpers } from '../../shared/helpers';
+import { Types } from 'mongoose';
+import { IEntry } from '../../shared/types';
 
-// In-memory storage for testing when database is not available
-const inMemoryEntries: any[] = [];
-let entryIdCounter = 1;
-
-export class EntryService {
-  /**
-   * Create a new entry
-   */
-  async createEntry(entryData: Partial<EntryInterface>): Promise<ApiResponse<EntryInterface>> {
+export class EntryService implements IEntryService {
+  // Create new entry
+  async createEntry(userId: string, entryData: any): Promise<IEntry> {
     try {
-      const entry = {
-        _id: entryIdCounter.toString(),
-        content: entryData.content || '',
-        timestamp: entryData.timestamp ? new Date(entryData.timestamp) : new Date(),
-        mood: entryData.mood,
-        weather: entryData.weather,
-        location: entryData.location,
-        people: entryData.people || [],
-        mentions: entryData.mentions || [],
-        tags: entryData.tags || [],
-        media: entryData.media || [],
-        reactions: entryData.reactions || [],
-        isPrivate: entryData.isPrivate || false,
-        isPinned: entryData.isPinned || false,
-        parentEntryId: entryData.parentEntryId,
-        replyCount: 0,
-        viewCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const entry = new Entry({
+        userId: new Types.ObjectId(userId),
+        ...entryData,
+      });
 
-      // Process mentions if content contains @mentions
-      if (entryData.content && entryData.content.includes('@')) {
-        entry.mentions = await this.extractMentions(entryData.content);
+      await entry.save();
+      await entry.populate(['mentions', 'tags', 'media']);
+
+      logger.info('Entry created successfully', {
+        entryId: entry._id,
+        userId,
+      });
+
+      return entry;
+    } catch (error) {
+      logger.error('Entry creation failed:', error);
+      throw error;
+    }
+  }
+
+  // Get entry by ID
+  async getEntryById(entryId: string, userId: string): Promise<IEntry> {
+    try {
+      const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media']);
+      if (!entry) {
+        throw createNotFoundError('Entry');
       }
 
-      inMemoryEntries.push(entry);
-      entryIdCounter++;
-
-      return {
-        success: true,
-        data: this.mapEntryToInterface(entry),
-        message: 'Entry created successfully',
-      };
+      return entry;
     } catch (error) {
-      console.error('Create entry error:', error);
-      return {
-        success: false,
-        error: 'Failed to create entry',
-      };
+      logger.error('Get entry by ID failed:', error);
+      throw error;
     }
   }
 
-  /**
-   * Get entries with pagination and privacy filtering
-   */
-  async getEntries(userId?: string, page = 1, limit = 20): Promise<ApiResponse<EntryInterface[]>> {
+  // Get user entries
+  async getUserEntries(userId: string, options: any = {}): Promise<{
+    entries: IEntry[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     try {
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = Helpers.getPaginationParams(options);
+      const sort = Helpers.getSortParams(options, 'createdAt');
 
-      // Build query with privacy filter
-      let entries = inMemoryEntries.filter(entry => !entry.isPrivate);
+      const filter = { userId, ...options.filter };
 
-      // If user is authenticated, show their private entries too
-      if (userId) {
-        entries = inMemoryEntries.filter(entry => 
-          !entry.isPrivate || entry.people.some((p: any) => p._id === userId)
-        );
-      }
+      const [entries, total] = await Promise.all([
+        Entry.find(filter)
+          .populate(['mentions', 'tags', 'media'])
+          .sort(sort as any)
+          .skip(skip)
+          .limit(limit),
+        Entry.countDocuments(filter),
+      ]);
 
-      // Sort by timestamp (newest first)
-      entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      const total = entries.length;
-      const paginatedEntries = entries.slice(skip, skip + limit);
+      const totalPages = Math.ceil(total / limit);
 
       return {
-        success: true,
-        data: paginatedEntries.map(entry => this.mapEntryToInterface(entry)),
-        pagination: createPaginationResponse(paginatedEntries, page, limit, total),
+        entries,
+        total,
+        page,
+        limit,
+        totalPages,
       };
     } catch (error) {
-      console.error('Get entries error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch entries',
-      };
+      logger.error('Get user entries failed:', error);
+      throw error;
     }
   }
 
-  /**
-   * Get entries by person
-   */
-  async getEntriesByPerson(personId: string, page = 1, limit = 20): Promise<ApiResponse<EntryInterface[]>> {
+  // Search entries
+  async searchEntries(userId: string, searchParams: EntrySearchRequest): Promise<{
+    entries: IEntry[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     try {
-      const skip = (page - 1) * limit;
+      const { page, limit, skip } = Helpers.getPaginationParams(searchParams);
+      const sort = Helpers.getSortParams(searchParams, 'createdAt');
 
-      const entries = inMemoryEntries.filter(entry => 
-        entry.people.some((p: any) => p._id === personId) && !entry.isPrivate
-      );
-
-      // Sort by timestamp (newest first)
-      entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      const total = entries.length;
-      const paginatedEntries = entries.slice(skip, skip + limit);
-
-      return {
-        success: true,
-        data: paginatedEntries.map(entry => this.mapEntryToInterface(entry)),
-        pagination: createPaginationResponse(paginatedEntries, page, limit, total),
-      };
-    } catch (error) {
-      console.error('Get entries by person error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch entries',
-      };
-    }
-  }
-
-  /**
-   * Search entries
-   */
-  async searchEntries(searchParams: {
-    query: string;
-    filters?: {
-      mood?: string;
-      weather?: string;
-      location?: string;
-      people?: string[];
-      tags?: string[];
-      dateFrom?: Date;
-      dateTo?: Date;
-      mediaType?: 'image' | 'video' | 'audio' | 'all';
-      isPrivate?: boolean;
-      isPinned?: boolean;
-    };
-    sortBy?: 'timestamp' | 'createdAt' | 'relevance' | 'popularity';
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<ApiResponse<EntryInterface[]>> {
-    try {
-      const { query, filters, sortBy = 'relevance', sortOrder = 'desc' } = searchParams;
-
-      let searchResults = inMemoryEntries.filter(entry => !entry.isPrivate);
+      const filter: any = { userId };
 
       // Text search
-      if (query) {
-        searchResults = searchResults.filter(entry => 
-          entry.content.toLowerCase().includes(query.toLowerCase()) ||
-          entry.tags.some((tag: string) => tag.toLowerCase().includes(query.toLowerCase()))
-        );
+      if (searchParams.q) {
+        const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
+        filter.$text = { $search: sanitizedQuery };
       }
 
-      // Apply filters
-      if (filters) {
-        if (filters.mood) {
-          searchResults = searchResults.filter(entry => entry.mood === filters.mood);
-        }
-        if (filters.weather) {
-          searchResults = searchResults.filter(entry => entry.weather === filters.weather);
-        }
-        if (filters.location) {
-          searchResults = searchResults.filter(entry => 
-            entry.location && entry.location.toLowerCase().includes(filters.location!.toLowerCase())
-          );
-        }
-        if (filters.people && filters.people.length > 0) {
-          searchResults = searchResults.filter(entry => 
-            entry.people.some((p: any) => filters.people!.includes(p.name))
-          );
-        }
-        if (filters.tags && filters.tags.length > 0) {
-          searchResults = searchResults.filter(entry => 
-            entry.tags.some((tag: string) => filters.tags!.includes(tag))
-          );
-        }
-        if (filters.dateFrom || filters.dateTo) {
-          searchResults = searchResults.filter(entry => {
-            const entryDate = new Date(entry.timestamp);
-            if (filters.dateFrom && entryDate < new Date(filters.dateFrom)) return false;
-            if (filters.dateTo && entryDate > new Date(filters.dateTo)) return false;
-            return true;
-          });
-        }
-        if (filters.mediaType && filters.mediaType !== 'all') {
-          searchResults = searchResults.filter(entry => 
-            entry.media.some((m: any) => m.type === filters.mediaType)
-          );
-        }
-        if (filters.isPrivate !== undefined) {
-          searchResults = searchResults.filter(entry => entry.isPrivate === filters.isPrivate);
-        }
-        if (filters.isPinned !== undefined) {
-          searchResults = searchResults.filter(entry => entry.isPinned === filters.isPinned);
-        }
+      // Type filter
+      if (searchParams.type) {
+        filter.type = searchParams.type;
       }
 
-      // Determine sort order
-      if (sortBy === 'popularity') {
-        searchResults.sort((a, b) => b.reactions.length - a.reactions.length);
-      } else if (sortBy === 'timestamp' || sortBy === 'createdAt') {
-        searchResults.sort((a, b) => {
-          const aTime = new Date(a.timestamp).getTime();
-          const bTime = new Date(b.timestamp).getTime();
-          return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
-        });
+      // Date range filter
+      if (searchParams.dateFrom || searchParams.dateTo) {
+        const { from, to } = Helpers.getDateRange(searchParams.dateFrom, searchParams.dateTo);
+        filter.createdAt = {};
+        if (from) filter.createdAt.$gte = from;
+        if (to) filter.createdAt.$lte = to;
       }
+
+      // Tags filter
+      if (searchParams.tags && searchParams.tags.length > 0) {
+        filter.tags = { $in: searchParams.tags.map(id => new Types.ObjectId(id)) };
+      }
+
+      // People filter
+      if (searchParams.people && searchParams.people.length > 0) {
+        filter.mentions = { $in: searchParams.people.map(id => new Types.ObjectId(id)) };
+      }
+
+      // Privacy filter
+      if (searchParams.isPrivate !== undefined) {
+        filter.isPrivate = searchParams.isPrivate;
+      }
+
+      const [entries, total] = await Promise.all([
+        Entry.find(filter)
+          .populate(['mentions', 'tags', 'media'])
+          .sort(sort as any)
+          .skip(skip)
+          .limit(limit),
+        Entry.countDocuments(filter),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
 
       return {
-        success: true,
-        data: searchResults.slice(0, 100).map(entry => this.mapEntryToInterface(entry)),
+        entries,
+        total,
+        page,
+        limit,
+        totalPages,
       };
     } catch (error) {
-      console.error('Search entries error:', error);
-      return {
-        success: false,
-        error: 'Failed to search entries',
-      };
+      logger.error('Search entries failed:', error);
+      throw error;
     }
   }
 
-  /**
-   * Get entry by ID
-   */
-  async getEntryById(id: string): Promise<ApiResponse<EntryInterface>> {
+  // Update entry
+  async updateEntry(entryId: string, userId: string, updateData: any): Promise<IEntry> {
     try {
-      // Increment view count
-      const entryIndex = inMemoryEntries.findIndex(e => e._id === id);
-      if (entryIndex !== -1) {
-        inMemoryEntries[entryIndex].viewCount = (inMemoryEntries[entryIndex].viewCount || 0) + 1;
-      }
-
-      const entry = inMemoryEntries.find(e => e._id === id);
+      const entry = await Entry.findOneAndUpdate(
+        { _id: entryId, userId },
+        { $set: updateData },
+        { new: true, runValidators: true }
+      ).populate(['mentions', 'tags', 'media']);
 
       if (!entry) {
-        return {
-          success: false,
-          error: 'Entry not found',
-        };
+        throw createNotFoundError('Entry');
       }
 
-      return {
-        success: true,
-        data: this.mapEntryToInterface(entry),
-      };
-    } catch (error) {
-      console.error('Get entry by ID error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch entry',
-      };
-    }
-  }
-
-  /**
-   * Update entry
-   */
-  async updateEntry(id: string, updates: Partial<EntryInterface>): Promise<ApiResponse<EntryInterface>> {
-    try {
-      const entryIndex = inMemoryEntries.findIndex(e => e._id === id);
-      if (entryIndex === -1) {
-        return {
-          success: false,
-          error: 'Entry not found',
-        };
-      }
-
-      const updateData = {
-        ...updates,
-        updatedAt: new Date(),
-      };
-
-      if (updates.timestamp) {
-        updateData.timestamp = new Date(updates.timestamp);
-      }
-
-      // Process mentions if content contains @mentions
-      if (updateData.content && updateData.content.includes('@')) {
-        updateData.mentions = await this.extractMentions(updateData.content);
-      }
-
-      inMemoryEntries[entryIndex] = {
-        ...inMemoryEntries[entryIndex],
-        ...updateData,
-      };
-
-      return {
-        success: true,
-        data: this.mapEntryToInterface(inMemoryEntries[entryIndex]),
-        message: 'Entry updated successfully',
-      };
-    } catch (error) {
-      console.error('Update entry error:', error);
-      return {
-        success: false,
-        error: 'Failed to update entry',
-      };
-    }
-  }
-
-  /**
-   * Delete entry
-   */
-  async deleteEntry(id: string): Promise<ApiResponse<void>> {
-    try {
-      const entryIndex = inMemoryEntries.findIndex(e => e._id === id);
-      if (entryIndex === -1) {
-        return {
-          success: false,
-          error: 'Entry not found',
-        };
-      }
-
-      inMemoryEntries.splice(entryIndex, 1);
-
-      return {
-        success: true,
-        message: 'Entry deleted successfully',
-      };
-    } catch (error) {
-      console.error('Delete entry error:', error);
-      return {
-        success: false,
-        error: 'Failed to delete entry',
-      };
-    }
-  }
-
-  /**
-   * Toggle reaction
-   */
-  async toggleReaction(entryId: string, userId: string, type: 'like' | 'love' | 'laugh' | 'wow' | 'sad' | 'angry' | 'custom', customEmoji?: string): Promise<ApiResponse<EntryInterface>> {
-    try {
-      const entryIndex = inMemoryEntries.findIndex(e => e._id === entryId);
-      if (entryIndex === -1) {
-        return {
-          success: false,
-          error: 'Entry not found',
-        };
-      }
-
-      const entry = inMemoryEntries[entryIndex];
-
-      // Check if user already reacted
-      const existingReactionIndex = entry.reactions.findIndex(
-        (r: any) => r.userId === userId && r.type === type
-      );
-
-      if (existingReactionIndex >= 0) {
-        // Remove existing reaction
-        entry.reactions.splice(existingReactionIndex, 1);
-      } else {
-        // Add new reaction
-        entry.reactions.push({
-          id: Math.random().toString(36).substr(2, 9),
-          userId,
-          type,
-          customEmoji,
-          createdAt: new Date(),
-        });
-      }
-
-      return {
-        success: true,
-        data: this.mapEntryToInterface(entry),
-        message: existingReactionIndex >= 0 ? 'Reaction removed' : 'Reaction added',
-      };
-    } catch (error) {
-      console.error('Toggle reaction error:', error);
-      return {
-        success: false,
-        error: 'Failed to toggle reaction',
-      };
-    }
-  }
-
-  /**
-   * Get entry stats
-   */
-  async getEntryStats(): Promise<ApiResponse<any>> {
-    try {
-      const publicEntries = inMemoryEntries.filter(entry => !entry.isPrivate);
-      
-      const stats = {
-        totalEntries: publicEntries.length,
-        totalMedia: publicEntries.reduce((sum, entry) => sum + entry.media.length, 0),
-        totalReactions: publicEntries.reduce((sum, entry) => sum + entry.reactions.length, 0),
-        avgReactionsPerEntry: publicEntries.length > 0 ? 
-          publicEntries.reduce((sum, entry) => sum + entry.reactions.length, 0) / publicEntries.length : 0,
-        entriesThisWeek: publicEntries.filter(entry => {
-          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          return new Date(entry.timestamp) >= weekAgo;
-        }).length,
-        entriesThisMonth: publicEntries.filter(entry => {
-          const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-          return new Date(entry.timestamp) >= monthAgo;
-        }).length,
-      };
-
-      const moodStats = publicEntries
-        .filter(entry => entry.mood)
-        .reduce((acc: any, entry) => {
-          acc[entry.mood] = (acc[entry.mood] || 0) + 1;
-          return acc;
-        }, {});
-
-      const moodDistribution = Object.entries(moodStats).map(([mood, count]) => ({
-        mood,
-        count,
-      }));
-
-      return {
-        success: true,
-        data: {
-          ...stats,
-          moodDistribution,
-        },
-      };
-    } catch (error) {
-      console.error('Get entry stats error:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch entry stats',
-      };
-    }
-  }
-
-  /**
-   * Extract mentions from content
-   */
-  private async extractMentions(content: string) {
-    const mentions: any[] = [];
-    const mentionRegex = /@(\w+)/g;
-    let match;
-
-    while ((match = mentionRegex.exec(content)) !== null) {
-      const personName = match[1];
-      // For in-memory testing, we'll just create a mention without looking up the person
-      mentions.push({
-        _id: Math.random().toString(36).substr(2, 9),
-        personId: 'unknown',
-        personName: personName,
-        startIndex: match.index,
-        endIndex: match.index + match[0].length,
+      logger.info('Entry updated successfully', {
+        entryId: entry._id,
+        userId,
       });
-    }
 
-    return mentions;
+      return entry;
+    } catch (error) {
+      logger.error('Entry update failed:', error);
+      throw error;
+    }
   }
 
-  /**
-   * Map database entry to interface
-   */
-  private mapEntryToInterface(entry: any): EntryInterface {
-    return {
-      _id: entry._id,
-      content: entry.content,
-      timestamp: entry.timestamp,
-      mood: entry.mood,
-      weather: entry.weather,
-      location: entry.location,
-      people: entry.people,
-      mentions: entry.mentions,
-      tags: entry.tags,
-      media: entry.media,
-      reactions: entry.reactions,
-      isPrivate: entry.isPrivate,
-      isPinned: entry.isPinned,
-      parentEntryId: entry.parentEntryId,
-      replyCount: entry.replyCount,
-      viewCount: entry.viewCount,
-      createdAt: entry.createdAt,
-      updatedAt: entry.updatedAt,
-    };
+  // Delete entry
+  async deleteEntry(entryId: string, userId: string): Promise<void> {
+    try {
+      const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
+      if (!entry) {
+        throw createNotFoundError('Entry');
+      }
+
+      logger.info('Entry deleted successfully', {
+        entryId: entry._id,
+        userId,
+      });
+    } catch (error) {
+      logger.error('Entry deletion failed:', error);
+      throw error;
+    }
+  }
+
+  // Get entry statistics
+  async getEntryStats(userId: string): Promise<EntryStats> {
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [
+        totalEntries,
+        entriesToday,
+        entriesThisWeek,
+        entriesThisMonth,
+        entryTypes,
+        averageWords,
+        mostActiveDayData,
+      ] = await Promise.all([
+        Entry.countDocuments({ userId }),
+        Entry.countDocuments({ userId, createdAt: { $gte: startOfDay } }),
+        Entry.countDocuments({ userId, createdAt: { $gte: startOfWeek } }),
+        Entry.countDocuments({ userId, createdAt: { $gte: startOfMonth } }),
+        Entry.aggregate([
+          { $match: { userId: new Types.ObjectId(userId) } },
+          { $group: { _id: '$type', count: { $sum: 1 } } },
+        ]),
+        Entry.aggregate([
+          { $match: { userId: new Types.ObjectId(userId) } },
+          { $project: { wordCount: { $size: { $split: ['$content', ' '] } } } },
+          { $group: { _id: null, avgWords: { $avg: '$wordCount' } } },
+        ]),
+        Entry.aggregate([
+          { $match: { userId: new Types.ObjectId(userId) } },
+          { $group: { _id: { $dayOfWeek: '$createdAt' }, count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 1 },
+        ]),
+      ]);
+
+      const typeStats = {
+        text: 0,
+        media: 0,
+        mixed: 0,
+      };
+
+      entryTypes.forEach((type: any) => {
+        typeStats[type._id as keyof typeof typeStats] = type.count;
+      });
+
+      // Calculate most active day
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const mostActiveDay = mostActiveDayData[0]
+        ? dayNames[mostActiveDayData[0]._id - 1] || 'Unknown'
+        : 'Unknown';
+
+      const stats: EntryStats = {
+        totalEntries,
+        entriesThisMonth,
+        entriesThisWeek,
+        entriesToday,
+        averageWordsPerEntry: Math.round(averageWords[0]?.avgWords || 0),
+        mostActiveDay,
+        entryTypes: typeStats,
+      };
+
+      return stats;
+    } catch (error) {
+      logger.error('Get entry stats failed:', error);
+      throw error;
+    }
   }
 }
 
-export default new EntryService();
+export const entryService = new EntryService();
+
+export default EntryService;
