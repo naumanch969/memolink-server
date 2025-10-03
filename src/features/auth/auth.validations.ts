@@ -62,9 +62,9 @@ export const forgotPasswordValidation = [
 ];
 
 export const resetPasswordValidation = [
-  body('token')
+  body('otp')
     .notEmpty()
-    .withMessage('Reset token is required'),
+    .withMessage('OTP is required'),
   
   body('newPassword')
     .isLength({ min: VALIDATION.PASSWORD_MIN_LENGTH, max: VALIDATION.PASSWORD_MAX_LENGTH })
@@ -74,9 +74,9 @@ export const resetPasswordValidation = [
 ];
 
 export const verifyEmailValidation = [
-  body('token')
+  body('otp')
     .notEmpty()
-    .withMessage('Verification token is required'),
+    .withMessage('OTP is required'),
 ];
 
 export const resendVerificationValidation = [

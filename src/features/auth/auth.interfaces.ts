@@ -4,19 +4,21 @@ export interface AuthResponse {
   user: Omit<IUser, 'password'>;
   accessToken: string;
   refreshToken: string;
+  otp?: string; // For development environment
 }
 
 export interface IAuthService {
-  register(userData: RegisterRequest): Promise<AuthResponse>;
+  register(userData: RegisterRequest): Promise<{ otp?: any }>;
   login(credentials: LoginRequest): Promise<AuthResponse>;
   refreshToken(refreshToken: string): Promise<{ accessToken: string }>;
   changePassword(userId: string, passwordData: ChangePasswordRequest): Promise<void>;
   getProfile(userId: string): Promise<IUser>;
   updateProfile(userId: string, updateData: Partial<IUser>): Promise<IUser>;
   deleteAccount(userId: string): Promise<void>;
-  verifyEmail(token: string): Promise<void>;
+  verifyEmail(otp: string): Promise<void>;
   forgotPassword(email: string): Promise<void>;
-  resetPassword(token: string, newPassword: string): Promise<void>;
+  resetPassword(otp: string, newPassword: string): Promise<void>;
+  resendVerification(email: string): Promise<void>;
 }
 
 export interface LoginRequest {
@@ -44,12 +46,12 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ResetPasswordRequest {
-  token: string;
+  otp: string;
   newPassword: string;
 }
 
 export interface VerifyEmailRequest {
-  token: string;
+  otp: string;
 }
 
 export interface ResendVerificationRequest {

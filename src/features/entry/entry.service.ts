@@ -56,7 +56,6 @@ export class EntryService implements IEntryService {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'createdAt');
-
       const filter = { userId, ...options.filter };
 
       const [entries, total] = await Promise.all([

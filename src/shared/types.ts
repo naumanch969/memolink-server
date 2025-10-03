@@ -24,6 +24,16 @@ export interface IUser extends BaseEntity {
   };
 }
 
+// OTP Types
+export interface IOtp extends BaseEntity {
+  email: string;
+  otp: string;
+  type: 'verification' | 'password_reset';
+  expiresAt: Date;
+  isUsed: boolean;
+  attempts: number;
+}
+
 // Entry Types
 export interface IEntry extends BaseEntity {
   userId: Types.ObjectId;

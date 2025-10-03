@@ -34,6 +34,7 @@ export class EntryController {
     const options = {
       page: pageNum,
       limit: limitNum,
+      order: 'asc',
       filter: {
         ...(type && { type }),
         ...(isPrivate !== undefined && { isPrivate: isPrivate === 'true' }),

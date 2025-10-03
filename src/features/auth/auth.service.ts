@@ -1,14 +1,15 @@
 import { User } from './auth.model';
+import { Otp } from './otp.model';
 import { CryptoHelper } from '../../core/utils/crypto';
 import { logger } from '../../config/logger';
+import { emailService } from '../../config/email';
 import { createError, createNotFoundError, createConflictError, createUnauthorizedError } from '../../core/middleware/errorHandler';
 import { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, IAuthService } from './auth.interfaces';
 import { IUser } from '../../shared/types';
-import { Helpers } from '../../shared/helpers';
 
 export class AuthService implements IAuthService {
   // Register new user
-  async register(userData: RegisterRequest): Promise<AuthResponse> {
+  async register(userData: RegisterRequest): Promise<{ otp?: any }> {
     try {
       const { email, password, name } = userData;
 
@@ -22,37 +23,29 @@ export class AuthService implements IAuthService {
       const hashedPassword = await CryptoHelper.hashPassword(password);
 
       // Create user
-      const user = new User({
-        email: email.toLowerCase().trim(),
-        password: hashedPassword,
-        name: name.trim(),
-      });
+      const user = new User({ email: email.toLowerCase().trim(), password: hashedPassword, name: name.trim(), });
 
       await user.save();
 
-      logger.info('User registered successfully', {
-        userId: user._id,
-        email: user.email,
-      });
+      logger.info('User registered successfully', { userId: user._id, email: user.email, });
 
-      // Generate tokens
-      const accessToken = CryptoHelper.generateAccessToken({
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      });
+      // Generate OTP for email verification
+      const otp = await Otp.generateOtp(email, 'verification');
 
-      const refreshToken = CryptoHelper.generateRefreshToken({
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      });
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail(email, name, otp);
+      if (!emailSent) {
+        logger.warn('Failed to send verification email', { email });
+      }
 
-      return {
-        user: user.toJSON(),
-        accessToken,
-        refreshToken,
-      };
+      const response = { otp: null };
+
+      // Include OTP in response for development environment
+      if (process.env.NODE_ENV === 'development') {
+        response.otp = otp;
+      }
+
+      return response;
     } catch (error) {
       logger.error('Registration failed:', error);
       throw error;
@@ -80,29 +73,14 @@ export class AuthService implements IAuthService {
       user.lastLoginAt = new Date();
       await user.save();
 
-      logger.info('User logged in successfully', {
-        userId: user._id,
-        email: user.email,
-      });
+      logger.info('User logged in successfully', { userId: user._id, email: user.email, });
 
       // Generate tokens
-      const accessToken = CryptoHelper.generateAccessToken({
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      });
+      const accessToken = CryptoHelper.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
-      const refreshToken = CryptoHelper.generateRefreshToken({
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      });
+      const refreshToken = CryptoHelper.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
-      return {
-        user: user.toJSON(),
-        accessToken,
-        refreshToken,
-      };
+      return { user: user.toJSON(), accessToken, refreshToken, };
     } catch (error) {
       logger.error('Login failed:', error);
       throw error;
@@ -119,11 +97,7 @@ export class AuthService implements IAuthService {
         throw createUnauthorizedError('Invalid refresh token');
       }
 
-      const accessToken = CryptoHelper.generateAccessToken({
-        userId: user._id.toString(),
-        email: user.email,
-        role: user.role,
-      });
+      const accessToken = CryptoHelper.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
       return { accessToken };
     } catch (error) {
@@ -153,10 +127,7 @@ export class AuthService implements IAuthService {
       user.password = hashedNewPassword;
       await user.save();
 
-      logger.info('Password changed successfully', {
-        userId: user._id,
-        email: user.email,
-      });
+      logger.info('Password changed successfully', { userId: user._id, email: user.email, });
     } catch (error) {
       logger.error('Password change failed:', error);
       throw error;
@@ -181,20 +152,12 @@ export class AuthService implements IAuthService {
   // Update user profile
   async updateProfile(userId: string, updateData: Partial<IUser>): Promise<IUser> {
     try {
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { $set: updateData },
-        { new: true, runValidators: true }
-      );
-
+      const user = await User.findByIdAndUpdate(userId, { $set: updateData }, { new: true, runValidators: true });
       if (!user) {
         throw createNotFoundError('User');
       }
 
-      logger.info('Profile updated successfully', {
-        userId: user._id,
-        email: user.email,
-      });
+      logger.info('Profile updated successfully', { userId: user._id, email: user.email, });
 
       return user;
     } catch (error) {
@@ -211,35 +174,155 @@ export class AuthService implements IAuthService {
         throw createNotFoundError('User');
       }
 
-      logger.info('User account deleted', {
-        userId: user._id,
-        email: user.email,
-      });
+      logger.info('User account deleted', { userId: user._id, email: user.email, });
     } catch (error) {
       logger.error('Account deletion failed:', error);
       throw error;
     }
   }
 
-  // Verify email (placeholder for future implementation)
-  async verifyEmail(token: string): Promise<void> {
-    // TODO: Implement email verification logic
-    logger.info('Email verification requested', { token });
-    throw createError('Email verification not implemented yet', 501);
+  // Verify email with OTP
+  async verifyEmail(otp: string): Promise<void> {
+    try {
+      // Find user by OTP (we need to get the email from the OTP record)
+      const otpRecord = await Otp.findOne({
+        otp,
+        type: 'verification',
+        isUsed: false,
+        expiresAt: { $gt: new Date() }
+      });
+
+      if (!otpRecord) {
+        throw createUnauthorizedError('Invalid or expired OTP');
+      }
+
+      // Find user by email
+      const user = await User.findByEmail(otpRecord.email);
+      if (!user) {
+        throw createNotFoundError('User not found');
+      }
+
+      if (user.isEmailVerified) {
+        throw createConflictError('Email is already verified');
+      }
+
+      // Verify the OTP
+      const isValid = await Otp.verifyOtp(otpRecord.email, otp, 'verification');
+      if (!isValid) {
+        throw createUnauthorizedError('Invalid OTP');
+      }
+
+      // Mark email as verified
+      user.isEmailVerified = true;
+      // @ts-ignore
+      await user.save();
+
+      // Send welcome email
+      const emailSent = await emailService.sendWelcomeEmail(user.email, user.name);
+      if (!emailSent) {
+        logger.warn('Failed to send welcome email', { email: user.email });
+      }
+
+      logger.info('Email verified successfully', { userId: user._id, email: user.email });
+    } catch (error) {
+      logger.error('Email verification failed:', error);
+      throw error;
+    }
   }
 
-  // Forgot password (placeholder for future implementation)
+  // Forgot password
   async forgotPassword(email: string): Promise<void> {
-    // TODO: Implement forgot password logic
-    logger.info('Password reset requested', { email });
-    throw createError('Password reset not implemented yet', 501);
+    try {
+      // Check if user exists
+      const user = await User.findByEmail(email);
+      if (!user) {
+        // Don't reveal if user exists or not for security
+        logger.info('Password reset requested for non-existent user', { email });
+        return;
+      }
+
+      // Generate OTP for password reset
+      const otp = await Otp.generateOtp(email, 'password_reset');
+
+      // Send password reset email
+      const emailSent = await emailService.sendPasswordResetEmail(email, user.name, otp);
+      if (!emailSent) {
+        logger.warn('Failed to send password reset email', { email });
+        throw createError('Failed to send password reset email', 500);
+      }
+
+      logger.info('Password reset email sent', { email });
+    } catch (error) {
+      logger.error('Forgot password failed:', error);
+      throw error;
+    }
   }
 
-  // Reset password (placeholder for future implementation)
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    // TODO: Implement password reset logic
-    logger.info('Password reset attempted', { token });
-    throw createError('Password reset not implemented yet', 501);
+  // Reset password with OTP
+  async resetPassword(otp: string, newPassword: string): Promise<void> {
+    try {
+      // Find OTP record
+      const otpRecord = await Otp.findOne({ otp, type: 'password_reset', isUsed: false, expiresAt: { $gt: new Date() } });
+
+      if (!otpRecord) {
+        throw createUnauthorizedError('Invalid or expired OTP');
+      }
+
+      // Find user by email
+      const user = await User.findByEmail(otpRecord.email);
+      if (!user) {
+        throw createNotFoundError('User not found');
+      }
+
+      // Verify the OTP
+      const isValid = await Otp.verifyOtp(otpRecord.email, otp, 'password_reset');
+      if (!isValid) {
+        throw createUnauthorizedError('Invalid OTP');
+      }
+
+      // Hash new password
+      const hashedPassword = await CryptoHelper.hashPassword(newPassword);
+
+      // Update user password
+      user.password = hashedPassword;
+      // @ts-ignore
+      await user.save();
+
+      logger.info('Password reset successfully', { userId: user._id, email: user.email });
+    } catch (error) {
+      logger.error('Password reset failed:', error);
+      throw error;
+    }
+  }
+
+  // Resend verification email
+  async resendVerification(email: string): Promise<void> {
+    try {
+      // Check if user exists
+      const user = await User.findByEmail(email);
+      if (!user) {
+        throw createNotFoundError('User not found');
+      }
+
+      if (user.isEmailVerified) {
+        throw createConflictError('Email is already verified');
+      }
+
+      // Generate new OTP
+      const otp = await Otp.generateOtp(email, 'verification');
+
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail(email, user.name, otp);
+      if (!emailSent) {
+        logger.warn('Failed to send verification email', { email });
+        throw createError('Failed to send verification email', 500);
+      }
+
+      logger.info('Verification email resent', { email });
+    } catch (error) {
+      logger.error('Resend verification failed:', error);
+      throw error;
+    }
   }
 }
 

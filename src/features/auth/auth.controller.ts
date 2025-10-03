@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import {  authService } from './auth.service';
+import { authService } from './auth.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { AuthenticatedRequest } from '../../shared/types';
@@ -66,8 +66,8 @@ export class AuthController {
 
   // Verify email
   static verifyEmail = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { token }: VerifyEmailRequest = req.body;
-    await authService.verifyEmail(token);
+    const { otp }: VerifyEmailRequest = req.body;
+    await authService.verifyEmail(otp);
 
     ResponseHelper.success(res, null, 'Email verified successfully');
   });
@@ -82,8 +82,8 @@ export class AuthController {
 
   // Reset password
   static resetPassword = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const { token, newPassword }: ResetPasswordRequest = req.body;
-    await authService.resetPassword(token, newPassword);
+    const { otp, newPassword }: ResetPasswordRequest = req.body;
+    await authService.resetPassword(otp, newPassword);
 
     ResponseHelper.success(res, null, 'Password reset successfully');
   });

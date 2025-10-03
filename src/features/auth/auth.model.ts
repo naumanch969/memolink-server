@@ -9,64 +9,22 @@ interface IUserModel extends Model<IUser> {
 }
 
 const userSchema = new Schema<IUser>({
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    maxlength: [254, 'Email cannot exceed 254 characters'],
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'],
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters long'],
-    select: false, // Don't include password in queries by default
-  },
-  name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true,
-    maxlength: [100, 'Name cannot exceed 100 characters'],
-  },
-  avatar: {
-    type: String,
-    default: null,
-  },
-  role: {
-    type: String,
-    enum: Object.values(USER_ROLES),
-    default: USER_ROLES.USER,
-  },
-  isEmailVerified: {
-    type: Boolean,
-    default: false,
-  },
-  lastLoginAt: {
-    type: Date,
-    default: null,
-  },
+  email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true, maxlength: [254, 'Email cannot exceed 254 characters'], match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'], },
+  password: { type: String, required: [true, 'Password is required'], minlength: [8, 'Password must be at least 8 characters long'], select: false, }, // Don't include password in queries by default
+  name: { type: String, required: [true, 'Name is required'], trim: true, maxlength: [100, 'Name cannot exceed 100 characters'], },
+  avatar: { type: String, default: null, },
+  role: { type: String, enum: Object.values(USER_ROLES), default: USER_ROLES.USER, },
+  isEmailVerified: { type: Boolean, default: false, },
+  lastLoginAt: { type: Date, default: null, },
   preferences: {
-    theme: {
-      type: String,
-      enum: ['light', 'dark', 'auto'],
-      default: 'auto',
-    },
-    notifications: {
-      type: Boolean,
-      default: true,
-    },
-    privacy: {
-      type: String,
-      enum: ['public', 'private'],
-      default: 'private',
-    },
+    theme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto', },
+    notifications: { type: Boolean, default: true, },
+    privacy: { type: String, enum: ['public', 'private'], default: 'private', },
   },
 }, {
   timestamps: true,
   toJSON: {
-    transform: function(doc, ret) {
+    transform: function (doc, ret) {
       delete ret.password;
       return ret;
     },
@@ -78,7 +36,7 @@ userSchema.index({ email: 1 });
 userSchema.index({ createdAt: -1 });
 
 // Virtual for user's full profile
-userSchema.virtual('profile').get(function() {
+userSchema.virtual('profile').get(function () {
   return {
     id: this._id,
     email: this.email,
@@ -94,7 +52,7 @@ userSchema.virtual('profile').get(function() {
 });
 
 // Pre-save middleware
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
   if (this.isModified('email')) {
     this.email = this.email.toLowerCase().trim();
   }
@@ -102,22 +60,22 @@ userSchema.pre('save', function(next) {
 });
 
 // Instance methods
-userSchema.methods.updateLastLogin = function() {
+userSchema.methods.updateLastLogin = function () {
   this.lastLoginAt = new Date();
   return this.save();
 };
 
-userSchema.methods.verifyEmail = function() {
+userSchema.methods.verifyEmail = function () {
   this.isEmailVerified = true;
   return this.save();
 };
 
 // Static methods
-userSchema.statics.findByEmail = function(email: string) {
+userSchema.statics.findByEmail = function (email: string) {
   return this.findOne({ email: email.toLowerCase().trim() });
 };
 
-userSchema.statics.findActiveUsers = function() {
+userSchema.statics.findActiveUsers = function () {
   return this.find({ isEmailVerified: true });
 };
 
