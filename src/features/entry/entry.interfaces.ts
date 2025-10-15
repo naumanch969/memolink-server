@@ -35,6 +35,7 @@ export interface CreateEntryRequest {
   isPrivate?: boolean;
   mood?: string;
   location?: string;
+  date?: Date;
 }
 
 export interface UpdateEntryRequest {

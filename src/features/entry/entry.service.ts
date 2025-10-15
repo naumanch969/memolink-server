@@ -61,9 +61,9 @@ export class EntryService implements IEntryService {
       const [entries, total] = await Promise.all([
         Entry.find(filter)
           .populate(['mentions', 'tags', 'media'])
-          .sort(sort as any)
-          .skip(skip)
-          .limit(limit),
+          .sort(sort as any),
+        // .skip(skip)
+        // .limit(limit),
         Entry.countDocuments(filter),
       ]);
 
@@ -159,7 +159,7 @@ export class EntryService implements IEntryService {
     try {
       const entry = await Entry.findOneAndUpdate(
         { _id: entryId, userId },
-        { $set: updateData },
+        { $set: { ...updateData, isEdited: true } },
         { new: true, runValidators: true }
       ).populate(['mentions', 'tags', 'media']);
 

@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for memolink-server on 2025-09-23T01:45:51+05:00
+# fly.toml app configuration file generated for memolink-server on 2025-10-15T19:29:57+05:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -9,7 +9,7 @@ primary_region = 'sin'
 [build]
 
 [http_service]
-  internal_port = 3000
+  internal_port = 5001
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true

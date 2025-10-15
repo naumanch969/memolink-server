@@ -12,6 +12,8 @@ const entrySchema = new Schema<IEntry>({
   isPrivate: { type: Boolean, default: false, },
   mood: { type: String, trim: true, maxlength: [50, 'Mood cannot exceed 50 characters'], },
   location: { type: String, trim: true, maxlength: [200, 'Location cannot exceed 200 characters'], },
+  date: { type: Date, default: Date.now, index: true, },
+  isEdited: { type: Boolean, default: false, },
 }, {
   timestamps: true,
 });

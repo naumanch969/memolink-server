@@ -45,6 +45,8 @@ export interface IEntry extends BaseEntity {
   isPrivate: boolean;
   mood?: string;
   location?: string;
+  date: Date;
+  isEdited?: boolean;
 }
 
 // Person Types
