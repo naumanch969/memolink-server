@@ -64,9 +64,28 @@ export class MediaService implements IMediaService {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'createdAt');
 
+      // Build filter query
+      const filter: any = { userId };
+      
+      if (options.type) {
+        filter.type = options.type;
+      }
+      
+      if (options.folderId !== undefined) {
+        // If folderId is null or 'null', get media without folder
+        filter.folderId = options.folderId === 'null' ? null : options.folderId;
+      }
+      
+      if (options.search) {
+        filter.$or = [
+          { originalName: { $regex: options.search, $options: 'i' } },
+          { tags: { $in: [new RegExp(options.search, 'i')] } },
+        ];
+      }
+
       const [media, total] = await Promise.all([
-        Media.find({ userId }).sort(sort as any).skip(skip).limit(limit),
-        Media.countDocuments({ userId }),
+        Media.find(filter).sort(sort as any).skip(skip).limit(limit),
+        Media.countDocuments(filter),
       ]);
 
       const totalPages = Math.ceil(total / limit);
@@ -86,6 +105,27 @@ export class MediaService implements IMediaService {
       logger.info('Media deleted successfully', { mediaId: media._id, userId });
     } catch (error) {
       logger.error('Media deletion failed:', error);
+      throw error;
+    }
+  }
+
+  async bulkMoveMedia(userId: string, mediaIds: string[], targetFolderId?: string): Promise<void> {
+    try {
+      const updateData: any = {
+        folderId: targetFolderId ? new Types.ObjectId(targetFolderId) : null
+      };
+
+      const result = await Media.updateMany(
+        { 
+          _id: { $in: mediaIds.map(id => new Types.ObjectId(id)) },
+          userId: new Types.ObjectId(userId)
+        },
+        { $set: updateData }
+      );
+
+      logger.info('Media bulk move successful', { count: result.modifiedCount, userId });
+    } catch (error) {
+      logger.error('Media bulk move failed:', error);
       throw error;
     }
   }

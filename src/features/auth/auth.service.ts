@@ -6,6 +6,7 @@ import { emailService } from '../../config/email';
 import { createError, createNotFoundError, createConflictError, createUnauthorizedError } from '../../core/middleware/errorHandler';
 import { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, IAuthService } from './auth.interfaces';
 import { IUser } from '../../shared/types';
+import { config } from '../../config/env';
 
 export class AuthService implements IAuthService {
   // Register new user
@@ -41,7 +42,7 @@ export class AuthService implements IAuthService {
       const response = { otp: null };
 
       // Include OTP in response for development environment
-      if (process.env.NODE_ENV === 'development') {
+      if (config.NODE_ENV === 'development') {
         response.otp = otp;
       }
 

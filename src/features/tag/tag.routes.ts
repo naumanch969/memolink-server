@@ -12,6 +12,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/search', TagController.searchTags);
 router.post('/', createTagValidation, validationMiddleware, TagController.createTag);
 router.get('/', TagController.getUserTags);
 router.get('/:id', tagIdValidation, validationMiddleware, TagController.getTagById);

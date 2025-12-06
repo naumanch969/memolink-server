@@ -14,6 +14,7 @@ router.use(authenticate);
 
 router.post('/upload', uploadSingle('file'), MediaController.uploadMedia);
 router.post('/', createMediaValidation, validationMiddleware, MediaController.createMedia);
+router.post('/bulk-move', MediaController.bulkMoveMedia);
 router.get('/', MediaController.getUserMedia);
 router.get('/:id', mediaIdValidation, validationMiddleware, MediaController.getMediaById);
 router.delete('/:id', mediaIdValidation, validationMiddleware, MediaController.deleteMedia);

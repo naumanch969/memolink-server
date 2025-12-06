@@ -22,6 +22,9 @@ export interface CreateMediaRequest {
   url: string;
   cloudinaryId: string;
   type: 'image' | 'video' | 'document' | 'audio';
+  folderId?: string;
+  thumbnail?: string;
+  tags?: string[];
   metadata?: {
     width?: number;
     height?: number;
@@ -32,9 +35,16 @@ export interface CreateMediaRequest {
 export interface UpdateMediaRequest {
   filename?: string;
   originalName?: string;
+  folderId?: string;
+  tags?: string[];
   metadata?: {
     width?: number;
     height?: number;
     duration?: number;
   };
+}
+
+export interface BulkMoveMediaRequest {
+  mediaIds: string[];
+  targetFolderId?: string;
 }

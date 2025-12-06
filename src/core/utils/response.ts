@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { HTTP_STATUS } from '../../shared/constants';
-import { ApiResponse } from '../../shared/types';
+import { ApiResponse, PaginationMeta } from '../../shared/types';
+
 
 export class ResponseHelper {
   static success<T>(
@@ -8,7 +9,7 @@ export class ResponseHelper {
     data?: T,
     message: string = 'Success',
     statusCode: number = HTTP_STATUS.OK,
-    meta?: any
+    meta?: PaginationMeta
   ): Response {
     const response: ApiResponse<T> = {
       success: true,

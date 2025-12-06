@@ -1,54 +1,55 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
+import { config } from './env';
 
 interface EmailOptions {
-    to: string;
-    subject: string;
-    html: string;
-    text?: string;
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
 }
 
 class EmailService {
-    private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter;
 
-    constructor() {
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: parseInt(process.env.SMTP_PORT || '587'),
-            secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-            },
-        });
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: config.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(config.EMAIL_PORT || '587'),
+      secure: config.EMAIL_SECURE === 'true', // true for 465, false for other ports
+      auth: {
+        user: config.EMAIL_USER,
+        pass: config.EMAIL_PASS,
+      },
+    });
+  }
+
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    try {
+      const mailOptions = {
+        from: `"MemoLink" <${config.EMAIL_USER}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      logger.info('Email sent successfully', {
+        messageId: result.messageId,
+        to: options.to,
+        subject: options.subject
+      });
+      return true;
+    } catch (error) {
+      logger.error('Failed to send email:', error);
+      return false;
     }
+  }
 
-    async sendEmail(options: EmailOptions): Promise<boolean> {
-        try {
-            const mailOptions = {
-                from: `"MemoLink" <${process.env.SMTP_USER}>`,
-                to: options.to,
-                subject: options.subject,
-                html: options.html,
-                text: options.text,
-            };
-
-            const result = await this.transporter.sendMail(mailOptions);
-            logger.info('Email sent successfully', {
-                messageId: result.messageId,
-                to: options.to,
-                subject: options.subject
-            });
-            return true;
-        } catch (error) {
-            logger.error('Failed to send email:', error);
-            return false;
-        }
-    }
-
-    async sendVerificationEmail(email: string, name: string, otp: string): Promise<boolean> {
-        const subject = 'Verify your MemoLink account';
-        const html = `
+  async sendVerificationEmail(email: string, name: string, otp: string): Promise<boolean> {
+    const subject = 'Verify your MemoLink account';
+    const html = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -86,7 +87,7 @@ class EmailService {
       </html>
     `;
 
-        const text = `
+    const text = `
       Welcome to MemoLink, ${name}!
       
       Thank you for signing up. To complete your registration, please verify your email address using this OTP:
@@ -101,19 +102,19 @@ class EmailService {
       The MemoLink Team
     `;
 
-        return this.sendEmail({
-            to: email,
-            subject,
-            html,
-            text,
-        });
-    }
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
+    });
+  }
 
-    async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<boolean> {
-        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`;
+  async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<boolean> {
+    const resetUrl = `${config.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`;
 
-        const subject = 'Reset your MemoLink password';
-        const html = `
+    const subject = 'Reset your MemoLink password';
+    const html = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -158,7 +159,7 @@ class EmailService {
       </html>
     `;
 
-        const text = `
+    const text = `
       Password Reset Request
       
       Hello ${name},
@@ -174,17 +175,17 @@ class EmailService {
       The MemoLink Team
     `;
 
-        return this.sendEmail({
-            to: email,
-            subject,
-            html,
-            text,
-        });
-    }
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
+    });
+  }
 
-    async sendWelcomeEmail(email: string, name: string): Promise<boolean> {
-        const subject = 'Welcome to MemoLink!';
-        const html = `
+  async sendWelcomeEmail(email: string, name: string): Promise<boolean> {
+    const subject = 'Welcome to MemoLink!';
+    const html = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -213,7 +214,7 @@ class EmailService {
             </ul>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Start Journaling</a>
+              <a href="${config.FRONTEND_URL || 'http://localhost:3000'}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Start Journaling</a>
             </div>
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
@@ -227,26 +228,26 @@ class EmailService {
       </html>
     `;
 
-        const text = `
+    const text = `
       Welcome to MemoLink, ${name}!
       
       Congratulations! Your email has been successfully verified and your MemoLink account is now active.
       
       You can now start creating journal entries, tracking people in your life, organizing with tags, building habits, and viewing your analytics.
       
-      Visit ${process.env.FRONTEND_URL || 'http://localhost:3000'} to get started.
+      Visit ${config.FRONTEND_URL || 'http://localhost:3000'} to get started.
       
       Best regards,
       The MemoLink Team
     `;
 
-        return this.sendEmail({
-            to: email,
-            subject,
-            html,
-            text,
-        });
-    }
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
+    });
+  }
 }
 
 export const emailService = new EmailService();

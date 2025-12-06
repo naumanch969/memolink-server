@@ -54,6 +54,18 @@ export class TagController {
 
     ResponseHelper.success(res, null, 'Tag deleted successfully');
   });
+
+  static searchTags = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { q } = req.query;
+    
+    if (!q || typeof q !== 'string') {
+      return ResponseHelper.badRequest(res, 'Query parameter "q" is required');
+    }
+
+    const tags = await tagService.searchTags(userId, q);
+    ResponseHelper.success(res, tags, 'Tags searched successfully');
+  });
 }
 
 export default TagController;

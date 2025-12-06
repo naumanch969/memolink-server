@@ -8,6 +8,13 @@ export interface BaseEntity {
   updatedAt: Date;
 }
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 // User Types
 export interface IUser extends BaseEntity {
   email: string;
@@ -46,6 +53,11 @@ export interface IEntry extends BaseEntity {
   mood?: string;
   location?: string;
   date: Date;
+  startDate?: Date; // For multi-day entries
+  endDate?: Date; // For multi-day entries
+  startTime?: string; // Format: HH:mm
+  endTime?: string; // Format: HH:mm
+  isMultiDay?: boolean; // Flag for collective entries
   isEdited?: boolean;
 }
 
@@ -74,6 +86,7 @@ export interface ITag extends BaseEntity {
 // Media Types
 export interface IMedia extends BaseEntity {
   userId: Types.ObjectId;
+  folderId?: Types.ObjectId;
   filename: string;
   originalName: string;
   mimeType: string;
@@ -81,11 +94,26 @@ export interface IMedia extends BaseEntity {
   url: string;
   cloudinaryId: string;
   type: 'image' | 'video' | 'document' | 'audio';
+  thumbnail?: string;
+  tags?: string[];
   metadata?: {
     width?: number;
     height?: number;
     duration?: number;
   };
+}
+
+// Folder Types
+export interface IFolder extends BaseEntity {
+  userId: Types.ObjectId;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  parentId?: Types.ObjectId;
+  path: string;
+  isDefault: boolean;
+  itemCount: number;
 }
 
 // Habit Types

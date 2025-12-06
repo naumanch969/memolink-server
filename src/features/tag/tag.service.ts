@@ -97,6 +97,47 @@ export class TagService implements ITagService {
       throw error;
     }
   }
+
+  async searchTags(userId: string, query: string): Promise<ITag[]> {
+    try {
+      const tags = await Tag.find({
+        userId,
+        name: { $regex: query, $options: 'i' }
+      })
+      .limit(10)
+      .sort({ usageCount: -1 });
+
+      return tags;
+    } catch (error) {
+      logger.error('Search tags failed:', error);
+      throw error;
+    }
+  }
+
+  async findOrCreateTag(userId: string, name: string): Promise<ITag> {
+    try {
+      // Try to find existing tag (case-insensitive)
+      let tag = await Tag.findOne({
+        userId,
+        name: { $regex: new RegExp(`^${name}$`, 'i') }
+      });
+
+      if (!tag) {
+        // Create new tag
+        tag = new Tag({
+          userId: new Types.ObjectId(userId),
+          name,
+        });
+        await tag.save();
+        logger.info('Tag auto-created', { tagId: tag._id, userId, name });
+      }
+
+      return tag;
+    } catch (error) {
+      logger.error('Find or create tag failed:', error);
+      throw error;
+    }
+  }
 }
 
 export const tagService = new TagService();

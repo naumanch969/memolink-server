@@ -4,6 +4,10 @@ dotenv.config();
 
 export const config = {
 
+  // URLS
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:3001',
+
   npm_package_version: process.env.npm_package_version,
 
   // Server Configuration
@@ -55,6 +59,7 @@ export const config = {
   EMAIL_USER: process.env.EMAIL_USER,
   EMAIL_PASS: process.env.EMAIL_PASS,
   EMAIL_FROM: process.env.EMAIL_FROM,
+  EMAIL_SECURE: process.env.EMAIL_SECURE,
 } as const;
 
 export type Config = typeof config;

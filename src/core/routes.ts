@@ -8,6 +8,7 @@ import entryRoutes from '../features/entry/entry.routes';
 import personRoutes from '../features/person/person.routes';
 import tagRoutes from '../features/tag/tag.routes';
 import mediaRoutes from '../features/media/media.routes';
+import folderRoutes from '../features/media/folder.routes';
 import habitRoutes from '../features/habit/habit.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
 import exportRoutes from '../features/export/export.routes';
@@ -36,6 +37,7 @@ router.get('/docs', (req, res) => {
       people: '/api/people',
       tags: '/api/tags',
       media: '/api/media',
+      folders: '/api/folders',
       habits: '/api/habits',
       analytics: '/api/analytics',
       export: '/api/export',
@@ -50,6 +52,7 @@ router.use('/entries', entryRoutes);
 router.use('/people', personRoutes);
 router.use('/tags', tagRoutes);
 router.use('/media', mediaRoutes);
+router.use('/folders', folderRoutes);
 router.use('/habits', habitRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/export', exportRoutes);
@@ -62,6 +65,7 @@ logger.info('Routes registered successfully', {
     'people',
     'tags',
     'media',
+    'folders',
     'habits',
     'analytics',
     'export',

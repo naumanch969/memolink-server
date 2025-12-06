@@ -1,0 +1,52 @@
+import { Response, NextFunction } from 'express';
+import { folderService } from './folder.service';
+import { ResponseHelper } from '../../core/utils/response';
+import { asyncHandler } from '../../core/middleware/errorHandler';
+import { AuthenticatedRequest } from '../../shared/types';
+
+export class FolderController {
+  static createFolder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const folder = await folderService.createFolder(userId, req.body);
+    return ResponseHelper.created(res, folder, 'Folder created successfully');
+  });
+
+  static getFolders = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const { parentId } = req.query;
+    const options = { parentId: parentId as string | undefined };
+    const folders = await folderService.getUserFolders(userId, options);
+    return ResponseHelper.success(res, folders, 'Folders fetched successfully');
+  });
+
+  static getFolderById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const folder = await folderService.getFolderById(id, userId);
+    return ResponseHelper.success(res, folder, 'Folder fetched successfully');
+  });
+
+  static updateFolder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const folder = await folderService.updateFolder(id, userId, req.body);
+    return ResponseHelper.success(res, folder, 'Folder updated successfully');
+  });
+
+  static deleteFolder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    await folderService.deleteFolder(id, userId);
+    return ResponseHelper.success(res, undefined, 'Folder deleted successfully');
+  });
+
+  static moveFolderItems = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const { targetFolderId } = req.body;
+    await folderService.moveFolderItems(id, targetFolderId, userId);
+    return ResponseHelper.success(res, undefined, 'Folder items moved successfully');
+  });
+}
+
+export default FolderController;
