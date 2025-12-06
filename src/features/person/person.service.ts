@@ -92,6 +92,48 @@ export class PersonService implements IPersonService {
       throw error;
     }
   }
+
+  async searchPersons(userId: string, query: string): Promise<IPerson[]> {
+    try {
+      const persons = await Person.find({
+        userId,
+        name: { $regex: query, $options: 'i' }
+      })
+      .limit(10)
+      .sort({ interactionCount: -1 });
+
+      return persons;
+    } catch (error) {
+      logger.error('Search persons failed:', error);
+      throw error;
+    }
+  }
+
+  async findOrCreatePerson(userId: string, name: string): Promise<IPerson> {
+    try {
+      // Try to find existing person (case-insensitive)
+      let person = await Person.findOne({
+        userId,
+        name: { $regex: new RegExp(`^${name}$`, 'i') }
+      });
+
+      if (!person) {
+        // Create new placeholder person
+        person = new Person({
+          userId: new Types.ObjectId(userId),
+          name,
+          isPlaceholder: true,
+        });
+        await person.save();
+        logger.info('Placeholder person created', { personId: person._id, userId, name });
+      }
+
+      return person;
+    } catch (error) {
+      logger.error('Find or create person failed:', error);
+      throw error;
+    }
+  }
 }
 
 export const personService = new PersonService();

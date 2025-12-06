@@ -12,6 +12,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/search', PersonController.searchPersons);
 router.post('/', createPersonValidation, validationMiddleware, PersonController.createPerson);
 router.get('/', PersonController.getUserPersons);
 router.get('/:id', personIdValidation, validationMiddleware, PersonController.getPersonById);

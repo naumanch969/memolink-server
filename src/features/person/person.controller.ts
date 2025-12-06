@@ -54,6 +54,18 @@ export class PersonController {
 
     ResponseHelper.success(res, null, 'Person deleted successfully');
   });
+
+  static searchPersons = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { q } = req.query;
+    
+    if (!q || typeof q !== 'string') {
+      return ResponseHelper.badRequest(res, 'Query parameter "q" is required');
+    }
+
+    const persons = await personService.searchPersons(userId, q);
+    ResponseHelper.success(res, persons, 'Persons searched successfully');
+  });
 }
 
 export default PersonController;
