@@ -13,6 +13,11 @@ const entrySchema = new Schema<IEntry>({
   mood: { type: String, trim: true, maxlength: [50, 'Mood cannot exceed 50 characters'], },
   location: { type: String, trim: true, maxlength: [200, 'Location cannot exceed 200 characters'], },
   date: { type: Date, default: Date.now, index: true, },
+  startDate: { type: Date, index: true, },
+  endDate: { type: Date, index: true, },
+  startTime: { type: String, trim: true, },
+  endTime: { type: String, trim: true, },
+  isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
 }, {
   timestamps: true,

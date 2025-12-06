@@ -5,14 +5,62 @@ import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interface
 import { Helpers } from '../../shared/helpers';
 import { Types } from 'mongoose';
 import { IEntry } from '../../shared/types';
+import { personService } from '../person/person.service';
+import { tagService } from '../tag/tag.service';
 
 export class EntryService implements IEntryService {
+  // Helper method to extract mentions from content
+  private extractMentions(content: string): string[] {
+    const mentionRegex = /@(\w+)/g;
+    const mentions: string[] = [];
+    let match;
+    
+    while ((match = mentionRegex.exec(content)) !== null) {
+      mentions.push(match[1]);
+    }
+    
+    return mentions;
+  }
+
+  // Helper method to extract hashtags from content
+  private extractHashtags(content: string): string[] {
+    const hashtagRegex = /#(\w+)/g;
+    const hashtags: string[] = [];
+    let match;
+    
+    while ((match = hashtagRegex.exec(content)) !== null) {
+      hashtags.push(match[1]);
+    }
+    
+    return hashtags;
+  }
+
   // Create new entry
   async createEntry(userId: string, entryData: any): Promise<IEntry> {
     try {
+      // Extract mentions and hashtags from content
+      const mentionNames = this.extractMentions(entryData.content || '');
+      const hashtagNames = this.extractHashtags(entryData.content || '');
+
+      // Auto-create or find persons for mentions
+      const mentionIds: Types.ObjectId[] = [];
+      for (const name of mentionNames) {
+        const person = await personService.findOrCreatePerson(userId, name);
+        mentionIds.push(person._id as Types.ObjectId);
+      }
+
+      // Auto-create or find tags for hashtags
+      const tagIds: Types.ObjectId[] = [];
+      for (const name of hashtagNames) {
+        const tag = await tagService.findOrCreateTag(userId, name);
+        tagIds.push(tag._id as Types.ObjectId);
+      }
+
       const entry = new Entry({
         userId: new Types.ObjectId(userId),
         ...entryData,
+        mentions: [...(entryData.mentions || []), ...mentionIds],
+        tags: [...(entryData.tags || []), ...tagIds],
       });
 
       await entry.save();
@@ -21,6 +69,8 @@ export class EntryService implements IEntryService {
       logger.info('Entry created successfully', {
         entryId: entry._id,
         userId,
+        mentionsCount: mentionIds.length,
+        tagsCount: tagIds.length,
       });
 
       return entry;

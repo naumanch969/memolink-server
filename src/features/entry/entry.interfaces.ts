@@ -36,6 +36,11 @@ export interface CreateEntryRequest {
   mood?: string;
   location?: string;
   date?: Date;
+  startDate?: Date;
+  endDate?: Date;
+  startTime?: string;
+  endTime?: string;
+  isMultiDay?: boolean;
 }
 
 export interface UpdateEntryRequest {
