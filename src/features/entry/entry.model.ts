@@ -4,7 +4,7 @@ import { ENTRY_TYPES } from '../../shared/constants';
 
 const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
-  content: { type: String, required: [true, 'Content is required'], trim: true, maxlength: [10000, 'Content cannot exceed 10000 characters'], },
+  content: { type: String, required: false, trim: true, maxlength: [10000, 'Content cannot exceed 10000 characters'], default: '' },
   type: { type: String, enum: Object.values(ENTRY_TYPES), default: ENTRY_TYPES.TEXT, },
   mentions: [{ type: Schema.Types.ObjectId, ref: 'Person', }],
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],

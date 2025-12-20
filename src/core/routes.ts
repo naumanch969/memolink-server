@@ -42,7 +42,7 @@ router.get('/docs', (req, res) => {
       analytics: '/api/analytics',
       export: '/api/export',
     },
-    documentation: 'https://github.com/your-repo/memolink-api',
+    documentation: 'https://github.com/naumanch969/memolink-server',
   });
 });
 

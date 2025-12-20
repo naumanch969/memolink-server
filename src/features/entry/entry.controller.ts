@@ -9,11 +9,16 @@ import { Helpers } from '../../shared/helpers';
 export class EntryController {
   // Create new entry
   static createEntry = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const userId = req.user!._id.toString();
-    const entryData: CreateEntryRequest = req.body;
-    const entry = await entryService.createEntry(userId, entryData);
+    try {
+      const userId = req.user!._id.toString();
+      const entryData: CreateEntryRequest = req.body;
+      const entry = await entryService.createEntry(userId, entryData);
 
-    ResponseHelper.created(res, entry, 'Entry created successfully');
+      ResponseHelper.created(res, entry, 'Entry created successfully');
+    }
+    catch (err) {
+      console.log('Error in createEntry:', err);
+    }
   });
 
   // Get entry by ID

@@ -3,9 +3,10 @@ import { VALIDATION } from '../../shared/constants';
 
 export const createEntryValidation = [
   body('content')
+    .optional({ checkFalsy: true })
     .trim()
-    .isLength({ min: 1, max: VALIDATION.ENTRY_CONTENT_MAX_LENGTH })
-    .withMessage(`Content must be between 1 and ${VALIDATION.ENTRY_CONTENT_MAX_LENGTH} characters`),
+    .isLength({ min: 0, max: VALIDATION.ENTRY_CONTENT_MAX_LENGTH })
+    .withMessage(`Content must not exceed ${VALIDATION.ENTRY_CONTENT_MAX_LENGTH} characters`),
   
   body('type')
     .optional()
