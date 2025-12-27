@@ -65,6 +65,9 @@ export interface EntrySearchRequest {
   people?: string[];
   mediaType?: string;
   isPrivate?: boolean;
+  isImportant?: boolean;
+  mood?: string;
+  location?: string;
   page?: number;
   limit?: number;
   sort?: string;

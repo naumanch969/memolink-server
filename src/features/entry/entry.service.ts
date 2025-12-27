@@ -14,11 +14,11 @@ export class EntryService implements IEntryService {
     const mentionRegex = /@(\w+)/g;
     const mentions: string[] = [];
     let match;
-    
+
     while ((match = mentionRegex.exec(content)) !== null) {
       mentions.push(match[1]);
     }
-    
+
     return mentions;
   }
 
@@ -27,11 +27,11 @@ export class EntryService implements IEntryService {
     const hashtagRegex = /#(\w+)/g;
     const hashtags: string[] = [];
     let match;
-    
+
     while ((match = hashtagRegex.exec(content)) !== null) {
       hashtags.push(match[1]);
     }
-    
+
     return hashtags;
   }
 
@@ -142,14 +142,19 @@ export class EntryService implements IEntryService {
   }> {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(searchParams);
-      const sort = Helpers.getSortParams(searchParams, 'createdAt');
+      let sort: any = Helpers.getSortParams(searchParams, 'createdAt');
 
       const filter: any = { userId };
+      const projection: any = {};
 
-      // Text search
+      // Text search with relevance scoring
       if (searchParams.q) {
         const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
         filter.$text = { $search: sanitizedQuery };
+        // Add text score for relevance ranking
+        projection.score = { $meta: 'textScore' };
+        // Sort by relevance score when searching
+        sort = { score: { $meta: 'textScore' }, ...sort };
       }
 
       // Type filter
@@ -180,16 +185,38 @@ export class EntryService implements IEntryService {
         filter.isPrivate = searchParams.isPrivate;
       }
 
+      // Important days filter
+      if (searchParams.isImportant !== undefined) {
+        filter.isImportant = searchParams.isImportant;
+      }
+
+      // Mood filter
+      if (searchParams.mood) {
+        filter.mood = new RegExp(searchParams.mood, 'i'); // Case-insensitive partial match
+      }
+
+      // Location filter
+      if (searchParams.location) {
+        filter.location = new RegExp(searchParams.location, 'i'); // Case-insensitive partial match
+      }
+
       const [entries, total] = await Promise.all([
-        Entry.find(filter)
+        Entry.find(filter, projection)
           .populate(['mentions', 'tags', 'media'])
-          .sort(sort as any)
+          .sort(sort)
           .skip(skip)
           .limit(limit),
         Entry.countDocuments(filter),
       ]);
 
       const totalPages = Math.ceil(total / limit);
+
+      logger.info('Search completed', {
+        userId,
+        query: searchParams.q,
+        filters: Object.keys(filter).length,
+        resultsCount: entries.length,
+      });
 
       return {
         entries,
