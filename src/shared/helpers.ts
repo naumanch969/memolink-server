@@ -40,7 +40,7 @@ export class Helpers {
     return query
       .trim()
       .slice(0, SEARCH.MAX_QUERY_LENGTH)
-      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special characters
+      // MongoDB $text search does not need regex escaping
   }
 
   // Date helpers
