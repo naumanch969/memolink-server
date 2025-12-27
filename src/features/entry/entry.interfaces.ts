@@ -33,6 +33,7 @@ export interface CreateEntryRequest {
   tags?: string[];
   media?: string[];
   isPrivate?: boolean;
+  isImportant?: boolean;
   mood?: string;
   location?: string;
   date?: Date;
@@ -50,6 +51,7 @@ export interface UpdateEntryRequest {
   tags?: string[];
   media?: string[];
   isPrivate?: boolean;
+  isImportant?: boolean;
   mood?: string;
   location?: string;
 }

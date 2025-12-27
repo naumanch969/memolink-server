@@ -50,6 +50,7 @@ export interface IEntry extends BaseEntity {
   tags: Types.ObjectId[]; // Tag IDs
   media: Types.ObjectId[]; // Media IDs
   isPrivate: boolean;
+  isImportant?: boolean; // Mark special/memorable days
   mood?: string;
   location?: string;
   date: Date;
