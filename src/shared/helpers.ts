@@ -29,24 +29,24 @@ export class Helpers {
   static getSortParams(query: any, defaultSort: string = 'createdAt') {
     const sort = query.sort || defaultSort;
     const order = query.order === 'asc' ? 1 : -1;
-    
+
     return { [sort]: order };
   }
 
   // Search helpers
   static sanitizeSearchQuery(query: string): string {
     if (!query || typeof query !== 'string') return '';
-    
+
+    // MongoDB $text search does not need regex escaping
     return query
       .trim()
-      .slice(0, SEARCH.MAX_QUERY_LENGTH)
-      // MongoDB $text search does not need regex escaping
+      .slice(0, SEARCH.MAX_QUERY_LENGTH);
   }
 
   // Date helpers
   static parseDate(dateString: string): Date | null {
     if (!dateString) return null;
-    
+
     const date = new Date(dateString);
     return isNaN(date.getTime()) ? null : date;
   }
@@ -58,11 +58,11 @@ export class Helpers {
   static getDateRange(dateFrom?: string, dateTo?: string) {
     const from = dateFrom ? this.parseDate(dateFrom) : null;
     const to = dateTo ? this.parseDate(dateTo) : null;
-    
+
     if (to) {
       to.setHours(23, 59, 59, 999); // End of day
     }
-    
+
     return { from, to };
   }
 
@@ -138,11 +138,11 @@ export class Helpers {
 
   static formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
@@ -160,7 +160,7 @@ export class Helpers {
   static getTimeAgo(date: Date): string {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (diffInSeconds < 60) return 'just now';
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
