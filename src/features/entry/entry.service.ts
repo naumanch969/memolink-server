@@ -150,11 +150,18 @@ export class EntryService implements IEntryService {
       // Text search with relevance scoring
       if (searchParams.q) {
         const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
-        filter.$text = { $search: sanitizedQuery };
-        // Add text score for relevance ranking
-        projection.score = { $meta: 'textScore' };
-        // Sort by relevance score when searching
-        sort = { score: { $meta: 'textScore' }, ...sort };
+        logger.info('Search query sanitized', {
+          original: searchParams.q,
+          sanitized: sanitizedQuery
+        });
+
+        if (sanitizedQuery) {
+          filter.$text = { $search: sanitizedQuery };
+          // Add text score for relevance ranking
+          projection.score = { $meta: 'textScore' };
+          // Sort by relevance score when searching
+          sort = { score: { $meta: 'textScore' }, ...sort };
+        }
       }
 
       // Type filter
@@ -199,6 +206,11 @@ export class EntryService implements IEntryService {
       if (searchParams.location) {
         filter.location = new RegExp(searchParams.location, 'i'); // Case-insensitive partial match
       }
+
+      logger.info('Search filter built', {
+        filter: JSON.stringify(filter),
+        hasTextSearch: !!filter.$text
+      });
 
       const [entries, total] = await Promise.all([
         Entry.find(filter, projection)
