@@ -209,7 +209,6 @@ class EmailService {
               <li>Creating journal entries</li>
               <li>Tracking people in your life</li>
               <li>Organizing with tags</li>
-              <li>Building habits</li>
               <li>Viewing your analytics</li>
             </ul>
             
@@ -233,7 +232,7 @@ class EmailService {
       
       Congratulations! Your email has been successfully verified and your MemoLink account is now active.
       
-      You can now start creating journal entries, tracking people in your life, organizing with tags, building habits, and viewing your analytics.
+      You can now start creating journal entries, tracking people in your life, organizing with tags, and viewing your analytics.
       
       Visit ${config.FRONTEND_URL || 'http://localhost:3000'} to get started.
       

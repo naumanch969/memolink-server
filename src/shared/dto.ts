@@ -175,76 +175,6 @@ export interface CreateMediaDto {
   };
 }
 
-// Habit DTOs
-export interface HabitDto extends BaseDto {
-  userId: string;
-  name: string;
-  description?: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
-  customDays?: number[];
-  targetCount?: number;
-  unit?: string;
-  status: 'active' | 'paused' | 'completed' | 'archived';
-  startDate: Date;
-  endDate?: Date;
-  color?: string;
-  icon?: string;
-}
-
-export interface CreateHabitDto {
-  name: string;
-  description?: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
-  customDays?: number[];
-  targetCount?: number;
-  unit?: string;
-  startDate: Date;
-  endDate?: Date;
-  color?: string;
-  icon?: string;
-}
-
-export interface UpdateHabitDto {
-  name?: string;
-  description?: string;
-  frequency?: 'daily' | 'weekly' | 'monthly' | 'custom';
-  customDays?: number[];
-  targetCount?: number;
-  unit?: string;
-  status?: 'active' | 'paused' | 'completed' | 'archived';
-  startDate?: Date;
-  endDate?: Date;
-  color?: string;
-  icon?: string;
-}
-
-// Habit Log DTOs
-export interface HabitLogDto extends BaseDto {
-  habitId: string;
-  userId: string;
-  date: Date;
-  completed: boolean;
-  count?: number;
-  notes?: string;
-  mood?: string;
-}
-
-export interface CreateHabitLogDto {
-  habitId: string;
-  date: Date;
-  completed: boolean;
-  count?: number;
-  notes?: string;
-  mood?: string;
-}
-
-export interface UpdateHabitLogDto {
-  completed?: boolean;
-  count?: number;
-  notes?: string;
-  mood?: string;
-}
-
 // Search and Filter DTOs
 export interface SearchDto {
   q?: string;
@@ -267,8 +197,6 @@ export interface AnalyticsDto {
   totalPeople: number;
   totalTags: number;
   totalMedia: number;
-  activeHabits: number;
-  completedHabitsToday: number;
   entryFrequency: {
     daily: number[];
     weekly: number[];
@@ -286,13 +214,6 @@ export interface AnalyticsDto {
     totalImages: number;
     totalVideos: number;
     totalDocuments: number;
-  };
-  habitStats: {
-    totalHabits: number;
-    activeHabits: number;
-    completedToday: number;
-    longestStreak: number;
-    averageCompletion: number;
   };
 }
 

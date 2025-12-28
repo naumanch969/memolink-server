@@ -22,13 +22,7 @@ export class AnalyticsController {
     ResponseHelper.success(res, analytics, 'Entry analytics retrieved successfully');
   });
 
-  static getHabitAnalytics = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const userId = req.user!._id.toString();
-    const options: AnalyticsRequest = req.query;
-    const analytics = await AnalyticsService.getHabitAnalytics(userId, options);
-    
-    ResponseHelper.success(res, analytics, 'Habit analytics retrieved successfully');
-  });
+
 
   static getMediaAnalytics = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id.toString();
