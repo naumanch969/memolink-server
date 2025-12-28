@@ -15,7 +15,7 @@ export const config = {
   NODE_ENV: process.env.NODE_ENV || 'development',
 
   // Database Configuration
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/memolink',
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb+srv://naumanch969:memolink@main.ft8wemw.mongodb.net/development',
 
   // JWT Configuration
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',

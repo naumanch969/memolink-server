@@ -12,6 +12,7 @@ import folderRoutes from '../features/media/folder.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
 import insightsRoutes from '../features/insights/insights.routes';
 import exportRoutes from '../features/export/export.routes';
+import goalRoutes from '../features/goals/goal.routes';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.get('/docs', (req, res) => {
       folders: '/api/folders',
       analytics: '/api/analytics',
       export: '/api/export',
+      goals: '/api/goals',
     },
     documentation: 'https://github.com/naumanch969/memolink-server',
   });
@@ -55,6 +57,7 @@ router.use('/folders', folderRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/insights', insightsRoutes);
 router.use('/export', exportRoutes);
+router.use('/goals', goalRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {
@@ -67,6 +70,7 @@ logger.info('Routes registered successfully', {
     'folders',
     'analytics',
     'export',
+    'goals',
   ],
 });
 

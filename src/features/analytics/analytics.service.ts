@@ -64,6 +64,16 @@ export class AnalyticsService {
     }
   }
 
+  static async getEntryAnalytics(userId: string, options: AnalyticsRequest = {}): Promise<any> {
+    try {
+      // TODO: Implement entry analytics
+      throw createError('Entry analytics not implemented yet', 501);
+    } catch (error) {
+      logger.error('Get entry analytics failed:', error);
+      throw error;
+    }
+  }
+
   private static async getEntryFrequency(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
     const now = new Date();

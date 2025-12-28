@@ -19,8 +19,7 @@ export const COLLECTIONS = {
   PERSONS: 'persons',
   TAGS: 'tags',
   MEDIA: 'media',
-  HABITS: 'habits',
-  HABIT_LOGS: 'habit_logs',
+  GOALS: 'goals',
 } as const;
 
 // User Roles
@@ -44,22 +43,6 @@ export const MEDIA_TYPES = {
   AUDIO: 'audio',
 } as const;
 
-// Habit Frequencies
-export const HABIT_FREQUENCIES = {
-  DAILY: 'daily',
-  WEEKLY: 'weekly',
-  MONTHLY: 'monthly',
-  CUSTOM: 'custom',
-} as const;
-
-// Habit Status
-export const HABIT_STATUS = {
-  ACTIVE: 'active',
-  PAUSED: 'paused',
-  COMPLETED: 'completed',
-  ARCHIVED: 'archived',
-} as const;
-
 // Validation Constants
 export const VALIDATION = {
   PASSWORD_MIN_LENGTH: 8,
@@ -69,8 +52,6 @@ export const VALIDATION = {
   ENTRY_CONTENT_MAX_LENGTH: 10000,
   TAG_NAME_MAX_LENGTH: 50,
   PERSON_NAME_MAX_LENGTH: 100,
-  HABIT_NAME_MAX_LENGTH: 100,
-  HABIT_DESCRIPTION_MAX_LENGTH: 500,
 } as const;
 
 // File Upload Constants
