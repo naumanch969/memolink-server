@@ -11,6 +11,7 @@ import mediaRoutes from '../features/media/media.routes';
 import folderRoutes from '../features/media/folder.routes';
 import habitRoutes from '../features/habit/habit.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
+import insightsRoutes from '../features/insights/insights.routes';
 import exportRoutes from '../features/export/export.routes';
 
 const router = Router();
@@ -55,6 +56,7 @@ router.use('/media', mediaRoutes);
 router.use('/folders', folderRoutes);
 router.use('/habits', habitRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/insights', insightsRoutes);
 router.use('/export', exportRoutes);
 
 // Log route registration
