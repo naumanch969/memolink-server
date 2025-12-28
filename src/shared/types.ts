@@ -117,32 +117,7 @@ export interface IFolder extends BaseEntity {
   itemCount: number;
 }
 
-// Habit Types
-export interface IHabit extends BaseEntity {
-  userId: Types.ObjectId;
-  name: string;
-  description?: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
-  customDays?: number[]; // For custom frequency (0-6, Sunday-Saturday)
-  targetCount?: number; // For habits with specific targets
-  unit?: string; // e.g., 'minutes', 'glasses', 'pages'
-  status: 'active' | 'paused' | 'completed' | 'archived';
-  startDate: Date;
-  endDate?: Date;
-  color?: string;
-  icon?: string;
-}
 
-// Habit Log Types
-export interface IHabitLog extends BaseEntity {
-  habitId: Types.ObjectId;
-  userId: Types.ObjectId;
-  date: Date;
-  completed: boolean;
-  count?: number; // For habits with specific counts
-  notes?: string;
-  mood?: string;
-}
 
 // Request Types
 export interface AuthenticatedRequest extends Request {
@@ -189,8 +164,6 @@ export interface AnalyticsData {
   totalPeople: number;
   totalTags: number;
   totalMedia: number;
-  activeHabits: number;
-  completedHabitsToday: number;
   entryFrequency: {
     daily: number[];
     weekly: number[];
@@ -208,13 +181,6 @@ export interface AnalyticsData {
     totalImages: number;
     totalVideos: number;
     totalDocuments: number;
-  };
-  habitStats: {
-    totalHabits: number;
-    activeHabits: number;
-    completedToday: number;
-    longestStreak: number;
-    averageCompletion: number;
   };
 }
 

@@ -5,7 +5,6 @@ import { Entry } from '../entry/entry.model';
 import { Person } from '../person/person.model';
 import { Tag } from '../tag/tag.model';
 import { Media } from '../media/media.model';
-import { Habit, HabitLog } from '../habit/habit.model';
 import { Types } from 'mongoose';
 import { Helpers } from '../../shared/helpers';
 
@@ -22,13 +21,11 @@ export class ExportService implements IExportService {
       if (!options.includePrivate) filter.isPrivate = false;
 
       // Get data
-      const [entries, people, tags, media, habits, habitLogs] = await Promise.all([
+      const [entries, people, tags, media] = await Promise.all([
         Entry.find(filter).populate(['mentions', 'tags', 'media']).sort({ createdAt: -1 }),
         Person.find({ userId: userObjectId }),
         Tag.find({ userId: userObjectId }),
         options.includeMedia ? Media.find({ userId: userObjectId }) : [],
-        Habit.find({ userId: userObjectId }),
-        HabitLog.find({ userId: userObjectId }).populate('habitId'),
       ]);
 
       const exportData = {
@@ -39,7 +36,6 @@ export class ExportService implements IExportService {
           totalPeople: people.length,
           totalTags: tags.length,
           totalMedia: media.length,
-          totalHabits: habits.length,
           dateRange: {
             from: options.dateFrom,
             to: options.dateTo,
@@ -49,8 +45,6 @@ export class ExportService implements IExportService {
         people,
         tags,
         media,
-        habits,
-        habitLogs,
       };
 
       // Generate file based on format
