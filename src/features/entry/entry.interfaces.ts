@@ -24,6 +24,7 @@ export interface IEntryService {
   updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry>;
   deleteEntry(entryId: string, userId: string): Promise<void>;
   getEntryStats(userId: string): Promise<EntryStats>;
+  getFeed(userId: string, feedParams: EntryFeedRequest): Promise<EntryFeedResponse>;
 }
 
 export interface CreateEntryRequest {
@@ -72,6 +73,23 @@ export interface EntrySearchRequest {
   limit?: number;
   sort?: string;
   order?: 'asc' | 'desc';
+}
+
+export interface EntryFeedRequest {
+  cursor?: string; // ID of the last entry seen
+  limit?: number;
+  type?: string;
+  tags?: string[];
+  people?: string[];
+  isPrivate?: boolean;
+  isImportant?: boolean;
+  mood?: string;
+}
+
+export interface EntryFeedResponse {
+  entries: IEntry[];
+  nextCursor?: string;
+  hasMore: boolean;
 }
 
 export interface EntryStats {

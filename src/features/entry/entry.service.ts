@@ -275,6 +275,69 @@ export class EntryService implements IEntryService {
     }
   }
 
+  // Get feed with cursor-based pagination
+  async getFeed(userId: string, feedParams: any): Promise<{
+    entries: IEntry[];
+    nextCursor?: string;
+    hasMore: boolean;
+  }> {
+    try {
+      const limit = Math.min(Math.max(1, feedParams.limit || 20), 50); // Clamp limit between 1 and 50
+
+      const filter: any = { userId };
+
+      // Cursor pagination logic
+      // We rely on natural sort order (created at desc) and _id as tiebreaker
+      if (feedParams.cursor) {
+        // Find the cursor entry first to get its date
+        const cursorEntry = await Entry.findById(feedParams.cursor);
+        if (cursorEntry) {
+          filter.$or = [
+            { createdAt: { $lt: cursorEntry.createdAt } },
+            {
+              createdAt: cursorEntry.createdAt,
+              _id: { $lt: cursorEntry._id }
+            }
+          ];
+        }
+      }
+
+      // Apply other filters
+      if (feedParams.type) filter.type = feedParams.type;
+      if (feedParams.tags && feedParams.tags.length > 0) {
+        filter.tags = { $in: feedParams.tags.map((id: string) => new Types.ObjectId(id)) };
+      }
+      if (feedParams.people && feedParams.people.length > 0) {
+        filter.mentions = { $in: feedParams.people.map((id: string) => new Types.ObjectId(id)) };
+      }
+      if (feedParams.isPrivate !== undefined) filter.isPrivate = feedParams.isPrivate;
+      if (feedParams.isImportant !== undefined) filter.isImportant = feedParams.isImportant;
+      if (feedParams.mood) filter.mood = new RegExp(feedParams.mood, 'i');
+
+      const entries = await Entry.find(filter)
+        .populate(['mentions', 'tags', 'media'])
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1); // Fetch one extra to check if there are more
+
+      const hasMore = entries.length > limit;
+      let nextCursor = undefined;
+
+      if (hasMore) {
+        entries.pop(); // Remove the extra entry
+        nextCursor = entries[entries.length - 1]._id.toString();
+      }
+
+      return {
+        entries,
+        nextCursor,
+        hasMore
+      };
+    } catch (error) {
+      logger.error('Get feed failed:', error);
+      throw error;
+    }
+  }
+
   // Update entry
   async updateEntry(entryId: string, userId: string, updateData: any): Promise<IEntry> {
     try {

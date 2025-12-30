@@ -13,6 +13,7 @@ router.use(authenticate);
 router.post('/', createEntryValidation, validationMiddleware, EntryController.createEntry);
 router.get('/search', searchEntriesValidation, validationMiddleware, EntryController.searchEntries);
 router.get('/stats', EntryController.getEntryStats);
+router.get('/feed', EntryController.getFeed);
 router.get('/', EntryController.getUserEntries);
 router.get('/:id', entryIdValidation, validationMiddleware, EntryController.getEntryById);
 router.put('/:id', entryIdValidation, updateEntryValidation, validationMiddleware, EntryController.updateEntry);

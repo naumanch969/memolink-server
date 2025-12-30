@@ -13,6 +13,7 @@ import analyticsRoutes from '../features/analytics/analytics.routes';
 import insightsRoutes from '../features/insights/insights.routes';
 import exportRoutes from '../features/export/export.routes';
 import goalRoutes from '../features/goals/goal.routes';
+import widgetRoutes from '../features/widget/widget.routes';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.use('/analytics', analyticsRoutes);
 router.use('/insights', insightsRoutes);
 router.use('/export', exportRoutes);
 router.use('/goals', goalRoutes);
+router.use('/widgets', widgetRoutes); // Registered
 
 // Log route registration
 logger.info('Routes registered successfully', {

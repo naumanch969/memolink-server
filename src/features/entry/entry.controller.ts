@@ -71,6 +71,23 @@ export class EntryController {
     }, 'Search completed successfully');
   });
 
+  // Get feed
+  static getFeed = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const feedParams = req.query;
+
+    // Convert boolean strings to booleans
+    const params = {
+      ...feedParams,
+      isPrivate: feedParams.isPrivate === 'true' ? true : feedParams.isPrivate === 'false' ? false : undefined,
+      isImportant: feedParams.isImportant === 'true' ? true : feedParams.isImportant === 'false' ? false : undefined,
+    };
+
+    const result = await entryService.getFeed(userId, params);
+
+    ResponseHelper.success(res, result, 'Feed retrieved successfully');
+  });
+
   // Update entry
   static updateEntry = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id.toString();
