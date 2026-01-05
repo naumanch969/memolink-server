@@ -17,7 +17,7 @@ const widgetSchema = new Schema<IWidget>(
         },
         title: {
             type: String,
-            required: true,
+            required: false,
             trim: true,
             default: 'New Widget',
         },

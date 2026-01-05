@@ -8,7 +8,12 @@
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rm -rf dist",
-    "rebuild": "npm run clean && npm run build"
+    "rebuild": "npm run clean && npm run build",
+    "prepare": "husky",
+    "lint": "eslint src/**/*.ts"
+  },
+  "lint-staged": {
+    "*.ts": "eslint --fix"
   },
   "keywords": [
     "express",
@@ -45,6 +50,9 @@
     "response-time": "^2.3.4"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.3.0",
+    "@commitlint/config-conventional": "^20.3.0",
+    "@eslint/js": "^9.39.2",
     "@flydotio/dockerfile": "^0.7.10",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
@@ -54,8 +62,15 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^20.10.5",
     "@types/response-time": "^2.3.9",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.51.0"
   }
 }
