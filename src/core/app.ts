@@ -8,6 +8,12 @@ import { config } from '../config/env';
 import { logger } from '../config/logger';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import {
+  monitoringMiddleware,
+  requestContextMiddleware,
+  errorTrackingMiddleware,
+  monitoringRoutes
+} from './monitoring';
 
 const app = express();
 
@@ -49,6 +55,10 @@ if (config.NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Monitoring middleware - must be after body parsing
+app.use(requestContextMiddleware);
+app.use(monitoringMiddleware);
+
 // Request logging
 app.use((req, res, next) => {
   logger.debug('Incoming request:', {
@@ -63,6 +73,9 @@ app.use((req, res, next) => {
 // API routes
 app.use('/api', routes);
 
+// Monitoring routes (accessible without /api prefix for standard monitoring tools)
+app.use('/monitoring', monitoringRoutes);
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -71,12 +84,16 @@ app.get('/', (req, res) => {
     status: 'running',
     timestamp: new Date().toISOString(),
     documentation: '/api/docs',
-    health: '/api/health',
+    health: '/monitoring/health',
+    metrics: '/monitoring/metrics',
   });
 });
 
 // 404 handler
 app.use(notFoundHandler);
+
+// Error tracking middleware
+app.use(errorTrackingMiddleware);
 
 // Error handling middleware
 app.use(errorHandler);
