@@ -226,3 +226,121 @@ export interface JWTPayload {
   iat?: number;
   exp?: number;
 }
+
+// Routine Types
+export type RoutineType = 'boolean' | 'checklist' | 'counter' | 'duration' | 'text' | 'scale';
+export type RoutineStatus = 'active' | 'paused' | 'archived';
+export type CompletionMode = 'strict' | 'gradual';
+
+// Routine Configuration (type-specific)
+export interface IRoutineConfig {
+  // Checklist type
+  items?: string[];
+
+  // Counter/Duration type
+  target?: number;
+  unit?: string;
+
+  // Scale type
+  scale?: number;
+  scaleLabels?: string[];
+
+  // Text type
+  prompt?: string;
+}
+
+// Routine Schedule
+export interface IRoutineSchedule {
+  activeDays: number[]; // 0-6 (Sunday-Saturday)
+}
+
+// Routine Streak Data
+export interface IRoutineStreakData {
+  currentStreak: number;
+  longestStreak: number;
+  totalCompletions: number;
+  lastCompletedDate?: Date;
+}
+
+// Routine Template
+export interface IRoutineTemplate extends BaseEntity {
+  userId: Types.ObjectId;
+  name: string;
+  description?: string;
+  icon?: string;
+  type: RoutineType;
+  config: IRoutineConfig;
+  schedule: IRoutineSchedule;
+  completionMode: CompletionMode;
+  gradualThreshold?: number;
+  streakData: IRoutineStreakData;
+  status: RoutineStatus;
+  linkedTags?: Types.ObjectId[];
+  order: number;
+  archivedAt?: Date;
+}
+
+// Routine Log Data (type-specific)
+export interface IRoutineLogData {
+  // Boolean type
+  completed?: boolean;
+
+  // Checklist type
+  checkedItems?: boolean[];
+
+  // Counter/Duration/Scale type
+  value?: number;
+
+  // Text type
+  text?: string;
+}
+
+// Routine Log
+export interface IRoutineLog extends BaseEntity {
+  userId: Types.ObjectId;
+  routineId: Types.ObjectId;
+  date: Date; // Normalized to start of day
+  data: IRoutineLogData;
+  completionPercentage: number;
+  countsForStreak: boolean;
+  journalEntryId?: Types.ObjectId;
+  loggedAt: Date;
+}
+
+// User Routine Preferences
+export interface IUserRoutinePreferences extends BaseEntity {
+  userId: Types.ObjectId;
+  reminders: {
+    enabled: boolean;
+    dailyReminderTime?: string;
+    smartReminders: boolean;
+    customReminders?: Array<{
+      routineId: Types.ObjectId;
+      time: string;
+      message?: string;
+    }>;
+  };
+  defaultView: 'list' | 'grid' | 'compact';
+  showStreaksOnCalendar: boolean;
+}
+
+// Routine Statistics
+export interface IRoutineStats {
+  completionRate: number;
+  currentStreak: number;
+  longestStreak: number;
+  totalCompletions: number;
+  recentLogs: IRoutineLog[];
+  weeklyTrend: number[];
+}
+
+// Overall Routine Analytics
+export interface IRoutineAnalytics {
+  overallCompletionRate: number;
+  totalActiveRoutines: number;
+  routineBreakdown: Array<{
+    routine: IRoutineTemplate;
+    completionRate: number;
+    streak: number;
+  }>;
+}

@@ -14,6 +14,9 @@ import insightsRoutes from '../features/insights/insights.routes';
 import exportRoutes from '../features/export/export.routes';
 import goalRoutes from '../features/goals/goal.routes';
 import widgetRoutes from '../features/widget/widget.routes';
+import routineRoutes from '../features/routine/routine.routes';
+import routineLogRoutes from '../features/routine/routine-logs.routes';
+import routinePreferencesRoutes from '../features/routine/routine-preferences.routes';
 
 const router = Router();
 
@@ -43,6 +46,10 @@ router.get('/docs', (req, res) => {
       analytics: '/api/analytics',
       export: '/api/export',
       goals: '/api/goals',
+      widgets: '/api/widgets',
+      routines: '/api/routines',
+      routineLogs: '/api/routine-logs',
+      routinePreferences: '/api/routine-preferences',
     },
     documentation: 'https://github.com/naumanch969/memolink-server',
   });
@@ -59,7 +66,10 @@ router.use('/analytics', analyticsRoutes);
 router.use('/insights', insightsRoutes);
 router.use('/export', exportRoutes);
 router.use('/goals', goalRoutes);
-router.use('/widgets', widgetRoutes); // Registered
+router.use('/widgets', widgetRoutes);
+router.use('/routines', routineRoutes);
+router.use('/routine-logs', routineLogRoutes);
+router.use('/routine-preferences', routinePreferencesRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {
@@ -73,6 +83,8 @@ logger.info('Routes registered successfully', {
     'analytics',
     'export',
     'goals',
+    'widgets',
+    'routines',
   ],
 });
 
