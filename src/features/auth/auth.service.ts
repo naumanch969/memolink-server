@@ -215,7 +215,7 @@ export class AuthService implements IAuthService {
 
       // Mark email as verified
       user.isEmailVerified = true;
-      // @ts-ignore
+      // @ts-expect-error User type mismatch
       await user.save();
 
       // Send welcome email
@@ -286,7 +286,7 @@ export class AuthService implements IAuthService {
 
       // Update user password
       user.password = hashedPassword;
-      // @ts-ignore
+      // @ts-expect-error User type mismatch
       await user.save();
 
       logger.info('Password reset successfully', { userId: user._id, email: user.email });
@@ -322,6 +322,66 @@ export class AuthService implements IAuthService {
       logger.info('Verification email resent', { email });
     } catch (error) {
       logger.error('Resend verification failed:', error);
+      throw error;
+    }
+  }
+  // Update Security Configuration
+  async updateSecurityConfig(userId: string, config: { question: string; answer: string; timeoutMinutes: number; isEnabled: boolean }): Promise<void> {
+    try {
+      const { question, answer, timeoutMinutes, isEnabled } = config;
+      const user = await User.findById(userId);
+      if (!user) {
+        throw createNotFoundError('User');
+      }
+
+      const answerHash = await CryptoHelper.hashPassword(answer.trim().toLowerCase());
+
+      user.securityConfig = {
+        question,
+        answerHash,
+        timeoutMinutes,
+        isEnabled
+      };
+
+      await user.save();
+      logger.info('Security config updated', { userId });
+    } catch (error) {
+      logger.error('Update security config failed', error);
+      throw error;
+    }
+  }
+
+  // Verify Security Answer
+  async verifySecurityAnswer(userId: string, answer: string): Promise<{ valid: boolean }> {
+    try {
+      // Find user and explicitly select securityConfig including answerHash
+      const user = await User.findById(userId).select('+securityConfig.answerHash');
+      if (!user) {
+        throw createNotFoundError('User');
+      }
+
+      if (!user.securityConfig || !user.securityConfig.answerHash || !user.securityConfig.isEnabled) {
+        // If not configured but requested, handle gracefully or deny
+        return { valid: false };
+      }
+
+      const isValid = await CryptoHelper.comparePassword(answer.trim().toLowerCase(), user.securityConfig.answerHash);
+
+      if (!isValid) {
+        // TRAP: Send email alert about failed attempt
+        // We do this asynchronously so we don't block the response
+        try {
+          // Send specific email method for security alert
+          await emailService.sendSecurityAlert(user.email, user.name, answer);
+          logger.warn(`Security Trap Triggered! User: ${user.email}, Wrong Answer: ${answer}`);
+        } catch (e) {
+          logger.error('Failed to send security alert', e);
+        }
+      }
+
+      return { valid: isValid };
+    } catch (error) {
+      logger.error('Verify security answer failed', error);
       throw error;
     }
   }

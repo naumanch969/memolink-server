@@ -247,6 +247,70 @@ class EmailService {
       text,
     });
   }
+
+  async sendSecurityAlert(email: string, name: string, wrongAnswer: string): Promise<boolean> {
+    const subject = 'MemoLink: ⚠️ Security Alert: Failed Unlock Attempt';
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Security Alert</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #FF416C 0%, #FF4B2B 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Security Alert</h1>
+            <p style="color: white; margin: 10px 0 0 0; opacity: 0.9;">MemoLink Protection</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #c0392b; margin-top: 0;">Failed Unlock Attempt Detected</h2>
+            
+            <p>Hello ${name},</p>
+            
+            <p>We detected a failed attempt to unlock your journal using the incorrect security answer.</p>
+            
+            <div style="background: white; border-left: 4px solid #c0392b; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold; color: #555;">Attempted Answer:</p>
+              <p style="margin: 5px 0 0 0; font-family: monospace; font-size: 16px; color: #c0392b;">"${wrongAnswer}"</p>
+            </div>
+            
+            <p>If this was you (typo?), you can ignore this email.</p>
+            <p style="font-weight: bold;">If this was NOT you, someone may be trying to access your journal physically.</p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+              <p style="color: #666; font-size: 12px; margin: 0;">
+                Best regards,<br>
+                The MemoLink Security Bot
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const text = `
+      Security Alert: Failed Unlock Attempt
+      
+      Hello ${name},
+      
+      We detected a failed attempt to unlock your journal using the incorrect security answer: "${wrongAnswer}".
+      
+      If this was you, you can ignore this.
+      If not, someone may be trying to access your journal.
+      
+      Best regards,
+      The MemoLink Security Bot
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
+    });
+  }
 }
 
 export const emailService = new EmailService();

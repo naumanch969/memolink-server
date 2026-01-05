@@ -3,7 +3,7 @@ import { authService } from './auth.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { AuthenticatedRequest } from '../../shared/types';
-import { LoginRequest, RegisterRequest, ChangePasswordRequest, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest, ResendVerificationRequest } from './auth.interfaces';
+import { LoginRequest, RegisterRequest, ChangePasswordRequest, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest, ResendVerificationRequest, SecurityConfigRequest } from './auth.interfaces';
 
 export class AuthController {
   // Register new user
@@ -100,6 +100,28 @@ export class AuthController {
     // Since we're using stateless JWT, logout is handled client-side
     // In a more advanced implementation, you might maintain a token blacklist
     ResponseHelper.success(res, null, 'Logged out successfully');
+  });
+  // Update Security Config
+  static updateSecurityConfig = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const config: SecurityConfigRequest = req.body;
+    await authService.updateSecurityConfig(userId, config);
+
+    ResponseHelper.success(res, null, 'Security settings updated successfully');
+  });
+
+  // Verify Security Answer
+  static verifySecurityAnswer = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { answer } = req.body;
+    const result = await authService.verifySecurityAnswer(userId, answer);
+
+    if (result.valid) {
+      ResponseHelper.success(res, { success: true }, 'Security answer verified');
+    } else {
+      // 403 Forbidden is appropriate for security failures
+      ResponseHelper.error(res, 'Invalid Security Answer', 403);
+    }
   });
 }
 

@@ -8,7 +8,7 @@ export interface AuthResponse {
 }
 
 export interface IAuthService {
-  register(userData: RegisterRequest): Promise<{ otp?: any }>;
+  register(userData: RegisterRequest): Promise<{ otp?: string }>;
   login(credentials: LoginRequest): Promise<AuthResponse>;
   refreshToken(refreshToken: string): Promise<{ accessToken: string }>;
   changePassword(userId: string, passwordData: ChangePasswordRequest): Promise<void>;
@@ -19,6 +19,8 @@ export interface IAuthService {
   forgotPassword(email: string): Promise<void>;
   resetPassword(otp: string, newPassword: string): Promise<void>;
   resendVerification(email: string): Promise<void>;
+  updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<void>;
+  verifySecurityAnswer(userId: string, answer: string): Promise<{ valid: boolean }>;
 }
 
 export interface LoginRequest {
@@ -56,4 +58,11 @@ export interface VerifyEmailRequest {
 
 export interface ResendVerificationRequest {
   email: string;
+}
+
+export interface SecurityConfigRequest {
+  question: string;
+  answer: string;
+  timeoutMinutes: number;
+  isEnabled: boolean;
 }

@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model } from 'mongoose';
+import mongoose, { Schema, Model } from 'mongoose';
 import { IUser } from '../../shared/types';
 import { USER_ROLES } from '../../shared/constants';
 
@@ -20,6 +20,12 @@ const userSchema = new Schema<IUser>({
     theme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto', },
     notifications: { type: Boolean, default: true, },
     privacy: { type: String, enum: ['public', 'private'], default: 'private', },
+  },
+  securityConfig: {
+    question: { type: String, trim: true },
+    answerHash: { type: String, select: false }, // Don't return hash by default
+    timeoutMinutes: { type: Number, default: 5 },
+    isEnabled: { type: Boolean, default: false },
   },
 }, {
   timestamps: true,
@@ -81,6 +87,7 @@ userSchema.statics.findActiveUsers = function () {
 
 // Add static methods to the interface
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: IUser;

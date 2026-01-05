@@ -29,6 +29,12 @@ export interface IUser extends BaseEntity {
     notifications: boolean;
     privacy: 'public' | 'private';
   };
+  securityConfig?: {
+    question: string;
+    answerHash: string; // Hashed answer
+    timeoutMinutes: number; // e.g. 5, 15, 30
+    isEnabled: boolean;
+  };
 }
 
 // OTP Types

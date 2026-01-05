@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from './auth.controller';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import { registerValidation, loginValidation, changePasswordValidation, refreshTokenValidation, forgotPasswordValidation, resetPasswordValidation, verifyEmailValidation, resendVerificationValidation, updateProfileValidation } from './auth.validations';
+import { registerValidation, loginValidation, changePasswordValidation, refreshTokenValidation, forgotPasswordValidation, resetPasswordValidation, verifyEmailValidation, resendVerificationValidation, updateProfileValidation, updateSecurityConfigValidation, verifySecurityAnswerValidation } from './auth.validations';
 import { validationMiddleware } from '../../core/middleware/validationMiddleware';
 
 const router = Router();
@@ -21,6 +21,8 @@ router.use(authenticate); // All routes below require authentication
 router.get('/profile', AuthController.getProfile);
 router.put('/profile', updateProfileValidation, validationMiddleware, AuthController.updateProfile);
 router.put('/change-password', changePasswordValidation, validationMiddleware, AuthController.changePassword);
+router.put('/security-config', updateSecurityConfigValidation, validationMiddleware, AuthController.updateSecurityConfig);
+router.post('/verify-security', verifySecurityAnswerValidation, validationMiddleware, AuthController.verifySecurityAnswer);
 router.delete('/account', AuthController.deleteAccount);
 router.post('/logout', AuthController.logout);
 
