@@ -65,4 +65,5 @@ export interface SecurityConfigRequest {
   answer: string;
   timeoutMinutes: number;
   isEnabled: boolean;
+  maskEntries?: boolean;
 }

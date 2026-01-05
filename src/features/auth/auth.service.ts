@@ -4,7 +4,7 @@ import { CryptoHelper } from '../../core/utils/crypto';
 import { logger } from '../../config/logger';
 import { emailService } from '../../config/email';
 import { createError, createNotFoundError, createConflictError, createUnauthorizedError } from '../../core/middleware/errorHandler';
-import { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, IAuthService } from './auth.interfaces';
+import { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, IAuthService, SecurityConfigRequest } from './auth.interfaces';
 import { IUser } from '../../shared/types';
 import { config } from '../../config/env';
 
@@ -326,9 +326,9 @@ export class AuthService implements IAuthService {
     }
   }
   // Update Security Configuration
-  async updateSecurityConfig(userId: string, config: { question: string; answer: string; timeoutMinutes: number; isEnabled: boolean }): Promise<void> {
+  async updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<void> {
     try {
-      const { question, answer, timeoutMinutes, isEnabled } = config;
+      const { question, answer, timeoutMinutes, isEnabled, maskEntries } = config;
       // Select with answerHash to ensure we can retain it if not changing
       const user = await User.findById(userId).select('+securityConfig.answerHash');
       if (!user) {
@@ -338,7 +338,8 @@ export class AuthService implements IAuthService {
       const securityConfig: any = {
         question,
         timeoutMinutes,
-        isEnabled
+        isEnabled,
+        maskEntries
       };
 
       // Only update hash if a new answer is provided

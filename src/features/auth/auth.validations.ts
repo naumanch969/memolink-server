@@ -127,6 +127,7 @@ export const updateSecurityConfigValidation = [
   body('answer').trim().notEmpty().withMessage('Answer is required'),
   body('timeoutMinutes').isInt({ min: 1 }).withMessage('Timeout must be at least 1 minute'),
   body('isEnabled').isBoolean().withMessage('Enabled status is required'),
+  body('maskEntries').optional().isBoolean().withMessage('Mask entries preference must be a boolean'),
 ];
 
 export const verifySecurityAnswerValidation = [

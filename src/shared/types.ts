@@ -34,6 +34,7 @@ export interface IUser extends BaseEntity {
     answerHash: string; // Hashed answer
     timeoutMinutes: number; // e.g. 5, 15, 30
     isEnabled: boolean;
+    maskEntries?: boolean;
   };
 }
 

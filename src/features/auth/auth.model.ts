@@ -26,6 +26,7 @@ const userSchema = new Schema<IUser>({
     answerHash: { type: String, select: false }, // Don't return hash by default
     timeoutMinutes: { type: Number, default: 5 },
     isEnabled: { type: Boolean, default: false },
+    maskEntries: { type: Boolean, default: false },
   },
 }, {
   timestamps: true,
