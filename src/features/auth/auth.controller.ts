@@ -7,7 +7,7 @@ import { LoginRequest, RegisterRequest, ChangePasswordRequest, RefreshTokenReque
 
 export class AuthController {
   // Register new user
-  static register = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static register = asyncHandler(async (req: Request, res: Response) => {
     const userData: RegisterRequest = req.body;
     const result = await authService.register(userData);
 
@@ -15,7 +15,7 @@ export class AuthController {
   });
 
   // Login user
-  static login = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static login = asyncHandler(async (req: Request, res: Response) => {
     const credentials: LoginRequest = req.body;
     const result = await authService.login(credentials);
 
@@ -23,7 +23,7 @@ export class AuthController {
   });
 
   // Refresh access token
-  static refreshToken = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static refreshToken = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken }: RefreshTokenRequest = req.body;
     const result = await authService.refreshToken(refreshToken);
 
@@ -31,7 +31,7 @@ export class AuthController {
   });
 
   // Get current user profile
-  static getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!._id.toString();
     const user = await authService.getProfile(userId);
 
@@ -39,7 +39,7 @@ export class AuthController {
   });
 
   // Update user profile
-  static updateProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static updateProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!._id.toString();
     const updateData = req.body;
     const user = await authService.updateProfile(userId, updateData);
@@ -48,7 +48,7 @@ export class AuthController {
   });
 
   // Change password
-  static changePassword = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static changePassword = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!._id.toString();
     const passwordData: ChangePasswordRequest = req.body;
     await authService.changePassword(userId, passwordData);
@@ -57,7 +57,7 @@ export class AuthController {
   });
 
   // Delete user account
-  static deleteAccount = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static deleteAccount = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!._id.toString();
     await authService.deleteAccount(userId);
 
@@ -65,7 +65,7 @@ export class AuthController {
   });
 
   // Verify email
-  static verifyEmail = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static verifyEmail = asyncHandler(async (req: Request, res: Response) => {
     const { otp }: VerifyEmailRequest = req.body;
     await authService.verifyEmail(otp);
 
@@ -73,7 +73,7 @@ export class AuthController {
   });
 
   // Forgot password
-  static forgotPassword = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static forgotPassword = asyncHandler(async (req: Request, res: Response) => {
     const { email }: ForgotPasswordRequest = req.body;
     await authService.forgotPassword(email);
 
@@ -81,7 +81,7 @@ export class AuthController {
   });
 
   // Reset password
-  static resetPassword = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static resetPassword = asyncHandler(async (req: Request, res: Response) => {
     const { otp, newPassword }: ResetPasswordRequest = req.body;
     await authService.resetPassword(otp, newPassword);
 
@@ -89,20 +89,20 @@ export class AuthController {
   });
 
   // Resend verification email
-  static resendVerification = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  static resendVerification = asyncHandler(async (req: Request, res: Response) => {
     const { email }: ResendVerificationRequest = req.body;
     // TODO: Implement resend verification logic
     ResponseHelper.success(res, null, 'Verification email sent');
   });
 
   // Logout (client-side token removal)
-  static logout = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static logout = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Since we're using stateless JWT, logout is handled client-side
     // In a more advanced implementation, you might maintain a token blacklist
     ResponseHelper.success(res, null, 'Logged out successfully');
   });
   // Update Security Config
-  static updateSecurityConfig = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static updateSecurityConfig = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!._id.toString();
     const config: SecurityConfigRequest = req.body;
     await authService.updateSecurityConfig(userId, config);
@@ -111,7 +111,7 @@ export class AuthController {
   });
 
   // Verify Security Answer
-  static verifySecurityAnswer = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  static verifySecurityAnswer = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!._id.toString();
     const { answer } = req.body;
     const result = await authService.verifySecurityAnswer(userId, answer);

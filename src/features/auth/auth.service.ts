@@ -329,19 +329,27 @@ export class AuthService implements IAuthService {
   async updateSecurityConfig(userId: string, config: { question: string; answer: string; timeoutMinutes: number; isEnabled: boolean }): Promise<void> {
     try {
       const { question, answer, timeoutMinutes, isEnabled } = config;
-      const user = await User.findById(userId);
+      // Select with answerHash to ensure we can retain it if not changing
+      const user = await User.findById(userId).select('+securityConfig.answerHash');
       if (!user) {
         throw createNotFoundError('User');
       }
 
-      const answerHash = await CryptoHelper.hashPassword(answer.trim().toLowerCase());
-
-      user.securityConfig = {
+      const securityConfig: any = {
         question,
-        answerHash,
         timeoutMinutes,
         isEnabled
       };
+
+      // Only update hash if a new answer is provided
+      if (answer && answer.trim()) {
+        securityConfig.answerHash = await CryptoHelper.hashPassword(answer.trim().toLowerCase());
+      } else if (user.securityConfig?.answerHash) {
+        // Retain existing hash if no new answer provided
+        securityConfig.answerHash = user.securityConfig.answerHash;
+      }
+
+      user.securityConfig = securityConfig;
 
       await user.save();
       logger.info('Security config updated', { userId });
