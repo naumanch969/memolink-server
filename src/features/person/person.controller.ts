@@ -25,10 +25,16 @@ export class PersonController {
 
   static getUserPersons = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id.toString();
-    const { page, limit } = req.query;
+    const { page, limit, search, sortBy, sortOrder } = req.query;
     const { page: pageNum, limit: limitNum } = Helpers.getPaginationParams({ page, limit });
 
-    const result = await personService.getUserPersons(userId, { page: pageNum, limit: limitNum });
+    const result = await personService.getUserPersons(userId, {
+      page: pageNum,
+      limit: limitNum,
+      search: search as string,
+      sortBy: sortBy as string,
+      sortOrder: sortOrder as string
+    });
 
     ResponseHelper.paginated(res, result.persons, {
       page: result.page,
@@ -58,13 +64,29 @@ export class PersonController {
   static searchPersons = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id.toString();
     const { q } = req.query;
-    
+
     if (!q || typeof q !== 'string') {
       return ResponseHelper.badRequest(res, 'Query parameter "q" is required');
     }
 
     const persons = await personService.searchPersons(userId, q);
     ResponseHelper.success(res, persons, 'Persons searched successfully');
+  });
+
+  static getPersonInteractions = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    const { id } = req.params;
+    const { page, limit } = req.query;
+    const { page: pageNum, limit: limitNum } = Helpers.getPaginationParams({ page, limit });
+
+    const result = await personService.getPersonInteractions(id, userId, { page: pageNum, limit: limitNum });
+
+    ResponseHelper.paginated(res, result.entries, {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages,
+    }, 'Person interactions retrieved successfully');
   });
 }
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PersonController } from './person.controller';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import { 
+import {
   createPersonValidation,
   updatePersonValidation,
   personIdValidation
@@ -16,6 +16,7 @@ router.get('/search', PersonController.searchPersons);
 router.post('/', createPersonValidation, validationMiddleware, PersonController.createPerson);
 router.get('/', PersonController.getUserPersons);
 router.get('/:id', personIdValidation, validationMiddleware, PersonController.getPersonById);
+router.get('/:id/interactions', personIdValidation, validationMiddleware, PersonController.getPersonInteractions);
 router.put('/:id', personIdValidation, updatePersonValidation, validationMiddleware, PersonController.updatePerson);
 router.delete('/:id', personIdValidation, validationMiddleware, PersonController.deletePerson);
 

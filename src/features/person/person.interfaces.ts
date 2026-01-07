@@ -19,6 +19,24 @@ export interface CreatePersonRequest {
   email?: string;
   phone?: string;
   avatar?: string;
+  jobTitle?: string;
+  company?: string;
+  birthday?: Date | string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
+  socialLinks?: {
+    linkedin?: string;
+    twitter?: string;
+    website?: string;
+    facebook?: string;
+    instagram?: string;
+  };
+  tags?: string[];
   notes?: string;
 }
 
@@ -27,5 +45,23 @@ export interface UpdatePersonRequest {
   email?: string;
   phone?: string;
   avatar?: string;
+  jobTitle?: string;
+  company?: string;
+  birthday?: Date | string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
+  socialLinks?: {
+    linkedin?: string;
+    twitter?: string;
+    website?: string;
+    facebook?: string;
+    instagram?: string;
+  };
+  tags?: string[];
   notes?: string;
 }

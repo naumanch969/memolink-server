@@ -76,10 +76,43 @@ export interface IPerson extends BaseEntity {
   email?: string;
   phone?: string;
   avatar?: string;
+
+  // Professional Details
+  jobTitle?: string;
+  company?: string;
+
+  // Important Dates
+  birthday?: Date;
+
+  // Address
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
+
+  // Social & Web
+  socialLinks?: {
+    linkedin?: string;
+    twitter?: string;
+    website?: string;
+    facebook?: string;
+    instagram?: string;
+  };
+
+  // Organization
+  tags?: string[];
+
   notes?: string;
   isPlaceholder: boolean;
   interactionCount: number;
   lastInteractionAt?: Date;
+
+  // Soft Delete
+  isDeleted: boolean;
+  deletedAt?: Date;
 }
 
 // Tag Types
