@@ -36,7 +36,12 @@ export class WidgetService {
         }
 
         if (params.title !== undefined) widget.title = params.title;
-        if (params.data !== undefined) widget.data = params.data;
+        if (params.data !== undefined) {
+            widget.data = params.data;
+            // Mark the data field as modified since it's a Mixed type
+            // This ensures Mongoose saves nested changes like completedAt timestamps
+            widget.markModified('data');
+        }
         if (params.order !== undefined) widget.order = params.order;
 
         await widget.save();
