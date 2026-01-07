@@ -66,7 +66,8 @@ export class PersonController {
     const { q } = req.query;
 
     if (!q || typeof q !== 'string') {
-      return ResponseHelper.badRequest(res, 'Query parameter "q" is required');
+      ResponseHelper.badRequest(res, 'Query parameter "q" is required');
+      return;
     }
 
     const persons = await personService.searchPersons(userId, q);

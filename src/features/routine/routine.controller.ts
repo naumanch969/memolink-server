@@ -55,7 +55,8 @@ export class RoutineController {
             const routine = await routineService.getRoutineTemplateById(userId, id);
 
             if (!routine) {
-                return ResponseHelper.notFound(res, 'Routine not found');
+                ResponseHelper.notFound(res, 'Routine not found');
+                return;
             }
 
             ResponseHelper.success(res, routine, 'Routine retrieved successfully');
@@ -75,7 +76,8 @@ export class RoutineController {
             const routine = await routineService.updateRoutineTemplate(userId, id, params);
 
             if (!routine) {
-                return ResponseHelper.notFound(res, 'Routine not found');
+                ResponseHelper.notFound(res, 'Routine not found');
+                return;
             }
 
             ResponseHelper.success(res, routine, 'Routine updated successfully');
@@ -94,7 +96,8 @@ export class RoutineController {
             const routine = await routineService.pauseRoutineTemplate(userId, id);
 
             if (!routine) {
-                return ResponseHelper.notFound(res, 'Routine not found');
+                ResponseHelper.notFound(res, 'Routine not found');
+                return;
             }
 
             ResponseHelper.success(res, routine, 'Routine paused successfully');
@@ -113,7 +116,8 @@ export class RoutineController {
             const routine = await routineService.archiveRoutineTemplate(userId, id);
 
             if (!routine) {
-                return ResponseHelper.notFound(res, 'Routine not found');
+                ResponseHelper.notFound(res, 'Routine not found');
+                return;
             }
 
             ResponseHelper.success(res, routine, 'Routine archived successfully');
@@ -132,7 +136,8 @@ export class RoutineController {
             const routine = await routineService.unarchiveRoutineTemplate(userId, id);
 
             if (!routine) {
-                return ResponseHelper.notFound(res, 'Routine not found');
+                ResponseHelper.notFound(res, 'Routine not found');
+                return;
             }
 
             ResponseHelper.success(res, routine, 'Routine unarchived successfully');
@@ -151,7 +156,8 @@ export class RoutineController {
             const deleted = await routineService.deleteRoutineTemplate(userId, id);
 
             if (!deleted) {
-                return ResponseHelper.notFound(res, 'Routine not found');
+                ResponseHelper.notFound(res, 'Routine not found');
+                return;
             }
 
             ResponseHelper.success(res, null, 'Routine deleted successfully');
@@ -191,7 +197,8 @@ export class RoutineController {
                 ResponseHelper.created(res, log, 'Routine log saved successfully');
             } catch (error: any) {
                 if (error.message === 'Routine not found') {
-                    return ResponseHelper.notFound(res, error.message);
+                    ResponseHelper.notFound(res, error.message);
+                    return;
                 }
                 throw error;
             }
@@ -227,13 +234,15 @@ export class RoutineController {
                 const log = await routineService.updateRoutineLog(userId, id, params);
 
                 if (!log) {
-                    return ResponseHelper.notFound(res, 'Routine log not found');
+                    ResponseHelper.notFound(res, 'Routine log not found');
+                    return;
                 }
 
                 ResponseHelper.success(res, log, 'Routine log updated successfully');
             } catch (error: any) {
                 if (error.message === 'Routine not found') {
-                    return ResponseHelper.notFound(res, error.message);
+                    ResponseHelper.notFound(res, error.message);
+                    return;
                 }
                 throw error;
             }
@@ -252,7 +261,8 @@ export class RoutineController {
             const deleted = await routineService.deleteRoutineLog(userId, id);
 
             if (!deleted) {
-                return ResponseHelper.notFound(res, 'Routine log not found');
+                ResponseHelper.notFound(res, 'Routine log not found');
+                return;
             }
 
             ResponseHelper.success(res, null, 'Routine log deleted successfully');
@@ -278,7 +288,8 @@ export class RoutineController {
                 ResponseHelper.success(res, stats, 'Routine statistics retrieved successfully');
             } catch (error: any) {
                 if (error.message === 'Routine not found') {
-                    return ResponseHelper.notFound(res, error.message);
+                    ResponseHelper.notFound(res, error.message);
+                    return;
                 }
                 throw error;
             }

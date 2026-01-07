@@ -58,9 +58,10 @@ export class TagController {
   static searchTags = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id.toString();
     const { q } = req.query;
-    
+
     if (!q || typeof q !== 'string') {
-      return ResponseHelper.badRequest(res, 'Query parameter "q" is required');
+      ResponseHelper.badRequest(res, 'Query parameter "q" is required');
+      return;
     }
 
     const tags = await tagService.searchTags(userId, q);

@@ -15,7 +15,8 @@ export class MediaController {
     const { folderId, tags } = req.body;
 
     if (!req.file) {
-      return ResponseHelper.badRequest(res, 'No file uploaded');
+      ResponseHelper.badRequest(res, 'No file uploaded');
+      return;
     }
 
     try {
@@ -118,9 +119,10 @@ export class MediaController {
   static bulkMoveMedia = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id.toString();
     const { mediaIds, targetFolderId } = req.body;
-    
+
     if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
-      return ResponseHelper.badRequest(res, 'mediaIds array is required');
+      ResponseHelper.badRequest(res, 'mediaIds array is required');
+      return;
     }
 
     await mediaService.bulkMoveMedia(userId, mediaIds, targetFolderId);

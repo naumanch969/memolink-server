@@ -3,13 +3,7 @@ import { IMedia } from '../../shared/types';
 export interface IMediaService {
   createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia>;
   getMediaById(mediaId: string, userId: string): Promise<IMedia>;
-  getUserMedia(userId: string, options?: any): Promise<{
-    media: IMedia[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }>;
+  getUserMedia(userId: string, options?: any): Promise<{ media: IMedia[]; total: number; page: number; limit: number; totalPages: number; }>;
   updateMedia(mediaId: string, userId: string, updateData: UpdateMediaRequest): Promise<IMedia>;
   deleteMedia(mediaId: string, userId: string): Promise<void>;
 }

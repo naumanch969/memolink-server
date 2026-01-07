@@ -4,6 +4,7 @@ export interface IWidgetItem {
     id: string;
     text: string;
     completed: boolean;
+    completedAt?: string; // ISO timestamp of when task was completed
 }
 
 export interface IWidgetData {
