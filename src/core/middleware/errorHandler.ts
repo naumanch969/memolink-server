@@ -23,12 +23,7 @@ export class CustomError extends Error implements AppError {
   }
 }
 
-export const errorHandler = (
-  error: AppError,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const errorHandler = (error: AppError, req: Request, res: Response, next: NextFunction): void => {
   let { statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR, message } = error;
 
   // Log error
@@ -83,7 +78,8 @@ export const notFoundHandler = (req: Request, res: Response, next: NextFunction)
   next(error);
 };
 
-export const asyncHandler = (fn: Function) => {
+
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
