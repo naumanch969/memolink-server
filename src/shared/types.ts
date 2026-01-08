@@ -268,7 +268,7 @@ export interface JWTPayload {
 }
 
 // Routine Types
-export type RoutineType = 'boolean' | 'checklist' | 'counter' | 'duration' | 'text' | 'scale';
+export type RoutineType = 'boolean' | 'checklist' | 'counter' | 'duration' | 'text' | 'scale' | 'time';
 export type RoutineStatus = 'active' | 'paused' | 'archived';
 export type CompletionMode = 'strict' | 'gradual';
 
@@ -287,6 +287,9 @@ export interface IRoutineConfig {
 
   // Text type
   prompt?: string;
+
+  // Time type
+  targetTime?: string; // HH:mm format
 }
 
 // Routine Schedule
@@ -333,6 +336,9 @@ export interface IRoutineLogData {
 
   // Text type
   text?: string;
+
+  // Time type
+  time?: string; // HH:mm format
 }
 
 // Routine Log

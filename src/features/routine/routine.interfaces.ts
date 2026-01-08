@@ -28,6 +28,7 @@ export interface UpdateRoutineTemplateParams {
     name?: string;
     description?: string;
     icon?: string;
+    type?: RoutineType;
     config?: IRoutineConfig;
     schedule?: IRoutineSchedule;
     completionMode?: CompletionMode;
@@ -63,6 +64,7 @@ export interface GetRoutineLogsQuery {
     startDate?: string;
     endDate?: string;
     routineId?: string;
+    timezoneOffset?: number;
 }
 
 export interface GetRoutineStatsQuery {

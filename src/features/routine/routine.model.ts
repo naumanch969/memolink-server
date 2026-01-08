@@ -22,6 +22,7 @@ const routineConfigSchema = new Schema(
         scale: { type: Number, min: 2, max: 10 },
         scaleLabels: [{ type: String }],
         prompt: { type: String, trim: true },
+        targetTime: { type: String, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
     },
     { _id: false }
 );
@@ -158,6 +159,7 @@ const routineLogDataSchema = new Schema(
         checkedItems: [{ type: Boolean }],
         value: { type: Number, min: 0 },
         text: { type: String, trim: true, maxlength: 1000 },
+        time: { type: String, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
     },
     { _id: false }
 );

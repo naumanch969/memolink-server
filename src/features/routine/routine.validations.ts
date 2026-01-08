@@ -69,6 +69,11 @@ export const createRoutineTemplateValidation = [
         .isLength({ max: ROUTINE_VALIDATION.TEXT_PROMPT_MAX_LENGTH })
         .withMessage(`Prompt cannot exceed ${ROUTINE_VALIDATION.TEXT_PROMPT_MAX_LENGTH} characters`),
 
+    body('config.targetTime')
+        .optional()
+        .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+        .withMessage('Target time must be in HH:mm format'),
+
     body('schedule')
         .isObject()
         .withMessage('Schedule must be an object'),
@@ -125,6 +130,11 @@ export const updateRoutineTemplateValidation = [
         .trim()
         .isLength({ max: 50 })
         .withMessage('Icon cannot exceed 50 characters'),
+
+    body('type')
+        .optional()
+        .isIn(Object.values(ROUTINE_TYPES))
+        .withMessage(`Type must be one of: ${Object.values(ROUTINE_TYPES).join(', ')}`),
 
     body('config')
         .optional()
@@ -231,6 +241,11 @@ export const createRoutineLogValidation = [
         .isLength({ max: ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH })
         .withMessage(`Text cannot exceed ${ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH} characters`),
 
+    body('data.time')
+        .optional()
+        .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+        .withMessage('Time must be in HH:mm format'),
+
     body('journalEntryId')
         .optional()
         .isMongoId()
@@ -268,6 +283,11 @@ export const updateRoutineLogValidation = [
         .trim()
         .isLength({ max: ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH })
         .withMessage(`Text cannot exceed ${ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH} characters`),
+
+    body('data.time')
+        .optional()
+        .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+        .withMessage('Time must be in HH:mm format'),
 
     body('journalEntryId')
         .optional()

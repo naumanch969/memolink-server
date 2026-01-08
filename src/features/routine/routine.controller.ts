@@ -212,7 +212,10 @@ export class RoutineController {
     static getRoutineLogs = asyncHandler(
         async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
             const userId = req.user!._id.toString();
-            const query: GetRoutineLogsQuery = req.query;
+            const query: GetRoutineLogsQuery = {
+                ...req.query,
+                timezoneOffset: req.query.timezoneOffset ? Number(req.query.timezoneOffset) : undefined
+            };
 
             const logs = await routineService.getRoutineLogs(userId, query);
 

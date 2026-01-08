@@ -93,6 +93,7 @@ export const ROUTINE_TYPES = {
   DURATION: 'duration',
   TEXT: 'text',
   SCALE: 'scale',
+  TIME: 'time',
 } as const;
 
 // Routine Status

@@ -287,6 +287,7 @@ export class RoutineService {
             // Recalculate streaks
             await this.recalculateStreaks(userId, params.routineId);
 
+            await existingLog.populate('routineId');
             return existingLog.toObject();
         } else {
             // Create new log
@@ -308,6 +309,7 @@ export class RoutineService {
             // Recalculate streaks
             await this.recalculateStreaks(userId, params.routineId);
 
+            await log.populate('routineId');
             return log.toObject();
         }
     }
@@ -315,10 +317,7 @@ export class RoutineService {
     /**
      * Get routine logs
      */
-    async getRoutineLogs(
-        userId: string,
-        query: GetRoutineLogsQuery
-    ): Promise<IRoutineLog[]> {
+    async getRoutineLogs(userId: string, query: GetRoutineLogsQuery): Promise<IRoutineLog[]> {
         const filter: any = { userId: new Types.ObjectId(userId) };
 
         if (query.routineId) {
@@ -326,9 +325,39 @@ export class RoutineService {
         }
 
         if (query.date) {
-            const date = new Date(query.date);
-            date.setHours(0, 0, 0, 0);
-            filter.date = date;
+            const baseDate = new Date(query.date);
+            // Base date is 00:00:00 UTC of the requested day
+            baseDate.setUTCHours(0, 0, 0, 0);
+
+            if (query.timezoneOffset !== undefined) {
+                // timezoneOffset is in minutes (e.g., 300 for UTC-5, -300 for UTC+5)
+                // We want to find the UTC time that corresponds to 00:00 Local Time
+                // Local 00:00 = UTC 00:00 + Offset
+                const startMs = baseDate.getTime() + query.timezoneOffset * 60 * 1000;
+                const endMs = startMs + 24 * 60 * 60 * 1000 - 1;
+
+                filter.date = {
+                    $gte: new Date(startMs),
+                    $lte: new Date(endMs),
+                };
+            } else {
+                // Fallback: Check a wider range to catch slight timezone shifts if offset unknown
+                // Previous logic extended back 6 hours
+                const startDate = new Date(query.date);
+                startDate.setHours(-14, 0, 0, 0); // extend back to catch UTC+14
+                const endDate = new Date(query.date);
+                endDate.setHours(35, 59, 59, 999); // extend forward to catch UTC-12
+                // Actually, just standard fallback
+                const s = new Date(query.date);
+                s.setHours(-6, 0, 0, 0);
+                const e = new Date(query.date);
+                e.setHours(23, 59, 59, 999);
+
+                filter.date = {
+                    $gte: s,
+                    $lte: e,
+                };
+            }
         } else if (query.startDate || query.endDate) {
             filter.date = {};
             if (query.startDate) {
@@ -709,6 +738,11 @@ export class RoutineService {
                 completionPercentage =
                     data.text && data.text.trim() ? 100 : 0;
                 break;
+
+            case 'time':
+                completionPercentage =
+                    data.time && data.time.trim() ? 100 : 0;
+                break;
         }
 
         // Determine if counts for streak
@@ -729,10 +763,7 @@ export class RoutineService {
     /**
      * Recalculate streaks for a routine
      */
-    private async recalculateStreaks(
-        userId: string,
-        routineId: string
-    ): Promise<void> {
+    private async recalculateStreaks(userId: string, routineId: string): Promise<void> {
         const routine = await RoutineTemplate.findOne({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
@@ -742,7 +773,10 @@ export class RoutineService {
             return;
         }
 
-        // Get all logs that count for streak, sorted by date descending
+        const activeDays = routine.schedule.activeDays;
+        if (!activeDays || activeDays.length === 0) return;
+
+        // Fetch logs sorted by date descending
         const logs = await RoutineLog.find({
             userId: new Types.ObjectId(userId),
             routineId: new Types.ObjectId(routineId),
@@ -751,59 +785,175 @@ export class RoutineService {
             .sort({ date: -1 })
             .lean();
 
-        let currentStreak = 0;
-        let longestStreak = 0;
-        let tempStreak = 0;
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        let expectedDate = new Date(today);
-
-        // Move to previous scheduled day if today is not scheduled
-        while (!routine.schedule.activeDays.includes(expectedDate.getDay())) {
-            expectedDate.setDate(expectedDate.getDate() - 1);
+        if (logs.length === 0) {
+            await RoutineTemplate.findByIdAndUpdate(routineId, {
+                $set: {
+                    'streakData.currentStreak': 0,
+                    'streakData.longestStreak': 0,
+                    'streakData.totalCompletions': 0,
+                    'streakData.lastCompletedDate': null,
+                },
+            });
+            return;
         }
 
-        for (const log of logs) {
-            const logDate = new Date(log.date);
-            logDate.setHours(0, 0, 0, 0);
+        // 1. Deduplicate Logs (Fix Db Sync Issues)
+        // We assume logs within 18 hours of each other are for the same "effective day" given the timezone shifts seen.
+        const uniqueLogs: typeof logs = [];
+        const idsToDelete: Types.ObjectId[] = [];
 
-            // Check if log date matches expected date
-            if (logDate.getTime() === expectedDate.getTime()) {
-                tempStreak++;
-                if (currentStreak === 0) {
-                    currentStreak = tempStreak;
+        if (logs.length > 0) {
+            uniqueLogs.push(logs[0]);
+            let lastLogTime = new Date(logs[0].date).getTime();
+
+            for (let i = 1; i < logs.length; i++) {
+                const currentLogTime = new Date(logs[i].date).getTime();
+                const diffHours = (lastLogTime - currentLogTime) / (1000 * 60 * 60);
+
+                if (diffHours < 18) {
+                    // Duplicate/Same day entry
+                    idsToDelete.push(logs[i]._id as unknown as Types.ObjectId);
+                } else {
+                    uniqueLogs.push(logs[i]);
+                    lastLogTime = currentLogTime;
                 }
-
-                // Move to previous scheduled day
-                do {
-                    expectedDate.setDate(expectedDate.getDate() - 1);
-                } while (!routine.schedule.activeDays.includes(expectedDate.getDay()));
-            } else {
-                // Streak broken
-                longestStreak = Math.max(longestStreak, tempStreak);
-                tempStreak = 0;
-                currentStreak = 0;
-                break;
             }
         }
 
-        longestStreak = Math.max(longestStreak, tempStreak);
+        // Clean up duplicates if any
+        if (idsToDelete.length > 0) {
+            await RoutineLog.deleteMany({ _id: { $in: idsToDelete } });
+        }
 
-        // Update routine with new streak data
+        // 2. Helper for day comparison
+        // Returns approximate difference in calendar days
+        const getDiffDays = (d1: Date, d2: Date): number => {
+            const msPerDay = 1000 * 60 * 60 * 24;
+            // Use UTC to avoid DST weirdness, but here we rely on the rough difference
+            return Math.round((d1.getTime() - d2.getTime()) / msPerDay);
+        };
+
+        // Check if a gap of days contains any active days (streak breaker)
+        // start matches the 'more recent' date, end matches the 'older' date
+        const isGapSafe = (startDate: Date, gapInDays: number): boolean => {
+            // We need to check the days BETWEEN startDate and (startDate - gap)
+            // Example: Today Mon. Last log Sat. Gap = 2 days.
+            // Check Sunday.
+            // dateCursor starts at startDate - 1 day.
+
+            const dateCursor = new Date(startDate);
+
+            for (let i = 1; i < gapInDays; i++) {
+                dateCursor.setDate(dateCursor.getDate() - 1);
+                // Check if this intermediate day was an active day
+                if (activeDays.includes(dateCursor.getDay())) {
+                    return false; // Found a missed active day!
+                }
+            }
+            return true;
+        };
+
+        // 3. Calculate Streaks
+        let longestStreak = 0;
+        let currentStreak = 0;
+        let tempStreak = 1; // Start with 1 for the first log in a segment
+
+        // Iterate unique logs to find longest streak
+        if (uniqueLogs.length > 0) {
+            for (let i = 0; i < uniqueLogs.length - 1; i++) {
+                const recent = new Date(uniqueLogs[i].date);
+                const older = new Date(uniqueLogs[i + 1].date);
+                const diff = getDiffDays(recent, older);
+
+                if (diff === 1) {
+                    // Consecutive
+                    tempStreak++;
+                } else {
+                    // Gap > 1. Check if safe (only inactive days in between)
+                    if (isGapSafe(recent, diff)) {
+                        tempStreak++;
+                    } else {
+                        // Streak broken
+                        longestStreak = Math.max(longestStreak, tempStreak);
+                        tempStreak = 1;
+                    }
+                }
+            }
+            longestStreak = Math.max(longestStreak, tempStreak);
+        }
+
+        // 4. Determine Current Streak
+        if (uniqueLogs.length > 0) {
+            const now = new Date();
+            const lastLogDate = new Date(uniqueLogs[0].date);
+            const diffFromNow = getDiffDays(now, lastLogDate);
+
+            // 0 = Today, 1 = Yesterday
+            if (diffFromNow <= 0) {
+                // Done today (or future? treat as today)
+                // Re-run segment count for head
+                let headStreak = 1;
+                for (let i = 0; i < uniqueLogs.length - 1; i++) {
+                    const recent = new Date(uniqueLogs[i].date);
+                    const older = new Date(uniqueLogs[i + 1].date);
+                    const diff = getDiffDays(recent, older);
+                    if (diff === 1 || isGapSafe(recent, diff)) {
+                        headStreak++;
+                    } else {
+                        break;
+                    }
+                }
+                currentStreak = headStreak;
+
+            } else if (diffFromNow === 1) {
+                // Done yesterday. Streak valid.
+                let headStreak = 1;
+                for (let i = 0; i < uniqueLogs.length - 1; i++) {
+                    const recent = new Date(uniqueLogs[i].date);
+                    const older = new Date(uniqueLogs[i + 1].date);
+                    const diff = getDiffDays(recent, older);
+                    if (diff === 1 || isGapSafe(recent, diff)) {
+                        headStreak++;
+                    } else {
+                        break;
+                    }
+                }
+                currentStreak = headStreak;
+            } else {
+                // Gap > 1 day from Now. Check if safe.
+                if (isGapSafe(now, diffFromNow)) {
+                    // It is safe! (e.g. we haven't logged for 2 days but they were weekends/off-days)
+                    let headStreak = 1;
+
+                    for (let i = 0; i < uniqueLogs.length - 1; i++) {
+                        const recent = new Date(uniqueLogs[i].date);
+                        const older = new Date(uniqueLogs[i + 1].date);
+                        const diff = getDiffDays(recent, older);
+                        if (diff === 1 || isGapSafe(recent, diff)) {
+                            headStreak++;
+                        } else {
+                            break;
+                        }
+                    }
+                    currentStreak = headStreak;
+                } else {
+                    currentStreak = 0;
+                }
+            }
+        }
+
+        // Update Routine
         await RoutineTemplate.findByIdAndUpdate(routineId, {
             $set: {
                 'streakData.currentStreak': currentStreak,
-                'streakData.longestStreak': Math.max(
-                    longestStreak,
-                    routine.streakData.longestStreak
-                ),
-                'streakData.totalCompletions': logs.length,
-                'streakData.lastCompletedDate': logs.length > 0 ? logs[0].date : undefined,
+                'streakData.longestStreak': longestStreak,
+                'streakData.totalCompletions': uniqueLogs.length,
+                'streakData.lastCompletedDate': uniqueLogs.length > 0 ? uniqueLogs[0].date : undefined,
             },
         });
     }
+
+
 }
 
 export default new RoutineService();
