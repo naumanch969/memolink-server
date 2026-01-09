@@ -82,7 +82,7 @@ export interface IReminder {
     linkedTags?: Types.ObjectId[];
     linkedPeople?: Types.ObjectId[];
     linkedEntries?: Types.ObjectId[];
-    linkedGoals?: Types.ObjectId[];
+
 
     // Metadata
     createdAt: Date;
@@ -135,7 +135,7 @@ export interface CreateReminderRequest {
     linkedTags?: string[];
     linkedPeople?: string[];
     linkedEntries?: string[];
-    linkedGoals?: string[];
+
 }
 
 export interface UpdateReminderRequest {
@@ -152,7 +152,7 @@ export interface UpdateReminderRequest {
     linkedTags?: string[];
     linkedPeople?: string[];
     linkedEntries?: string[];
-    linkedGoals?: string[];
+
 }
 
 export interface GetRemindersQuery {
@@ -163,7 +163,7 @@ export interface GetRemindersQuery {
     tagId?: string;
     personId?: string;
     entryId?: string;
-    goalId?: string;
+
     limit?: number;
     skip?: number;
 }
@@ -194,7 +194,7 @@ export interface ReminderResponse {
     linkedTags?: any[]; // Can be populated
     linkedPeople?: any[];
     linkedEntries?: any[];
-    linkedGoals?: any[];
+
     createdAt: string;
     updatedAt: string;
 }

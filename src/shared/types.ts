@@ -224,30 +224,7 @@ export interface AnalyticsData {
   };
 }
 
-// Goal Types - Simplified for Weekly Goals
-export interface ICheckpoint extends BaseEntity {
-  goalId: Types.ObjectId;
-  title: string;
-  description?: string;
-  isCompleted: boolean;
-  completedAt?: Date;
-  order: number; // For sorting checkpoints within a week
-  entries: Types.ObjectId[]; // Entry IDs linked to this checkpoint
-}
 
-export interface IGoal extends BaseEntity {
-  userId: Types.ObjectId;
-  year: number; // e.g., 2025
-  weekNumber: number; // 1-52
-  weekStartDate: Date; // Monday of the week
-  weekEndDate: Date; // Sunday of the week
-  checkpoints: Types.ObjectId[]; // References to ICheckpoint
-  status: 'active' | 'completed' | 'archived';
-  notes?: string; // Overall notes for the week
-  currentValue?: number; // Current progress value (for tracking)
-  targetValue?: number; // Target value to reach (for tracking)
-  linkedTags?: Types.ObjectId[]; // Tags that trigger auto-increment when used in entries
-}
 
 // Export Types
 export interface ExportOptions {

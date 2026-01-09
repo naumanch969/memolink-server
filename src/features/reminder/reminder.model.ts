@@ -74,7 +74,7 @@ const ReminderSchema = new Schema<IReminderDocument>(
         linkedTags: [{ type: Schema.Types.ObjectId, ref: 'Tag', },],
         linkedPeople: [{ type: Schema.Types.ObjectId, ref: 'Person', },],
         linkedEntries: [{ type: Schema.Types.ObjectId, ref: 'Entry', },],
-        linkedGoals: [{ type: Schema.Types.ObjectId, ref: 'Goal', },],
+
     },
     { timestamps: true, }
 );

@@ -12,7 +12,6 @@ import folderRoutes from '../features/media/folder.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
 import insightsRoutes from '../features/insights/insights.routes';
 import exportRoutes from '../features/export/export.routes';
-import goalRoutes from '../features/goals/goal.routes';
 import widgetRoutes from '../features/widget/widget.routes';
 import routineRoutes from '../features/routine/routine.routes';
 import routineLogRoutes from '../features/routine/routine-logs.routes';
@@ -46,7 +45,6 @@ router.get('/docs', (req, res) => {
       folders: '/api/folders',
       analytics: '/api/analytics',
       export: '/api/export',
-      goals: '/api/goals',
       widgets: '/api/widgets',
       routines: '/api/routines',
       routineLogs: '/api/routine-logs',
@@ -67,7 +65,6 @@ router.use('/folders', folderRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/insights', insightsRoutes);
 router.use('/export', exportRoutes);
-router.use('/goals', goalRoutes);
 router.use('/widgets', widgetRoutes);
 router.use('/routines', routineRoutes);
 router.use('/routine-logs', routineLogRoutes);
@@ -85,7 +82,6 @@ logger.info('Routes registered successfully', {
     'folders',
     'analytics',
     'export',
-    'goals',
     'widgets',
     'routines',
     'reminders',

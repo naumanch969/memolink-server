@@ -29,7 +29,7 @@ class MetricsService {
 
     // Business Metrics
     public entriesCreated: Counter;
-    public goalsCreated: Counter;
+
     public tagsCreated: Counter;
     public mediaUploaded: Counter;
 
@@ -149,12 +149,7 @@ class MetricsService {
             registers: [this.registry],
         });
 
-        this.goalsCreated = new Counter({
-            name: 'memolink_goals_created_total',
-            help: 'Total number of goals created',
-            labelNames: ['user_id', 'goal_type'],
-            registers: [this.registry],
-        });
+
 
         this.tagsCreated = new Counter({
             name: 'memolink_tags_created_total',
@@ -292,9 +287,7 @@ class MetricsService {
         this.entriesCreated.inc({ user_id: userId });
     }
 
-    recordGoalCreated(userId: string, goalType: string): void {
-        this.goalsCreated.inc({ user_id: userId, goal_type: goalType });
-    }
+
 
     recordTagCreated(userId: string): void {
         this.tagsCreated.inc({ user_id: userId });

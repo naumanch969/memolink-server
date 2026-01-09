@@ -19,7 +19,7 @@ export const COLLECTIONS = {
   PERSONS: 'persons',
   TAGS: 'tags',
   MEDIA: 'media',
-  GOALS: 'goals',
+
   ROUTINE_TEMPLATES: 'routine_templates',
   ROUTINE_LOGS: 'routine_logs',
   ROUTINE_PREFERENCES: 'routine_preferences',

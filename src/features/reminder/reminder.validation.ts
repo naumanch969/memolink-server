@@ -139,15 +139,7 @@ export const createReminderValidation = [
         .isMongoId()
         .withMessage('Invalid entry ID format'),
 
-    body('linkedGoals')
-        .optional()
-        .isArray()
-        .withMessage('Linked goals must be an array'),
 
-    body('linkedGoals.*')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid goal ID format'),
 ];
 
 // ============================================
@@ -222,10 +214,7 @@ export const updateReminderValidation = [
         .isArray()
         .withMessage('Linked entries must be an array'),
 
-    body('linkedGoals')
-        .optional()
-        .isArray()
-        .withMessage('Linked goals must be an array'),
+
 ];
 
 // ============================================
@@ -280,10 +269,7 @@ export const getRemindersQueryValidation = [
         .isMongoId()
         .withMessage('Invalid entry ID format'),
 
-    query('goalId')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid goal ID format'),
+
 
     query('limit')
         .optional()

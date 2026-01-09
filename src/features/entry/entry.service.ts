@@ -1,5 +1,5 @@
 import { Entry } from './entry.model';
-import { Goal } from '../goals/goal.model';
+
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
@@ -63,37 +63,6 @@ export class EntryService implements IEntryService {
         mentions: [...(entryData.mentions || []), ...mentionIds],
         tags: [...(entryData.tags || []), ...tagIds],
       });
-
-      // ---- GOAL AUTO-INCREMENT LOGIC ----
-      const linkedTagIds = entry.tags; // These are ObjectIds
-      if (linkedTagIds && linkedTagIds.length > 0) {
-        // Find active goals that link to these tags
-        // We use $in to find any goal where 'linkedTags' array contains any of our entry tags
-        const goals = await Goal.find({
-          userId,
-          status: 'active',
-          linkedTags: { $in: linkedTagIds }
-        });
-
-        if (goals.length > 0) {
-          // Update each goal
-          const updates = goals.map(async (goal) => {
-            // Determine increment value (default 1, maybe weighted later?)
-            const increment = 1;
-
-            goal.currentValue = (goal.currentValue || 0) + increment;
-
-            // Auto-complete if target reached? 
-            // Let's keep it manual for now or optional, but visually 100% is nice
-
-            return goal.save();
-          });
-
-          await Promise.all(updates);
-          logger.info(`Auto-incremented ${goals.length} goals for entry ${entry._id}`);
-        }
-      }
-      // -----------------------------------
 
       await entry.save();
       await entry.populate(['mentions', 'tags', 'media']);

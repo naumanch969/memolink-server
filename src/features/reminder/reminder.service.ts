@@ -39,9 +39,7 @@ class ReminderService {
             if (data.linkedEntries?.length) {
                 reminderData.linkedEntries = data.linkedEntries.map((id) => new Types.ObjectId(id));
             }
-            if (data.linkedGoals?.length) {
-                reminderData.linkedGoals = data.linkedGoals.map((id) => new Types.ObjectId(id));
-            }
+
 
             const reminder = await Reminder.create(reminderData);
 
@@ -95,9 +93,7 @@ class ReminderService {
             if (query.entryId) {
                 filter.linkedEntries = new Types.ObjectId(query.entryId);
             }
-            if (query.goalId) {
-                filter.linkedGoals = new Types.ObjectId(query.goalId);
-            }
+
 
             const limit = query.limit || 50;
             const skip = query.skip || 0;
@@ -110,7 +106,7 @@ class ReminderService {
                     .populate('linkedTags', 'name color')
                     .populate('linkedPeople', 'name avatar')
                     .populate('linkedEntries', 'content date')
-                    .populate('linkedGoals', 'title status')
+
                     .lean(),
                 Reminder.countDocuments(filter),
             ]);
@@ -135,7 +131,7 @@ class ReminderService {
                 .populate('linkedTags', 'name color')
                 .populate('linkedPeople', 'name avatar')
                 .populate('linkedEntries', 'content date')
-                .populate('linkedGoals', 'title status')
+
                 .lean();
 
             if (!reminder) {
@@ -231,9 +227,7 @@ class ReminderService {
             if (data.linkedEntries !== undefined) {
                 reminder.linkedEntries = data.linkedEntries.map((id) => new Types.ObjectId(id));
             }
-            if (data.linkedGoals !== undefined) {
-                reminder.linkedGoals = data.linkedGoals.map((id) => new Types.ObjectId(id));
-            }
+
 
             await reminder.save();
 
@@ -414,7 +408,7 @@ class ReminderService {
             linkedTags: reminder.linkedTags || [],
             linkedPeople: reminder.linkedPeople || [],
             linkedEntries: reminder.linkedEntries || [],
-            linkedGoals: reminder.linkedGoals || [],
+
             createdAt: reminder.createdAt.toISOString(),
             updatedAt: reminder.updatedAt.toISOString(),
         };
