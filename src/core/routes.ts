@@ -17,6 +17,7 @@ import routineRoutes from '../features/routine/routine.routes';
 import routineLogRoutes from '../features/routine/routine-logs.routes';
 import routinePreferencesRoutes from '../features/routine/routine-preferences.routes';
 import reminderRoutes from '../features/reminder/reminder.routes';
+import goalRoutes from '../features/goal/goal.routes';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.get('/docs', (req, res) => {
       routineLogs: '/api/routine-logs',
       routinePreferences: '/api/routine-preferences',
       reminders: '/api/reminders',
+      goals: '/api/goals',
     },
     documentation: 'https://github.com/naumanch969/memolink-server',
   });
@@ -70,6 +72,7 @@ router.use('/routines', routineRoutes);
 router.use('/routine-logs', routineLogRoutes);
 router.use('/routine-preferences', routinePreferencesRoutes);
 router.use('/reminders', reminderRoutes);
+router.use('/goals', goalRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {
@@ -85,6 +88,7 @@ logger.info('Routes registered successfully', {
     'widgets',
     'routines',
     'reminders',
+    'goals',
   ],
 });
 
