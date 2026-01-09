@@ -1,31 +1,9 @@
 import { Types } from 'mongoose';
-import {
-    RoutineTemplate,
-    RoutineLog,
-    UserRoutinePreferences,
-} from './routine.model';
-import {
-    IRoutineTemplate,
-    IRoutineLog,
-    IUserRoutinePreferences,
-    IRoutineStats,
-    IRoutineAnalytics,
-    RoutineType,
-    IRoutineConfig,
-} from '../../shared/types';
-import {
-    CreateRoutineTemplateParams,
-    UpdateRoutineTemplateParams,
-    CreateRoutineLogParams,
-    UpdateRoutineLogParams,
-    GetRoutineLogsQuery,
-    GetRoutineStatsQuery,
-    GetRoutineAnalyticsQuery,
-    UpdateUserRoutinePreferencesParams,
-    StreakCalculationResult,
-    CompletionCalculationResult,
-} from './routine.interfaces';
+import { RoutineTemplate, RoutineLog, UserRoutinePreferences, } from './routine.model';
+import { IRoutineTemplate, IRoutineLog, IUserRoutinePreferences, IRoutineStats, IRoutineAnalytics, RoutineType, IRoutineConfig, } from '../../shared/types';
+import { CreateRoutineTemplateParams, UpdateRoutineTemplateParams, CreateRoutineLogParams, UpdateRoutineLogParams, GetRoutineLogsQuery, GetRoutineStatsQuery, GetRoutineAnalyticsQuery, UpdateUserRoutinePreferencesParams, CompletionCalculationResult, } from './routine.interfaces';
 import { ROUTINE_STATUS } from '../../shared/constants';
+import { goalService } from '../goal/goal.service';
 
 export class RoutineService {
     // ============================================
@@ -112,16 +90,91 @@ export class RoutineService {
             updateData.linkedTags = params.linkedTags.map((id) => new Types.ObjectId(id));
         }
 
-        return await RoutineTemplate.findOneAndUpdate(
-            {
-                _id: new Types.ObjectId(routineId),
-                userId: new Types.ObjectId(userId),
-            },
+        // VERSIONING LOGIC: If config is changing, push the old config to history
+        if (updateData.config) {
+            const oldRoutine = await RoutineTemplate.findById(routineId);
+
+            // Only push to history if config actually changed
+            if (oldRoutine && JSON.stringify(oldRoutine.config) !== JSON.stringify(updateData.config)) {
+                const now = new Date();
+                const historyUpdate: any[] = oldRoutine.configHistory || [];
+
+                // Backfill if empty
+                if (historyUpdate.length === 0) {
+                    historyUpdate.push({
+                        validFrom: oldRoutine.createdAt,
+                        config: oldRoutine.config
+                    });
+                }
+
+                // Check against last entry to prevent duplicates
+                const lastEntry = historyUpdate[historyUpdate.length - 1];
+                const isDuplicate = lastEntry && JSON.stringify(lastEntry.config) === JSON.stringify(updateData.config);
+
+                if (!isDuplicate) {
+                    // Add new version
+                    historyUpdate.push({
+                        validFrom: now,
+                        config: updateData.config
+                    });
+                }
+
+                updateData.configHistory = historyUpdate;
+            }
+
+
+
+        }
+
+        const result = await RoutineTemplate.findOneAndUpdate(
+            { _id: new Types.ObjectId(routineId), userId: new Types.ObjectId(userId), },
             { $set: updateData },
             { new: true, runValidators: true }
         )
             .populate('linkedTags', 'name color')
             .lean();
+
+        // Refresh today's logs to match new config
+        // This ensures that if the user changes the target today, any existing logs for today are updated
+        if (updateData.config) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+
+            const logs = await RoutineLog.find({
+                userId: new Types.ObjectId(userId),
+                routineId: new Types.ObjectId(routineId),
+                date: { $gte: startOfToday }
+            });
+
+            // Reuse the updated routine for calculation (we need the Document, not lean)
+            const updatedRoutine = await RoutineTemplate.findById(routineId);
+
+            for (const log of logs) {
+                if (!updatedRoutine) continue;
+
+                // No need to update snapshot anymore since we rely on versioning
+                // Just recalculate based on versioned config logic
+
+                const { completionPercentage, countsForStreak } = this.calculateCompletion(
+                    updatedRoutine.type,
+                    log.data,
+                    updatedRoutine.config,
+                    updatedRoutine,
+                    log.date
+                );
+
+                log.completionPercentage = completionPercentage;
+                log.countsForStreak = countsForStreak;
+
+                await log.save();
+            }
+
+            if (logs.length > 0) {
+                await this.recalculateStreaks(userId, routineId);
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -262,7 +315,7 @@ export class RoutineService {
 
         // Calculate completion percentage and streak eligibility
         const { completionPercentage, countsForStreak } =
-            this.calculateCompletion(routine.type, params.data, routine.config, routine);
+            this.calculateCompletion(routine.type, params.data, routine.config, routine, logDate);
 
         // Check if log already exists
         const existingLog = await RoutineLog.findOne({
@@ -282,6 +335,12 @@ export class RoutineService {
                 existingLog.journalEntryId = new Types.ObjectId(params.journalEntryId);
             }
 
+            // Recalculate completion with potentially updated history/config context
+            // Note: In a pure update, config might not change, but we respect the date
+            const recalculation = this.calculateCompletion(routine.type, params.data, routine.config, routine, logDate);
+            existingLog.completionPercentage = recalculation.completionPercentage;
+            existingLog.countsForStreak = recalculation.countsForStreak;
+
             await existingLog.save();
 
             // Recalculate streaks
@@ -291,6 +350,14 @@ export class RoutineService {
             return existingLog.toObject();
         } else {
             // Create new log
+            const { completionPercentage, countsForStreak } = this.calculateCompletion(
+                routine.type,
+                params.data,
+                routine.config,
+                routine,
+                logDate
+            );
+
             const log = new RoutineLog({
                 userId: new Types.ObjectId(userId),
                 routineId: new Types.ObjectId(params.routineId),
@@ -381,15 +448,9 @@ export class RoutineService {
     /**
      * Update a routine log
      */
-    async updateRoutineLog(
-        userId: string,
-        logId: string,
-        params: UpdateRoutineLogParams
-    ): Promise<IRoutineLog | null> {
-        const log = await RoutineLog.findOne({
-            _id: new Types.ObjectId(logId),
-            userId: new Types.ObjectId(userId),
-        });
+    async updateRoutineLog(userId: string, logId: string, params: UpdateRoutineLogParams): Promise<IRoutineLog | null> {
+
+        const log = await RoutineLog.findOne({ _id: new Types.ObjectId(logId), userId: new Types.ObjectId(userId), });
 
         if (!log) {
             return null;
@@ -405,11 +466,11 @@ export class RoutineService {
             log.data = params.data;
 
             // Recalculate completion
-            const { completionPercentage, countsForStreak } =
-                this.calculateCompletion(routine.type, params.data, routine.config, routine);
+            const { completionPercentage, countsForStreak } = this.calculateCompletion(routine.type, params.data, routine.config, routine, log.date);
 
             log.completionPercentage = completionPercentage;
             log.countsForStreak = countsForStreak;
+
         }
 
         if (params.journalEntryId) {
@@ -706,9 +767,34 @@ export class RoutineService {
     private calculateCompletion(
         type: RoutineType,
         data: any,
-        config: IRoutineConfig,
-        routine: IRoutineTemplate
+        defaultConfig: IRoutineConfig,
+        routine: IRoutineTemplate,
+        date?: Date
     ): CompletionCalculationResult {
+        // Resolve correct config based on date if provided
+        let config = defaultConfig;
+
+        if (date && routine.configHistory && routine.configHistory.length > 0) {
+            // Find the config valid for this date
+            // Logic: sort history descenting by validFrom, find first where validFrom <= date
+            const sortedHistory = [...routine.configHistory].sort((a, b) =>
+                new Date(b.validFrom).getTime() - new Date(a.validFrom).getTime()
+            );
+
+            // We need to normalize comparison date to avoid time-of-day mismatches
+            const compareDate = new Date(date).getTime();
+
+            // Find the most recent history entry that started before or on this date
+            const historyEntry = sortedHistory.find(h => new Date(h.validFrom).getTime() <= compareDate);
+
+            // If we found a historical entry, use it. 
+            // Note: If no entry is found (date is older than history), we might want to fall back to the OLDEST known history or just current.
+            // But usually backing fill logic handles this.
+            if (historyEntry) {
+                config = historyEntry.config;
+            }
+        }
+
         let completionPercentage = 0;
 
         switch (type) {

@@ -1,14 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
-import {
-    IRoutineTemplate,
-    IRoutineLog,
-    IUserRoutinePreferences,
-} from '../../shared/types';
-import {
-    COLLECTIONS,
-    ROUTINE_TYPES,
-    ROUTINE_STATUS,
-} from '../../shared/constants';
+import { IRoutineTemplate, IRoutineLog, IUserRoutinePreferences, } from '../../shared/types';
+import { COLLECTIONS, ROUTINE_TYPES, ROUTINE_STATUS, } from '../../shared/constants';
 
 // ============================================
 // ROUTINE TEMPLATE SCHEMA
@@ -23,6 +15,14 @@ const routineConfigSchema = new Schema(
         scaleLabels: [{ type: String }],
         prompt: { type: String, trim: true },
         targetTime: { type: String, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
+    },
+    { _id: false }
+);
+
+const routineConfigHistorySchema = new Schema(
+    {
+        validFrom: { type: Date, required: true },
+        config: { type: routineConfigSchema, required: true }
     },
     { _id: false }
 );
@@ -84,6 +84,10 @@ const routineTemplateSchema = new Schema<IRoutineTemplate>(
             type: routineConfigSchema,
             required: true,
             default: {},
+        },
+        configHistory: {
+            type: [routineConfigHistorySchema],
+            default: []
         },
         schedule: {
             type: routineScheduleSchema,
@@ -206,7 +210,7 @@ const routineLogSchema = new Schema<IRoutineLog>(
         loggedAt: {
             type: Date,
             default: Date.now,
-        },
+        }
     },
     {
         timestamps: true,
@@ -304,19 +308,8 @@ const userRoutinePreferencesSchema = new Schema<IUserRoutinePreferences>(
 );
 
 // Export models
-export const RoutineTemplate = mongoose.model<IRoutineTemplate>(
-    'RoutineTemplate',
-    routineTemplateSchema
-);
-
-export const RoutineLog = mongoose.model<IRoutineLog>(
-    'RoutineLog',
-    routineLogSchema
-);
-
-export const UserRoutinePreferences = mongoose.model<IUserRoutinePreferences>(
-    'UserRoutinePreferences',
-    userRoutinePreferencesSchema
-);
+export const RoutineTemplate = mongoose.model<IRoutineTemplate>('RoutineTemplate', routineTemplateSchema);
+export const RoutineLog = mongoose.model<IRoutineLog>('RoutineLog', routineLogSchema);
+export const UserRoutinePreferences = mongoose.model<IUserRoutinePreferences>('UserRoutinePreferences', userRoutinePreferencesSchema);
 
 export default RoutineTemplate;

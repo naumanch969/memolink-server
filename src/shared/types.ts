@@ -290,6 +290,7 @@ export interface IRoutineTemplate extends BaseEntity {
   icon?: string;
   type: RoutineType;
   config: IRoutineConfig;
+  configHistory?: Array<{ validFrom: Date; config: IRoutineConfig }>;
   schedule: IRoutineSchedule;
   completionMode: CompletionMode;
   gradualThreshold?: number;
@@ -328,6 +329,7 @@ export interface IRoutineLog extends BaseEntity {
   countsForStreak: boolean;
   journalEntryId?: Types.ObjectId;
   loggedAt: Date;
+  configSnapshot?: IRoutineConfig;
 }
 
 // User Routine Preferences
@@ -366,4 +368,61 @@ export interface IRoutineAnalytics {
     completionRate: number;
     streak: number;
   }>;
+}
+
+// Goal Types
+export type GoalStatus = 'active' | 'completed' | 'failed' | 'archived';
+
+export interface IGoalConfig {
+  // Common
+  targetValue?: number; // For counter, duration, scale
+  targetItems?: string[]; // For checklist
+  targetTime?: string; // For time-based goals
+  unit?: string; // For counter/duration
+
+  // Boolean specific (usually just "done")
+  // Text specific (maybe word count? or just 'finish')
+}
+
+export interface IGoalProgress {
+  currentValue?: number;
+  completedItems?: string[]; // specific items from checklist that are done
+  notes?: string;
+  lastUpdate?: Date;
+}
+
+export interface IGoalMilestone {
+  _id?: Types.ObjectId;
+  title: string;
+  targetValue?: number;
+  deadline?: Date;
+  completed: boolean;
+  completedAt?: Date;
+}
+
+export interface IGoal extends BaseEntity {
+  userId: Types.ObjectId;
+  title: string;
+  description?: string;
+  why?: string; // Motivation
+  icon?: string;
+  color?: string;
+
+  type: RoutineType; // reusing RoutineType
+  status: GoalStatus;
+
+  config: IGoalConfig;
+  progress: IGoalProgress;
+
+  startDate: Date;
+  deadline?: Date;
+  completedAt?: Date;
+
+  linkedRoutines?: Types.ObjectId[]; // Routines that contribute to this goal
+  milestones?: IGoalMilestone[];
+
+  priority: 'low' | 'medium' | 'high';
+  tags?: Types.ObjectId[];
+
+  reward?: string;
 }

@@ -23,6 +23,7 @@ export const COLLECTIONS = {
   ROUTINE_TEMPLATES: 'routine_templates',
   ROUTINE_LOGS: 'routine_logs',
   ROUTINE_PREFERENCES: 'routine_preferences',
+  GOALS: 'goals',
 } as const;
 
 // User Roles
@@ -100,6 +101,14 @@ export const ROUTINE_TYPES = {
 export const ROUTINE_STATUS = {
   ACTIVE: 'active',
   PAUSED: 'paused',
+  ARCHIVED: 'archived',
+} as const;
+
+// Goal Status
+export const GOAL_STATUS = {
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
   ARCHIVED: 'archived',
 } as const;
 
