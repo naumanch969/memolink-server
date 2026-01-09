@@ -290,7 +290,6 @@ export interface IRoutineTemplate extends BaseEntity {
   icon?: string;
   type: RoutineType;
   config: IRoutineConfig;
-  configHistory?: Array<{ validFrom: Date; config: IRoutineConfig }>;
   schedule: IRoutineSchedule;
   completionMode: CompletionMode;
   gradualThreshold?: number;

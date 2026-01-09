@@ -19,14 +19,6 @@ const routineConfigSchema = new Schema(
     { _id: false }
 );
 
-const routineConfigHistorySchema = new Schema(
-    {
-        validFrom: { type: Date, required: true },
-        config: { type: routineConfigSchema, required: true }
-    },
-    { _id: false }
-);
-
 const routineScheduleSchema = new Schema(
     {
         activeDays: {
@@ -84,11 +76,7 @@ const routineTemplateSchema = new Schema<IRoutineTemplate>(
             type: routineConfigSchema,
             required: true,
             default: {},
-        },
-        configHistory: {
-            type: [routineConfigHistorySchema],
-            default: []
-        },
+        }, 
         schedule: {
             type: routineScheduleSchema,
             required: true,
@@ -231,10 +219,11 @@ routineLogSchema.index(
 );
 
 // Pre-save middleware to normalize date to start of day
+// Pre-save middleware to normalize date to start of day
 routineLogSchema.pre('save', function (next) {
     if (this.date) {
         const normalized = new Date(this.date);
-        normalized.setHours(0, 0, 0, 0);
+        normalized.setUTCHours(0, 0, 0, 0);
         this.date = normalized;
     }
     next();
