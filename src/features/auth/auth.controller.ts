@@ -91,7 +91,7 @@ export class AuthController {
   // Resend verification email
   static resendVerification = asyncHandler(async (req: Request, res: Response) => {
     const { email }: ResendVerificationRequest = req.body;
-    // TODO: Implement resend verification logic
+    await authService.resendVerification(email);
     ResponseHelper.success(res, null, 'Verification email sent');
   });
 
