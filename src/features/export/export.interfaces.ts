@@ -1,7 +1,7 @@
 import { ExportOptions } from '../../shared/types';
 
 export interface IExportService {
-  exportData(userId: string, options: ExportRequest): Promise<ExportResponse>;
+  exportData(userId: string, options: ExportRequest, res: any): Promise<void>;
 }
 
 export interface ExportRequest {

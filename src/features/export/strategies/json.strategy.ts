@@ -1,0 +1,92 @@
+import { Response } from 'express';
+import { Types } from 'mongoose';
+import { ExportStrategy } from './export.strategy';
+import { ExportRequest } from '../export.interfaces';
+import { Entry } from '../../entry/entry.model';
+import { Person } from '../../person/person.model';
+import { Tag } from '../../tag/tag.model';
+import { Media } from '../../media/media.model';
+import { Helpers } from '../../../shared/helpers';
+
+export class JsonStrategy implements ExportStrategy {
+    async execute(res: Response, userId: string, options: ExportRequest): Promise<void> {
+        const userObjectId = new Types.ObjectId(userId);
+        const { from, to } = Helpers.getDateRange(options.dateFrom, options.dateTo);
+
+        // Build filter
+        const filter: any = { userId: userObjectId };
+        if (from) filter.createdAt = { ...filter.createdAt, $gte: from };
+        if (to) filter.createdAt = { ...filter.createdAt, $lte: to };
+        if (!options.includePrivate) filter.isPrivate = false;
+
+        // Set headers for download
+        const filename = `memolink-export-${new Date().toISOString().split('T')[0]}.json`;
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        // Start JSON object
+        res.write('{\n  "metadata": {\n');
+        res.write(`    "exportedAt": "${new Date().toISOString()}",\n`);
+        res.write(`    "userId": "${userId}",\n`);
+        res.write(`    "dateRange": { "from": "${options.dateFrom || 'null'}", "to": "${options.dateTo || 'null'}" }\n`);
+        res.write('  },\n');
+
+        // Stream Entries
+        res.write('  "entries": [\n');
+
+        // Use cursor for efficient streaming
+        const entryCursor = Entry.find(filter)
+            .populate(['mentions', 'tags', 'media'])
+            .sort({ createdAt: -1 })
+            .cursor();
+
+        let isFirstEntry = true;
+        for (let doc = await entryCursor.next(); doc != null; doc = await entryCursor.next()) {
+            if (!isFirstEntry) {
+                res.write(',\n');
+            }
+            res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    ')); // Indent for prettiness
+            isFirstEntry = false;
+        }
+        res.write('\n  ],\n');
+
+        // Stream People (can use cursor or regular find if not huge, but let's be consistent)
+        res.write('  "people": [\n');
+        const peopleCursor = Person.find({ userId: userObjectId }).cursor();
+        let isFirstPerson = true;
+        for (let doc = await peopleCursor.next(); doc != null; doc = await peopleCursor.next()) {
+            if (!isFirstPerson) res.write(',\n');
+            res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    '));
+            isFirstPerson = false;
+        }
+        res.write('\n  ],\n');
+
+        // Stream Tags
+        res.write('  "tags": [\n');
+        const tagsCursor = Tag.find({ userId: userObjectId }).cursor();
+        let isFirstTag = true;
+        for (let doc = await tagsCursor.next(); doc != null; doc = await tagsCursor.next()) {
+            if (!isFirstTag) res.write(',\n');
+            res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    '));
+            isFirstTag = false;
+        }
+        res.write('\n  ]'); // End tags array
+
+        // Optional Media (Metadata only)
+        if (options.includeMedia) {
+            res.write(',\n  "media": [\n');
+            const mediaCursor = Media.find({ userId: userObjectId }).cursor();
+            let isFirstMedia = true;
+            for (let doc = await mediaCursor.next(); doc != null; doc = await mediaCursor.next()) {
+                if (!isFirstMedia) res.write(',\n');
+                res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    '));
+                isFirstMedia = false;
+            }
+            res.write('\n  ]');
+        }
+
+        // Close main object
+        res.write('\n}');
+        res.end();
+    }
+}
