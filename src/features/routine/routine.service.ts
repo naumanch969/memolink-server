@@ -3,6 +3,7 @@ import { RoutineTemplate, RoutineLog, UserRoutinePreferences, } from './routine.
 import { IRoutineTemplate, IRoutineLog, IUserRoutinePreferences, IRoutineStats, IRoutineAnalytics, RoutineType, IRoutineConfig, } from '../../shared/types';
 import { CreateRoutineTemplateParams, UpdateRoutineTemplateParams, CreateRoutineLogParams, UpdateRoutineLogParams, GetRoutineLogsQuery, GetRoutineStatsQuery, GetRoutineAnalyticsQuery, UpdateUserRoutinePreferencesParams, CompletionCalculationResult, } from './routine.interfaces';
 import { ROUTINE_STATUS } from '../../shared/constants';
+import { goalService } from '../goal/goal.service';
 
 const DEFAULT_GRADUAL_THRESHOLD = 80;
 const DEFAULT_COMPLETION_MODE = 'strict';
@@ -15,10 +16,7 @@ export class RoutineService {
     /**
      * Create a new routine template
      */
-    async createRoutineTemplate(
-        userId: string,
-        params: CreateRoutineTemplateParams
-    ): Promise<IRoutineTemplate> {
+    async createRoutineTemplate(userId: string, params: CreateRoutineTemplateParams): Promise<IRoutineTemplate> {
         const linkedTagIds = params.linkedTags?.map((id) => new Types.ObjectId(id));
 
         const routine = new RoutineTemplate({
@@ -63,10 +61,7 @@ export class RoutineService {
     /**
      * Get a single routine template by ID
      */
-    async getRoutineTemplateById(
-        userId: string,
-        routineId: string
-    ): Promise<IRoutineTemplate | null> {
+    async getRoutineTemplateById(userId: string, routineId: string): Promise<IRoutineTemplate | null> {
         return await RoutineTemplate.findOne({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
@@ -78,11 +73,7 @@ export class RoutineService {
     /**
      * Update a routine template
      */
-    async updateRoutineTemplate(
-        userId: string,
-        routineId: string,
-        params: UpdateRoutineTemplateParams
-    ): Promise<IRoutineTemplate | null> {
+    async updateRoutineTemplate(userId: string, routineId: string, params: UpdateRoutineTemplateParams): Promise<IRoutineTemplate | null> {
         const updateData: Record<string, any> = { ...params };
 
         if (params.linkedTags) {
@@ -142,10 +133,7 @@ export class RoutineService {
     /**
      * Pause a routine template
      */
-    async pauseRoutineTemplate(
-        userId: string,
-        routineId: string
-    ): Promise<IRoutineTemplate | null> {
+    async pauseRoutineTemplate(userId: string, routineId: string): Promise<IRoutineTemplate | null> {
         return await RoutineTemplate.findOneAndUpdate(
             {
                 _id: new Types.ObjectId(routineId),
@@ -161,10 +149,7 @@ export class RoutineService {
     /**
      * Archive a routine template
      */
-    async archiveRoutineTemplate(
-        userId: string,
-        routineId: string
-    ): Promise<IRoutineTemplate | null> {
+    async archiveRoutineTemplate(userId: string, routineId: string): Promise<IRoutineTemplate | null> {
         return await RoutineTemplate.findOneAndUpdate(
             {
                 _id: new Types.ObjectId(routineId),
@@ -185,10 +170,7 @@ export class RoutineService {
     /**
      * Unarchive a routine template
      */
-    async unarchiveRoutineTemplate(
-        userId: string,
-        routineId: string
-    ): Promise<IRoutineTemplate | null> {
+    async unarchiveRoutineTemplate(userId: string, routineId: string): Promise<IRoutineTemplate | null> {
         return await RoutineTemplate.findOneAndUpdate(
             {
                 _id: new Types.ObjectId(routineId),
@@ -209,10 +191,7 @@ export class RoutineService {
     /**
      * Delete a routine template and all its logs
      */
-    async deleteRoutineTemplate(
-        userId: string,
-        routineId: string
-    ): Promise<boolean> {
+    async deleteRoutineTemplate(userId: string, routineId: string): Promise<boolean> {
         const routine = await RoutineTemplate.findOneAndDelete({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
@@ -233,10 +212,7 @@ export class RoutineService {
     /**
      * Reorder routine templates
      */
-    async reorderRoutineTemplates(
-        userId: string,
-        routineIds: string[]
-    ): Promise<void> {
+    async reorderRoutineTemplates(userId: string, routineIds: string[]): Promise<void> {
         const bulkOps = routineIds.map((id, index) => ({
             updateOne: {
                 filter: {
@@ -257,10 +233,7 @@ export class RoutineService {
     /**
      * Create or update a routine log
      */
-    async createOrUpdateRoutineLog(
-        userId: string,
-        params: CreateRoutineLogParams
-    ): Promise<IRoutineLog> {
+    async createOrUpdateRoutineLog(userId: string, params: CreateRoutineLogParams): Promise<IRoutineLog> {
         // Get the routine template
         const routine = await RoutineTemplate.findOne({
             _id: new Types.ObjectId(params.routineId),
@@ -279,6 +252,23 @@ export class RoutineService {
         // We calculate this upfront since logic is same for create/update
         const { completionPercentage, countsForStreak } =
             this.calculateCompletion(routine.type, params.data, routine.config, routine, logDate);
+
+        // Fetch existing log to calculate delta for goal updates
+        const existingLog = await RoutineLog.findOne({
+            userId: new Types.ObjectId(userId),
+            routineId: new Types.ObjectId(params.routineId),
+            date: logDate,
+        });
+
+        const delta = this.calculateDelta(routine.type, existingLog?.data, params.data);
+        if (delta !== 0) {
+            await goalService.updateProgressFromRoutineLog(
+                userId,
+                params.routineId,
+                routine.type,
+                delta
+            );
+        }
 
         // Use findOneAndUpdate with upsert: true to handle concurrency safely
         // This avoids race conditions where two requests try to insert same day log
@@ -391,6 +381,7 @@ export class RoutineService {
         }
 
         if (params.data) {
+            const oldData = log.data;
             log.data = params.data;
 
             // Recalculate completion
@@ -399,6 +390,16 @@ export class RoutineService {
             log.completionPercentage = completionPercentage;
             log.countsForStreak = countsForStreak;
 
+            // Calculate delta and update goals
+            const delta = this.calculateDelta(routine.type, oldData, params.data);
+            if (delta !== 0) {
+                await goalService.updateProgressFromRoutineLog(
+                    userId,
+                    log.routineId.toString(),
+                    routine.type,
+                    delta
+                );
+            }
         }
 
         if (params.journalEntryId) {
@@ -440,11 +441,7 @@ export class RoutineService {
     /**
      * Get routine statistics
      */
-    async getRoutineStats(
-        userId: string,
-        routineId: string,
-        query: GetRoutineStatsQuery
-    ): Promise<IRoutineStats> {
+    async getRoutineStats(userId: string, routineId: string, query: GetRoutineStatsQuery): Promise<IRoutineStats> {
         const routine = await RoutineTemplate.findOne({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
@@ -530,10 +527,7 @@ export class RoutineService {
     /**
      * Get overall routine analytics
      */
-    async getRoutineAnalytics(
-        userId: string,
-        query: GetRoutineAnalyticsQuery
-    ): Promise<IRoutineAnalytics> {
+    async getRoutineAnalytics(userId: string, query: GetRoutineAnalyticsQuery): Promise<IRoutineAnalytics> {
         // Get all active routines
         const routines = await RoutineTemplate.find({
             userId: new Types.ObjectId(userId),
@@ -614,9 +608,7 @@ export class RoutineService {
     /**
      * Get user routine preferences
      */
-    async getUserRoutinePreferences(
-        userId: string
-    ): Promise<IUserRoutinePreferences> {
+    async getUserRoutinePreferences(userId: string): Promise<IUserRoutinePreferences> {
         let preferences = await UserRoutinePreferences.findOne({
             userId: new Types.ObjectId(userId),
         }).lean();
@@ -643,10 +635,7 @@ export class RoutineService {
     /**
      * Update user routine preferences
      */
-    async updateUserRoutinePreferences(
-        userId: string,
-        params: UpdateUserRoutinePreferencesParams
-    ): Promise<IUserRoutinePreferences> {
+    async updateUserRoutinePreferences(userId: string, params: UpdateUserRoutinePreferencesParams): Promise<IUserRoutinePreferences> {
         const updateData: any = {};
 
         if (params.reminders) {
@@ -694,15 +683,32 @@ export class RoutineService {
     // ============================================
 
     /**
+     * Calculate delta between old and new data for goal updates
+     */
+    private calculateDelta(type: RoutineType, oldData: any, newData: any): number {
+        const oldVal = oldData || {};
+        const newVal = newData || {};
+
+        if (type === 'counter' || type === 'duration') {
+            const oldV = Number(oldVal.value) || 0;
+            const newV = Number(newVal.value) || 0;
+            return newV - oldV;
+        }
+
+        if (type === 'boolean') {
+            const oldBlean = !!oldVal.completed;
+            const newBlean = !!newVal.completed;
+            if (newBlean === oldBlean) return 0;
+            return newBlean ? 1 : -1;
+        }
+
+        return 0;
+    }
+
+    /**
      * Calculate completion percentage and streak eligibility
      */
-    private calculateCompletion(
-        type: RoutineType,
-        data: any,
-        defaultConfig: IRoutineConfig,
-        routine: IRoutineTemplate,
-        date?: Date
-    ): CompletionCalculationResult {
+    private calculateCompletion(type: RoutineType, data: any, defaultConfig: IRoutineConfig, routine: IRoutineTemplate, date?: Date): CompletionCalculationResult {
         // Resolve correct config based on date if provided
         // Post-migration simplification: Always use the current routine config
         const config = defaultConfig;
