@@ -18,6 +18,7 @@ import routineLogRoutes from '../features/routine/routine-logs.routes';
 import routinePreferencesRoutes from '../features/routine/routine-preferences.routes';
 import reminderRoutes from '../features/reminder/reminder.routes';
 import goalRoutes from '../features/goal/goal.routes';
+import notificationRoutes from '../features/notification/notification.routes';
 
 const router = Router();
 
@@ -73,6 +74,7 @@ router.use('/routine-logs', routineLogRoutes);
 router.use('/routine-preferences', routinePreferencesRoutes);
 router.use('/reminders', reminderRoutes);
 router.use('/goals', goalRoutes);
+router.use('/notifications', notificationRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {
@@ -89,6 +91,7 @@ logger.info('Routes registered successfully', {
     'routines',
     'reminders',
     'goals',
+    'notifications',
   ],
 });
 

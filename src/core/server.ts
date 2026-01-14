@@ -13,7 +13,7 @@ class Server {
 
       // Start server
       this.server = app.listen(config.PORT, () => {
-        logger.info(`🚀 Server running on port ${config.PORT}`, {
+        logger.info(`Server running on port ${config.PORT}`, {
           environment: config.NODE_ENV,
           port: config.PORT,
           timestamp: new Date().toISOString(),

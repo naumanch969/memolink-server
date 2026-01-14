@@ -48,7 +48,7 @@ export const config = {
   ],
 
   // CORS Configuration
-  CORS_ORIGIN: process.env.CORS_ORIGIN.split(',') || ['http://localhost:3000'],
+  CORS_ORIGIN: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
 
   // Logging Configuration
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',

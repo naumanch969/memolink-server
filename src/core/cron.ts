@@ -4,8 +4,12 @@ import { logger } from '../config/logger';
 import { User } from '../features/auth/auth.model';
 import { InsightsService } from '../features/insights/insights.service';
 import { InsightType } from '../features/insights/insights.interfaces';
+import { initNotificationProcessor } from '../features/notification/notification.cron';
 
 export const initCronJobs = () => {
+    // Start Notification Processor
+    initNotificationProcessor();
+
     // Weekly Summary: Every Sunday at 8 PM (20:00)
     cron.schedule('0 20 * * 0', async () => {
         logger.info('Running weekly summary cron job...');
