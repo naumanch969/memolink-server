@@ -1,0 +1,62 @@
+name: Backup MongoDB to Cloudflare R2
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  backup_and_upload:
+    runs-on: ubuntu-latest
+    name: Dump and Upload Backup
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install MongoDB Tools
+        run: |
+          wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-database-tools
+
+      - name: Create Backup
+        id: create_backup
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+        run: |
+          # Create a timestamped filename
+          FILENAME="backup-$(date +'%Y-%m-%d-%H-%M-%S').gz"
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+          
+          # Dump the database to a compressed archive
+          # using --oplog is not supported on free tier usually, so we skip it for standard crash consistent backup
+          mongodump --uri="$MONGO_URI" --archive="$FILENAME" --gzip
+          
+          echo "Backup created: $FILENAME"
+
+      - name: Upload to Cloudflare R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          FILENAME: ${{ env.FILENAME }}
+        run: |
+          # AWS CLI is pre-installed on ubuntu-latest runners
+          
+          # Configure AWS CLI to talk to Cloudflare R2
+          aws configure set aws_access_key_id $R2_ACCESS_KEY_ID
+          aws configure set aws_secret_access_key $R2_SECRET_ACCESS_KEY
+          aws configure set default.region auto
+          
+          # Construct the endpoint URL for R2
+          ENDPOINT_URL="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          
+          # Upload the file
+          echo "Uploading $FILENAME to bucket $R2_BUCKET_NAME..."
+          aws s3 cp "$FILENAME" "s3://$R2_BUCKET_NAME/$FILENAME" --endpoint-url "$ENDPOINT_URL"
+          
+          echo "Upload complete!"
