@@ -27,6 +27,8 @@
   "license": "ISC",
   "description": "Backend server for MemoLink - Personal journaling and life tracking application",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.968.0",
+    "@aws-sdk/s3-request-presigner": "^3.968.0",
     "@types/jsonwebtoken": "^8.5.9",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",

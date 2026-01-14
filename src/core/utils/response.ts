@@ -4,6 +4,7 @@ import { ApiResponse, PaginationMeta } from '../../shared/types';
 
 
 export class ResponseHelper {
+
   static success<T>(
     res: Response,
     data?: T,
