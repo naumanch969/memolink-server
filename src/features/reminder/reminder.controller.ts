@@ -1,106 +1,83 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import reminderService from './reminder.service';
 import { CreateReminderRequest, UpdateReminderRequest, GetRemindersQuery } from './reminder.types';
 import { asyncHandler } from '../../core/middleware/errorHandler';
+import { ResponseHelper } from '../../core/utils/response';
+import { AuthenticatedRequest } from '../../shared/types';
 
 class ReminderController {
     // ============================================
     // CREATE
     // ============================================
 
-    createReminder = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    createReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const data: CreateReminderRequest = req.body;
 
         const reminder = await reminderService.createReminder(userId, data);
 
-        res.status(201).json({
-            success: true,
-            message: 'Reminder created successfully',
-            data: reminder,
-        });
+        ResponseHelper.created(res, reminder, 'Reminder created successfully');
     });
 
     // ============================================
     // READ
     // ============================================
 
-    getReminders = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    getReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const query: GetRemindersQuery = req.query;
 
         const result = await reminderService.getReminders(userId, query);
 
-        res.status(200).json({
-            success: true,
-            message: 'Reminders fetched successfully',
-            data: result.reminders,
-            pagination: {
-                total: result.total,
-                page: result.page,
-                limit: result.limit,
-                totalPages: Math.ceil(result.total / result.limit),
-            },
-        });
+        ResponseHelper.paginated(res, result.reminders, {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            totalPages: Math.ceil(result.total / result.limit),
+        }, 'Reminders fetched successfully');
     });
 
-    getReminderById = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    getReminderById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const { id } = req.params;
 
         const reminder = await reminderService.getReminderById(userId, id);
 
-        res.status(200).json({
-            success: true,
-            message: 'Reminder fetched successfully',
-            data: reminder,
-        });
+        ResponseHelper.success(res, reminder, 'Reminder fetched successfully');
     });
 
-    getUpcomingReminders = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    getUpcomingReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
 
         const reminders = await reminderService.getUpcomingReminders(userId, limit);
 
-        res.status(200).json({
-            success: true,
-            message: 'Upcoming reminders fetched successfully',
-            data: reminders,
-        });
+        ResponseHelper.success(res, reminders, 'Upcoming reminders fetched successfully');
     });
 
-    getOverdueReminders = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    getOverdueReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
 
         const reminders = await reminderService.getOverdueReminders(userId);
 
-        res.status(200).json({
-            success: true,
-            message: 'Overdue reminders fetched successfully',
-            data: reminders,
-        });
+        ResponseHelper.success(res, reminders, 'Overdue reminders fetched successfully');
     });
 
     // ============================================
     // UPDATE
     // ============================================
 
-    updateReminder = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    updateReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const { id } = req.params;
         const data: UpdateReminderRequest = req.body;
 
         const reminder = await reminderService.updateReminder(userId, id, data);
 
-        res.status(200).json({
-            success: true,
-            message: 'Reminder updated successfully',
-            data: reminder,
-        });
+        ResponseHelper.success(res, reminder, 'Reminder updated successfully');
     });
 
-    completeReminder = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    completeReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const { id } = req.params;
         const { completedAt } = req.body;
@@ -111,41 +88,29 @@ class ReminderController {
             completedAt ? new Date(completedAt) : undefined
         );
 
-        res.status(200).json({
-            success: true,
-            message: 'Reminder completed successfully',
-            data: reminder,
-        });
+        ResponseHelper.success(res, reminder, 'Reminder completed successfully');
     });
 
-    cancelReminder = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    cancelReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const { id } = req.params;
 
         const reminder = await reminderService.cancelReminder(userId, id);
 
-        res.status(200).json({
-            success: true,
-            message: 'Reminder cancelled successfully',
-            data: reminder,
-        });
+        ResponseHelper.success(res, reminder, 'Reminder cancelled successfully');
     });
 
     // ============================================
     // DELETE
     // ============================================
 
-    deleteReminder = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    deleteReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         const userId = req.user!._id.toString();
         const { id } = req.params;
 
         await reminderService.deleteReminder(userId, id);
 
-        res.status(200).json({
-            success: true,
-            message: 'Reminder deleted successfully',
-            data: null,
-        });
+        ResponseHelper.success(res, null, 'Reminder deleted successfully');
     });
 }
 

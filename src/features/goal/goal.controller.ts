@@ -2,167 +2,87 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../../shared/types';
 import { goalService } from './goal.service';
 import { HTTP_STATUS } from '../../shared/constants';
-import {
-    CreateGoalParams,
-    UpdateGoalParams,
-    UpdateGoalProgressParams,
-    GetGoalsQuery,
-} from './goal.interfaces';
+import { ResponseHelper } from '../../core/utils/response';
+import { asyncHandler } from '../../core/middleware/errorHandler';
+import { CreateGoalParams, UpdateGoalParams, UpdateGoalProgressParams, GetGoalsQuery, } from './goal.interfaces';
 
 export class GoalController {
 
-    create = async (req: AuthenticatedRequest, res: Response) => {
-        try {
-            const userId = req.user!._id.toString();
-            const params: CreateGoalParams = req.body;
+    create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        const params: CreateGoalParams = req.body;
 
-            const goal = await goalService.createGoal(userId, params);
+        const goal = await goalService.createGoal(userId, params);
 
-            res.status(HTTP_STATUS.CREATED).json({
-                success: true,
-                message: 'Goal created successfully',
-                data: goal,
-            });
-        } catch (error: any) {
-            res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: 'Failed to create goal',
-                error: error.message,
-            });
+        ResponseHelper.created(res, goal, 'Goal created successfully');
+    });
+
+    list = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        const query = req.query as unknown as GetGoalsQuery;
+
+        const goals = await goalService.getGoals(userId, query);
+
+        ResponseHelper.success(res, goals, 'Goals retrieved successfully');
+    });
+
+    getOne = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        const { id } = req.params;
+
+        const goal = await goalService.getGoalById(userId, id);
+
+        if (!goal) {
+            ResponseHelper.notFound(res, 'Goal not found');
+            return;
         }
-    };
 
-    list = async (req: AuthenticatedRequest, res: Response) => {
-        try {
-            const userId = req.user!._id.toString();
-            const query = req.query as unknown as GetGoalsQuery;
+        ResponseHelper.success(res, goal, 'Goal retrieved successfully');
+    });
 
-            const goals = await goalService.getGoals(userId, query);
+    update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        const { id } = req.params;
+        const params: UpdateGoalParams = req.body;
 
-            res.status(HTTP_STATUS.OK).json({
-                success: true,
-                data: goals,
-            });
-        } catch (error: any) {
-            res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: 'Failed to retrieve goals',
-                error: error.message,
-            });
+        const goal = await goalService.updateGoal(userId, id, params);
+
+        if (!goal) {
+            ResponseHelper.notFound(res, 'Goal not found');
+            return;
         }
-    };
 
-    getOne = async (req: AuthenticatedRequest, res: Response) => {
-        try {
-            const userId = req.user!._id.toString();
-            const { id } = req.params;
+        ResponseHelper.success(res, goal, 'Goal updated successfully');
+    });
 
-            const goal = await goalService.getGoalById(userId, id);
+    updateProgress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        const { id } = req.params;
+        const params: UpdateGoalProgressParams = req.body;
 
-            if (!goal) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({
-                    success: false,
-                    message: 'Goal not found',
-                });
-            }
+        const goal = await goalService.updateProgress(userId, id, params);
 
-            res.status(HTTP_STATUS.OK).json({
-                success: true,
-                data: goal,
-            });
-        } catch (error: any) {
-            res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: 'Failed to retrieve goal',
-                error: error.message,
-            });
+        if (!goal) {
+            ResponseHelper.notFound(res, 'Goal not found');
+            return;
         }
-    };
 
-    update = async (req: AuthenticatedRequest, res: Response) => {
-        try {
-            const userId = req.user!._id.toString();
-            const { id } = req.params;
-            const params: UpdateGoalParams = req.body;
+        ResponseHelper.success(res, goal, 'Goal progress updated successfully');
+    });
 
-            const goal = await goalService.updateGoal(userId, id, params);
+    delete = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        const { id } = req.params;
 
-            if (!goal) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({
-                    success: false,
-                    message: 'Goal not found',
-                });
-            }
+        const success = await goalService.deleteGoal(userId, id);
 
-            res.status(HTTP_STATUS.OK).json({
-                success: true,
-                message: 'Goal updated successfully',
-                data: goal,
-            });
-        } catch (error: any) {
-            res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: 'Failed to update goal',
-                error: error.message,
-            });
+        if (!success) {
+            ResponseHelper.notFound(res, 'Goal not found or could not be deleted');
+            return;
         }
-    };
 
-    updateProgress = async (req: AuthenticatedRequest, res: Response) => {
-        try {
-            const userId = req.user!._id.toString();
-            const { id } = req.params;
-            const params: UpdateGoalProgressParams = req.body;
-
-            const goal = await goalService.updateProgress(userId, id, params);
-
-            if (!goal) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({
-                    success: false,
-                    message: 'Goal not found',
-                });
-            }
-
-            res.status(HTTP_STATUS.OK).json({
-                success: true,
-                message: 'Goal progress updated successfully',
-                data: goal,
-            });
-        } catch (error: any) {
-            res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: 'Failed to update goal progress',
-                error: error.message,
-            });
-        }
-    };
-
-    delete = async (req: AuthenticatedRequest, res: Response) => {
-        try {
-            const userId = req.user!._id.toString();
-            const { id } = req.params;
-
-            const success = await goalService.deleteGoal(userId, id);
-
-            if (!success) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({
-                    success: false,
-                    message: 'Goal not found or could not be deleted',
-                });
-            }
-
-            res.status(HTTP_STATUS.OK).json({
-                success: true,
-                message: 'Goal deleted successfully',
-            });
-        } catch (error: any) {
-            res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: 'Failed to delete goal',
-                error: error.message,
-            });
-        }
-    };
+        ResponseHelper.success(res, null, 'Goal deleted successfully');
+    });
 }
 
 export const goalController = new GoalController();

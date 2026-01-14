@@ -1,71 +1,57 @@
 import { Response } from 'express';
 import notificationService from './notification.service';
-import { authenticate } from '../../core/middleware/authMiddleware';
+import { ResponseHelper } from '../../core/utils/response';
+import { asyncHandler } from '../../core/middleware/errorHandler';
 import { AuthenticatedRequest } from '../../shared/types';
 
 class NotificationController {
 
     // Get notifications
-    getNotifications = async (req: AuthenticatedRequest, res: Response) => {
-        if (!req.user) {
-            res.status(401).json({ message: 'Unauthorized' });
-            return;
-        }
-
+    getNotifications = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
         const offset = (page - 1) * limit;
         const unreadOnly = req.query.unread === 'true';
 
         const result = await notificationService.getUserNotifications(
-            req.user._id.toString(),
+            userId,
             limit,
             offset,
             unreadOnly
         );
 
-        res.json({
-            data: result.notifications,
-            meta: {
-                total: result.total,
-                unreadCount: result.unreadCount,
-                page,
-                limit
-            }
-        });
-    };
+        ResponseHelper.paginated(res, result.notifications, {
+            total: result.total,
+            page,
+            limit,
+            unreadCount: result.unreadCount,
+            totalPages: Math.ceil(result.total / limit)
+        } as any, 'Notifications retrieved successfully');
+    });
 
     // Mark one as read
-    markAsRead = async (req: AuthenticatedRequest, res: Response) => {
-        if (!req.user) {
-            res.status(401).json({ message: 'Unauthorized' });
-            return;
-        }
+    markAsRead = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
         const { id } = req.params;
-        await notificationService.markAsRead(req.user._id.toString(), id);
-        res.json({ success: true, message: 'Notification marked as read' });
-    };
+        await notificationService.markAsRead(userId, id);
+        ResponseHelper.success(res, null, 'Notification marked as read');
+    });
 
     // Mark all as read
-    markAllAsRead = async (req: AuthenticatedRequest, res: Response) => {
-        if (!req.user) {
-            res.status(401).json({ message: 'Unauthorized' });
-            return;
-        }
-        await notificationService.markAllAsRead(req.user._id.toString());
-        res.json({ success: true, message: 'All notifications marked as read' });
-    };
+    markAllAsRead = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
+        await notificationService.markAllAsRead(userId);
+        ResponseHelper.success(res, null, 'All notifications marked as read');
+    });
 
     // Delete notification
-    deleteNotification = async (req: AuthenticatedRequest, res: Response) => {
-        if (!req.user) {
-            res.status(401).json({ message: 'Unauthorized' });
-            return;
-        }
+    deleteNotification = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user!._id.toString();
         const { id } = req.params;
-        await notificationService.delete(req.user._id.toString(), id);
-        res.json({ success: true, message: 'Notification deleted' });
-    };
+        await notificationService.delete(userId, id);
+        ResponseHelper.success(res, null, 'Notification deleted');
+    });
 }
 
 export default new NotificationController();
