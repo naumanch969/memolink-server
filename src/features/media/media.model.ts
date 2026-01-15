@@ -19,6 +19,8 @@ const mediaSchema = new Schema<IMedia>({
     pages: Number,              // For PDFs
     frameRate: Number,          // For videos
     bitrate: Number,            // For audio/video
+    codec: String,              // Video/audio codec
+    resolution: String,         // e.g., "1920x1080"
     // Archive metadata
     archiveContents: [{
       name: String,
@@ -31,6 +33,46 @@ const mediaSchema = new Schema<IMedia>({
     // Code file metadata
     language: String,           // Detected language
     lineCount: Number,
+    // Phase 6: Video thumbnails
+    videoThumbnails: [String],  // Multiple thumbnail URLs
+    selectedThumbnailIndex: { type: Number, default: 0 },
+    // Phase 7: EXIF data
+    exif: {
+      make: String,
+      model: String,
+      dateTaken: Date,
+      gps: {
+        latitude: Number,
+        longitude: Number,
+        altitude: Number,
+      },
+      exposureTime: String,
+      fNumber: Number,
+      iso: Number,
+      focalLength: String,
+      lens: String,
+      software: String,
+      orientation: Number,
+    },
+    // Phase 7: OCR
+    ocrText: String,
+    ocrConfidence: Number,
+    // Phase 7: AI tags
+    aiTags: [{
+      tag: String,
+      confidence: Number,
+    }],
+    // Phase 7: Face detection
+    faces: [{
+      personId: { type: Schema.Types.ObjectId, ref: 'Person' },
+      boundingBox: {
+        x: Number,
+        y: Number,
+        width: Number,
+        height: Number,
+      },
+      confidence: Number,
+    }],
   },
   tags: [{ type: String }], // For better organization
   extension: { type: String }, // File extension (e.g., 'pdf', 'zip', 'json')

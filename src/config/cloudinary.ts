@@ -9,7 +9,6 @@ cloudinary.config({
   api_secret: config.CLOUDINARY_API_SECRET,
 });
 
-// Phase 5: Image size presets for responsive images
 export const IMAGE_SIZES = {
   thumbnail: { width: 150, height: 150 },
   small: { width: 320 },
@@ -18,27 +17,76 @@ export const IMAGE_SIZES = {
   xlarge: { width: 2048 },
 } as const;
 
+// Video thumbnail presets
+const VIDEO_THUMBNAIL_COUNT = 5;
+
+export interface CloudinaryUploadResult {
+  url: string;
+  public_id: string;
+  secure_url: string;
+  format: string;
+  width?: number;
+  height?: number;
+  duration?: number;
+  frame_rate?: number;
+  bit_rate?: number;
+  codec?: string;
+  image_metadata?: Record<string, string | number | boolean>; // EXIF data
+  info?: {
+    ocr?: { adv_ocr?: { data?: Array<{ textAnnotations?: Array<{ description?: string; confidence?: number }> }> } };
+    categorization?: { google_tagging?: { data?: Array<{ tag?: string; confidence?: number }> } };
+  };
+}
+
 export class CloudinaryService {
-  // Upload file to Cloudinary
+  /**
+   * Upload file to Cloudinary with enhanced metadata extraction
+   */
   static async uploadFile(
     file: Express.Multer.File,
     folder: string = 'memolink',
-    options: any = {}
-  ): Promise<{
-    url: string;
-    public_id: string;
-    secure_url: string;
-    format: string;
-    width?: number;
-    height?: number;
-    duration?: number;
-  }> {
+    options: {
+      extractExif?: boolean;
+      enableOcr?: boolean;
+      enableAiTagging?: boolean;
+    } = {}
+  ): Promise<CloudinaryUploadResult> {
     try {
-      const uploadOptions = {
+      const isImage = file.mimetype.startsWith('image/');
+      const isVideo = file.mimetype.startsWith('video/');
+      const isDocument = file.mimetype === 'application/pdf';
+
+      const uploadOptions: Record<string, unknown> = {
         folder,
         resource_type: 'auto' as const,
-        ...options,
       };
+
+      // EXIF extraction for images
+      if (isImage && options.extractExif !== false) {
+        uploadOptions.image_metadata = true;
+        uploadOptions.exif = true;
+        uploadOptions.colors = true;
+      }
+
+      // OCR for documents and images
+      if ((isImage || isDocument) && options.enableOcr) {
+        uploadOptions.ocr = 'adv_ocr';
+      }
+
+      // AI auto-tagging
+      if (isImage && options.enableAiTagging) {
+        uploadOptions.categorization = 'google_tagging,aws_rek_tagging';
+        uploadOptions.auto_tagging = 0.6; // Confidence threshold
+      }
+
+      // Video transcoding with eager transformations
+      if (isVideo) {
+        uploadOptions.eager = [
+          // Generate adaptive streaming formats
+          { streaming_profile: 'hd', format: 'm3u8' }, // HLS
+        ];
+        uploadOptions.eager_async = true;
+      }
 
       const result = await cloudinary.uploader.upload(
         `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
@@ -49,6 +97,8 @@ export class CloudinaryService {
         public_id: result.public_id,
         format: result.format,
         size: result.bytes,
+        hasExif: !!result.image_metadata,
+        hasOcr: !!result.info?.ocr,
       });
 
       return {
@@ -59,6 +109,11 @@ export class CloudinaryService {
         width: result.width,
         height: result.height,
         duration: result.duration,
+        frame_rate: result.frame_rate,
+        bit_rate: result.bit_rate,
+        codec: result.video?.codec,
+        image_metadata: result.image_metadata,
+        info: result.info,
       };
     } catch (error) {
       logger.error('Cloudinary upload failed:', error);
@@ -78,7 +133,7 @@ export class CloudinaryService {
   }
 
   // Get file info
-  static async getFileInfo(publicId: string): Promise<any> {
+  static async getFileInfo(publicId: string): Promise<Record<string, unknown>> {
     try {
       const result = await cloudinary.api.resource(publicId);
       return result;
@@ -89,7 +144,7 @@ export class CloudinaryService {
   }
 
   /**
-   * Phase 5: Generate optimized image URL with transformations
+   * Generate optimized image URL with transformations
    * Uses Cloudinary's on-the-fly transformations for:
    * - Responsive sizing
    * - WebP/AVIF auto-format
@@ -203,6 +258,62 @@ export class CloudinaryService {
     transforms.push('c_limit', 'f_jpg', 'q_auto');
 
     return `https://res.cloudinary.com/${cloudName}/image/upload/${transforms.join(',')}/${publicId}.jpg`;
+  }
+
+  /**
+   * Generate multiple video thumbnails at different timestamps
+   * Returns array of thumbnail URLs for user selection
+   */
+  static getVideoThumbnails(
+    publicId: string,
+    duration: number,
+    options: {
+      count?: number;
+      width?: number;
+      height?: number;
+    } = {}
+  ): string[] {
+    const { count = VIDEO_THUMBNAIL_COUNT, width = 400, height = 300 } = options;
+    
+    if (duration <= 0) {
+      return [this.getVideoThumbnail(publicId, { width, height, time: '0' })];
+    }
+
+    const thumbnails: string[] = [];
+    const interval = duration / (count + 1);
+
+    for (let i = 1; i <= count; i++) {
+      const time = (interval * i).toFixed(1);
+      thumbnails.push(this.getVideoThumbnail(publicId, { width, height, time }));
+    }
+
+    return thumbnails;
+  }
+
+  /**
+   * Get HLS streaming URL for video
+   */
+  static getVideoStreamingUrl(publicId: string): string {
+    const cloudName = config.CLOUDINARY_CLOUD_NAME;
+    return `https://res.cloudinary.com/${cloudName}/video/upload/sp_hd/${publicId}.m3u8`;
+  }
+
+  /**
+   * Get resource with full info (EXIF, OCR, etc.)
+   */
+  static async getResourceInfo(publicId: string, resourceType: 'image' | 'video' | 'raw' = 'image'): Promise<Record<string, unknown>> {
+    try {
+      const result = await cloudinary.api.resource(publicId, {
+        resource_type: resourceType,
+        image_metadata: true,
+        exif: true,
+        colors: true,
+      });
+      return result;
+    } catch (error) {
+      logger.error('Failed to get resource info:', error);
+      throw error;
+    }
   }
 }
 

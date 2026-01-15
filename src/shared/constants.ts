@@ -72,9 +72,19 @@ export const VALIDATION = {
   PERSON_NAME_MAX_LENGTH: 100,
 } as const;
 
+// Video Limits
+export const VIDEO_LIMITS = {
+  MAX_SIZE: 100 * 1024 * 1024, // 100MB for videos
+  MAX_DURATION: 600, // 10 minutes in seconds
+  MIN_DURATION: 1, // 1 second minimum
+  MAX_RESOLUTION: 3840, // 4K max width
+  ALLOWED_CODECS: ['h264', 'vp8', 'vp9', 'av1'],
+} as const;
+
 // File Upload Constants
 export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
+  MAX_VIDEO_SIZE: 100 * 1024 * 1024, // 100MB for videos
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   ALLOWED_VIDEO_TYPES: ['video/mp4', 'video/webm', 'video/quicktime'],
   ALLOWED_DOCUMENT_TYPES: [

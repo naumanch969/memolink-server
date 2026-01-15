@@ -151,6 +151,8 @@ export interface IMedia extends BaseEntity {
     pages?: number;
     frameRate?: number;
     bitrate?: number;
+    codec?: string;
+    resolution?: string; // e.g., "1920x1080"
     // Archive metadata
     archiveContents?: Array<{
       name: string;
@@ -163,6 +165,41 @@ export interface IMedia extends BaseEntity {
     // Code file metadata
     language?: string;
     lineCount?: number;
+    // Phase 6: Video metadata
+    videoThumbnails?: string[]; // Multiple thumbnail options
+    selectedThumbnailIndex?: number;
+    // Phase 7: EXIF data
+    exif?: {
+      make?: string; // Camera manufacturer
+      model?: string; // Camera model
+      dateTaken?: Date;
+      gps?: {
+        latitude?: number;
+        longitude?: number;
+        altitude?: number;
+      };
+      exposureTime?: string;
+      fNumber?: number;
+      iso?: number;
+      focalLength?: string;
+      lens?: string;
+      software?: string;
+      orientation?: number;
+    };
+    // Phase 7: OCR extracted text
+    ocrText?: string;
+    ocrConfidence?: number;
+    // Phase 7: AI-generated tags
+    aiTags?: Array<{
+      tag: string;
+      confidence: number;
+    }>;
+    // Phase 7: Face detection
+    faces?: Array<{
+      personId?: Types.ObjectId;
+      boundingBox?: { x: number; y: number; width: number; height: number };
+      confidence?: number;
+    }>;
   };
 }
 

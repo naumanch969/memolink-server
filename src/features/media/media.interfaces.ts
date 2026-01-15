@@ -8,6 +8,8 @@ export interface IMediaService {
   deleteMedia(mediaId: string, userId: string): Promise<void>;
 }
 
+export type MediaType = 'image' | 'video' | 'document' | 'audio' | 'archive' | 'data' | 'code';
+
 export interface CreateMediaRequest {
   filename: string;
   originalName: string;
@@ -15,15 +17,45 @@ export interface CreateMediaRequest {
   size: number;
   url: string;
   cloudinaryId: string;
-  type: 'image' | 'video' | 'document' | 'audio';
+  type: MediaType;
   folderId?: string;
   thumbnail?: string;
   tags?: string[];
-  metadata?: {
-    width?: number;
-    height?: number;
-    duration?: number;
-  };
+  extension?: string;
+  altText?: string;
+  description?: string;
+  metadata?: MediaMetadata;
+}
+
+export interface MediaMetadata {
+  width?: number;
+  height?: number;
+  duration?: number;
+  pages?: number;
+  frameRate?: number;
+  bitrate?: number;
+  codec?: string;
+  resolution?: string;
+  videoThumbnails?: string[];
+  selectedThumbnailIndex?: number;
+  exif?: ExifData;
+  ocrText?: string;
+  ocrConfidence?: number;
+  aiTags?: Array<{ tag: string; confidence: number }>;
+}
+
+export interface ExifData {
+  make?: string;
+  model?: string;
+  dateTaken?: Date;
+  gps?: { latitude?: number; longitude?: number; altitude?: number };
+  exposureTime?: string;
+  fNumber?: number;
+  iso?: number;
+  focalLength?: string;
+  lens?: string;
+  software?: string;
+  orientation?: number;
 }
 
 export interface UpdateMediaRequest {
@@ -31,11 +63,9 @@ export interface UpdateMediaRequest {
   originalName?: string;
   folderId?: string;
   tags?: string[];
-  metadata?: {
-    width?: number;
-    height?: number;
-    duration?: number;
-  };
+  altText?: string;
+  description?: string;
+  metadata?: Partial<MediaMetadata>;
 }
 
 export interface BulkMoveMediaRequest {

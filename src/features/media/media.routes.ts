@@ -19,6 +19,7 @@ router.post('/bulk-move', MediaController.bulkMoveMedia);
 router.post('/bulk-delete', MediaController.bulkDeleteMedia);
 router.get('/', MediaController.getUserMedia);
 router.get('/:id', mediaIdValidation, validationMiddleware, MediaController.getMediaById);
+router.put('/:id/thumbnail', mediaIdValidation, validationMiddleware, MediaController.updateThumbnail);
 router.delete('/:id', mediaIdValidation, validationMiddleware, MediaController.deleteMedia);
 
 export default router;
