@@ -7,6 +7,7 @@ import { Types } from 'mongoose';
 import { IMedia } from '../../shared/types';
 import { CloudinaryService } from '../../config/cloudinary';
 import { storageService } from './storage.service';
+import { mediaEvents, MediaEventType } from './media.events';
 
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
@@ -122,6 +123,14 @@ export class MediaService implements IMediaService {
       // Decrement storage usage
       await storageService.decrementUsage(userId, media.size);
 
+      // Emit delete event
+      mediaEvents.emit(MediaEventType.DELETED, {
+        mediaId: media._id.toString(),
+        userId,
+        cloudinaryId: media.cloudinaryId,
+        size: media.size,
+      });
+
       logger.info('Media deleted successfully', { mediaId: media._id, userId });
     } catch (error) {
       logger.error('Media deletion failed:', error);
@@ -151,6 +160,14 @@ export class MediaService implements IMediaService {
           await Media.deleteOne({ _id: media._id });
           totalSizeDeleted += media.size;
           deleted++;
+
+          // Emit delete event for each media
+          mediaEvents.emit(MediaEventType.DELETED, {
+            mediaId: media._id.toString(),
+            userId,
+            cloudinaryId: media.cloudinaryId,
+            size: media.size,
+          });
         } catch (error) {
           errors.push(`Failed to delete ${media.originalName}: ${error}`);
         }

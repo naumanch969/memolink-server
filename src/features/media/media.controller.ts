@@ -10,6 +10,7 @@ import { logger } from '../../config/logger';
 import { validateVideo, validateFileSize, getFileExtension, buildResolutionString, parseCloudinaryExif, parseCloudinaryOcr, parseCloudinaryAiTags, } from './media.utils';
 import { getMediaTypeFromMime } from '../../shared/constants';
 import { storageService } from './storage.service';
+import { mediaEvents, MediaEventType } from './media.events';
 
 // Upload error codes for client-side handling
 const UPLOAD_ERRORS = {
@@ -184,6 +185,40 @@ export class MediaController {
 
       // Increment storage usage
       await storageService.incrementUsage(userId, req.file.size);
+
+      // Emit upload event
+      mediaEvents.emit(MediaEventType.UPLOADED, {
+        media,
+        userId,
+        source: 'web',
+      });
+
+      // Emit metadata events if applicable
+      if (metadata.exif) {
+        mediaEvents.emit(MediaEventType.METADATA_EXTRACTED, {
+          mediaId: media._id.toString(),
+          userId,
+          metadataType: 'exif',
+          data: metadata.exif as unknown as Record<string, unknown>,
+        });
+      }
+
+      if (metadata.ocrText) {
+        mediaEvents.emit(MediaEventType.OCR_COMPLETED, {
+          mediaId: media._id.toString(),
+          userId,
+          text: metadata.ocrText,
+          confidence: metadata.ocrConfidence || 0,
+        });
+      }
+
+      if (metadata.aiTags && metadata.aiTags.length > 0) {
+        mediaEvents.emit(MediaEventType.AI_TAGGED, {
+          mediaId: media._id.toString(),
+          userId,
+          tags: metadata.aiTags,
+        });
+      }
 
       ResponseHelper.created(res, media, 'Media uploaded successfully');
     } catch (dbError: unknown) {
