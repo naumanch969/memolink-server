@@ -33,6 +33,7 @@ const widgetSchema = new Schema<IWidget>(
             type: String,
             required: false,
             trim: true,
+            default: 'General',
         },
         isPinned: {
             type: Boolean,
