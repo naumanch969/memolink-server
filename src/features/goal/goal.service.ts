@@ -15,7 +15,13 @@ export class GoalService {
             tags: params.tags?.map(id => new Types.ObjectId(id)),
         });
 
-        return goal.toObject();
+        // Handle retroactive syncing
+        if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
+            await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
+        }
+
+        // Re-fetch to get updated progress
+        return (await Goal.findById(goal._id).lean()) as IGoal;
     }
 
     async getGoals(userId: string, query: GetGoalsQuery): Promise<IGoal[]> {
@@ -68,9 +74,51 @@ export class GoalService {
             },
             { $set: updateData },
             { new: true, runValidators: true }
-        ).lean();
+        );
 
-        return goal as IGoal | null;
+        if (goal && params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
+            await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
+            return (await Goal.findById(goal._id).lean()) as IGoal;
+        }
+
+        return goal ? goal.toObject() : null;
+    }
+
+    // Helper to calculate total progress from past logs of specified routines
+    private async syncRetroactiveRoutines(userId: string, goalId: string, routineIds: string[]) {
+        const { RoutineLog } = await import('../routine/routine.model'); // Dynamic import to avoid circular dependency if any
+
+        const goal = await Goal.findById(goalId);
+        if (!goal) return;
+
+        let totalIncrement = 0;
+
+        for (const routineId of routineIds) {
+            // Fetch all logs for this routine
+            const logs = await RoutineLog.find({
+                userId: new Types.ObjectId(userId),
+                routineId: new Types.ObjectId(routineId),
+
+            });
+
+            // Calculate contribution based on goal type logic (simplified)
+            // Ideally should match the logic in updateProgressFromRoutineLog but aggregated
+            for (const log of logs) {
+                // If log counts for streak or has progress
+                // Simple logic: add log value if present, else 1 if completed
+                if (log.data.value !== undefined) {
+                    totalIncrement += log.data.value;
+                } else if (log.countsForStreak || log.data.completed) {
+                    totalIncrement += 1;
+                }
+            }
+        }
+
+        if (totalIncrement > 0) {
+            goal.progress.currentValue = (goal.progress.currentValue || 0) + totalIncrement;
+            goal.progress.lastUpdate = new Date();
+            await goal.save();
+        }
     }
 
     async updateProgress(

@@ -1,10 +1,8 @@
-import { Types } from 'mongoose';
 import {
-    RoutineType,
-    RoutineStatus,
     CompletionMode,
     IRoutineConfig,
     IRoutineSchedule,
+    RoutineType
 } from '../../shared/types';
 
 // ============================================
@@ -64,6 +62,7 @@ export interface GetRoutineLogsQuery {
     startDate?: string;
     endDate?: string;
     routineId?: string;
+    routineIds?: string[];
     timezoneOffset?: number;
 }
 

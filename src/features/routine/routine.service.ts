@@ -317,7 +317,14 @@ export class RoutineService {
     async getRoutineLogs(userId: string, query: GetRoutineLogsQuery): Promise<IRoutineLog[]> {
         const filter: any = { userId: new Types.ObjectId(userId) };
 
-        if (query.routineId) {
+        if (query.routineIds) {
+            const ids = Array.isArray(query.routineIds)
+                ? query.routineIds
+                // If it comes as a string (comma separated or single), split it
+                : (query.routineIds as string).split(',');
+
+            filter.routineId = { $in: ids.map(id => new Types.ObjectId(id.trim())) };
+        } else if (query.routineId) {
             filter.routineId = new Types.ObjectId(query.routineId);
         }
 

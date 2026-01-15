@@ -1,10 +1,8 @@
 import {
     GoalStatus,
     IGoalConfig,
-    IGoalProgress,
-    RoutineType,
+    RoutineType
 } from '../../shared/types';
-import { Types } from 'mongoose';
 
 export interface CreateGoalParams {
     title: string;
@@ -29,6 +27,7 @@ export interface CreateGoalParams {
         targetValue?: number;
         deadline?: string | Date;
     }>;
+    retroactiveRoutines?: string[];
 }
 
 export interface UpdateGoalParams {
@@ -56,6 +55,7 @@ export interface UpdateGoalParams {
         deadline?: string | Date;
         completed?: boolean;
     }>;
+    retroactiveRoutines?: string[];
 }
 
 export interface UpdateGoalProgressParams {
