@@ -1,13 +1,13 @@
 import { Entry } from './entry.model';
 
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
-import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
 import { Helpers } from '../../shared/helpers';
-import { Types } from 'mongoose';
 import { IEntry } from '../../shared/types';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
+import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
 
 export class EntryService implements IEntryService {
   // Helper method to extract mentions from content
@@ -23,25 +23,11 @@ export class EntryService implements IEntryService {
     return mentions;
   }
 
-  // Helper method to extract hashtags from content
-  private extractHashtags(content: string): string[] {
-    const hashtagRegex = /#(\w+)/g;
-    const hashtags: string[] = [];
-    let match;
-
-    while ((match = hashtagRegex.exec(content)) !== null) {
-      hashtags.push(match[1]);
-    }
-
-    return hashtags;
-  }
-
   // Create new entry
   async createEntry(userId: string, entryData: any): Promise<IEntry> {
     try {
-      // Extract mentions and hashtags from content
+      // Extract mentions from content
       const mentionNames = this.extractMentions(entryData.content || '');
-      const hashtagNames = this.extractHashtags(entryData.content || '');
 
       // Auto-create or find persons for mentions
       const mentionIds: Types.ObjectId[] = [];
@@ -50,22 +36,35 @@ export class EntryService implements IEntryService {
         mentionIds.push(person._id as Types.ObjectId);
       }
 
-      // Auto-create or find tags for hashtags
+      // Use explicit tags provided by client
+      // Process tags (IDs or Names)
+      const explicitTags = entryData.tags || [];
       const tagIds: Types.ObjectId[] = [];
-      for (const name of hashtagNames) {
-        const tag = await tagService.findOrCreateTag(userId, name);
-        tagIds.push(tag._id as Types.ObjectId);
+
+      for (const tagIdentifier of explicitTags) {
+        if (Types.ObjectId.isValid(tagIdentifier)) {
+          tagIds.push(new Types.ObjectId(tagIdentifier));
+        } else {
+          // It's a new tag name
+          const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
+          tagIds.push(tag._id as Types.ObjectId);
+        }
       }
 
       const entry = new Entry({
         userId: new Types.ObjectId(userId),
         ...entryData,
         mentions: [...(entryData.mentions || []), ...mentionIds],
-        tags: [...(entryData.tags || []), ...tagIds],
+        tags: tagIds,
       });
 
       await entry.save();
       await entry.populate(['mentions', 'tags', 'media']);
+
+      // Increment tag usage
+      if (explicitTags.length > 0) {
+        await tagService.incrementUsage(userId, explicitTags);
+      }
 
       logger.info('Entry created successfully', {
         entryId: entry._id,
@@ -231,13 +230,7 @@ export class EntryService implements IEntryService {
         resultsCount: entries.length,
       });
 
-      return {
-        entries,
-        total,
-        page,
-        limit,
-        totalPages,
-      };
+      return { entries, total, page, limit, totalPages, };
     } catch (error) {
       logger.error('Search entries failed:', error);
       throw error;
@@ -310,6 +303,28 @@ export class EntryService implements IEntryService {
   // Update entry
   async updateEntry(entryId: string, userId: string, updateData: any): Promise<IEntry> {
     try {
+      // Get existing entry to compare tags
+      const existingEntry = await Entry.findOne({ _id: entryId, userId });
+      if (!existingEntry) {
+        throw createNotFoundError('Entry');
+      }
+
+      const oldTags = (existingEntry.tags || []).map(t => t.toString());
+
+      // Process tags (IDs or Names) for update
+      if (updateData.tags) {
+        const resolvedTagIds: string[] = [];
+        for (const tagIdentifier of updateData.tags) {
+          if (Types.ObjectId.isValid(tagIdentifier)) {
+            resolvedTagIds.push(tagIdentifier);
+          } else {
+            const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
+            resolvedTagIds.push(tag._id.toString());
+          }
+        }
+        updateData.tags = resolvedTagIds;
+      }
+
       const entry = await Entry.findOneAndUpdate(
         { _id: entryId, userId },
         { $set: { ...updateData, isEdited: true } },
@@ -318,6 +333,21 @@ export class EntryService implements IEntryService {
 
       if (!entry) {
         throw createNotFoundError('Entry');
+      }
+
+      // Handle tag usage updates if tags changed
+      if (updateData.tags) {
+        const newTags = updateData.tags; // These are now all IDs string
+
+        const addedTags = newTags.filter((t: string) => !oldTags.includes(t));
+        const removedTags = oldTags.filter((t: string) => !newTags.includes(t));
+
+        if (addedTags.length > 0) {
+          await tagService.incrementUsage(userId, addedTags);
+        }
+        if (removedTags.length > 0) {
+          await tagService.decrementUsage(userId, removedTags);
+        }
       }
 
       logger.info('Entry updated successfully', {
@@ -338,6 +368,12 @@ export class EntryService implements IEntryService {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
       if (!entry) {
         throw createNotFoundError('Entry');
+      }
+
+      // Decrement usage for associated tags
+      if (entry.tags && entry.tags.length > 0) {
+        const tagIds = entry.tags.map(t => t.toString());
+        await tagService.decrementUsage(userId, tagIds);
       }
 
       logger.info('Entry deleted successfully', {

@@ -1,10 +1,10 @@
-import { Tag } from './tag.model';
-import { logger } from '../../config/logger';
-import { createNotFoundError, createConflictError } from '../../core/middleware/errorHandler';
-import { CreateTagRequest, UpdateTagRequest, ITagService } from './tag.interfaces';
-import { Helpers } from '../../shared/helpers';
 import { Types } from 'mongoose';
+import { logger } from '../../config/logger';
+import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
+import { Helpers } from '../../shared/helpers';
 import { ITag } from '../../shared/types';
+import { CreateTagRequest, ITagService, UpdateTagRequest } from './tag.interfaces';
+import { Tag } from './tag.model';
 
 export class TagService implements ITagService {
   async createTag(userId: string, tagData: CreateTagRequest): Promise<ITag> {
@@ -14,10 +14,7 @@ export class TagService implements ITagService {
         throw createConflictError('Tag with this name already exists');
       }
 
-      const tag = new Tag({
-        userId: new Types.ObjectId(userId),
-        ...tagData,
-      });
+      const tag = new Tag({ userId: new Types.ObjectId(userId), ...tagData, });
 
       await tag.save();
       logger.info('Tag created successfully', { tagId: tag._id, userId });
@@ -41,13 +38,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async getUserTags(userId: string, options: any = {}): Promise<{
-    tags: ITag[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  async getUserTags(userId: string, options: any = {}): Promise<{ tags: ITag[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'usageCount');
@@ -104,8 +95,8 @@ export class TagService implements ITagService {
         userId,
         name: { $regex: query, $options: 'i' }
       })
-      .limit(10)
-      .sort({ usageCount: -1 });
+        .limit(10)
+        .sort({ usageCount: -1 });
 
       return tags;
     } catch (error) {
@@ -136,6 +127,36 @@ export class TagService implements ITagService {
     } catch (error) {
       logger.error('Find or create tag failed:', error);
       throw error;
+    }
+  }
+
+  async incrementUsage(userId: string, tagIds: string[]): Promise<void> {
+    try {
+      if (!tagIds || tagIds.length === 0) return;
+
+      const objectIds = tagIds.map(id => new Types.ObjectId(id));
+      await Tag.updateMany(
+        { _id: { $in: objectIds }, userId },
+        { $inc: { usageCount: 1 } }
+      );
+    } catch (error) {
+      logger.error('Increment usage failed:', error);
+      // We don't throw here to prevent unnecessary failures in main flow
+    }
+  }
+
+  async decrementUsage(userId: string, tagIds: string[]): Promise<void> {
+    try {
+      if (!tagIds || tagIds.length === 0) return;
+
+      const objectIds = tagIds.map(id => new Types.ObjectId(id));
+      // Ensure usageCount doesn't go below 0
+      await Tag.updateMany(
+        { _id: { $in: objectIds }, userId, usageCount: { $gt: 0 } },
+        { $inc: { usageCount: -1 } }
+      );
+    } catch (error) {
+      logger.error('Decrement usage failed:', error);
     }
   }
 }

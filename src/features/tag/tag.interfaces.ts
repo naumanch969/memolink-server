@@ -12,6 +12,8 @@ export interface ITagService {
   }>;
   updateTag(tagId: string, userId: string, updateData: UpdateTagRequest): Promise<ITag>;
   deleteTag(tagId: string, userId: string): Promise<void>;
+  incrementUsage(userId: string, tagIds: string[]): Promise<void>;
+  decrementUsage(userId: string, tagIds: string[]): Promise<void>;
 }
 
 export interface CreateTagRequest {
