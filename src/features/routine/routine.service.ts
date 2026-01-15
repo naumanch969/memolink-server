@@ -1,9 +1,9 @@
-import { Types, FilterQuery } from 'mongoose';
-import { RoutineTemplate, RoutineLog, UserRoutinePreferences, } from './routine.model';
-import { IRoutineTemplate, IRoutineLog, IUserRoutinePreferences, IRoutineStats, IRoutineAnalytics, RoutineType, IRoutineConfig, } from '../../shared/types';
-import { CreateRoutineTemplateParams, UpdateRoutineTemplateParams, CreateRoutineLogParams, UpdateRoutineLogParams, GetRoutineLogsQuery, GetRoutineStatsQuery, GetRoutineAnalyticsQuery, UpdateUserRoutinePreferencesParams, CompletionCalculationResult, } from './routine.interfaces';
+import { FilterQuery, Types } from 'mongoose';
 import { ROUTINE_STATUS } from '../../shared/constants';
+import { IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType, } from '../../shared/types';
 import { goalService } from '../goal/goal.service';
+import { CompletionCalculationResult, CreateRoutineLogParams, CreateRoutineTemplateParams, GetRoutineAnalyticsQuery, GetRoutineLogsQuery, GetRoutineStatsQuery, UpdateRoutineLogParams, UpdateRoutineTemplateParams, UpdateUserRoutinePreferencesParams, } from './routine.interfaces';
+import { RoutineLog, RoutineTemplate, UserRoutinePreferences, } from './routine.model';
 
 const DEFAULT_GRADUAL_THRESHOLD = 80;
 const DEFAULT_COMPLETION_MODE = 'strict';
@@ -203,6 +203,10 @@ export class RoutineService {
                 routineId: new Types.ObjectId(routineId),
                 userId: new Types.ObjectId(userId),
             });
+
+            // Cleanup linked goals
+            await goalService.removeLinkedRoutine(routineId);
+
             return true;
         }
 
@@ -689,7 +693,7 @@ export class RoutineService {
         const oldVal = oldData || {};
         const newVal = newData || {};
 
-        if (type === 'counter' || type === 'duration') {
+        if (type === 'counter' || type === 'duration' || type === 'scale') {
             const oldV = Number(oldVal.value) || 0;
             const newV = Number(newVal.value) || 0;
             return newV - oldV;
@@ -700,6 +704,13 @@ export class RoutineService {
             const newBlean = !!newVal.completed;
             if (newBlean === oldBlean) return 0;
             return newBlean ? 1 : -1;
+        }
+
+        if (type === 'checklist') {
+            // Count checked items
+            const oldChecked = (oldVal.checkedItems || []).filter(Boolean).length;
+            const newChecked = (newVal.checkedItems || []).filter(Boolean).length;
+            return newChecked - oldChecked;
         }
 
         return 0;

@@ -1,8 +1,8 @@
 import { Types } from 'mongoose';
-import Goal from './goal.model';
-import { CreateGoalParams, UpdateGoalParams, UpdateGoalProgressParams, GetGoalsQuery } from './goal.interfaces';
 import { GOAL_STATUS } from '../../shared/constants';
 import { IGoal, RoutineType } from '../../shared/types';
+import { CreateGoalParams, GetGoalsQuery, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
+import Goal from './goal.model';
 
 export class GoalService {
 
@@ -123,32 +123,26 @@ export class GoalService {
         });
 
         for (const goal of goals) {
-            // Apply updates logic
-            let increment = 0;
-
-            // Match types
-            if (goal.type === 'counter' || goal.type === 'duration') {
-                // If routine is same type, just add
-                if (routineType === goal.type) {
-                    increment = Number(delta) || 0;
-                }
-                // If routine is boolean (completion), add 1
-                else if (routineType === 'boolean') {
-                    // delta for boolean is 1 (completed) or -1 (uncompleted)
-                    increment = Number(delta) || 0;
-                }
-            }
-            // For boolean goals, check if routine completion matters
-            // Usually boolean goals are "Do X once". 
-            // If linked routine completed, mark goal completed?
-            // Let's stick to numeric accumulation for now as it's safer.
+            // We treat delta as a numeric contribution to the goal
+            // This allows cross-type linking (e.g. checklist routine -> counter goal)
+            const increment = Number(delta) || 0;
 
             if (increment !== 0) {
+                // Update goal progress
+                // We strictly update the currentValue for all types.
                 goal.progress.currentValue = (goal.progress.currentValue || 0) + increment;
                 goal.progress.lastUpdate = new Date();
+
                 await goal.save();
             }
         }
+    }
+
+    async removeLinkedRoutine(routineId: string): Promise<void> {
+        await Goal.updateMany(
+            { linkedRoutines: new Types.ObjectId(routineId) },
+            { $pull: { linkedRoutines: new Types.ObjectId(routineId) } }
+        );
     }
 
     async deleteGoal(userId: string, goalId: string): Promise<boolean> {
