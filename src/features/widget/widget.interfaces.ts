@@ -19,6 +19,8 @@ export interface IWidget extends Document {
     title: string;
     data: IWidgetData;
     order: number;
+    group?: string;
+    isPinned?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -34,4 +36,6 @@ export interface UpdateWidgetParams {
     title?: string;
     data?: IWidgetData;
     order?: number;
+    group?: string;
+    isPinned?: boolean;
 }

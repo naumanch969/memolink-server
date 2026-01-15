@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
-import { Widget } from './widget.model';
-import { CreateWidgetParams, UpdateWidgetParams } from './widget.interfaces';
 import { CustomError } from '../../core/middleware/errorHandler';
+import { CreateWidgetParams, UpdateWidgetParams } from './widget.interfaces';
+import { Widget } from './widget.model';
 
 export class WidgetService {
     async createWidget(userId: string, params: CreateWidgetParams) {
@@ -43,6 +43,8 @@ export class WidgetService {
             widget.markModified('data');
         }
         if (params.order !== undefined) widget.order = params.order;
+        if (params.group !== undefined) widget.group = params.group;
+        if (params.isPinned !== undefined) widget.isPinned = params.isPinned;
 
         await widget.save();
         return widget;

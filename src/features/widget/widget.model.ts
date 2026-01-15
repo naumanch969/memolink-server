@@ -29,6 +29,15 @@ const widgetSchema = new Schema<IWidget>(
             type: Number,
             default: 0,
         },
+        group: {
+            type: String,
+            required: false,
+            trim: true,
+        },
+        isPinned: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
