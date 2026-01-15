@@ -5,6 +5,7 @@ import { CreateMediaRequest, IMediaService, UpdateMediaRequest } from './media.i
 import { Helpers } from '../../shared/helpers';
 import { Types } from 'mongoose';
 import { IMedia } from '../../shared/types';
+import { CloudinaryService } from '../../config/cloudinary';
 
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
@@ -102,9 +103,57 @@ export class MediaService implements IMediaService {
       if (!media) {
         throw createNotFoundError('Media');
       }
+
+      // Delete from Cloudinary to prevent orphaned files
+      if (media.cloudinaryId) {
+        try {
+          await CloudinaryService.deleteFile(media.cloudinaryId);
+          logger.info('Cloudinary file deleted', { cloudinaryId: media.cloudinaryId });
+        } catch (cloudinaryError) {
+          // Log but don't fail - DB record is already deleted
+          logger.error('Failed to delete from Cloudinary (orphan created)', { 
+            cloudinaryId: media.cloudinaryId, 
+            error: cloudinaryError 
+          });
+        }
+      }
+
       logger.info('Media deleted successfully', { mediaId: media._id, userId });
     } catch (error) {
       logger.error('Media deletion failed:', error);
+      throw error;
+    }
+  }
+
+  // Bulk delete media with Cloudinary cleanup
+  async bulkDeleteMedia(userId: string, mediaIds: string[]): Promise<{ deleted: number; errors: string[] }> {
+    const errors: string[] = [];
+    let deleted = 0;
+
+    try {
+      const mediaItems = await Media.find({
+        _id: { $in: mediaIds.map(id => new Types.ObjectId(id)) },
+        userId: new Types.ObjectId(userId)
+      });
+
+      for (const media of mediaItems) {
+        try {
+          // Delete from Cloudinary first
+          if (media.cloudinaryId) {
+            await CloudinaryService.deleteFile(media.cloudinaryId);
+          }
+          // Then delete from DB
+          await Media.deleteOne({ _id: media._id });
+          deleted++;
+        } catch (error) {
+          errors.push(`Failed to delete ${media.originalName}: ${error}`);
+        }
+      }
+
+      logger.info('Bulk media delete completed', { deleted, errors: errors.length, userId });
+      return { deleted, errors };
+    } catch (error) {
+      logger.error('Bulk media deletion failed:', error);
       throw error;
     }
   }

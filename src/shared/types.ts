@@ -135,13 +135,34 @@ export interface IMedia extends BaseEntity {
   size: number;
   url: string;
   cloudinaryId: string;
-  type: 'image' | 'video' | 'document' | 'audio';
+  type: 'image' | 'video' | 'document' | 'audio' | 'archive' | 'data' | 'code';
   thumbnail?: string;
   tags?: string[];
+  extension?: string;
+  altText?: string;
+  description?: string;
+  status?: 'uploading' | 'processing' | 'ready' | 'error';
+  processingError?: string;
   metadata?: {
     width?: number;
     height?: number;
     duration?: number;
+    // Extended metadata
+    pages?: number;
+    frameRate?: number;
+    bitrate?: number;
+    // Archive metadata
+    archiveContents?: Array<{
+      name: string;
+      size: number;
+      isDirectory: boolean;
+    }>;
+    // Data file metadata
+    rowCount?: number;
+    columnCount?: number;
+    // Code file metadata
+    language?: string;
+    lineCount?: number;
   };
 }
 

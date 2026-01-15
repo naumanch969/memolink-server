@@ -7,6 +7,7 @@ import { Helpers } from '../../shared/helpers';
 import { IEntry } from '../../shared/types';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
+import { mediaService } from '../media/media.service';
 import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
 
 export class EntryService implements IEntryService {
@@ -374,6 +375,19 @@ export class EntryService implements IEntryService {
       if (entry.tags && entry.tags.length > 0) {
         const tagIds = entry.tags.map(t => t.toString());
         await tagService.decrementUsage(userId, tagIds);
+      }
+
+      // Handle associated media cleanup
+      // Option: Delete media that was exclusively attached to this entry
+      // For now, we'll leave media orphaned (user can manage in media gallery)
+      // But we log it for potential future cleanup jobs
+      if (entry.media && entry.media.length > 0) {
+        logger.info('Entry deleted with associated media', {
+          entryId: entry._id,
+          mediaIds: entry.media.map(m => m.toString()),
+          userId,
+          note: 'Media left in gallery for manual cleanup'
+        });
       }
 
       logger.info('Entry deleted successfully', {

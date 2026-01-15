@@ -45,7 +45,21 @@ export const MEDIA_TYPES = {
   VIDEO: 'video',
   DOCUMENT: 'document',
   AUDIO: 'audio',
+  ARCHIVE: 'archive',
+  DATA: 'data',
+  CODE: 'code',
 } as const;
+
+// Helper to determine media type from MIME type
+export const getMediaTypeFromMime = (mimeType: string): string => {
+  if (FILE_UPLOAD.ALLOWED_IMAGE_TYPES.includes(mimeType as any)) return MEDIA_TYPES.IMAGE;
+  if (FILE_UPLOAD.ALLOWED_VIDEO_TYPES.includes(mimeType as any)) return MEDIA_TYPES.VIDEO;
+  if (FILE_UPLOAD.ALLOWED_ARCHIVE_TYPES.includes(mimeType as any)) return MEDIA_TYPES.ARCHIVE;
+  if (FILE_UPLOAD.ALLOWED_DATA_TYPES.includes(mimeType as any)) return MEDIA_TYPES.DATA;
+  if (FILE_UPLOAD.ALLOWED_CODE_TYPES.includes(mimeType as any)) return MEDIA_TYPES.CODE;
+  if (mimeType.startsWith('audio/')) return MEDIA_TYPES.AUDIO;
+  return MEDIA_TYPES.DOCUMENT;
+};
 
 // Validation Constants
 export const VALIDATION = {
@@ -70,6 +84,34 @@ export const FILE_UPLOAD = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
+
+  ALLOWED_ARCHIVE_TYPES: [
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'application/x-7z-compressed',
+    'application/gzip',
+    'application/x-tar',
+  ],
+  ALLOWED_DATA_TYPES: [
+    'application/json',
+    'text/csv',
+    'text/xml',
+    'application/xml',
+  ],
+  ALLOWED_CODE_TYPES: [
+    'text/markdown',
+    'text/x-markdown',
+    'text/javascript',
+    'application/javascript',
+    'text/typescript',
+    'text/x-python',
+    'text/x-java',
+    'text/css',
+    'text/html',
+    'text/x-yaml',
+    'application/x-yaml',
   ],
 } as const;
 
