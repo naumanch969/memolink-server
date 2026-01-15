@@ -1,6 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { IUser } from '../../shared/types';
-import { USER_ROLES } from '../../shared/constants';
+import { USER_ROLES, STORAGE_LIMITS } from '../../shared/constants';
 
 // Interface for User model with static methods
 interface IUserModel extends Model<IUser> {
@@ -28,6 +28,9 @@ const userSchema = new Schema<IUser>({
     isEnabled: { type: Boolean, default: false },
     maskEntries: { type: Boolean, default: false },
   },
+  // Storage quota
+  storageUsed: { type: Number, default: 0 },
+  storageQuota: { type: Number, default: STORAGE_LIMITS.FREE_QUOTA },
 }, {
   timestamps: true,
   toJSON: {

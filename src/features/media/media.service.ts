@@ -6,6 +6,7 @@ import { Helpers } from '../../shared/helpers';
 import { Types } from 'mongoose';
 import { IMedia } from '../../shared/types';
 import { CloudinaryService } from '../../config/cloudinary';
+import { storageService } from './storage.service';
 
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
@@ -118,6 +119,9 @@ export class MediaService implements IMediaService {
         }
       }
 
+      // Decrement storage usage
+      await storageService.decrementUsage(userId, media.size);
+
       logger.info('Media deleted successfully', { mediaId: media._id, userId });
     } catch (error) {
       logger.error('Media deletion failed:', error);
@@ -129,6 +133,7 @@ export class MediaService implements IMediaService {
   async bulkDeleteMedia(userId: string, mediaIds: string[]): Promise<{ deleted: number; errors: string[] }> {
     const errors: string[] = [];
     let deleted = 0;
+    let totalSizeDeleted = 0;
 
     try {
       const mediaItems = await Media.find({
@@ -144,10 +149,16 @@ export class MediaService implements IMediaService {
           }
           // Then delete from DB
           await Media.deleteOne({ _id: media._id });
+          totalSizeDeleted += media.size;
           deleted++;
         } catch (error) {
           errors.push(`Failed to delete ${media.originalName}: ${error}`);
         }
+      }
+
+      // Decrement storage usage for all deleted files
+      if (totalSizeDeleted > 0) {
+        await storageService.decrementUsage(userId, totalSizeDeleted);
       }
 
       logger.info('Bulk media delete completed', { deleted, errors: errors.length, userId });

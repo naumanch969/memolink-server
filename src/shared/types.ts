@@ -37,6 +37,9 @@ export interface IUser extends BaseEntity {
     isEnabled: boolean;
     maskEntries?: boolean;
   };
+  // Storage quota tracking
+  storageUsed: number; // bytes
+  storageQuota: number; // bytes (default from STORAGE_LIMITS)
 }
 
 // OTP Types
@@ -165,10 +168,8 @@ export interface IMedia extends BaseEntity {
     // Code file metadata
     language?: string;
     lineCount?: number;
-    // Phase 6: Video metadata
     videoThumbnails?: string[]; // Multiple thumbnail options
     selectedThumbnailIndex?: number;
-    // Phase 7: EXIF data
     exif?: {
       make?: string; // Camera manufacturer
       model?: string; // Camera model
@@ -186,15 +187,15 @@ export interface IMedia extends BaseEntity {
       software?: string;
       orientation?: number;
     };
-    // Phase 7: OCR extracted text
+    // OCR extracted text
     ocrText?: string;
     ocrConfidence?: number;
-    // Phase 7: AI-generated tags
+    // AI-generated tags
     aiTags?: Array<{
       tag: string;
       confidence: number;
     }>;
-    // Phase 7: Face detection
+    // Face detection
     faces?: Array<{
       personId?: Types.ObjectId;
       boundingBox?: { x: number; y: number; width: number; height: number };

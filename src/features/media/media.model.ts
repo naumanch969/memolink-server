@@ -33,10 +33,9 @@ const mediaSchema = new Schema<IMedia>({
     // Code file metadata
     language: String,           // Detected language
     lineCount: Number,
-    // Phase 6: Video thumbnails
     videoThumbnails: [String],  // Multiple thumbnail URLs
     selectedThumbnailIndex: { type: Number, default: 0 },
-    // Phase 7: EXIF data
+    // EXIF data
     exif: {
       make: String,
       model: String,
@@ -54,15 +53,15 @@ const mediaSchema = new Schema<IMedia>({
       software: String,
       orientation: Number,
     },
-    // Phase 7: OCR
+    // OCR
     ocrText: String,
     ocrConfidence: Number,
-    // Phase 7: AI tags
+    // AI tags
     aiTags: [{
       tag: String,
       confidence: Number,
     }],
-    // Phase 7: Face detection
+    // Face detection
     faces: [{
       personId: { type: Schema.Types.ObjectId, ref: 'Person' },
       boundingBox: {

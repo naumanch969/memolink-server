@@ -72,6 +72,14 @@ export const VALIDATION = {
   PERSON_NAME_MAX_LENGTH: 100,
 } as const;
 
+// Storage Quota Limits
+export const STORAGE_LIMITS = {
+  FREE_QUOTA: 500 * 1024 * 1024, // 500MB for free users
+  PREMIUM_QUOTA: 5 * 1024 * 1024 * 1024, // 5GB for premium
+  WARNING_THRESHOLD: 0.8, // Warn at 80% usage
+  CRITICAL_THRESHOLD: 0.95, // Block uploads at 95%
+} as const;
+
 // Video Limits
 export const VIDEO_LIMITS = {
   MAX_SIZE: 100 * 1024 * 1024, // 100MB for videos

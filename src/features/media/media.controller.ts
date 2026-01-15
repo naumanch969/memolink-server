@@ -9,6 +9,7 @@ import { CloudinaryService } from '../../config/cloudinary';
 import { logger } from '../../config/logger';
 import { validateVideo, validateFileSize, getFileExtension, buildResolutionString, parseCloudinaryExif, parseCloudinaryOcr, parseCloudinaryAiTags, } from './media.utils';
 import { getMediaTypeFromMime } from '../../shared/constants';
+import { storageService } from './storage.service';
 
 // Upload error codes for client-side handling
 const UPLOAD_ERRORS = {
@@ -18,6 +19,7 @@ const UPLOAD_ERRORS = {
   VIDEO_TOO_LONG: { code: 'VIDEO_TOO_LONG', message: 'Video exceeds maximum duration' },
   CLOUDINARY_ERROR: { code: 'CLOUDINARY_ERROR', message: 'Cloud storage upload failed' },
   DATABASE_ERROR: { code: 'DATABASE_ERROR', message: 'Failed to save media record' },
+  QUOTA_EXCEEDED: { code: 'QUOTA_EXCEEDED', message: 'Storage quota exceeded' },
 } as const;
 
 export class MediaController {
@@ -27,6 +29,15 @@ export class MediaController {
 
     if (!req.file) {
       ResponseHelper.badRequest(res, UPLOAD_ERRORS.NO_FILE.message);
+      return;
+    }
+
+    // Check storage quota before upload
+    const quotaCheck = await storageService.canUpload(userId, req.file.size);
+    if (!quotaCheck.allowed) {
+      ResponseHelper.error(res, quotaCheck.reason || UPLOAD_ERRORS.QUOTA_EXCEEDED.message, 403, {
+        code: UPLOAD_ERRORS.QUOTA_EXCEEDED.code,
+      });
       return;
     }
 
@@ -170,6 +181,9 @@ export class MediaController {
       };
 
       const media = await mediaService.createMedia(userId, mediaData);
+
+      // Increment storage usage
+      await storageService.incrementUsage(userId, req.file.size);
 
       ResponseHelper.created(res, media, 'Media uploaded successfully');
     } catch (dbError: unknown) {
