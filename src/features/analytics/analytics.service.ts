@@ -1,11 +1,11 @@
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createError } from '../../core/middleware/errorHandler';
-import { AnalyticsRequest, IAnalyticsService } from './analytics.interfaces';
-import { Types } from 'mongoose';
 import { Entry } from '../entry/entry.model';
+import { Media } from '../media/media.model';
 import { Person } from '../person/person.model';
 import { Tag } from '../tag/tag.model';
-import { Media } from '../media/media.model';
+import { AnalyticsRequest } from './analytics.interfaces';
 
 import { AnalyticsData } from '../../shared/types';
 
@@ -225,6 +225,84 @@ export class AnalyticsService {
       throw createError('Media analytics not implemented yet', 501);
     } catch (error) {
       logger.error('Get media analytics failed:', error);
+      throw error;
+    }
+  }
+  static async getGraphData(userId: string): Promise<any> {
+    try {
+      const userObjectId = new Types.ObjectId(userId);
+
+      // 1. Fetch people and tags to create base nodes
+      const [people, tags, entries] = await Promise.all([
+        Person.find({ userId: userObjectId }).select('_id name avatar').lean(),
+        Tag.find({ userId: userObjectId }).select('_id name color').lean(),
+        Entry.find({ userId: userObjectId })
+          .select('_id mentions tags')
+          .populate('mentions', '_id name')
+          .populate('tags', '_id name')
+          .lean()
+      ]);
+
+      const nodes: any[] = [];
+      const links: any[] = [];
+      const nodeIds = new Set<string>();
+
+      // Add People Nodes
+      people.forEach(p => {
+        nodes.push({ id: p._id.toString(), label: p.name, group: 'person', img: p.avatar, val: 1 });
+        nodeIds.add(p._id.toString());
+      });
+
+      // Add Tag Nodes
+      tags.forEach(t => {
+        nodes.push({ id: t._id.toString(), label: t.name, group: 'tag', color: t.color, val: 1 });
+        nodeIds.add(t._id.toString());
+      });
+
+      // Calculate Edges based on Co-occurrence in Entries
+      const linkMap = new Map<string, number>();
+
+      entries.forEach(entry => {
+        // Collect all entity IDs in this entry
+        const entities = [
+          ...(entry.mentions || []).map((m: any) => m._id.toString()),
+          ...(entry.tags || []).map((t: any) => t._id.toString())
+        ];
+
+        // Create links between all unique pairs in this entry
+        for (let i = 0; i < entities.length; i++) {
+          for (let j = i + 1; j < entities.length; j++) {
+            const source = entities[i];
+            const target = entities[j];
+
+            // Ensure source/target exist in our nodes (sanity check)
+            if (nodeIds.has(source) && nodeIds.has(target)) {
+              // Sort to ensure consistent key for A-B vs B-A
+              const linkKey = [source, target].sort().join('-');
+              linkMap.set(linkKey, (linkMap.get(linkKey) || 0) + 1);
+            }
+          }
+        }
+      });
+
+      // Convert LinkMap to array
+      linkMap.forEach((weight, key) => {
+        const [source, target] = key.split('-');
+        links.push({ source, target, value: weight });
+      });
+
+      // Update node values (size) based on degree
+      links.forEach(link => {
+        const sourceNode = nodes.find(n => n.id === link.source);
+        const targetNode = nodes.find(n => n.id === link.target);
+        if (sourceNode) sourceNode.val += link.value * 0.5;
+        if (targetNode) targetNode.val += link.value * 0.5;
+      });
+
+      return { nodes, links };
+
+    } catch (error) {
+      logger.error('Get graph data failed:', error);
       throw error;
     }
   }
