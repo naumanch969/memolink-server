@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { config } from './env';
 import { logger } from './logger';
+import { VIDEO_CONFIG, IMAGE_SIZE_PRESETS } from '../features/media/media.constants';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -9,16 +10,10 @@ cloudinary.config({
   api_secret: config.CLOUDINARY_API_SECRET,
 });
 
-export const IMAGE_SIZES = {
-  thumbnail: { width: 150, height: 150 },
-  small: { width: 320 },
-  medium: { width: 640 },
-  large: { width: 1024 },
-  xlarge: { width: 2048 },
-} as const;
+export const IMAGE_SIZES = IMAGE_SIZE_PRESETS;
 
 // Video thumbnail presets
-const VIDEO_THUMBNAIL_COUNT = 5;
+const VIDEO_THUMBNAIL_COUNT = VIDEO_CONFIG.THUMBNAIL_COUNT;
 
 export interface CloudinaryUploadResult {
   url: string;
@@ -199,20 +194,20 @@ export class CloudinaryService {
     srcset: string;
   } {
     const thumbnail = this.getOptimizedUrl(publicId, { 
-      width: IMAGE_SIZES.thumbnail.width, 
-      height: IMAGE_SIZES.thumbnail.height,
+      width: IMAGE_SIZES.THUMBNAIL.width, 
+      height: IMAGE_SIZES.THUMBNAIL.height,
       crop: 'fill',
     });
-    const small = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.small.width });
-    const medium = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.medium.width });
-    const large = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.large.width });
-    const xlarge = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.xlarge.width });
+    const small = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.SMALL.width });
+    const medium = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.MEDIUM.width });
+    const large = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.LARGE.width });
+    const xlarge = this.getOptimizedUrl(publicId, { width: IMAGE_SIZES.XLARGE.width });
 
     const srcset = [
-      `${small} ${IMAGE_SIZES.small.width}w`,
-      `${medium} ${IMAGE_SIZES.medium.width}w`,
-      `${large} ${IMAGE_SIZES.large.width}w`,
-      `${xlarge} ${IMAGE_SIZES.xlarge.width}w`,
+      `${small} ${IMAGE_SIZES.SMALL.width}w`,
+      `${medium} ${IMAGE_SIZES.MEDIUM.width}w`,
+      `${large} ${IMAGE_SIZES.LARGE.width}w`,
+      `${xlarge} ${IMAGE_SIZES.XLARGE.width}w`,
     ].join(', ');
 
     return { thumbnail, small, medium, large, xlarge, srcset };

@@ -33,10 +33,17 @@ export class MediaController {
       return;
     }
 
-    // Check storage quota before upload
-    const quotaCheck = await storageService.canUpload(userId, req.file.size);
-    if (!quotaCheck.allowed) {
-      ResponseHelper.error(res, quotaCheck.reason || UPLOAD_ERRORS.QUOTA_EXCEEDED.message, 403, {
+    // Safely parse boolean flags
+    const shouldEnableOcr = enableOcr === 'true' || enableOcr === true || enableOcr === '1';
+    const shouldEnableAiTagging = enableAiTagging === 'true' || enableAiTagging === true || enableAiTagging === '1';
+
+    // Reserve storage space atomically (prevents race conditions)
+    let reservation;
+    try {
+      reservation = await storageService.reserveSpace(userId, req.file.size);
+    } catch (reservationError: unknown) {
+      const errorMsg = reservationError instanceof Error ? reservationError.message : 'Storage reservation failed';
+      ResponseHelper.error(res, errorMsg, 403, {
         code: UPLOAD_ERRORS.QUOTA_EXCEEDED.code,
       });
       return;
@@ -45,6 +52,7 @@ export class MediaController {
     //Validate file size (different limits for video)
     const sizeValidation = validateFileSize(req.file);
     if (!sizeValidation.valid) {
+      await reservation.rollback();
       ResponseHelper.badRequest(res, sizeValidation.error || UPLOAD_ERRORS.FILE_TOO_LARGE.message);
       return;
     }
@@ -54,10 +62,11 @@ export class MediaController {
     try {
       cloudinaryResult = await CloudinaryService.uploadFile(req.file, 'memolink', {
         extractExif: true,
-        enableOcr: enableOcr === 'true' || enableOcr === true,
-        enableAiTagging: enableAiTagging === 'true' || enableAiTagging === true,
+        enableOcr: shouldEnableOcr,
+        enableAiTagging: shouldEnableAiTagging,
       });
     } catch (cloudinaryError: unknown) {
+      await reservation.rollback();
       const errorMsg = cloudinaryError instanceof Error ? cloudinaryError.message : 'Unknown error';
       logger.error('Cloudinary upload failed', {
         error: errorMsg,
@@ -92,6 +101,7 @@ export class MediaController {
       });
 
       if (!videoValidation.valid) {
+        await reservation.rollback();
         // Cleanup the uploaded file
         try {
           await CloudinaryService.deleteFile(cloudinaryResult.public_id);
@@ -183,8 +193,8 @@ export class MediaController {
 
       const media = await mediaService.createMedia(userId, mediaData);
 
-      // Increment storage usage
-      await storageService.incrementUsage(userId, req.file.size);
+      // Commit storage reservation (atomic operation)
+      await reservation.commit();
 
       // Emit upload event
       mediaEvents.emit(MediaEventType.UPLOADED, {
@@ -222,6 +232,7 @@ export class MediaController {
 
       ResponseHelper.created(res, media, 'Media uploaded successfully');
     } catch (dbError: unknown) {
+      await reservation.rollback();
       const errorMsg = dbError instanceof Error ? dbError.message : 'Unknown error';
       logger.error('Failed to save media record after Cloudinary upload', {
         error: errorMsg,
@@ -230,9 +241,11 @@ export class MediaController {
 
       try {
         await CloudinaryService.deleteFile(cloudinaryResult.public_id);
-      } catch {
-        logger.error('Failed to cleanup Cloudinary file after DB error', {
+      } catch (cleanupError) {
+        logger.error('Failed to cleanup Cloudinary file after DB error (orphan created)', {
           cloudinaryId: cloudinaryResult.public_id,
+          error: cleanupError instanceof Error ? cleanupError.message : 'Unknown error',
+          requiresManualCleanup: true,
         });
       }
 
@@ -251,6 +264,13 @@ export class MediaController {
     const { id } = req.params;
     const { thumbnailIndex } = req.body;
 
+    // Validate thumbnailIndex is a valid integer
+    const index = parseInt(thumbnailIndex, 10);
+    if (!Number.isInteger(index) || isNaN(index)) {
+      ResponseHelper.badRequest(res, 'Thumbnail index must be a valid integer');
+      return;
+    }
+
     const media = await mediaService.getMediaById(id, userId);
 
     if (media.type !== 'video' || !media.metadata?.videoThumbnails) {
@@ -259,27 +279,23 @@ export class MediaController {
     }
 
     const thumbnails = media.metadata.videoThumbnails;
-    if (thumbnailIndex < 0 || thumbnailIndex >= thumbnails.length) {
+    if (index < 0 || index >= thumbnails.length) {
       ResponseHelper.badRequest(res, 'Invalid thumbnail index');
       return;
     }
 
+    const selectedThumbnailUrl = thumbnails[index];
+
+    // Update both metadata index and main thumbnail URL in a single operation
     const updated = await mediaService.updateMedia(id, userId, {
+      thumbnail: selectedThumbnailUrl,
       metadata: {
         ...media.metadata,
-        selectedThumbnailIndex: thumbnailIndex,
+        selectedThumbnailIndex: index,
       },
     });
 
-    // Update the main thumbnail URL
-    await mediaService.updateMedia(id, userId, {
-      // Note: We need to pass thumbnail separately if model supports it
-    });
-
-    ResponseHelper.success(res, {
-      ...updated,
-      thumbnail: thumbnails[thumbnailIndex],
-    }, 'Thumbnail updated');
+    ResponseHelper.success(res, updated, 'Thumbnail updated successfully');
   });
 
   static createMedia = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

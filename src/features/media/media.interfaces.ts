@@ -47,7 +47,7 @@ export interface MediaMetadata {
 export interface ExifData {
   make?: string;
   model?: string;
-  dateTaken?: Date;
+  dateTaken?: string;  // ISO 8601 string for JSON compatibility
   gps?: { latitude?: number; longitude?: number; altitude?: number };
   exposureTime?: string;
   fNumber?: number;
@@ -62,6 +62,7 @@ export interface UpdateMediaRequest {
   filename?: string;
   originalName?: string;
   folderId?: string;
+  thumbnail?: string;
   tags?: string[];
   altText?: string;
   description?: string;

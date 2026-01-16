@@ -6,6 +6,7 @@
 import { VIDEO_LIMITS, FILE_UPLOAD, getMediaTypeFromMime } from '../../shared/constants';
 import { logger } from '../../config/logger';
 import { ExifData, MediaType } from './media.interfaces';
+import { AI_PROCESSING_CONFIG, VIDEO_CONFIG, GPS_REFERENCES } from './media.constants';
 
 /**
  * Video Validation Error
@@ -85,7 +86,10 @@ export function generateVideoThumbnailTimestamps(duration: number, count: number
   const interval = duration / (count + 1);
   
   for (let i = 1; i <= count; i++) {
-    timestamps.push(Math.round(interval * i * 10) / 10); // Round to 1 decimal
+    timestamps.push(
+      Math.round(interval * i * Math.pow(10, VIDEO_CONFIG.TIMESTAMP_PRECISION_DECIMALS)) / 
+      Math.pow(10, VIDEO_CONFIG.TIMESTAMP_PRECISION_DECIMALS)
+    );
   }
   
   return timestamps;
@@ -100,6 +104,12 @@ export function parseCloudinaryExif(cloudinaryInfo: any): ExifData | undefined {
   }
 
   const meta = cloudinaryInfo.image_metadata;
+  
+  // Validate meta is an object
+  if (typeof meta !== 'object' || meta === null) {
+    logger.warn('Invalid image_metadata format');
+    return undefined;
+  }
   
   try {
     const exif: ExifData = {};
@@ -141,16 +151,16 @@ export function parseCloudinaryExif(cloudinaryInfo: any): ExifData | undefined {
 }
 
 /**
- * Parse EXIF date string to Date object
+ * Parse EXIF date string to ISO 8601 string
  */
-function parseExifDate(dateStr: string): Date | undefined {
+function parseExifDate(dateStr: string): string | undefined {
   if (!dateStr) return undefined;
   
   try {
     // EXIF format: "YYYY:MM:DD HH:MM:SS"
     const normalized = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
     const date = new Date(normalized);
-    return isNaN(date.getTime()) ? undefined : date;
+    return isNaN(date.getTime()) ? undefined : date.toISOString();
   } catch {
     return undefined;
   }
@@ -167,7 +177,7 @@ function parseGpsCoordinate(value: string, ref?: string): number | undefined {
     const decimalMatch = value.match(/^[\d.]+$/);
     if (decimalMatch) {
       let coord = parseFloat(value);
-      if (ref === 'S' || ref === 'W') coord = -coord;
+      if (ref === GPS_REFERENCES.SOUTH || ref === GPS_REFERENCES.WEST) coord = -coord;
       return coord;
     }
     
@@ -178,7 +188,7 @@ function parseGpsCoordinate(value: string, ref?: string): number | undefined {
       const min = parseFloat(dmsMatch[2]);
       const sec = parseFloat(dmsMatch[3]);
       let coord = deg + min / 60 + sec / 3600;
-      if (ref === 'S' || ref === 'W') coord = -coord;
+      if (ref === GPS_REFERENCES.SOUTH || ref === GPS_REFERENCES.WEST) coord = -coord;
       return coord;
     }
     
@@ -199,6 +209,13 @@ export function parseCloudinaryOcr(cloudinaryInfo: any): { text?: string; confid
 
   try {
     const ocrData = cloudinaryInfo.info.ocr.adv_ocr.data;
+    
+    // Validate ocrData is an array
+    if (!Array.isArray(ocrData)) {
+      logger.warn('Invalid OCR data format: expected array');
+      return {};
+    }
+
     const textBlocks: string[] = [];
     let totalConfidence = 0;
     let blockCount = 0;
@@ -245,7 +262,11 @@ export function parseCloudinaryAiTags(cloudinaryInfo: any): Array<{ tag: string;
     // Parse categorization/tagging results
     const categorization = cloudinaryInfo?.info?.categorization;
     
-    if (categorization?.google_tagging?.data) {
+    if (!categorization || typeof categorization !== 'object') {
+      return [];
+    }
+    
+    if (categorization?.google_tagging?.data && Array.isArray(categorization.google_tagging.data)) {
       for (const item of categorization.google_tagging.data) {
         if (item.tag && item.confidence) {
           tags.push({ tag: item.tag, confidence: item.confidence });
@@ -253,7 +274,7 @@ export function parseCloudinaryAiTags(cloudinaryInfo: any): Array<{ tag: string;
       }
     }
     
-    if (categorization?.aws_rek_tagging?.data) {
+    if (categorization?.aws_rek_tagging?.data && Array.isArray(categorization.aws_rek_tagging.data)) {
       for (const item of categorization.aws_rek_tagging.data) {
         if (item.tag && item.confidence) {
           tags.push({ tag: item.tag, confidence: item.confidence / 100 }); // AWS uses 0-100
@@ -273,7 +294,7 @@ export function parseCloudinaryAiTags(cloudinaryInfo: any): Array<{ tag: string;
     return Array.from(uniqueTags.entries())
       .map(([tag, confidence]) => ({ tag, confidence }))
       .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 20); // Limit to top 20 tags
+      .slice(0, AI_PROCESSING_CONFIG.MAX_AI_TAGS);
   } catch (error) {
     logger.warn('Failed to parse AI tags', { error });
     return [];
