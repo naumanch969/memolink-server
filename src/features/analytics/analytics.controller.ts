@@ -11,7 +11,19 @@ export class AnalyticsController {
     const options: AnalyticsRequest = req.query;
     const analytics = await AnalyticsService.getAnalytics(userId, options);
 
-    ResponseHelper.success(res, analytics, 'Analytics retrieved successfully');
+    // Include patterns and weekly summary (merged from insights)
+    const [patterns, weeklySummary] = await Promise.all([
+      AnalyticsService.getPatterns(userId),
+      AnalyticsService.getWeeklySummary(userId)
+    ]);
+
+    const enrichedAnalytics = {
+      ...analytics,
+      patterns,
+      weeklySummary
+    };
+
+    ResponseHelper.success(res, enrichedAnalytics, 'Analytics retrieved successfully');
   });
 
   static getEntryAnalytics = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

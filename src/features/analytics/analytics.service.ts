@@ -306,6 +306,177 @@ export class AnalyticsService {
       throw error;
     }
   }
+
+  // Merged from Insights Service
+  static async getStreak(userId: string): Promise<any> {
+    const userObjectId = new Types.ObjectId(userId);
+
+    const entries = await Entry.find({ userId: userObjectId }, { date: 1, createdAt: 1 })
+      .sort({ date: -1 })
+      .lean();
+
+    if (!entries.length) {
+      return { currentStreak: 0, longestStreak: 0, lastEntryDate: null, milestones: [] };
+    }
+
+    const dates = entries.map(e => {
+      const d = new Date(e.date || e.createdAt);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    });
+
+    const uniqueDates = Array.from(new Set(dates)).sort((a, b) => b - a);
+
+    if (uniqueDates.length === 0) return { currentStreak: 0, longestStreak: 0, lastEntryDate: null, milestones: [] };
+
+    let currentStreak = 0;
+    let longestStreak = 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    const lastEntryTime = uniqueDates[0];
+
+    let tempStreak = 1;
+    let maxStr = 1;
+
+    for (let i = 0; i < uniqueDates.length - 1; i++) {
+      const curr = uniqueDates[i];
+      const next = uniqueDates[i + 1];
+      const diffDays = (curr - next) / (1000 * 60 * 60 * 24);
+
+      if (diffDays <= 2) {
+        tempStreak++;
+      } else {
+        if (tempStreak > maxStr) maxStr = tempStreak;
+        tempStreak = 1;
+      }
+    }
+    if (tempStreak > maxStr) maxStr = tempStreak;
+    longestStreak = maxStr;
+
+    const daysSinceLast = (todayTime - lastEntryTime) / (1000 * 60 * 60 * 24);
+
+    if (daysSinceLast <= 2) {
+      let currStr = 1;
+      for (let i = 0; i < uniqueDates.length - 1; i++) {
+        const curr = uniqueDates[i];
+        const next = uniqueDates[i + 1];
+        const diffDays = (curr - next) / (1000 * 60 * 60 * 24);
+
+        if (diffDays <= 2) {
+          currStr++;
+        } else {
+          break;
+        }
+      }
+      currentStreak = currStr;
+    } else {
+      currentStreak = 0;
+    }
+
+    return {
+      currentStreak,
+      longestStreak,
+      lastEntryDate: new Date(lastEntryTime),
+      milestones: [7, 30, 100, 365],
+    };
+  }
+
+  static async getPatterns(userId: string): Promise<any[]> {
+    const userObjectId = new Types.ObjectId(userId);
+    const patterns: any[] = [];
+
+    const dayDistribution = await Entry.aggregate([
+      { $match: { userId: userObjectId } },
+      {
+        $project: {
+          dayOfWeek: { $dayOfWeek: "$date" }
+        }
+      },
+      {
+        $group: {
+          _id: "$dayOfWeek",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const weekendCount = dayDistribution.filter(d => d._id === 1 || d._id === 7).reduce((a, b) => a + b.count, 0);
+    const weekdayCount = dayDistribution.filter(d => d._id > 1 && d._id < 7).reduce((a, b) => a + b.count, 0);
+
+    if (weekendCount / 2 > weekdayCount / 5 * 1.2) {
+      patterns.push({
+        id: 'weekend-writer',
+        type: 'time',
+        description: 'You write significantly more on weekends.',
+        significance: 'medium',
+        data: { weekendCount, weekdayCount }
+      });
+    }
+
+    return patterns;
+  }
+
+  static async getWeeklySummary(userId: string): Promise<any> {
+    const userObjectId = new Types.ObjectId(userId);
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+
+    const entries = await Entry.find({
+      userId: userObjectId,
+      date: { $gte: start, $lte: end }
+    });
+
+    const totalEntries = entries.length;
+    const wordCount = entries.reduce((acc, curr) => {
+      return acc + (curr.content ? curr.content.split(/\s+/).length : 0);
+    }, 0);
+
+    const topPeople = await Entry.aggregate([
+      { $match: { userId: userObjectId, date: { $gte: start, $lte: end } } },
+      { $unwind: "$mentions" },
+      { $group: { _id: "$mentions", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 3 },
+      { $lookup: { from: "people", localField: "_id", foreignField: "_id", as: "person" } },
+      { $unwind: "$person" },
+      { $project: { personId: "$_id", name: "$person.name", count: 1 } }
+    ]);
+
+    const topTags = await Entry.aggregate([
+      { $match: { userId: userObjectId, date: { $gte: start, $lte: end } } },
+      { $unwind: "$tags" },
+      { $group: { _id: "$tags", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 3 },
+      { $lookup: { from: "tags", localField: "_id", foreignField: "_id", as: "tag" } },
+      { $unwind: "$tag" },
+      { $project: { tagId: "$_id", name: "$tag.name", count: 1 } }
+    ]);
+
+    const moodCounts: Record<string, number> = {};
+    entries.forEach(e => {
+      if (e.mood) {
+        moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1;
+      }
+    });
+    const moodTrend = Object.entries(moodCounts)
+      .map(([mood, count]) => ({ mood, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const streakData = await this.getStreak(userId);
+
+    return {
+      totalEntries,
+      wordCount,
+      mostMentionedPeople: topPeople,
+      mostUsedTags: topTags,
+      moodTrend,
+      streak: streakData.currentStreak
+    };
+  }
 }
 
 export const analyticsService = new AnalyticsService();
