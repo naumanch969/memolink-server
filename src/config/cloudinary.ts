@@ -1,7 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
+import { IMAGE_SIZE_PRESETS, VIDEO_CONFIG } from '../features/media/media.constants';
 import { config } from './env';
 import { logger } from './logger';
-import { VIDEO_CONFIG, IMAGE_SIZE_PRESETS } from '../features/media/media.constants';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -116,6 +117,89 @@ export class CloudinaryService {
     }
   }
 
+  /**
+   * Upload file stream to Cloudinary (Better for large files)
+   */
+  static async uploadLargeStream(
+    chunks: Buffer[],
+    mimeType: string,
+    filename: string,
+    folder: string = 'memolink',
+    options: {
+      extractExif?: boolean;
+      enableOcr?: boolean;
+      enableAiTagging?: boolean;
+    } = {}
+  ): Promise<CloudinaryUploadResult> {
+    const isImage = mimeType.startsWith('image/');
+    const isVideo = mimeType.startsWith('video/');
+    const isDocument = mimeType === 'application/pdf';
+
+    const uploadOptions: Record<string, unknown> = {
+      folder,
+      resource_type: 'auto' as const,
+      filename_override: filename,
+      use_filename: true,
+    };
+
+    if (isImage && options.extractExif !== false) {
+      uploadOptions.image_metadata = true;
+      uploadOptions.exif = true;
+    }
+
+    if ((isImage || isDocument) && options.enableOcr) {
+      uploadOptions.ocr = 'adv_ocr';
+    }
+
+    if (isVideo) {
+      uploadOptions.eager = [{ streaming_profile: 'hd', format: 'm3u8' }];
+      uploadOptions.eager_async = true;
+      // Use chunk size for Cloudinary's internal chunking if needed
+      uploadOptions.chunk_size = 6 * 1024 * 1024;
+    }
+
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            logger.error('Cloudinary stream upload failed:', error);
+            reject(error);
+          } else if (result) {
+            logger.info('File streamed to Cloudinary successfully', {
+              public_id: result.public_id,
+              size: result.bytes,
+            });
+            resolve({
+              url: result.secure_url,
+              public_id: result.public_id,
+              secure_url: result.secure_url,
+              format: result.format,
+              width: result.width,
+              height: result.height,
+              duration: result.duration,
+              frame_rate: result.frame_rate,
+              bit_rate: result.bit_rate,
+              codec: result.video?.codec,
+              image_metadata: result.image_metadata,
+              info: result.info,
+            });
+          }
+        }
+      );
+
+      // Convert buffer array into a readable stream and pipe it to Cloudinary
+      const readable = Readable.from(chunks);
+      readable.pipe(uploadStream);
+
+      readable.on('error', (err: Error) => {
+        logger.error('Stream reading error:', err);
+        uploadStream.emit('error', err);
+      });
+    });
+  }
+
   // Delete file from Cloudinary
   static async deleteFile(publicId: string): Promise<void> {
     try {
@@ -193,8 +277,8 @@ export class CloudinaryService {
     xlarge: string;
     srcset: string;
   } {
-    const thumbnail = this.getOptimizedUrl(publicId, { 
-      width: IMAGE_SIZES.THUMBNAIL.width, 
+    const thumbnail = this.getOptimizedUrl(publicId, {
+      width: IMAGE_SIZES.THUMBNAIL.width,
       height: IMAGE_SIZES.THUMBNAIL.height,
       crop: 'fill',
     });
@@ -217,9 +301,9 @@ export class CloudinaryService {
    * Generate video thumbnail at specific time
    */
   static getVideoThumbnail(
-    publicId: string, 
-    options: { 
-      width?: number; 
+    publicId: string,
+    options: {
+      width?: number;
       height?: number;
       time?: string; // e.g., '2.5' for 2.5 seconds
     } = {}
@@ -269,7 +353,7 @@ export class CloudinaryService {
     } = {}
   ): string[] {
     const { count = VIDEO_THUMBNAIL_COUNT, width = 400, height = 300 } = options;
-    
+
     if (duration <= 0) {
       return [this.getVideoThumbnail(publicId, { width, height, time: '0' })];
     }

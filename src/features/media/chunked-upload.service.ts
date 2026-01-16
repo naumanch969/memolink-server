@@ -230,9 +230,9 @@ class ChunkedUploadService {
   }
 
   /**
-   * Complete upload and return assembled file
+   * Complete upload and return chunks for assembling/streaming
    */
-  completeUpload(sessionId: string): { buffer: Buffer; session: UploadSession } {
+  completeUpload(sessionId: string): { chunks: Buffer[]; session: UploadSession } {
     const session = this.sessions.get(sessionId);
     if (!session) {
       throw new Error('Upload session not found or expired');
@@ -245,12 +245,10 @@ class ChunkedUploadService {
       }
     }
 
-    // Concatenate all chunks
-    const buffer = Buffer.concat(session.chunks);
-
-    // Verify total size
-    if (buffer.length !== session.totalSize) {
-      throw new Error(`Assembled file size ${buffer.length} doesn't match expected ${session.totalSize}`);
+    // Verify total size by summing chunk lengths
+    const currentSize = session.chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    if (currentSize !== session.totalSize) {
+      throw new Error(`Assembled file size ${currentSize} doesn't match expected ${session.totalSize}`);
     }
 
     logger.info('Chunked upload completed', {
@@ -262,7 +260,26 @@ class ChunkedUploadService {
     // Remove session
     this.sessions.delete(sessionId);
 
-    return { buffer, session };
+    return { chunks: session.chunks, session };
+  }
+
+  /**
+   * Peek at upload and return chunks for assembling/streaming without deleting session
+   */
+  peekUpload(sessionId: string): { chunks: Buffer[]; session: UploadSession } {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error('Upload session not found or expired');
+    }
+
+    // Verify all chunks are present
+    for (let i = 0; i < session.totalChunks; i++) {
+      if (!session.chunks[i]) {
+        throw new Error(`Missing chunk at index ${i}`);
+      }
+    }
+
+    return { chunks: session.chunks, session };
   }
 
   /**

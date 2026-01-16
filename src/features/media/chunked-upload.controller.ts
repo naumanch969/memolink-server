@@ -1,22 +1,16 @@
-/**
- * Chunked Upload Controller
- * 
- * API endpoints for resumable file uploads.
- */
-
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response';
-import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
-import { logger } from '../../config/logger';
-import { chunkedUploadService } from './chunked-upload.service';
-import { storageService } from './storage.service';
 import { CloudinaryService } from '../../config/cloudinary';
-import { mediaService } from './media.service';
-import { CreateMediaRequest, MediaMetadata } from './media.interfaces';
+import { logger } from '../../config/logger';
+import { asyncHandler } from '../../core/middleware/errorHandler';
+import { ResponseHelper } from '../../core/utils/response';
 import { getMediaTypeFromMime } from '../../shared/constants';
-import { getFileExtension, buildResolutionString, parseCloudinaryExif, parseCloudinaryOcr, parseCloudinaryAiTags } from './media.utils';
+import { AuthenticatedRequest } from '../../shared/types';
+import { chunkedUploadService } from './chunked-upload.service';
 import { mediaEvents, MediaEventType } from './media.events';
+import { CreateMediaRequest, MediaMetadata } from './media.interfaces';
+import { mediaService } from './media.service';
+import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCloudinaryExif, parseCloudinaryOcr } from './media.utils';
+import { storageService } from './storage.service';
 
 export class ChunkedUploadController {
   /**
@@ -140,29 +134,21 @@ export class ChunkedUploadController {
     }
 
     try {
-      // Assemble the file
-      const { buffer, session } = chunkedUploadService.completeUpload(sessionId);
+      // Assemble the file (peek first, don't delete yet)
+      const { chunks, session } = chunkedUploadService.peekUpload(sessionId);
 
-      // Create a file-like object for Cloudinary
-      const file: Express.Multer.File = {
-        fieldname: 'file',
-        originalname: session.fileName,
-        encoding: '7bit',
-        mimetype: session.mimeType,
-        buffer,
-        size: buffer.length,
-        destination: '',
-        filename: session.fileName,
-        path: '',
-        stream: undefined as any,
-      };
-
-      // Upload to Cloudinary
-      const cloudinaryResult = await CloudinaryService.uploadFile(file, 'memolink', {
-        extractExif: true,
-        enableOcr: enableOcr === 'true' || enableOcr === true,
-        enableAiTagging: enableAiTagging === 'true' || enableAiTagging === true,
-      });
+      // Upload to Cloudinary via stream
+      const cloudinaryResult = await CloudinaryService.uploadLargeStream(
+        chunks,
+        session.mimeType,
+        session.fileName,
+        'memolink',
+        {
+          extractExif: true,
+          enableOcr: enableOcr === 'true' || enableOcr === true,
+          enableAiTagging: enableAiTagging === 'true' || enableAiTagging === true,
+        }
+      );
 
       const mediaType = getMediaTypeFromMime(session.mimeType);
 
@@ -249,6 +235,9 @@ export class ChunkedUploadController {
         userId,
         source: 'web',
       });
+
+      // Clean up session after full success
+      chunkedUploadService.cancelSession(sessionId);
 
       ResponseHelper.created(res, media, 'Chunked upload completed');
     } catch (error) {
