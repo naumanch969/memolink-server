@@ -58,8 +58,10 @@ export interface UpdateGoalParams {
     retroactiveRoutines?: string[];
 }
 
+import { DataValue } from '../../shared/types/dataProperties';
+
 export interface UpdateGoalProgressParams {
-    value?: number; // Add/Set value
+    value?: DataValue; // Add/Set value
     mode?: 'add' | 'set'; // For numeric counters
     completedItems?: string[]; // Check off items
     notes?: string;

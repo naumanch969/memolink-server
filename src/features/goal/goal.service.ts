@@ -106,16 +106,28 @@ export class GoalService {
             for (const log of logs) {
                 // If log counts for streak or has progress
                 // Simple logic: add log value if present, else 1 if completed
-                if (log.data.value !== undefined) {
-                    totalIncrement += log.data.value;
-                } else if (log.countsForStreak || log.data.completed) {
+                if (log.data.value !== undefined && log.data.value !== null) {
+                    // For numeric values, add them
+                    if (typeof log.data.value === 'number') {
+                        totalIncrement += log.data.value;
+                    }
+                    // For boolean true, count as 1
+                    else if (log.data.value === true) {
+                        totalIncrement += 1;
+                    }
+                    // For checklist, count checked items
+                    else if (Array.isArray(log.data.value)) {
+                        totalIncrement += log.data.value.filter(Boolean).length;
+                    }
+                } else if (log.countsForStreak) {
                     totalIncrement += 1;
                 }
             }
         }
 
         if (totalIncrement > 0) {
-            goal.progress.currentValue = (goal.progress.currentValue || 0) + totalIncrement;
+            const current = typeof goal.progress.currentValue === 'number' ? goal.progress.currentValue : 0;
+            goal.progress.currentValue = current + totalIncrement;
             goal.progress.lastUpdate = new Date();
             await goal.save();
         }
@@ -135,15 +147,15 @@ export class GoalService {
 
         // Logic for updating progress based on type
         if (params.value !== undefined) {
-            if (params.mode === 'add') {
-                goal.progress.currentValue = (goal.progress.currentValue || 0) + params.value;
+            // Here, we have to assume a bit about the structure if it's 'add'
+            // For now, simpler to just set the value if it's generic DataValue
+            // But if we want to "add", we need to know it's a number
+            if (params.mode === 'add' && typeof params.value === 'number') {
+                const current = (goal.progress.currentValue as number) || 0;
+                goal.progress.currentValue = current + params.value;
             } else {
                 goal.progress.currentValue = params.value;
             }
-        }
-
-        if (params.completedItems) {
-            goal.progress.completedItems = params.completedItems;
         }
 
         if (params.notes) {
@@ -178,7 +190,8 @@ export class GoalService {
             if (increment !== 0) {
                 // Update goal progress
                 // We strictly update the currentValue for all types.
-                goal.progress.currentValue = (goal.progress.currentValue || 0) + increment;
+                const current = (goal.progress.currentValue as number) || 0;
+                goal.progress.currentValue = current + increment;
                 goal.progress.lastUpdate = new Date();
 
                 await goal.save();

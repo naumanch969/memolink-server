@@ -1,6 +1,7 @@
 import { FilterQuery, Types } from 'mongoose';
 import { ROUTINE_STATUS } from '../../shared/constants';
-import { IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType, } from '../../shared/types';
+import { DataType, IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType, } from '../../shared/types';
+import { IChecklistConfig, ICounterConfig } from '../../shared/types/dataProperties';
 import { goalService } from '../goal/goal.service';
 import { CompletionCalculationResult, CreateRoutineLogParams, CreateRoutineTemplateParams, GetRoutineAnalyticsQuery, GetRoutineLogsQuery, GetRoutineStatsQuery, UpdateRoutineLogParams, UpdateRoutineTemplateParams, UpdateUserRoutinePreferencesParams, } from './routine.interfaces';
 import { RoutineLog, RoutineTemplate, UserRoutinePreferences, } from './routine.model';
@@ -106,7 +107,7 @@ export class RoutineService {
                 if (!updatedRoutine) continue;
 
                 const { completionPercentage, countsForStreak } = this.calculateCompletion(
-                    updatedRoutine.type,
+                    updatedRoutine.type as RoutineType,
                     log.data,
                     updatedRoutine.config,
                     updatedRoutine,
@@ -255,7 +256,7 @@ export class RoutineService {
         // Calculate completion percentage and streak eligibility
         // We calculate this upfront since logic is same for create/update
         const { completionPercentage, countsForStreak } =
-            this.calculateCompletion(routine.type, params.data, routine.config, routine, logDate);
+            this.calculateCompletion(routine.type as RoutineType, params.data, routine.config, routine, logDate);
 
         // Fetch existing log to calculate delta for goal updates
         const existingLog = await RoutineLog.findOne({
@@ -264,12 +265,12 @@ export class RoutineService {
             date: logDate,
         });
 
-        const delta = this.calculateDelta(routine.type, existingLog?.data, params.data);
+        const delta = this.calculateDelta(routine.type as RoutineType, existingLog?.data, params.data);
         if (delta !== 0) {
             await goalService.updateProgressFromRoutineLog(
                 userId,
                 params.routineId,
-                routine.type,
+                routine.type as RoutineType,
                 delta
             );
         }
@@ -393,21 +394,25 @@ export class RoutineService {
 
         if (params.data) {
             const oldData = log.data;
-            log.data = params.data;
+            // Merge old and new data to ensure we don't lose the value field
+            log.data = {
+                value: params.data.value !== undefined ? params.data.value : oldData.value,
+                notes: params.data.notes !== undefined ? params.data.notes : oldData.notes
+            };
 
             // Recalculate completion
-            const { completionPercentage, countsForStreak } = this.calculateCompletion(routine.type, params.data, routine.config, routine, log.date);
+            const { completionPercentage, countsForStreak } = this.calculateCompletion(routine.type as RoutineType, log.data, routine.config, routine, log.date);
 
             log.completionPercentage = completionPercentage;
             log.countsForStreak = countsForStreak;
 
             // Calculate delta and update goals
-            const delta = this.calculateDelta(routine.type, oldData, params.data);
+            const delta = this.calculateDelta(routine.type as RoutineType, oldData, log.data);
             if (delta !== 0) {
                 await goalService.updateProgressFromRoutineLog(
                     userId,
                     log.routineId.toString(),
-                    routine.type,
+                    routine.type as RoutineType,
                     delta
                 );
             }
@@ -734,38 +739,38 @@ export class RoutineService {
         let completionPercentage = 0;
         console.log('data', data, config)
         switch (type) {
-            case 'boolean':
-                completionPercentage = data.completed ? 100 : 0;
+            case DataType.BOOLEAN:
+                completionPercentage = data.value ? 100 : 0;
                 break;
 
-            case 'checklist':
-                if (data.checkedItems && config.items) {
-                    const checked = data.checkedItems.filter(Boolean).length;
-                    completionPercentage = (checked / config.items.length) * 100;
+            case DataType.CHECKLIST:
+                if (data.value && (config as IChecklistConfig).items) {
+                    const checked = (data.value as boolean[]).filter(Boolean).length;
+                    completionPercentage = (checked / (config as IChecklistConfig).items.length) * 100;
                 }
                 break;
 
-            case 'counter':
-            case 'duration':
+            case DataType.COUNTER:
+            case DataType.DURATION:
                 if (data.value !== undefined) {
                     // Use target from resolved config
-                    const target = config.target || 1;
-                    completionPercentage = Math.min((data.value / target) * 100, 100);
+                    const target = (config as ICounterConfig).target || 1;
+                    completionPercentage = Math.min(((data.value as number) / target) * 100, 100);
                 }
                 break;
 
-            case 'scale':
+            case DataType.SCALE:
                 completionPercentage = data.value !== undefined ? 100 : 0;
                 break;
 
-            case 'text':
+            case DataType.TEXT:
                 completionPercentage =
-                    data.text && data.text.trim() ? 100 : 0;
+                    data.value && (data.value as string).trim() ? 100 : 0;
                 break;
 
-            case 'time':
+            case DataType.TIME:
                 completionPercentage =
-                    data.time && data.time.trim() ? 100 : 0;
+                    data.value && (data.value as string).trim() ? 100 : 0;
                 break;
         }
 

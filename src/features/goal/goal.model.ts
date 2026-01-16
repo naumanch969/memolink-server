@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
-import { IGoal } from '../../shared/types';
 import { COLLECTIONS, GOAL_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
+import { IGoal } from '../../shared/types';
 
 // ============================================
 // SUB-SCHEMAS
@@ -18,7 +18,7 @@ const goalConfigSchema = new Schema(
 
 const goalProgressSchema = new Schema(
     {
-        currentValue: { type: Number, default: 0 },
+        currentValue: { type: Schema.Types.Mixed }, // Can be number, checkbox array, etc
         completedItems: [{ type: String }],
         notes: { type: String },
         lastUpdate: { type: Date },

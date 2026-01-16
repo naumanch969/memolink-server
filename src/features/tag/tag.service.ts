@@ -159,6 +159,11 @@ export class TagService implements ITagService {
       logger.error('Decrement usage failed:', error);
     }
   }
+
+  async getTagStats(userId: string, data?: any) {
+    // TODO: Implement business logic
+    return {};
+  }
 }
 
 export const tagService = new TagService();

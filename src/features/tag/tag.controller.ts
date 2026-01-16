@@ -67,6 +67,18 @@ export class TagController {
     const tags = await tagService.searchTags(userId, q);
     ResponseHelper.success(res, tags, 'Tags searched successfully');
   });
+
+  // Get usage statistics for tags
+  static getTagStats = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!._id.toString();
+    // const { id } = req.params; // Uncomment if needed
+    // const body = req.body; // Uncomment if needed
+
+    // TODO: Implement getTagStats logic here
+    // const result = await tagService.getTagStats(userId, ...);
+
+    ResponseHelper.success(res, {}, 'Get usage statistics for tags successful');
+  });
 }
 
 export default TagController;

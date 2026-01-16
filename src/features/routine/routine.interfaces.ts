@@ -4,6 +4,7 @@ import {
     IRoutineSchedule,
     RoutineType
 } from '../../shared/types';
+import { DataValue } from '../../shared/types/dataProperties';
 
 // ============================================
 // REQUEST PARAMS
@@ -39,20 +40,16 @@ export interface CreateRoutineLogParams {
     routineId: string;
     date: string | Date;
     data: {
-        completed?: boolean;
-        checkedItems?: boolean[];
-        value?: number;
-        text?: string;
+        value: DataValue;
+        notes?: string;
     };
     journalEntryId?: string;
 }
 
 export interface UpdateRoutineLogParams {
     data?: {
-        completed?: boolean;
-        checkedItems?: boolean[];
-        value?: number;
-        text?: string;
+        value?: DataValue;
+        notes?: string;
     };
     journalEntryId?: string;
 }

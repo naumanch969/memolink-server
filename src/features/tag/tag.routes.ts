@@ -19,4 +19,5 @@ router.get('/:id', tagIdValidation, validationMiddleware, TagController.getTagBy
 router.put('/:id', tagIdValidation, updateTagValidation, validationMiddleware, TagController.updateTag);
 router.delete('/:id', tagIdValidation, validationMiddleware, TagController.deleteTag);
 
+router.get('/stats', TagController.getTagStats);
 export default router;

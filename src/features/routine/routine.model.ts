@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
-import { IRoutineTemplate, IRoutineLog, IUserRoutinePreferences, } from '../../shared/types';
-import { COLLECTIONS, ROUTINE_TYPES, ROUTINE_STATUS, } from '../../shared/constants';
+import { COLLECTIONS, ROUTINE_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
+import { IRoutineLog, IRoutineTemplate, IUserRoutinePreferences, } from '../../shared/types';
 
 // ============================================
 // ROUTINE TEMPLATE SCHEMA
@@ -8,13 +8,32 @@ import { COLLECTIONS, ROUTINE_TYPES, ROUTINE_STATUS, } from '../../shared/consta
 
 const routineConfigSchema = new Schema(
     {
+        // Common
         items: [{ type: String, trim: true }],
-        target: { type: Number, min: 0 },
+        target: { type: Number },
         unit: { type: String, trim: true },
-        scale: { type: Number, min: 2, max: 10 },
-        scaleLabels: [{ type: String }],
-        prompt: { type: String, trim: true },
-        targetTime: { type: String, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
+
+        // Scale
+        min: { type: Number },
+        max: { type: Number },
+        minLabel: { type: String },
+        maxLabel: { type: String },
+        step: { type: Number },
+
+        // Text
+        maxLength: { type: Number },
+        placeholder: { type: String },
+        multiline: { type: Boolean },
+
+        // Time
+        format: { type: String, enum: ['12', '24'] },
+
+        // Boolean
+        trueLabel: { type: String },
+        falseLabel: { type: String },
+
+        // Duration
+        targetSeconds: { type: Number },
     },
     { _id: false }
 );
@@ -76,7 +95,7 @@ const routineTemplateSchema = new Schema<IRoutineTemplate>(
             type: routineConfigSchema,
             required: true,
             default: {},
-        }, 
+        },
         schedule: {
             type: routineScheduleSchema,
             required: true,
@@ -147,11 +166,8 @@ routineTemplateSchema.pre('save', function (next) {
 
 const routineLogDataSchema = new Schema(
     {
-        completed: { type: Boolean },
-        checkedItems: [{ type: Boolean }],
-        value: { type: Number, min: 0 },
-        text: { type: String, trim: true, maxlength: 1000 },
-        time: { type: String, match: /^([01]\d|2[0-3]):([0-5]\d)$/ },
+        value: { type: Schema.Types.Mixed }, // Can be boolean, number, string, array
+        notes: { type: String, trim: true },
     },
     { _id: false }
 );

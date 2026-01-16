@@ -1,5 +1,9 @@
 import { Request } from 'express';
 import { Types } from 'mongoose';
+import { DataConfig, DataType, DataValue } from './types/dataProperties';
+
+// Re-export global data types
+export { DataConfig, DataType, DataValue };
 
 // Base Types
 export interface BaseEntity {
@@ -305,29 +309,12 @@ export interface JWTPayload {
 }
 
 // Routine Types
-export type RoutineType = 'boolean' | 'checklist' | 'counter' | 'duration' | 'text' | 'scale' | 'time';
+export type RoutineType = DataType;
 export type RoutineStatus = 'active' | 'paused' | 'archived';
 export type CompletionMode = 'strict' | 'gradual';
 
 // Routine Configuration (type-specific)
-export interface IRoutineConfig {
-  // Checklist type
-  items?: string[];
-
-  // Counter/Duration type
-  target?: number;
-  unit?: string;
-
-  // Scale type
-  scale?: number;
-  scaleLabels?: string[];
-
-  // Text type
-  prompt?: string;
-
-  // Time type
-  targetTime?: string; // HH:mm format
-}
+export type IRoutineConfig = DataConfig;
 
 // Routine Schedule
 export interface IRoutineSchedule {
@@ -362,20 +349,9 @@ export interface IRoutineTemplate extends BaseEntity {
 
 // Routine Log Data (type-specific)
 export interface IRoutineLogData {
-  // Boolean type
-  completed?: boolean;
-
-  // Checklist type
-  checkedItems?: boolean[];
-
-  // Counter/Duration/Scale type
-  value?: number;
-
-  // Text type
-  text?: string;
-
-  // Time type
-  time?: string; // HH:mm format
+  value: DataValue;
+  // Metadata about the completion ?
+  notes?: string;
 }
 
 // Routine Log
@@ -432,20 +408,10 @@ export interface IRoutineAnalytics {
 // Goal Types
 export type GoalStatus = 'active' | 'completed' | 'failed' | 'archived';
 
-export interface IGoalConfig {
-  // Common
-  targetValue?: number; // For counter, duration, scale
-  targetItems?: string[]; // For checklist
-  targetTime?: string; // For time-based goals
-  unit?: string; // For counter/duration
-
-  // Boolean specific (usually just "done")
-  // Text specific (maybe word count? or just 'finish')
-}
+export type IGoalConfig = DataConfig;
 
 export interface IGoalProgress {
-  currentValue?: number;
-  completedItems?: string[]; // specific items from checklist that are done
+  currentValue?: DataValue;
   notes?: string;
   lastUpdate?: Date;
 }
@@ -467,7 +433,7 @@ export interface IGoal extends BaseEntity {
   icon?: string;
   color?: string;
 
-  type: RoutineType; // reusing RoutineType
+  type: RoutineType; // reusing RoutineType which is now DataType
   status: GoalStatus;
 
   config: IGoalConfig;
