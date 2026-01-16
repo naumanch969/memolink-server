@@ -1,7 +1,28 @@
 import { User } from '../auth/auth.model';
 import { Media } from './media.model';
-import { STORAGE_LIMITS, MEDIA_TYPES } from '../../shared/constants';
+import { MEDIA_TYPES } from '../../shared/constants';
+import { STORAGE_THRESHOLDS } from './media.constants';
 import { logger } from '../../config/logger';
+
+// Storage Reservation for atomic operations
+export interface StorageReservation {
+  id: string;
+  userId: string;
+  size: number;
+  createdAt: Date;
+  expiresAt: Date;
+  status: 'pending' | 'committed' | 'rolled-back';
+  commit: () => Promise<void>;
+  rollback: () => Promise<void>;
+}
+
+interface ReservationRecord {
+  userId: string;
+  size: number;
+  createdAt: Date;
+  expiresAt: Date;
+  status: 'pending' | 'committed' | 'rolled-back';
+}
 
 export interface StorageStats {
   used: number;
@@ -39,6 +60,144 @@ export interface CleanupSuggestion {
 }
 
 class StorageService {
+  // In-memory reservation tracking (consider Redis for distributed systems)
+  private reservations = new Map<string, ReservationRecord>();
+  private cleanupInterval: NodeJS.Timeout | null = null;
+  private readonly RESERVATION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+  constructor() {
+    // Start cleanup interval for expired reservations
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupExpiredReservations();
+    }, 60 * 1000); // Check every minute
+  }
+
+  /**
+   * Cleanup expired reservations
+   */
+  private async cleanupExpiredReservations(): Promise<void> {
+    const now = new Date();
+    const expired: string[] = [];
+
+    for (const [id, reservation] of this.reservations) {
+      if (reservation.status === 'pending' && reservation.expiresAt < now) {
+        expired.push(id);
+      }
+    }
+
+    if (expired.length > 0) {
+      logger.info(`Cleaning up ${expired.length} expired storage reservations`);
+      for (const id of expired) {
+        this.reservations.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Get total pending reservations for a user
+   */
+  private getPendingReservations(userId: string): number {
+    let total = 0;
+    for (const reservation of this.reservations.values()) {
+      if (reservation.userId === userId && reservation.status === 'pending') {
+        total += reservation.size;
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Reserve storage space atomically (prevents race conditions)
+   */
+  async reserveSpace(userId: string, size: number): Promise<StorageReservation> {
+    const user = await User.findById(userId).select('storageUsed storageQuota');
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Calculate total including pending reservations
+    const pendingReservations = this.getPendingReservations(userId);
+    const projectedUsage = user.storageUsed + pendingReservations + size;
+    const usagePercent = (projectedUsage / user.storageQuota) * 100;
+
+    // Check if reservation would exceed quota
+    if (usagePercent >= 100) {
+      throw new Error(
+        `Storage quota exceeded. You have ${this.formatBytes(user.storageQuota - user.storageUsed - pendingReservations)} remaining.`
+      );
+    }
+
+    if (usagePercent >= STORAGE_THRESHOLDS.CRITICAL_PERCENT * 100) {
+      throw new Error(
+        `Storage almost full (${Math.round(usagePercent)}%). Please free up space before uploading.`
+      );
+    }
+
+    // Create reservation
+    const reservationId = `res_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + this.RESERVATION_TIMEOUT_MS);
+
+    const reservationRecord: ReservationRecord = {
+      userId,
+      size,
+      createdAt: now,
+      expiresAt,
+      status: 'pending',
+    };
+
+    this.reservations.set(reservationId, reservationRecord);
+
+    logger.debug(`Storage reserved: ${reservationId} for user ${userId}, size: ${this.formatBytes(size)}`);
+
+    // Return reservation object with commit/rollback methods
+    const reservation: StorageReservation = {
+      id: reservationId,
+      userId,
+      size,
+      createdAt: now,
+      expiresAt,
+      status: 'pending',
+      commit: async () => {
+        const record = this.reservations.get(reservationId);
+        if (!record) {
+          throw new Error('Reservation not found or expired');
+        }
+        if (record.status !== 'pending') {
+          throw new Error(`Reservation already ${record.status}`);
+        }
+
+        // Atomically update user storage
+        await User.findByIdAndUpdate(userId, {
+          $inc: { storageUsed: size },
+        });
+
+        record.status = 'committed';
+        this.reservations.delete(reservationId); // Clean up after commit
+
+        logger.debug(`Storage reservation committed: ${reservationId}`);
+      },
+      rollback: async () => {
+        const record = this.reservations.get(reservationId);
+        if (!record) {
+          logger.warn(`Attempted to rollback non-existent reservation: ${reservationId}`);
+          return; // Already cleaned up or expired
+        }
+        if (record.status !== 'pending') {
+          logger.warn(`Attempted to rollback ${record.status} reservation: ${reservationId}`);
+          return;
+        }
+
+        record.status = 'rolled-back';
+        this.reservations.delete(reservationId);
+
+        logger.debug(`Storage reservation rolled back: ${reservationId}`);
+      },
+    };
+
+    return reservation;
+  }
+
   /**
    * Get storage usage statistics for a user
    */
@@ -64,8 +223,8 @@ class StorageService {
       quota: user.storageQuota,
       available: Math.max(0, user.storageQuota - user.storageUsed),
       usagePercent: Math.round(usagePercent * 100) / 100,
-      isWarning: usagePercent >= STORAGE_LIMITS.WARNING_THRESHOLD * 100,
-      isCritical: usagePercent >= STORAGE_LIMITS.CRITICAL_THRESHOLD * 100,
+      isWarning: usagePercent >= STORAGE_THRESHOLDS.WARNING_PERCENT * 100,
+      isCritical: usagePercent >= STORAGE_THRESHOLDS.CRITICAL_PERCENT * 100,
       breakdown,
     };
   }
@@ -145,7 +304,7 @@ class StorageService {
       };
     }
 
-    if (usagePercent >= STORAGE_LIMITS.CRITICAL_THRESHOLD * 100) {
+    if (usagePercent >= STORAGE_THRESHOLDS.CRITICAL_PERCENT * 100) {
       return {
         allowed: false,
         reason: `Storage almost full (${Math.round(usagePercent)}%). Please free up space before uploading.`,
@@ -321,6 +480,18 @@ class StorageService {
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  /**
+   * Cleanup resources on service shutdown
+   */
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.reservations.clear();
+    logger.info('StorageService destroyed, all reservations cleared');
   }
 }
 

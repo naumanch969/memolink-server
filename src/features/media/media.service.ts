@@ -28,6 +28,11 @@ export class MediaService implements IMediaService {
 
   async updateMedia(mediaId: string, userId: string, updateData: UpdateMediaRequest): Promise<IMedia> {
     try {
+      // Validate required parameters
+      if (!mediaId || !userId) {
+        throw new Error('Media ID and User ID are required');
+      }
+
       const media = await Media.findOneAndUpdate(
         { _id: mediaId, userId },
         { $set: updateData },
@@ -56,7 +61,14 @@ export class MediaService implements IMediaService {
     }
   }
 
-  async getUserMedia(userId: string, options: any = {}): Promise<{
+  async getUserMedia(userId: string, options: {
+    page?: number;
+    limit?: number;
+    sort?: string;
+    type?: string;
+    folderId?: string | null;
+    search?: string;
+  } = {}): Promise<{
     media: IMedia[];
     total: number;
     page: number;
@@ -68,7 +80,7 @@ export class MediaService implements IMediaService {
       const sort = Helpers.getSortParams(options, 'createdAt');
 
       // Build filter query
-      const filter: any = { userId };
+      const filter: Record<string, unknown> = { userId };
       
       if (options.type) {
         filter.type = options.type;
@@ -87,7 +99,7 @@ export class MediaService implements IMediaService {
       }
 
       const [media, total] = await Promise.all([
-        Media.find(filter).sort(sort as any).skip(skip).limit(limit),
+        Media.find(filter).sort(sort as Record<string, 1 | -1>).skip(skip).limit(limit),
         Media.countDocuments(filter),
       ]);
 
@@ -112,10 +124,13 @@ export class MediaService implements IMediaService {
           await CloudinaryService.deleteFile(media.cloudinaryId);
           logger.info('Cloudinary file deleted', { cloudinaryId: media.cloudinaryId });
         } catch (cloudinaryError) {
-          // Log but don't fail - DB record is already deleted
+          // Log error with details for manual cleanup
           logger.error('Failed to delete from Cloudinary (orphan created)', { 
-            cloudinaryId: media.cloudinaryId, 
-            error: cloudinaryError 
+            cloudinaryId: media.cloudinaryId,
+            mediaId: media._id.toString(),
+            userId,
+            error: cloudinaryError instanceof Error ? cloudinaryError.message : 'Unknown error',
+            requiresManualCleanup: true,
           });
         }
       }
@@ -152,10 +167,26 @@ export class MediaService implements IMediaService {
 
       for (const media of mediaItems) {
         try {
+          // Validate media object has required fields
+          if (!media._id || !media.size) {
+            logger.warn('Invalid media object in bulk delete', { mediaId: media._id });
+            errors.push(`Invalid media record: ${media.originalName || 'Unknown'}`);
+            continue;
+          }
+
           // Delete from Cloudinary first
           if (media.cloudinaryId) {
-            await CloudinaryService.deleteFile(media.cloudinaryId);
+            try {
+              await CloudinaryService.deleteFile(media.cloudinaryId);
+            } catch (cloudinaryError) {
+              logger.error('Cloudinary delete failed in bulk operation', {
+                cloudinaryId: media.cloudinaryId,
+                error: cloudinaryError instanceof Error ? cloudinaryError.message : 'Unknown error',
+              });
+              // Continue with DB deletion even if Cloudinary fails
+            }
           }
+          
           // Then delete from DB
           await Media.deleteOne({ _id: media._id });
           totalSizeDeleted += media.size;
@@ -169,7 +200,14 @@ export class MediaService implements IMediaService {
             size: media.size,
           });
         } catch (error) {
-          errors.push(`Failed to delete ${media.originalName}: ${error}`);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const fileName = media.originalName || media.filename || 'Unknown file';
+          errors.push(`Failed to delete ${fileName}: ${errorMessage}`);
+          logger.error('Individual media deletion failed in bulk operation', {
+            mediaId: media._id.toString(),
+            fileName,
+            error: errorMessage,
+          });
         }
       }
 
@@ -188,7 +226,7 @@ export class MediaService implements IMediaService {
 
   async bulkMoveMedia(userId: string, mediaIds: string[], targetFolderId?: string): Promise<void> {
     try {
-      const updateData: any = {
+      const updateData: { folderId: Types.ObjectId | null } = {
         folderId: targetFolderId ? new Types.ObjectId(targetFolderId) : null
       };
 

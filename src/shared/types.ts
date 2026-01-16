@@ -173,7 +173,7 @@ export interface IMedia extends BaseEntity {
     exif?: {
       make?: string; // Camera manufacturer
       model?: string; // Camera model
-      dateTaken?: Date;
+      dateTaken?: string; // ISO 8601 string for JSON compatibility
       gps?: {
         latitude?: number;
         longitude?: number;
