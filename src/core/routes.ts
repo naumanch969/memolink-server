@@ -3,25 +3,26 @@ import { config } from '../config/env';
 import { logger } from '../config/logger';
 
 // Import feature routes
-import authRoutes from '../features/auth/auth.routes';
-import entryRoutes from '../features/entry/entry.routes';
-import personRoutes from '../features/person/person.routes';
-import tagRoutes from '../features/tag/tag.routes';
-import mediaRoutes from '../features/media/media.routes';
-import folderRoutes from '../features/media/folder.routes';
-import storageRoutes from '../features/media/storage.routes';
-import chunkedUploadRoutes from '../features/media/chunked-upload.routes';
+import adminRoutes from '../features/admin/admin.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
-import insightsRoutes from '../features/insights/insights.routes';
+import authRoutes from '../features/auth/auth.routes';
+import documentRoutes from '../features/document/document.routes';
+import entryRoutes from '../features/entry/entry.routes';
 import exportRoutes from '../features/export/export.routes';
-import widgetRoutes from '../features/widget/widget.routes';
-import routineRoutes from '../features/routine/routine.routes';
+import goalRoutes from '../features/goal/goal.routes';
+import insightsRoutes from '../features/insights/insights.routes';
+import chunkedUploadRoutes from '../features/media/chunked-upload.routes';
+import folderRoutes from '../features/media/folder.routes';
+import mediaRoutes from '../features/media/media.routes';
+import storageRoutes from '../features/media/storage.routes';
+import notificationRoutes from '../features/notification/notification.routes';
+import personRoutes from '../features/person/person.routes';
+import reminderRoutes from '../features/reminder/reminder.routes';
 import routineLogRoutes from '../features/routine/routine-logs.routes';
 import routinePreferencesRoutes from '../features/routine/routine-preferences.routes';
-import reminderRoutes from '../features/reminder/reminder.routes';
-import goalRoutes from '../features/goal/goal.routes';
-import notificationRoutes from '../features/notification/notification.routes';
-import adminRoutes from '../features/admin/admin.routes';
+import routineRoutes from '../features/routine/routine.routes';
+import tagRoutes from '../features/tag/tag.routes';
+import widgetRoutes from '../features/widget/widget.routes';
 
 const router = Router();
 
@@ -83,6 +84,7 @@ router.use('/reminders', reminderRoutes);
 router.use('/goals', goalRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
+router.use('/documents', documentRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {
@@ -102,6 +104,7 @@ logger.info('Routes registered successfully', {
     'goals',
     'notifications',
     'admin',
+    'documents',
   ],
 });
 
