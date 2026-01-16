@@ -4,30 +4,30 @@ export const createMediaValidation = [
   body('filename')
     .notEmpty()
     .withMessage('Filename is required'),
-  
+
   body('originalName')
     .notEmpty()
     .withMessage('Original name is required'),
-  
+
   body('mimeType')
     .notEmpty()
     .withMessage('MIME type is required'),
-  
+
   body('size')
     .isInt({ min: 1 })
     .withMessage('Size must be a positive integer'),
-  
+
   body('url')
     .isURL()
     .withMessage('URL must be valid'),
-  
+
   body('cloudinaryId')
     .notEmpty()
     .withMessage('Cloudinary ID is required'),
-  
+
   body('type')
-    .isIn(['image', 'video', 'document', 'audio'])
-    .withMessage('Type must be image, video, document, or audio'),
+    .isIn(['image', 'video', 'document', 'audio', 'archive', 'data', 'code'])
+    .withMessage('Type must be image, video, document, audio, archive, data, or code'),
 ];
 
 export const mediaIdValidation = [
