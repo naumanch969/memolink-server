@@ -12,6 +12,10 @@ primary_region = 'sin'
 [env]
   PORT = "5001"
 
+[processes]
+  app = "npm run start"
+  worker = "npm run start:worker"
+
 [http_service]
   internal_port = 5001
   force_https = true
