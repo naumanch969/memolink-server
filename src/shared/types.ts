@@ -123,6 +123,15 @@ export interface IPerson extends BaseEntity {
   deletedAt?: Date;
 }
 
+// Relation Types
+export interface IRelation extends BaseEntity {
+  userId: Types.ObjectId;     // The user who owns this data
+  sourceId: Types.ObjectId;   // Person A
+  targetId: Types.ObjectId;   // Person B
+  type: string;               // "Friend", "Spouse", "Colleague", etc.
+  strength?: number;          // 1-10 for visualization weight
+}
+
 // Tag Types
 export interface ITag extends BaseEntity {
   userId: Types.ObjectId;

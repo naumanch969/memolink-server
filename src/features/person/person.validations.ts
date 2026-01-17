@@ -120,3 +120,14 @@ export const personIdValidation = [
     .isMongoId()
     .withMessage('Invalid person ID format'),
 ];
+
+export const createRelationValidation = [
+  body('sourceId').isMongoId().withMessage('Invalid source person ID'),
+  body('targetId').isMongoId().withMessage('Invalid target person ID'),
+  body('type').trim().notEmpty().withMessage('Relation type is required'),
+  body('strength')
+    .optional()
+    .isInt({ min: 1, max: 10 })
+    .withMessage('Strength must be between 1 and 10'),
+];
+
