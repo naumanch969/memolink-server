@@ -13,6 +13,18 @@ WORKDIR /app
 ENV NODE_ENV="production"
 
 
+# Development stage
+FROM base as development
+ENV NODE_ENV=development
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
+COPY package-lock.json package.json ./
+RUN npm ci --include=dev
+COPY . .
+CMD ["npm", "run", "dev"]
+
+
+
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 

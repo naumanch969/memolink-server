@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      target: development
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongo:27017/memolink-dev
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - mongo
+      - redis
+    command: npm run dev
+
+  worker:
+    build:
+      context: .
+      target: development
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongo:27017/memolink-dev
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      - mongo
+      - redis
+    command: npm run worker
+
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-data:
+  redis-data:

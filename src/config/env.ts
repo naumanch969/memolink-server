@@ -71,6 +71,9 @@ export const config = {
   GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
   GITHUB_OWNER: process.env.GITHUB_OWNER || '',
   GITHUB_REPO: process.env.GITHUB_REPO || '',
+
+  // Redis Configuration
+  REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
 } as const;
 
 export type Config = typeof config;
