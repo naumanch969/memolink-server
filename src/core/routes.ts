@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 
-// Import feature routes
 import adminRoutes from '../features/admin/admin.routes';
+import agentRoutes from '../features/agent/agent.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
 import authRoutes from '../features/auth/auth.routes';
 import documentRoutes from '../features/document/document.routes';
@@ -82,7 +82,9 @@ router.use('/reminders', reminderRoutes);
 router.use('/goals', goalRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
+
 router.use('/documents', documentRoutes);
+router.use('/agents', agentRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {

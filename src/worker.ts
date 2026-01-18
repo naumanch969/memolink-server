@@ -3,6 +3,7 @@ import { config } from './config/env';
 import { logger } from './config/logger';
 import redisConnection from './config/redis';
 import { QueueService } from './core/queue/QueueService';
+import { initAgentWorker } from './features/agent/agent.worker';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -30,9 +31,7 @@ async function startWorker() {
         });
 
         // 3. Register Workers Here
-        // Import processors and register them:
-        // QueueService.registerWorker('agent-tasks', agentTaskProcessor);
-        // QueueService.registerWorker('notifications', notificationProcessor);
+        initAgentWorker();
 
         logger.info('Worker service initialized. Waiting for jobs...');
 
