@@ -73,15 +73,23 @@ export class EntryService implements IEntryService {
         tagsCount: tagIds.length,
       });
 
-      // TRIGGER AGENT: Auto-Tagging
+      // TRIGGER AGENT: Auto-Tagging & People Extraction
       // We don't await this, it runs in background
       if (entryData.content && entryData.content.length > 20) {
         import('../agent/agent.service').then(({ agentService }) => {
           const { AgentTaskType } = require('../agent/agent.types');
+
+          // 1. Silent Librarian (Tagging)
           agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
             entryId: entry._id.toString(),
             content: entryData.content
           }).catch(err => logger.error('Failed to trigger auto-tagging', err));
+
+          // 2. Chief of Staff (People Extraction)
+          agentService.createTask(userId, AgentTaskType.PEOPLE_EXTRACTION, {
+            entryId: entry._id.toString(),
+            userId // Pass userId explicitly for the workflow
+          }).catch(err => logger.error('Failed to trigger people extraction', err));
         });
       }
 

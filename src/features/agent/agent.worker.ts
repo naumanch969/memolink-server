@@ -39,6 +39,11 @@ export const initAgentWorker = () => {
                     result = await runEntryTagging(task.userId, task.inputData);
                     break;
 
+                case AgentTaskType.PEOPLE_EXTRACTION:
+                    const { runPeopleExtraction } = await import('./workflows/extraction.workflow');
+                    result = await runPeopleExtraction(task);
+                    break;
+
                 default:
                     throw new Error(`Unknown agent task type: ${task.type}`);
             }

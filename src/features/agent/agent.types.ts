@@ -2,6 +2,7 @@ export enum AgentTaskType {
     DAILY_REFLECTION = 'DAILY_REFLECTION',
     WEEKLY_ANALYSIS = 'WEEKLY_ANALYSIS',
     ENTRY_TAGGING = 'ENTRY_TAGGING',
+    PEOPLE_EXTRACTION = 'PEOPLE_EXTRACTION',
     LINKEDIN_PROFILE_PARSE = 'LINKEDIN_PROFILE_PARSE',
 }
 
@@ -24,3 +25,12 @@ export interface IAgentTask {
     startedAt?: Date;
     completedAt?: Date;
 }
+
+export type AgentWorkflowResult = {
+    status: 'completed' | 'failed' | 'pending';
+    result?: any;
+    error?: string;
+};
+
+export type AgentWorkflow = (task: IAgentTask) => Promise<AgentWorkflowResult>;
+ 
