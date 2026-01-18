@@ -7,7 +7,6 @@ import { Helpers } from '../../shared/helpers';
 import { IEntry } from '../../shared/types';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
-import { mediaService } from '../media/media.service';
 import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
 
 export class EntryService implements IEntryService {
@@ -73,6 +72,18 @@ export class EntryService implements IEntryService {
         mentionsCount: mentionIds.length,
         tagsCount: tagIds.length,
       });
+
+      // TRIGGER AGENT: Auto-Tagging
+      // We don't await this, it runs in background
+      if (entryData.content && entryData.content.length > 20) {
+        import('../agent/agent.service').then(({ agentService }) => {
+          const { AgentTaskType } = require('../agent/agent.types');
+          agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
+            entryId: entry._id.toString(),
+            content: entryData.content
+          }).catch(err => logger.error('Failed to trigger auto-tagging', err));
+        });
+      }
 
       return entry;
     } catch (error) {
