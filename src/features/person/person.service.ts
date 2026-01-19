@@ -1,15 +1,28 @@
-import { Person } from './person.model';
-import { Entry } from '../entry/entry.model';
-import { logger } from '../../config/logger';
-import { createNotFoundError } from '../../core/middleware/errorHandler';
-import { CreatePersonRequest, UpdatePersonRequest, IPersonService } from './person.interfaces';
-import { IPerson } from '../../shared/types';
-import { Helpers } from '../../shared/helpers';
 import { Types } from 'mongoose';
+import { logger } from '../../config/logger';
+import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
+import { Helpers } from '../../shared/helpers';
+import { IPerson } from '../../shared/types';
+import { CreatePersonRequest, IPersonService, UpdatePersonRequest } from './person.interfaces';
+import { Person } from './person.model';
 
 export class PersonService implements IPersonService {
   async createPerson(userId: string, personData: CreatePersonRequest): Promise<IPerson> {
     try {
+      // Check for duplicate name (case-insensitive) for this user
+      const existingPerson = await Person.findOne({
+        userId,
+        name: { $regex: new RegExp(`^${personData.name.trim()}$`, 'i') },
+        isDeleted: { $ne: true }
+      });
+
+      if (existingPerson) {
+        // If exact match on name, verify if we should throw or just return existing?
+        // Usually, implicit merge is dangerous. Better to warn.
+        // However, standard flow is:
+        throw createConflictError(`Person with name "${personData.name}" already exists.`);
+      }
+
       const person = new Person({
         userId: new Types.ObjectId(userId),
         ...personData,
@@ -47,86 +60,52 @@ export class PersonService implements IPersonService {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
 
-      // Determine sort stage
-      let sortStage: any = {};
+      // Determine sort
+      let sort: any = { updatedAt: -1 };
       if (options.sortBy === 'interactionCount') {
-        sortStage = { interactionCount: options.sortOrder === 'asc' ? 1 : -1 };
+        sort = {
+          interactionCount: options.sortOrder === 'asc' ? 1 : -1,
+          updatedAt: -1 // Tie-breaker
+        };
       } else if (options.sortBy === 'name') {
-        sortStage = { name: options.sortOrder === 'desc' ? -1 : 1 }; // Default asc for name
-      } else {
-        sortStage = { updatedAt: -1 }; // Default
+        sort = {
+          name: options.sortOrder === 'desc' ? -1 : 1,
+          updatedAt: -1
+        };
       }
 
-      // Initial Filter Stage
-      const matchStage: any = {
+      // Filter
+      const query: any = {
         userId: new Types.ObjectId(userId),
         isDeleted: { $ne: true }
       };
 
       if (options.search) {
-        // Escape special regex characters
         const escapedSearch = options.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const searchRegex = new RegExp(escapedSearch, 'i');
-        matchStage.$or = [
+        query.$or = [
           { name: { $regex: searchRegex } },
           { email: { $regex: searchRegex } },
           { phone: { $regex: searchRegex } },
           { company: { $regex: searchRegex } },
           { jobTitle: { $regex: searchRegex } },
-          { tags: { $elemMatch: { $regex: searchRegex } } }
+          { tags: { $in: [searchRegex] } } // Optimized from elemMatch for strings
         ];
       }
 
-      const pipeline: any[] = [
-        { $match: matchStage },
-        // Lookup to count interactions dynamically
-        {
-          $lookup: {
-            from: 'entries',
-            let: { personId: '$_id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $in: ['$$personId', '$mentions'] },
-                      { $eq: ['$userId', new Types.ObjectId(userId)] } // Ensure entry belongs to user
-                    ]
-                  }
-                }
-              },
-              { $count: 'count' }
-            ],
-            as: 'interactionStats'
-          }
-        },
-        // Add interactionCount field
-        {
-          $addFields: {
-            interactionCount: { $ifNull: [{ $arrayElemAt: ['$interactionStats.count', 0] }, 0] }
-          }
-        },
-        // Remove the heavy stats array
-        { $project: { interactionStats: 0 } },
-        // Sort
-        { $sort: sortStage },
-        // Facet for pagination
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }],
-            data: [{ $skip: skip }, { $limit: limit }]
-          }
-        }
-      ];
+      const [persons, total] = await Promise.all([
+        Person.find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Person.countDocuments(query)
+      ]);
 
-      const result = await Person.aggregate(pipeline);
-
-      const data = result[0].data;
-      const total = result[0].metadata[0]?.total || 0;
       const totalPages = Math.ceil(total / limit);
 
       return {
-        persons: data as IPerson[],
+        persons: persons as IPerson[],
         total,
         page,
         limit,
