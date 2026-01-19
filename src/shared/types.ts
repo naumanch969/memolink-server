@@ -113,11 +113,14 @@ export interface IPerson extends BaseEntity {
 
   // Organization
   tags?: string[];
+  role?: string;
 
   notes?: string;
   isPlaceholder: boolean;
   interactionCount: number;
   lastInteractionAt?: Date;
+  lastInteractionSummary?: string;
+  sentimentScore?: number;
 
   // Soft Delete
   isDeleted: boolean;

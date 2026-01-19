@@ -10,6 +10,7 @@ const personSchema = new Schema<IPerson>({
 
   // Professional Details
   jobTitle: { type: String, trim: true, maxlength: [100, 'Job title cannot exceed 100 characters'], },
+  role: { type: String, trim: true },
   company: { type: String, trim: true, maxlength: [100, 'Company cannot exceed 100 characters'], },
 
   // Important Dates
@@ -40,6 +41,8 @@ const personSchema = new Schema<IPerson>({
   isPlaceholder: { type: Boolean, default: false, },
   interactionCount: { type: Number, default: 0, },
   lastInteractionAt: { type: Date, },
+  lastInteractionSummary: { type: String },
+  sentimentScore: { type: Number, default: 0 },
 
   // Soft Delete
   isDeleted: { type: Boolean, default: false, index: true },

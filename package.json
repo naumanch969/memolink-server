@@ -4,7 +4,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
-    "worker": "ts-node src/worker.ts",
+    "worker": "nodemon --exec ts-node src/worker.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
