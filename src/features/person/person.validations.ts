@@ -19,7 +19,7 @@ export const createPersonValidation = [
   // .isMobilePhone('any') // Strict validation removed to allow various formats
 
   body('avatar')
-    .optional()
+    .optional({ checkFalsy: true })
     .isURL()
     .withMessage('Avatar must be a valid URL'),
 
@@ -86,7 +86,7 @@ export const updatePersonValidation = [
     .trim(),
 
   body('avatar')
-    .optional()
+    .optional({ checkFalsy: true })
     .isURL()
     .withMessage('Avatar must be a valid URL'),
 
