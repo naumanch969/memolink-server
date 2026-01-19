@@ -21,6 +21,11 @@ export interface IAuthService {
   resendVerification(email: string): Promise<void>;
   updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<void>;
   verifySecurityAnswer(userId: string, answer: string): Promise<{ valid: boolean }>;
+  googleLogin(idToken: string): Promise<AuthResponse>;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
 }
 
 export interface LoginRequest {

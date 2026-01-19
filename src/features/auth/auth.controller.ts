@@ -1,9 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
-import { authService } from './auth.service';
-import { ResponseHelper } from '../../core/utils/response';
+import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/middleware/errorHandler';
+import { ResponseHelper } from '../../core/utils/response';
 import { AuthenticatedRequest } from '../../shared/types';
-import { LoginRequest, RegisterRequest, ChangePasswordRequest, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest, ResendVerificationRequest, SecurityConfigRequest } from './auth.interfaces';
+import { ChangePasswordRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.interfaces';
+import { authService } from './auth.service';
 
 export class AuthController {
   // Register new user
@@ -20,6 +20,14 @@ export class AuthController {
     const result = await authService.login(credentials);
 
     ResponseHelper.success(res, result, 'Login successful');
+  });
+
+  // Google Login
+  static googleLogin = asyncHandler(async (req: Request, res: Response) => {
+    const { idToken }: GoogleLoginRequest = req.body;
+    const result = await authService.googleLogin(idToken);
+
+    ResponseHelper.success(res, result, 'Google login successful');
   });
 
   // Refresh access token

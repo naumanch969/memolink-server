@@ -1,14 +1,15 @@
 import { Router } from 'express';
-import { AuthController } from './auth.controller';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import { registerValidation, loginValidation, changePasswordValidation, refreshTokenValidation, forgotPasswordValidation, resetPasswordValidation, verifyEmailValidation, resendVerificationValidation, updateProfileValidation, updateSecurityConfigValidation, verifySecurityAnswerValidation } from './auth.validations';
 import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { AuthController } from './auth.controller';
+import { changePasswordValidation, forgotPasswordValidation, loginValidation, refreshTokenValidation, registerValidation, resendVerificationValidation, resetPasswordValidation, updateProfileValidation, updateSecurityConfigValidation, verifyEmailValidation, verifySecurityAnswerValidation } from './auth.validations';
 
 const router = Router();
 
 // Public routes
 router.post('/register', registerValidation, validationMiddleware, AuthController.register);
 router.post('/login', loginValidation, validationMiddleware, AuthController.login);
+router.post('/google', AuthController.googleLogin);
 router.post('/refresh-token', refreshTokenValidation, validationMiddleware, AuthController.refreshToken);
 router.post('/forgot-password', forgotPasswordValidation, validationMiddleware, AuthController.forgotPassword);
 router.post('/reset-password', resetPasswordValidation, validationMiddleware, AuthController.resetPassword);

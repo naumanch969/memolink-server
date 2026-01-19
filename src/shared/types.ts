@@ -23,7 +23,8 @@ export interface PaginationMeta {
 // User Types
 export interface IUser extends BaseEntity {
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
   name: string;
   avatar?: string;
   role: string;

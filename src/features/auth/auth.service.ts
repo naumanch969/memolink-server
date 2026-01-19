@@ -1,12 +1,15 @@
+import { OAuth2Client } from 'google-auth-library';
+import { emailService } from '../../config/email';
+import { config } from '../../config/env';
+import { logger } from '../../config/logger';
+import { createConflictError, createError, createNotFoundError, createUnauthorizedError } from '../../core/middleware/errorHandler';
+import { CryptoHelper } from '../../core/utils/crypto';
+import { IUser } from '../../shared/types';
+import { AuthResponse, ChangePasswordRequest, IAuthService, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
 import { User } from './auth.model';
 import { Otp } from './otp.model';
-import { CryptoHelper } from '../../core/utils/crypto';
-import { logger } from '../../config/logger';
-import { emailService } from '../../config/email';
-import { createError, createNotFoundError, createConflictError, createUnauthorizedError } from '../../core/middleware/errorHandler';
-import { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, IAuthService, SecurityConfigRequest } from './auth.interfaces';
-import { IUser } from '../../shared/types';
-import { config } from '../../config/env';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export class AuthService implements IAuthService {
   // Register new user
@@ -85,6 +88,68 @@ export class AuthService implements IAuthService {
     } catch (error) {
       logger.error('Login failed:', error);
       throw error;
+    }
+  }
+
+  // Google Login
+  async googleLogin(idToken: string): Promise<AuthResponse> {
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload) {
+        throw createUnauthorizedError('Invalid Google Token');
+      }
+
+      const { email, name, sub: googleId, picture } = payload;
+
+      if (!email) {
+        throw createUnauthorizedError('Email not found in Google Token');
+      }
+
+      let user = await User.findOne({ email: email.toLowerCase().trim() });
+
+      if (user) {
+        // Link Google ID if not present
+        if (!user.googleId) {
+          user.googleId = googleId;
+          await user.save();
+        }
+      } else {
+        // Create new user
+        user = new User({
+          email: email.toLowerCase().trim(),
+          name: name || 'User',
+          googleId,
+          avatar: picture,
+          isEmailVerified: true, // Google emails are verified
+          // Password is optional now
+        });
+        await user.save();
+
+        // Send welcome email
+        try {
+          await emailService.sendWelcomeEmail(user.email, user.name);
+        } catch (e) {
+          logger.warn('Failed to send welcome email for Google signup', { email });
+        }
+      }
+
+      // Generate tokens
+      const accessToken = CryptoHelper.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+      const refreshToken = CryptoHelper.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+
+      // Update last login
+      user.lastLoginAt = new Date();
+      await user.save();
+
+      return { user: user.toJSON(), accessToken, refreshToken };
+    } catch (error) {
+      logger.error('Google login failed:', error);
+      throw createUnauthorizedError('Google authentication failed');
     }
   }
 

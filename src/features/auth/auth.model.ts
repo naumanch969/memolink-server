@@ -1,6 +1,6 @@
-import mongoose, { Schema, Model } from 'mongoose';
+import mongoose, { Model, Schema } from 'mongoose';
+import { STORAGE_LIMITS, USER_ROLES } from '../../shared/constants';
 import { IUser } from '../../shared/types';
-import { USER_ROLES, STORAGE_LIMITS } from '../../shared/constants';
 
 // Interface for User model with static methods
 interface IUserModel extends Model<IUser> {
@@ -10,7 +10,8 @@ interface IUserModel extends Model<IUser> {
 
 const userSchema = new Schema<IUser>({
   email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true, maxlength: [254, 'Email cannot exceed 254 characters'], match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'], },
-  password: { type: String, required: [true, 'Password is required'], minlength: [8, 'Password must be at least 8 characters long'], select: false, }, // Don't include password in queries by default
+  password: { type: String, minlength: [8, 'Password must be at least 8 characters long'], select: false, }, // Don't include password in queries by default
+  googleId: { type: String, unique: true, sparse: true, select: false },
   name: { type: String, required: [true, 'Name is required'], trim: true, maxlength: [100, 'Name cannot exceed 100 characters'], },
   avatar: { type: String, default: null, },
   role: { type: String, enum: Object.values(USER_ROLES), default: USER_ROLES.USER, },
