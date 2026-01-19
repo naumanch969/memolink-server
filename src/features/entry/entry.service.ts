@@ -66,6 +66,18 @@ export class EntryService implements IEntryService {
         await tagService.incrementUsage(userId, explicitTags);
       }
 
+      // Increment Person Interaction Count
+      if (mentionIds.length > 0) {
+        const { Person } = await import('../person/person.model');
+        await Person.updateMany(
+          { _id: { $in: mentionIds } },
+          {
+            $inc: { interactionCount: 1 },
+            $set: { lastInteractionAt: new Date() }
+          }
+        );
+      }
+
       logger.info('Entry created successfully', {
         entryId: entry._id,
         userId,
@@ -76,9 +88,10 @@ export class EntryService implements IEntryService {
       // TRIGGER AGENT: Auto-Tagging & People Extraction
       // We don't await this, it runs in background
       if (entryData.content && entryData.content.length > 20) {
-        import('../agent/agent.service').then(({ agentService }) => {
-          const { AgentTaskType } = require('../agent/agent.types');
-
+        Promise.all([
+          import('../agent/agent.service'),
+          import('../agent/agent.types')
+        ]).then(([{ agentService }, { AgentTaskType }]) => {
           // 1. Silent Librarian (Tagging)
           agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
             entryId: entry._id.toString(),
@@ -124,7 +137,7 @@ export class EntryService implements IEntryService {
     totalPages: number;
   }> {
     try {
-      const { page, limit, skip } = Helpers.getPaginationParams(options);
+      const { page, limit } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'createdAt');
       const filter = { userId, ...options.filter };
 
