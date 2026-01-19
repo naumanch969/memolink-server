@@ -9,6 +9,9 @@ import { Tag } from './tag.model';
 export class TagService implements ITagService {
   async createTag(userId: string, tagData: CreateTagRequest): Promise<ITag> {
     try {
+      if (tagData.name) {
+        tagData.name = tagData.name.toUpperCase();
+      }
       const existingTag = await Tag.findOne({ userId, name: tagData.name });
       if (existingTag) {
         throw createConflictError('Tag with this name already exists');
@@ -58,6 +61,9 @@ export class TagService implements ITagService {
 
   async updateTag(tagId: string, userId: string, updateData: UpdateTagRequest): Promise<ITag> {
     try {
+      if (updateData.name) {
+        updateData.name = updateData.name.toUpperCase();
+      }
       const tag = await Tag.findOneAndUpdate(
         { _id: tagId, userId },
         { $set: updateData },
@@ -107,20 +113,21 @@ export class TagService implements ITagService {
 
   async findOrCreateTag(userId: string, name: string): Promise<ITag> {
     try {
-      // Try to find existing tag (case-insensitive)
+      const uppercasedName = name.toUpperCase();
+      // Try to find existing tag
       let tag = await Tag.findOne({
         userId,
-        name: { $regex: new RegExp(`^${name}$`, 'i') }
+        name: uppercasedName
       });
 
       if (!tag) {
         // Create new tag
         tag = new Tag({
           userId: new Types.ObjectId(userId),
-          name,
+          name: uppercasedName,
         });
         await tag.save();
-        logger.info('Tag auto-created', { tagId: tag._id, userId, name });
+        logger.info('Tag auto-created', { tagId: tag._id, userId, name: uppercasedName });
       }
 
       return tag;
