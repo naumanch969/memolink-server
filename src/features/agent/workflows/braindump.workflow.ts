@@ -1,6 +1,5 @@
-import { google } from '@google/generative-ai/server';
-import { generateObject } from 'ai';
 import { z } from 'zod';
+import { LLMService } from '../../../core/llm/LLMService';
 import { Entry } from '../../entry/entry.model';
 import { AgentWorkflow } from '../agent.types';
 
@@ -40,11 +39,7 @@ Guidelines:
 - Preserve the original voice and tone
 - Don't add information that isn't in the original text`;
 
-    const { object: response } = await generateObject({
-        model: google('gemini-2.0-flash-exp'),
-        schema: splitEntriesSchema,
-        prompt
-    });
+    const response = await LLMService.generateJSON(prompt, splitEntriesSchema);
 
     const splitEntries = response.entries || [];
     const createdIds = [];

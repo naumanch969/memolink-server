@@ -4,6 +4,7 @@ export enum AgentTaskType {
     ENTRY_TAGGING = 'ENTRY_TAGGING',
     PEOPLE_EXTRACTION = 'PEOPLE_EXTRACTION',
     LINKEDIN_PROFILE_PARSE = 'LINKEDIN_PROFILE_PARSE',
+    BRAIN_DUMP = 'BRAIN_DUMP',
 }
 
 export enum AgentTaskStatus {
@@ -33,4 +34,3 @@ export type AgentWorkflowResult = {
 };
 
 export type AgentWorkflow = (task: IAgentTask) => Promise<AgentWorkflowResult>;
-
