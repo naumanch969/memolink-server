@@ -17,13 +17,13 @@ export class QueueService {
      * @param name The name of the queue
      * @param options BullMQ Queue options
      */
-    static registerQueue<T>(name: string, options?: QueueOptions): Queue<T> {
+    static registerQueue<T>(name: string, options?: Omit<QueueOptions, 'connection'>): Queue<T> {
         if (this.queues.has(name)) {
             return this.queues.get(name) as Queue<T>;
         }
 
         const queue = new Queue<T>(name, {
-            connection: redisConnection,
+            connection: redisConnection as any,
             defaultJobOptions: {
                 attempts: 3,
                 backoff: {
@@ -47,14 +47,14 @@ export class QueueService {
      * @param processor The job processor function
      * @param options BullMQ Worker options
      */
-    static registerWorker<T>(name: string, processor: Processor<T>, options?: WorkerOptions): Worker<T> {
+    static registerWorker<T>(name: string, processor: Processor<T>, options?: Omit<WorkerOptions, 'connection'>): Worker<T> {
         if (this.workers.has(name)) {
             logger.warn(`Worker for queue [${name}] already exists`);
             return this.workers.get(name) as Worker<T>;
         }
 
         const worker = new Worker<T>(name, processor, {
-            connection: redisConnection,
+            connection: redisConnection as any,
             concurrency: 1, // Default to 1 job at a time per worker instance
             ...options,
         });
