@@ -6,6 +6,7 @@ import adminRoutes from '../features/admin/admin.routes';
 import agentRoutes from '../features/agent/agent.routes';
 import analyticsRoutes from '../features/analytics/analytics.routes';
 import authRoutes from '../features/auth/auth.routes';
+import announcementRoutes from '../features/communication/announcement.routes';
 import documentRoutes from '../features/document/document.routes';
 import entryRoutes from '../features/entry/entry.routes';
 import exportRoutes from '../features/export/export.routes';
@@ -85,6 +86,7 @@ router.use('/admin', adminRoutes);
 
 router.use('/documents', documentRoutes);
 router.use('/agents', agentRoutes);
+router.use('/announcements', announcementRoutes);
 
 // Log route registration
 logger.info('Routes registered successfully', {

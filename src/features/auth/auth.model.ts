@@ -21,6 +21,11 @@ const userSchema = new Schema<IUser>({
     theme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto', },
     notifications: { type: Boolean, default: true, },
     privacy: { type: String, enum: ['public', 'private'], default: 'private', },
+    communication: {
+      newsletter: { type: Boolean, default: true },
+      productUpdates: { type: Boolean, default: true },
+      security: { type: Boolean, default: true }, // Should mostly remain true/enforced by logic, but good to have preference stored
+    },
   },
   securityConfig: {
     question: { type: String, trim: true },

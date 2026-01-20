@@ -34,6 +34,11 @@ export interface IUser extends BaseEntity {
     theme: 'light' | 'dark' | 'auto';
     notifications: boolean;
     privacy: 'public' | 'private';
+    communication?: {
+      newsletter: boolean;
+      productUpdates: boolean;
+      security: boolean;
+    };
   };
   securityConfig?: {
     question: string;
