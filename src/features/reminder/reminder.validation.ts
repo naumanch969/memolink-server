@@ -274,7 +274,7 @@ export const getRemindersQueryValidation = [
     query('limit')
         .optional()
         .isInt({ min: 1, max: 100 })
-        .withMessage('Limit must be between 1 and 100'),
+        .withMessage('Limit must be between 1 and 1000'),
 
     query('skip')
         .optional()

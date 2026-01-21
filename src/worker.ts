@@ -35,6 +35,28 @@ async function startWorker() {
         initAgentWorker();
         initEmailWorker();
 
+        // DEV ONLY: Clear queues on startup to prevent zombie jobs
+        if (config.NODE_ENV === 'development') {
+            logger.info('Development mode detected: Cleaning queues...');
+
+            const { getEmailQueue } = await import('./features/email/queue/email.queue');
+            const { getAgentQueue } = await import('./features/agent/agent.queue');
+
+            const emailQueue = getEmailQueue();
+            const agentQueue = getAgentQueue();
+
+            await emailQueue.drain();
+            await emailQueue.clean(0, 5000, 'delayed');
+            await emailQueue.clean(0, 5000, 'wait');
+            await emailQueue.clean(0, 5000, 'active');
+
+            await agentQueue.drain();
+            await agentQueue.clean(0, 5000, 'delayed');
+            await agentQueue.clean(0, 5000, 'wait');
+            await agentQueue.clean(0, 5000, 'active');
+            logger.info('Queues drained');
+        }
+
         logger.info('Worker service initialized. Waiting for jobs...');
 
         // Graceful Shutdown
