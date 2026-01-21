@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
 import { ChatMessage } from './agent.memory';
+import fs from 'fs'
+import path from 'path'
 
 // 1. Define Intention Types
 export enum AgentIntentType {
