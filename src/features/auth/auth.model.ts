@@ -16,6 +16,7 @@ const userSchema = new Schema<IUser>({
   avatar: { type: String, default: null, },
   role: { type: String, enum: Object.values(USER_ROLES), default: USER_ROLES.USER, },
   isEmailVerified: { type: Boolean, default: false, },
+  isActive: { type: Boolean, default: false, },
   lastLoginAt: { type: Date, default: null, },
   preferences: {
     theme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto', },
@@ -60,6 +61,7 @@ userSchema.virtual('profile').get(function () {
     avatar: this.avatar,
     role: this.role,
     isEmailVerified: this.isEmailVerified,
+    isActive: this.isActive,
     lastLoginAt: this.lastLoginAt,
     preferences: this.preferences,
     createdAt: this.createdAt,

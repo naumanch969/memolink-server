@@ -31,9 +31,6 @@ async function runTest() {
     // 1. Mock External Services
     await mockLLM();
 
-    // Mock Mongoose Create (since we might not have a running DB connected in this script execution context 
-    // without full server boot). 
-    // If we want to test REAL flow, we need to connect to DB. 
     // Let's mock create to avoid Side Effects and DB connection errors if .env is missing.
     const mockTask = { _id: "task-123", type: "BRAIN_DUMP", status: "PENDING" };
 

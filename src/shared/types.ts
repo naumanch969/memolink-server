@@ -29,6 +29,7 @@ export interface IUser extends BaseEntity {
   avatar?: string;
   role: string;
   isEmailVerified: boolean;
+  isActive: boolean;
   lastLoginAt?: Date;
   preferences: {
     theme: 'light' | 'dark' | 'auto';
