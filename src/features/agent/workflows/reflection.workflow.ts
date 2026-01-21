@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/LLMService';
 import { Entry } from '../../entry/entry.model';
+import { AgentTask } from '../agent.model';
+import { AgentTaskType } from '../agent.types';
 
 // Input Validation Schema
 export const DailyReflectionInputSchema = z.object({
@@ -26,12 +28,11 @@ export async function runDailyReflection(userId: string, input: DailyReflectionI
     logger.info(`Running Daily Reflection for user ${userId}`);
 
     // 1. Determine Time Range
-    const today = input.date ? new Date(input.date) : new Date();
     // Normalize to start and end of day in UTC (Simplification: dealing with timezones properly is complex, 
     // for MVP we assume the input date is "representative" and take +/- 12 hours or just the calendar day if timezone provided)
     // PROVISIONAL: Just get entries created in the last 24 hours from "now" if no date provided, or the specific calendar day.
 
-    const query: any = { userId };
+    const query: Record<string, unknown> = { userId };
 
     if (input.date) {
         const startOfDay = new Date(input.date);
@@ -64,18 +65,37 @@ export async function runDailyReflection(userId: string, input: DailyReflectionI
         return `[${e.createdAt.toISOString()}] (Mood: ${e.mood || 'N/A'}) (Tags: ${e.tags?.join(', ') || 'None'}): ${e.content}`;
     }).join('\n\n');
 
+    // 2.5 Fetch Past Reflections (Longitudinal Context)
+    const pastTasks = await AgentTask.find({
+        userId,
+        type: AgentTaskType.DAILY_REFLECTION,
+        status: 'completed',
+        createdAt: { $lt: new Date() } // exclude current one if any
+    })
+        .sort({ createdAt: -1 })
+        .limit(7)
+        .select('outputData createdAt');
+
+    const historyContext = pastTasks.map(t => {
+        const d = t.outputData as ReflectionOutput;
+        return `[${t.createdAt.toISOString().split('T')[0]}] Mood: ${d.moodScore}/10 - ${d.summary}`;
+    }).join('\n');
+
     const prompt = `
     Analyze the following journal entries from the user for today/recent period.
     Your goal is to act as a wise, empathetic, and insightful personal assistant / therapist.
     
-    Entries:
+    Context (Last 7 Days):
+    ${historyContext || "No previous reflections available."}
+
+    Today's Entries:
     ${entriesContext}
     
     Task:
     1. Estimate the overall mood score (1-10).
     2. Summarize the day's narrative in 2-3 sentences (speak to the user as "You").
     3. Identify key themes.
-    4. Provide actionable insights or gentle advice.
+    4. Provide actionable insights. Connect today's events to the last 7 days of history if relevant (e.g., "You've been feeling down for 3 days...").
     5. Identify the dominant emotion.
     
     Output strictly in JSON with the following keys:

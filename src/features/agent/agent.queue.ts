@@ -4,7 +4,7 @@ import { QueueService } from '../../core/queue/QueueService';
 
 export const AGENT_QUEUE_NAME = 'agent-tasks';
 
-let agentQueue: Queue;
+export let agentQueue: Queue;
 
 export const initAgentQueue = () => {
     agentQueue = QueueService.registerQueue(AGENT_QUEUE_NAME);
@@ -14,7 +14,7 @@ export const initAgentQueue = () => {
 
 export const getAgentQueue = () => {
     if (!agentQueue) {
-        throw new Error('Agent Queue not initialized. Call initAgentQueue first.');
+        initAgentQueue(); // Auto-init if accessed before manual init
     }
     return agentQueue;
 };

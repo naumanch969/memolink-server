@@ -57,6 +57,31 @@ export class AgentController {
             next(error);
         }
     }
+
+    public async processNaturalLanguage(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const { text } = req.body;
+            const userId = (req as any).user._id;
+
+            if (!text) {
+                res.status(400).json({ message: 'Text input is required' });
+                return;
+            }
+
+            const processingResult = await agentService.processNaturalLanguage(userId, text);
+
+            res.status(200).json({
+                message: 'Processed',
+                intent: processingResult.intent,
+                task: processingResult.task,
+                data: processingResult.result
+            });
+        } catch (error) {
+            logger.error('Error processing natural language', error);
+            next(error);
+        }
+    }
 }
+
 
 export const agentController = new AgentController();

@@ -10,5 +10,7 @@ router.use(authenticate);
 router.post('/tasks', agentController.createTask);
 router.get('/tasks', agentController.listTasks);
 router.get('/tasks/:taskId', agentController.getTask);
+router.post('/intent', agentController.processNaturalLanguage.bind(agentController));
 
 export default router;
+ 

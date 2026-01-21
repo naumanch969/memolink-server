@@ -3,8 +3,10 @@ import { ZodSchema } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMGenerativeOptions, LLMProvider } from '../types';
 
+const DEFAULT_MODEL = 'models/gemini-2.5-flash';
+
 export class GeminiProvider implements LLMProvider {
-    public name = 'models/gemini-2.5-flash';
+    public name = DEFAULT_MODEL;
     private client: GoogleGenerativeAI;
     private model: GenerativeModel;
 
@@ -14,7 +16,7 @@ export class GeminiProvider implements LLMProvider {
         }
         this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         // Using gemini-pro as stable fallback for now
-        this.model = this.client.getGenerativeModel({ model: 'models/gemini-2.5-flash' });
+        this.model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
     }
 
     async generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string> {
@@ -22,7 +24,7 @@ export class GeminiProvider implements LLMProvider {
             // Configure model if options provided
             const modelToUse = options?.systemInstruction
                 ? this.client.getGenerativeModel({
-                    model: 'models/gemini-2.5-flash',
+                    model: DEFAULT_MODEL,
                     systemInstruction: options.systemInstruction
                 })
                 : this.model;
@@ -59,10 +61,23 @@ export class GeminiProvider implements LLMProvider {
             });
 
             // Clean Markdown code blocks (```json ... ```)
-            const cleanJson = textResponse.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+            const cleanJson = textResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+            // Sometimes Gemini wraps in [] even for single object requests
+            if (cleanJson.startsWith('[') && cleanJson.endsWith(']')) {
+                // Determine if we should treat it as an array or just peel it
+            }
+
+            logger.debug('Gemini Raw JSON:', { cleanJson });
 
             // Parse and validate
-            const json = JSON.parse(cleanJson);
+            let json = JSON.parse(cleanJson);
+
+            // Robustness: If we expect an object but got an array, take the first item
+            if (Array.isArray(json)) {
+                logger.warn('Gemini returned an array, using first item');
+                json = json[0];
+            }
+
             return schema.parse(json);
         } catch (error) {
             logger.error('Gemini generateJSON error:', error);
