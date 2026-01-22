@@ -1,29 +1,23 @@
 import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
-import { ApiResponse } from '../../shared/types';
+import { ResponseHelper } from '../../core/utils/response';
 import { announcementService } from './announcement.service';
 
 export class AnnouncementController {
 
     async create(req: Request, res: Response) {
         try {
-            if (!req.user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+            if (!req.user) return ResponseHelper.unauthorized(res);
 
-            // TODO: Add stricter validation/Zod here
             const announcement = await announcementService.createAnnouncement({
                 ...req.body,
                 authorId: req.user._id.toString()
             });
 
-            const response: ApiResponse = {
-                success: true,
-                message: 'Announcement created successfully',
-                data: announcement
-            };
-            res.status(201).json(response);
+            ResponseHelper.created(res, announcement, 'Announcement created successfully');
         } catch (error: any) {
             logger.error('Error creating announcement:', error);
-            res.status(500).json({ success: false, message: error.message });
+            ResponseHelper.error(res, error.message);
         }
     }
 
@@ -34,21 +28,15 @@ export class AnnouncementController {
 
             const { data, total } = await announcementService.getAnnouncements(page, limit);
 
-            const response: ApiResponse = {
-                success: true,
-                message: 'Announcements retrieved successfully',
-                data,
-                meta: {
-                    page,
-                    limit,
-                    total,
-                    totalPages: Math.ceil(total / limit)
-                }
-            };
-            res.json(response);
+            ResponseHelper.paginated(res, data, {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }, 'Announcements retrieved successfully');
         } catch (error: any) {
             logger.error('Error getting announcements:', error);
-            res.status(500).json({ success: false, message: error.message });
+            ResponseHelper.error(res, error.message);
         }
     }
 
@@ -56,15 +44,12 @@ export class AnnouncementController {
         try {
             const announcement = await announcementService.getAnnouncementById(req.params.id);
             if (!announcement) {
-                return res.status(404).json({ success: false, message: 'Announcement not found' });
+                return ResponseHelper.notFound(res, 'Announcement not found');
             }
 
-            res.json({
-                success: true,
-                data: announcement
-            });
+            ResponseHelper.success(res, announcement);
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            ResponseHelper.error(res, error.message);
         }
     }
 
@@ -72,16 +57,12 @@ export class AnnouncementController {
         try {
             const announcement = await announcementService.updateAnnouncement(req.params.id, req.body);
             if (!announcement) {
-                return res.status(404).json({ success: false, message: 'Announcement not found' });
+                return ResponseHelper.notFound(res, 'Announcement not found');
             }
 
-            res.json({
-                success: true,
-                message: 'Announcement updated successfully',
-                data: announcement
-            });
+            ResponseHelper.success(res, announcement, 'Announcement updated successfully');
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            ResponseHelper.error(res, error.message);
         }
     }
 
@@ -89,29 +70,22 @@ export class AnnouncementController {
         try {
             const success = await announcementService.deleteAnnouncement(req.params.id);
             if (!success) {
-                return res.status(404).json({ success: false, message: 'Announcement not found or cannot be deleted' });
+                return ResponseHelper.notFound(res, 'Announcement not found or cannot be deleted');
             }
 
-            res.json({
-                success: true,
-                message: 'Announcement deleted successfully'
-            });
+            ResponseHelper.success(res, null, 'Announcement deleted successfully');
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            ResponseHelper.error(res, error.message);
         }
     }
 
     async send(req: Request, res: Response) {
         try {
             const announcement = await announcementService.dispatchAnnouncement(req.params.id);
-            res.json({
-                success: true,
-                message: 'Announcement dispatch started',
-                data: announcement
-            });
+            ResponseHelper.success(res, announcement, 'Announcement dispatch started');
         } catch (error: any) {
             logger.error('Error sending announcement:', error);
-            res.status(400).json({ success: false, message: error.message });
+            ResponseHelper.badRequest(res, error.message);
         }
     }
 }

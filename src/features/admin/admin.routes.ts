@@ -16,11 +16,17 @@ router.get('/dashboard', adminController.getDashboardOverview);
 router.get('/analytics/users', adminController.getAnalyticsUserGrowth);
 router.get('/analytics/platform', adminController.getAnalyticsPlatform);
 router.get('/analytics/features', adminController.getAnalyticsFeatures);
+router.get('/analytics/accounts', adminController.getAnalyticsUserAccounts);
+router.get('/analytics/active-users', adminController.getAnalyticsActiveUsers);
 
 // Monitoring
 router.get('/monitoring/system', adminController.getSystemHealth);
 router.get('/monitoring/database', adminController.getDatabaseStats);
 router.get('/monitoring/jobs', adminController.getJobQueueStats);
+router.get('/monitoring/logs', adminController.getLogs);
+router.delete('/monitoring/logs', adminController.clearLogs);
+
+
 
 // User Management
 router.get('/users', adminController.getUsers);

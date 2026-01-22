@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { logViewerService } from '../../core/monitoring/log-viewer.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { AuthenticatedRequest } from '../../shared/types';
 import { adminAnalyticsService } from './admin.analytics.service';
@@ -6,6 +7,7 @@ import { adminConfigService } from './admin.config.service';
 import { adminService } from './admin.service';
 import { adminUserService } from './admin.users.service';
 import { monitorService } from './monitor.service';
+
 
 export class AdminController {
 
@@ -71,6 +73,24 @@ export class AdminController {
         }
     }
 
+    async getLogs(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const logs = logViewerService.getLogs();
+            ResponseHelper.success(res, logs, 'Logs retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
+    async clearLogs(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            logViewerService.clear();
+            ResponseHelper.success(res, null, 'Logs cleared successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
     // ==========================================
     // ANALYTICS
     // ==========================================
@@ -88,6 +108,24 @@ export class AdminController {
         try {
             const data = await adminAnalyticsService.getPlatformStats();
             ResponseHelper.success(res, data, 'Platform stats retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
+    async getAnalyticsUserAccounts(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = await adminAnalyticsService.getUserAccountStats();
+            ResponseHelper.success(res, data, 'User account stats retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
+    async getAnalyticsActiveUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = await adminAnalyticsService.getActiveUserStats();
+            ResponseHelper.success(res, data, 'Active user stats retrieved successfully');
         } catch (error) {
             ResponseHelper.error(res, error);
         }
@@ -123,11 +161,17 @@ export class AdminController {
             const role = req.query.role as string;
 
             const result = await adminUserService.getUsers({ page, limit, search, role });
-            ResponseHelper.success(res, result, 'Users retrieved successfully');
+            ResponseHelper.paginated(res, result.users, {
+                page: result.page,
+                limit,
+                total: result.total,
+                totalPages: result.totalPages
+            }, 'Users retrieved successfully');
         } catch (error) {
             ResponseHelper.error(res, error);
         }
     }
+
 
     async getUserDetails(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {

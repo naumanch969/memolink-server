@@ -1,9 +1,10 @@
-import { Router, Request, Response } from 'express';
-import { metricsService } from './metrics.service';
-import { getHealthCheckData } from './monitoring.middleware';
+import { Request, Response, Router } from 'express';
+import fs from 'fs';
 import mongoose from 'mongoose';
 import path from 'path';
-import fs from 'fs';
+import { ResponseHelper } from '../utils/response';
+import { metricsService } from './metrics.service';
+import { getHealthCheckData } from './monitoring.middleware';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
         const metrics = await metricsService.getMetrics();
         res.send(metrics);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to collect metrics' });
+        ResponseHelper.error(res, 'Failed to collect metrics');
     }
 });
 
@@ -47,12 +48,12 @@ router.get('/metrics', async (req: Request, res: Response) => {
 router.get('/metrics/json', async (req: Request, res: Response) => {
     try {
         const metrics = await metricsService.getMetricsJSON();
-        res.json({
+        ResponseHelper.success(res, {
             timestamp: new Date().toISOString(),
             metrics,
         });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to collect metrics' });
+        ResponseHelper.error(res, 'Failed to collect metrics');
     }
 });
 
@@ -74,19 +75,23 @@ router.get('/health', async (req: Request, res: Response) => {
         };
 
         const isHealthy = dbStatus === 1;
-
-        res.status(isHealthy ? 200 : 503).json({
+        const data = {
             ...healthData,
             status: isHealthy ? 'healthy' : 'unhealthy',
             database: {
                 status: dbStatusMap[dbStatus] || 'unknown',
                 connected: dbStatus === 1,
             },
-        });
+        };
+
+        if (isHealthy) {
+            ResponseHelper.success(res, data);
+        } else {
+            ResponseHelper.error(res, 'System unhealthy', 503, data);
+        }
     } catch (error) {
-        res.status(503).json({
+        ResponseHelper.error(res, 'Health check failed', 503, {
             status: 'unhealthy',
-            error: 'Health check failed',
             timestamp: new Date().toISOString(),
         });
     }
@@ -97,7 +102,7 @@ router.get('/health', async (req: Request, res: Response) => {
  * Liveness probe - checks if the application is running
  */
 router.get('/health/live', (req: Request, res: Response) => {
-    res.status(200).json({
+    ResponseHelper.success(res, {
         status: 'alive',
         timestamp: new Date().toISOString(),
     });
@@ -109,28 +114,20 @@ router.get('/health/live', (req: Request, res: Response) => {
  */
 router.get('/health/ready', async (req: Request, res: Response) => {
     try {
-        // Check database connection
         const dbConnected = mongoose.connection.readyState === 1;
+        const data = {
+            status: dbConnected ? 'ready' : 'not ready',
+            timestamp: new Date().toISOString(),
+            database: dbConnected ? 'connected' : 'not connected',
+        };
 
         if (dbConnected) {
-            res.status(200).json({
-                status: 'ready',
-                timestamp: new Date().toISOString(),
-                database: 'connected',
-            });
+            ResponseHelper.success(res, data);
         } else {
-            res.status(503).json({
-                status: 'not ready',
-                timestamp: new Date().toISOString(),
-                database: 'not connected',
-            });
+            ResponseHelper.error(res, 'System not ready', 503, data);
         }
     } catch (error) {
-        res.status(503).json({
-            status: 'not ready',
-            error: 'Readiness check failed',
-            timestamp: new Date().toISOString(),
-        });
+        ResponseHelper.error(res, 'Readiness check failed', 503);
     }
 });
 
@@ -149,13 +146,12 @@ router.get('/stats', async (req: Request, res: Response) => {
         const dbQueriesTotal = metrics.find((m: any) => m.name === 'memolink_db_queries_total');
         const dbErrorsTotal = metrics.find((m: any) => m.name === 'memolink_db_query_errors_total');
 
-        // Calculate totals
         const totalRequests = httpRequestsTotal?.values?.reduce((sum: number, v: any) => sum + v.value, 0) || 0;
         const totalErrors = httpErrorsTotal?.values?.reduce((sum: number, v: any) => sum + v.value, 0) || 0;
         const totalDbQueries = dbQueriesTotal?.values?.reduce((sum: number, v: any) => sum + v.value, 0) || 0;
         const totalDbErrors = dbErrorsTotal?.values?.reduce((sum: number, v: any) => sum + v.value, 0) || 0;
 
-        res.json({
+        ResponseHelper.success(res, {
             timestamp: new Date().toISOString(),
             uptime: healthData.uptime,
             memory: healthData.memory,
@@ -172,25 +168,24 @@ router.get('/stats', async (req: Request, res: Response) => {
             },
         });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to collect statistics' });
+        ResponseHelper.error(res, 'Failed to collect statistics');
     }
 });
 
 /**
  * POST /metrics/reset
- * Reset all metrics (useful for testing/development)
- * Should be protected in production
+ * Reset all metrics
  */
 router.post('/metrics/reset', (req: Request, res: Response) => {
     try {
         metricsService.reset();
-        res.json({
-            message: 'Metrics reset successfully',
+        ResponseHelper.success(res, {
             timestamp: new Date().toISOString(),
-        });
+        }, 'Metrics reset successfully');
     } catch (error) {
-        res.status(500).json({ error: 'Failed to reset metrics' });
+        ResponseHelper.error(res, 'Failed to reset metrics');
     }
 });
+
 
 export default router;

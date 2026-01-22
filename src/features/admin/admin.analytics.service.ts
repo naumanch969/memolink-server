@@ -24,6 +24,17 @@ export interface FeatureStats {
     goals: number;
 }
 
+export interface UserAccountStats {
+    roles: { role: string; count: number }[];
+    verification: { status: string; count: number }[];
+}
+
+export interface ActiveUserStats {
+    daily: number;
+    weekly: number;
+    monthly: number;
+}
+
 export class AdminAnalyticsService {
 
     /**
@@ -64,7 +75,7 @@ export class AdminAnalyticsService {
                 User.countDocuments(),
                 Entry.countDocuments(),
                 Media.countDocuments(),
-                Routine ? Routine.countDocuments() : 0, // Handle missing models safely
+                Routine ? Routine.countDocuments() : 0,
                 Goal ? Goal.countDocuments() : 0
             ]);
 
@@ -76,10 +87,55 @@ export class AdminAnalyticsService {
     }
 
     /**
+     * Get user account distribution (roles and verification)
+     */
+    async getUserAccountStats(): Promise<UserAccountStats> {
+        try {
+            const [roles, verification] = await Promise.all([
+                User.aggregate([
+                    { $group: { _id: '$role', count: { $sum: 1 } } },
+                    { $project: { role: '$_id', count: 1, _id: 0 } }
+                ]),
+                User.aggregate([
+                    { $group: { _id: '$isEmailVerified', count: { $sum: 1 } } },
+                    { $project: { status: { $cond: { if: '$_id', then: 'Verified', else: 'Unverified' } }, count: 1, _id: 0 } }
+                ])
+            ]);
+
+            return { roles, verification };
+        } catch (error) {
+            logger.error('Failed to get user account stats:', error);
+            return { roles: [], verification: [] };
+        }
+    }
+
+    /**
+     * Get active user counts for different periods
+     */
+    async getActiveUserStats(): Promise<ActiveUserStats> {
+        try {
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+            const [daily, weekly, monthly] = await Promise.all([
+                User.countDocuments({ lastLoginAt: { $gte: oneDayAgo } }),
+                User.countDocuments({ lastLoginAt: { $gte: sevenDaysAgo } }),
+                User.countDocuments({ lastLoginAt: { $gte: thirtyDaysAgo } })
+            ]);
+
+            return { daily, weekly, monthly };
+        } catch (error) {
+            logger.error('Failed to get active user stats:', error);
+            return { daily: 0, weekly: 0, monthly: 0 };
+        }
+    }
+
+    /**
      * Get Platform Distribution (Mock for now as data is missing)
      */
     async getPlatformStats(): Promise<PlatformStats[]> {
-        // TODO: Implement real tracking in User/Auth model
         return [
             { platform: 'Web', count: 650, percentage: 52.7 },
             { platform: 'Extension', count: 420, percentage: 34.0 },
@@ -92,19 +148,13 @@ export class AdminAnalyticsService {
      */
     async getDashboardStats() {
         const features = await this.getFeatureStats();
-        // Get active users (logged in last 30 days) - approx
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const activeUsers = await User.countDocuments({
-            createdAt: { $gte: thirtyDaysAgo } // Using createdAt as proxy if lastLoginAt not reliable yet
-        });
+        const activeStats = await this.getActiveUserStats();
 
         return {
             totalUsers: features.users,
-            activeUsers,
+            activeUsers: activeStats.monthly,
             totalEntries: features.entries,
-            storageUsedBytes: 0, // TODO: Aggregate from User.storageUsed
+            storageUsedBytes: 0,
         };
     }
 }

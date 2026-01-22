@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { logger } from '../../config/logger';
+import { ResponseHelper } from '../../core/utils/response';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
 
@@ -7,23 +8,18 @@ export class AgentController {
     public async createTask(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const { type, inputData } = req.body;
-            // Assuming strict authentication middleware is used and user is attached to request
             const userId = (req as any).user._id;
 
             if (!Object.values(AgentTaskType).includes(type)) {
-                res.status(400).json({ message: 'Invalid agent task type' });
+                ResponseHelper.badRequest(res, 'Invalid agent task type');
                 return;
             }
 
             const task = await agentService.createTask(userId, type, inputData || {});
-
-            res.status(201).json({
-                message: 'Agent task created',
-                task,
-            });
+            ResponseHelper.created(res, task, 'Agent task created');
         } catch (error) {
             logger.error('Error creating agent task', error);
-            next(error);
+            ResponseHelper.error(res, 'Error creating agent task', 500, error);
         }
     }
 
@@ -35,14 +31,14 @@ export class AgentController {
             const task = await agentService.getTask(taskId, userId);
 
             if (!task) {
-                res.status(404).json({ message: 'Agent task not found' });
+                ResponseHelper.notFound(res, 'Agent task not found');
                 return;
             }
 
-            res.status(200).json({ task });
+            ResponseHelper.success(res, task, 'Agent task retrieved');
         } catch (error) {
             logger.error('Error fetching agent task', error);
-            next(error);
+            ResponseHelper.error(res, 'Error fetching agent task', 500, error);
         }
     }
 
@@ -51,10 +47,10 @@ export class AgentController {
             const userId = (req as any).user._id;
             const tasks = await agentService.listUserTasks(userId);
 
-            res.status(200).json({ tasks });
+            ResponseHelper.success(res, tasks, 'Agent tasks retrieved');
         } catch (error) {
             logger.error('Error listing agent tasks', error);
-            next(error);
+            ResponseHelper.error(res, 'Error listing agent tasks', 500, error);
         }
     }
 
@@ -64,21 +60,20 @@ export class AgentController {
             const userId = (req as any).user._id;
 
             if (!text) {
-                res.status(400).json({ message: 'Text input is required' });
+                ResponseHelper.badRequest(res, 'Text input is required');
                 return;
             }
 
             const processingResult = await agentService.processNaturalLanguage(userId, text);
 
-            res.status(200).json({
-                message: 'Processed',
+            ResponseHelper.success(res, {
                 intent: processingResult.intent,
                 task: processingResult.task,
                 data: processingResult.result
-            });
+            }, 'Processed');
         } catch (error) {
             logger.error('Error processing natural language', error);
-            next(error);
+            ResponseHelper.error(res, 'Error processing natural language', 500, error);
         }
     }
 }

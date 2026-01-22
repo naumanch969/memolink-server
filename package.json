@@ -11,6 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rm -rf dist",
     "rebuild": "npm run clean && npm run build",
+    "typecheck": "tsc --noEmit",
     "prepare": "husky",
     "lint": "eslint src/**/*.ts"
   },

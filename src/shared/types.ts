@@ -5,6 +5,20 @@ import { DataConfig, DataType, DataValue } from './types/dataProperties';
 // Re-export global data types
 export { DataConfig, DataType, DataValue };
 
+// API Response Types
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+  };
+}
+
 // Base Types
 export interface BaseEntity {
   _id: Types.ObjectId;
@@ -279,20 +293,6 @@ export interface UpdateDocumentRequest {
 // Request Types
 export interface AuthenticatedRequest extends Request {
   user?: IUser;
-}
-
-// API Response Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
-  meta?: {
-    page?: number;
-    limit?: number;
-    total?: number;
-    totalPages?: number;
-  };
 }
 
 // Pagination Types
