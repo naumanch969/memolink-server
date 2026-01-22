@@ -18,6 +18,9 @@ router.get('/analytics/platform', adminController.getAnalyticsPlatform);
 router.get('/analytics/features', adminController.getAnalyticsFeatures);
 router.get('/analytics/accounts', adminController.getAnalyticsUserAccounts);
 router.get('/analytics/active-users', adminController.getAnalyticsActiveUsers);
+router.get('/analytics/content-growth', adminController.getAnalyticsContentGrowth);
+router.get('/analytics/feature-breakdown', adminController.getAnalyticsFeatureBreakdown);
+router.get('/analytics/retention', adminController.getAnalyticsRetention);
 
 // Monitoring
 router.get('/monitoring/system', adminController.getSystemHealth);

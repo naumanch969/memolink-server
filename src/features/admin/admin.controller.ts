@@ -131,6 +131,33 @@ export class AdminController {
         }
     }
 
+    async getAnalyticsContentGrowth(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = await adminAnalyticsService.getContentGrowth();
+            ResponseHelper.success(res, data, 'Content growth analytics retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
+    async getAnalyticsFeatureBreakdown(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = await adminAnalyticsService.getFeatureUsageBreakdown();
+            ResponseHelper.success(res, data, 'Feature breakdown analytics retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
+    async getAnalyticsRetention(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = await adminAnalyticsService.getRetentionStats();
+            ResponseHelper.success(res, data, 'Retention analytics retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error);
+        }
+    }
+
     async getAnalyticsFeatures(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getFeatureStats();
