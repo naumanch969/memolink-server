@@ -1,18 +1,28 @@
-import app from './app';
+import { createServer, Server as HttpServer } from 'http';
+import database from '../config/database';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
-import database from '../config/database';
+import app from './app';
+import { SocketManager } from './socket/socket.manager';
 
 class Server {
-  private server: any;
+  private server: HttpServer;
+  private socketManager: SocketManager | null = null;
+
+  constructor() {
+    this.server = createServer(app);
+  }
 
   public async start(): Promise<void> {
     try {
       // Connect to database
       await database.connect();
 
+      // Initialize Sockets
+      this.socketManager = new SocketManager(this.server);
+
       // Start server
-      this.server = app.listen(config.PORT, () => {
+      this.server.listen(config.PORT, () => {
         logger.info(`Server running on port ${config.PORT}`, {
           environment: config.NODE_ENV,
           port: config.PORT,
