@@ -15,5 +15,6 @@ router.post('/', authenticate, authorize(USER_ROLES.ADMIN), announcementControll
 router.put('/:id', authenticate, authorize(USER_ROLES.ADMIN), announcementController.update);
 router.delete('/:id', authenticate, authorize(USER_ROLES.ADMIN), announcementController.delete);
 router.post('/:id/send', authenticate, authorize(USER_ROLES.ADMIN), announcementController.send);
+router.get('/:id/logs', authenticate, authorize(USER_ROLES.ADMIN), announcementController.getDeliveryLogs);
 
 export default router;

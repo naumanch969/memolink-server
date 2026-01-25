@@ -1,6 +1,12 @@
+import DOMPurify from 'isomorphic-dompurify';
 import { logger } from '../../config/logger';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
+import { USER_ROLES } from '../../shared/constants';
+import { validateEmailOrThrow } from '../../shared/email-validator';
 import { User } from '../auth/auth.model';
-import { emailQueue } from '../email/queue/email.queue';
+import { getEmailQueue } from '../email/queue/email.queue';
+import { AnnouncementDeliveryLog, DeliveryStatus } from './announcement-delivery-log.model';
 import { Announcement, AnnouncementStatus, AnnouncementType, IAnnouncement } from './announcement.model';
 
 interface CreateAnnouncementDto {
@@ -54,11 +60,30 @@ export class AnnouncementService {
     }
 
     async deleteAnnouncement(id: string): Promise<boolean> {
-        const result = await Announcement.deleteOne({
-            _id: id,
-            status: { $in: [AnnouncementStatus.DRAFT, AnnouncementStatus.SCHEDULED] }
-        });
-        return result.deletedCount === 1;
+        const announcement = await Announcement.findById(id);
+        if (!announcement || announcement.status === AnnouncementStatus.PROCESSING) {
+            return false;
+        }
+
+        await Announcement.findByIdAndDelete(id);
+        // Also clean up delivery logs
+        await AnnouncementDeliveryLog.deleteMany({ announcementId: id });
+        return true;
+    }
+
+    async getDeliveryLogs(announcementId: string, page: number = 1, limit: number = 50) {
+        const skip = (page - 1) * limit;
+
+        const [logs, total] = await Promise.all([
+            AnnouncementDeliveryLog.find({ announcementId })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            AnnouncementDeliveryLog.countDocuments({ announcementId })
+        ]);
+
+        return { logs, total };
     }
 
     /**
@@ -95,8 +120,8 @@ export class AnnouncementService {
             // Build query based on target
             const query: any = { isEmailVerified: true };
 
-            // Filter by roles if specified
-            if (announcement.target.roles && announcement.target.roles.length > 0) {
+            // Filter by roles if specified, handle 'all' by skipping filter
+            if (announcement.target.roles && announcement.target.roles.length > 0 && !announcement.target.roles.includes('all')) {
                 query.role = { $in: announcement.target.roles };
             }
 
@@ -112,32 +137,102 @@ export class AnnouncementService {
 
             // Use cursor to handle large user bases efficiently
             const cursor = User.find(query).select('email name').cursor();
+            const emailQueue = getEmailQueue();
 
-            let count = 0;
+            let queuedCount = 0;
+            let invalidEmailCount = 0;
+            const batchSize = 100;
+            let batch: any[] = [];
+            let deliveryLogs: any[] = [];
+
+            // Sanitize HTML content once before batching
+            const sanitizedHtml = DOMPurify.sanitize(announcement.content);
+            const textContent = announcement.content.replace(/<[^>]*>?/gm, ''); // Simple strip tags for text version
 
             for (let user = await cursor.next(); user != null; user = await cursor.next()) {
-                await emailQueue.add(`announcement-${announcement._id}-${user._id}`, {
-                    type: 'GENERIC',
-                    data: {
-                        to: user.email,
-                        subject: announcement.title,
-                        html: announcement.content,
-                        text: announcement.content.replace(/<[^>]*>?/gm, ''), // Simple strip tags for text version
-                    }
-                }, {
-                    // Optional: Job ID deduplication
-                    jobId: `announcement-${announcement._id}-${user._id}`
-                });
-                count++;
+                // Validate email before adding to batch
+                try {
+                    validateEmailOrThrow(user.email, 'announcement');
+
+                    batch.push({
+                        name: `announcement-${announcement._id}-${user._id}`,
+                        data: {
+                            type: 'GENERIC',
+                            data: {
+                                to: user.email,
+                                subject: announcement.title,
+                                html: sanitizedHtml,
+                                text: textContent,
+                            }
+                        },
+                        opts: {
+                            jobId: `announcement-${announcement._id}-${user._id}`
+                        }
+                    });
+
+                    // Create delivery log entry
+                    deliveryLogs.push({
+                        announcementId: announcement._id,
+                        userId: user._id,
+                        recipientEmail: user.email,
+                        recipientName: user.name,
+                        status: DeliveryStatus.QUEUED,
+                        attempts: 0,
+                    });
+                } catch (error) {
+                    invalidEmailCount++;
+                    logger.warn(`Skipping invalid email for user ${user._id}:`, { email: user.email });
+                    continue;
+                }
+
+                if (batch.length >= batchSize) {
+                    await emailQueue.addBulk(batch);
+                    await AnnouncementDeliveryLog.insertMany(deliveryLogs);
+                    queuedCount += batch.length;
+                    batch = [];
+                    deliveryLogs = [];
+
+                    // Update progress periodically
+                    announcement.stats.queuedCount = queuedCount;
+                    announcement.stats.invalidEmailCount = invalidEmailCount;
+                    await announcement.save();
+
+                    // Emit socket event for progress
+                    socketService.emitToRole(USER_ROLES.ADMIN, SocketEvents.ANNOUNCEMENT_DISPATCH_PROGRESS, {
+                        announcementId: announcement._id,
+                        stats: announcement.stats
+                    });
+                }
             }
 
-            announcement.stats.totalRecipients = count;
-            announcement.stats.sentCount = count; // Technically "queued" count, real sent count would be tracked via callbacks/webhooks in a more complex system
-            announcement.status = AnnouncementStatus.COMPLETED;
+            // Add remaining items in batch
+            if (batch.length > 0) {
+                await emailQueue.addBulk(batch);
+                await AnnouncementDeliveryLog.insertMany(deliveryLogs);
+                queuedCount += batch.length;
+            }
+
+            announcement.stats.totalRecipients = queuedCount + invalidEmailCount;
+            announcement.stats.queuedCount = queuedCount;
+            announcement.stats.invalidEmailCount = invalidEmailCount;
+
+            // If no recipients, mark as COMPLETED immediately
+            if (queuedCount === 0) {
+                announcement.status = AnnouncementStatus.COMPLETED;
+                announcement.stats.progress = 100;
+            } else {
+                // Keep as PROCESSING, worker will complete it
+                announcement.status = AnnouncementStatus.PROCESSING;
+                announcement.stats.progress = 0;
+            }
+
             announcement.sentAt = new Date();
             await announcement.save();
 
-            logger.info(`Completed dispatch for announcement ${announcement._id}. Queued ${count} emails.`);
+            // Emit socket event for update
+            socketService.emitAll(SocketEvents.ANNOUNCEMENT_UPDATED, announcement);
+
+            logger.info(`Completed dispatch for announcement ${announcement._id}.`);
 
         } catch (error) {
             logger.error(`Error in processDispatch for ${announcement._id}:`, error);

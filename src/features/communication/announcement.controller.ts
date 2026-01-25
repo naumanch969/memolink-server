@@ -88,6 +88,26 @@ export class AnnouncementController {
             ResponseHelper.badRequest(res, error.message);
         }
     }
+
+    async getDeliveryLogs(req: Request, res: Response) {
+        try {
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 50;
+            const announcementId = req.params.id;
+
+            const { logs, total } = await announcementService.getDeliveryLogs(announcementId, page, limit);
+
+            ResponseHelper.paginated(res, logs, {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }, 'Delivery logs retrieved successfully');
+        } catch (error: any) {
+            logger.error('Error getting delivery logs:', error);
+            ResponseHelper.error(res, error.message);
+        }
+    }
 }
 
 export const announcementController = new AnnouncementController();

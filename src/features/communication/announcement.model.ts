@@ -27,8 +27,11 @@ export interface IAnnouncement extends Document {
     sentAt?: Date;
     stats: {
         totalRecipients: number;
-        sentCount: number;
-        failedCount: number;
+        queuedCount: number;      // Total emails queued
+        sentCount: number;         // Successfully sent
+        failedCount: number;       // Failed to send
+        invalidEmailCount: number; // Invalid email addresses skipped
+        progress: number;          // Percentage (0-100)
     };
     authorId: Types.ObjectId;
 }
@@ -53,8 +56,11 @@ const announcementSchema = new Schema<IAnnouncement>({
     sentAt: { type: Date },
     stats: {
         totalRecipients: { type: Number, default: 0 },
+        queuedCount: { type: Number, default: 0 },
         sentCount: { type: Number, default: 0 },
         failedCount: { type: Number, default: 0 },
+        invalidEmailCount: { type: Number, default: 0 },
+        progress: { type: Number, default: 0 },
     },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 }, {

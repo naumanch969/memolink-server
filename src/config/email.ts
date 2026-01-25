@@ -1,4 +1,5 @@
 import { getEmailQueue } from '../features/email/queue/email.queue';
+import { validateEmailOrThrow } from '../shared/email-validator';
 import { config } from './env';
 import { logger } from './logger';
 
@@ -13,6 +14,7 @@ class EmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      validateEmailOrThrow(options.to, 'generic email');
       await getEmailQueue().add('generic-email', {
         type: 'GENERIC',
         data: {
@@ -31,6 +33,7 @@ class EmailService {
 
   async sendVerificationEmail(email: string, name: string, otp: string): Promise<boolean> {
     try {
+      validateEmailOrThrow(email, 'verification email');
       await getEmailQueue().add('verification-email', {
         type: 'VERIFICATION',
         data: {
@@ -48,6 +51,7 @@ class EmailService {
 
   async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<boolean> {
     try {
+      validateEmailOrThrow(email, 'password reset email');
       await getEmailQueue().add('password-reset-email', {
         type: 'PASSWORD_RESET',
         data: {
@@ -66,6 +70,7 @@ class EmailService {
 
   async sendWelcomeEmail(email: string, name: string): Promise<boolean> {
     try {
+      validateEmailOrThrow(email, 'welcome email');
       await getEmailQueue().add('welcome-email', {
         type: 'WELCOME',
         data: {
@@ -83,6 +88,7 @@ class EmailService {
 
   async sendSecurityAlert(email: string, name: string, wrongAnswer: string): Promise<boolean> {
     try {
+      validateEmailOrThrow(email, 'security alert email');
       await getEmailQueue().add('security-alert-email', {
         type: 'SECURITY_ALERT',
         data: {

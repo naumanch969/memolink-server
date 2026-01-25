@@ -3,8 +3,10 @@ import { QueueService } from '../../../core/queue/QueueService';
 import { EmailJob } from './email.types';
 
 export const EMAIL_QUEUE_NAME = 'email-delivery';
+export const EMAIL_DLQ_NAME = 'email-delivery-dlq';
 
 export let emailQueue: Queue<EmailJob>;
+export let emailDLQ: Queue<any>;
 
 export const initEmailQueue = () => {
     emailQueue = QueueService.registerQueue(EMAIL_QUEUE_NAME, {
@@ -18,6 +20,15 @@ export const initEmailQueue = () => {
             removeOnFail: 5000,
         },
     });
+
+    // Initialize Dead Letter Queue for permanently failed emails
+    emailDLQ = QueueService.registerQueue(EMAIL_DLQ_NAME, {
+        defaultJobOptions: {
+            removeOnComplete: false, // Keep all DLQ entries
+            removeOnFail: false,
+        },
+    });
+
     return emailQueue;
 };
 
@@ -26,4 +37,11 @@ export const getEmailQueue = () => {
         initEmailQueue();
     }
     return emailQueue;
+};
+
+export const getEmailDLQ = () => {
+    if (!emailDLQ) {
+        initEmailQueue();
+    }
+    return emailDLQ;
 };

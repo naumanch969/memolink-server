@@ -35,17 +35,38 @@ export class EmailProvider {
     }
 
     private async verifyConnection() {
-        try {
-            if (process.env.NODE_ENV !== 'test') {
+        if (process.env.NODE_ENV === 'test') {
+            logger.info('Skipping email verification in test mode');
+            return;
+        }
+
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
                 await this.transporter.verify();
                 logger.info('Email server connection established');
+                return;
+            } catch (error: any) {
+                logger.error(`Email server connection failed (attempt ${attempt}/${maxRetries}):`, {
+                    error: error.message,
+                    code: error.code
+                });
+
+                if (attempt === maxRetries) {
+                    throw new Error(
+                        `Failed to connect to email server after ${maxRetries} attempts: ${error.message}`
+                    );
+                }
+
+                // Exponential backoff: 2s, 4s
+                const delay = 2000 * attempt;
+                logger.info(`Retrying email connection in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
-        } catch (error) {
-            logger.error('Email server connection failed:', error);
         }
     }
 
-    async sendEmail(options: EmailOptions): Promise<boolean> {
+    async sendEmail(options: EmailOptions): Promise<void> {
         try {
             const mailOptions = {
                 from: `"MemoLink" <${config.EMAIL_USER}>`,
@@ -61,10 +82,17 @@ export class EmailProvider {
                 to: options.to,
                 subject: options.subject
             });
-            return true;
-        } catch (error) {
-            logger.error('Failed to send email:', error);
-            return false; // Don't throw, just return false so worker can handle retry or failure logic
+        } catch (error: any) {
+            logger.error('Failed to send email:', {
+                error: error.message,
+                stack: error.stack,
+                to: options.to,
+                subject: options.subject,
+                code: error.code,
+                command: error.command
+            });
+            // Throw error to let BullMQ handle retries with proper error context
+            throw new Error(`Email send failed: ${error.message}`);
         }
     }
 }
