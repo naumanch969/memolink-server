@@ -712,16 +712,16 @@ export class RoutineService {
         }
 
         if (type === 'boolean') {
-            const oldBlean = !!oldVal.completed;
-            const newBlean = !!newVal.completed;
+            const oldBlean = !!oldVal.value;
+            const newBlean = !!newVal.value;
             if (newBlean === oldBlean) return 0;
             return newBlean ? 1 : -1;
         }
 
         if (type === 'checklist') {
             // Count checked items
-            const oldChecked = (oldVal.checkedItems || []).filter(Boolean).length;
-            const newChecked = (newVal.checkedItems || []).filter(Boolean).length;
+            const oldChecked = (Array.isArray(oldVal.value) ? oldVal.value : []).filter(Boolean).length;
+            const newChecked = (Array.isArray(newVal.value) ? newVal.value : []).filter(Boolean).length;
             return newChecked - oldChecked;
         }
 

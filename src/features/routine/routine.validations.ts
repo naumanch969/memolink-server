@@ -1,5 +1,5 @@
 import { body, param, query } from 'express-validator';
-import { ROUTINE_VALIDATION, ROUTINE_TYPES, ROUTINE_STATUS } from '../../shared/constants';
+import { ROUTINE_TYPES, ROUTINE_VALIDATION } from '../../shared/constants';
 
 // ============================================
 // ROUTINE TEMPLATE VALIDATIONS
@@ -231,9 +231,7 @@ export const createRoutineLogValidation = [
         .withMessage('Each checked item must be a boolean'),
 
     body('data.value')
-        .optional()
-        .isNumeric()
-        .withMessage('Value must be a number'),
+        .optional(),
 
     body('data.text')
         .optional()
@@ -274,9 +272,7 @@ export const updateRoutineLogValidation = [
         .withMessage('Each checked item must be a boolean'),
 
     body('data.value')
-        .optional()
-        .isNumeric()
-        .withMessage('Value must be a number'),
+        .optional(),
 
     body('data.text')
         .optional()
