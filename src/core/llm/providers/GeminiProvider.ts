@@ -84,4 +84,52 @@ export class GeminiProvider implements LLMProvider {
             throw error;
         }
     }
+
+    async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
+        try {
+            // Configure model if options provided
+            const modelParams: any = {
+                model: DEFAULT_MODEL,
+            };
+
+            if (options?.systemInstruction) {
+                modelParams.systemInstruction = options.systemInstruction;
+            }
+
+            if (options?.tools) {
+                // Formatting for Google Gemini API: tools must be an array of Tool objects, each containing functionDeclarations.
+                modelParams.tools = [{ functionDeclarations: options.tools }];
+            }
+
+            const modelToUse = this.client.getGenerativeModel(modelParams);
+
+            const generationConfig = {
+                temperature: options?.temperature ?? 0.7,
+                maxOutputTokens: options?.maxOutputTokens,
+            };
+
+            const result = await modelToUse.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig,
+            });
+
+            const response = result.response;
+
+            // Check for function calls
+            const functionCalls = response.functionCalls();
+            if (functionCalls && functionCalls.length > 0) {
+                return {
+                    text: response.text(), // Might be empty if it's just a function call
+                    functionCalls: functionCalls
+                };
+            }
+
+            return {
+                text: response.text()
+            };
+        } catch (error) {
+            logger.error('Gemini generateWithTools error:', error);
+            throw error;
+        }
+    }
 }

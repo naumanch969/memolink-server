@@ -10,7 +10,8 @@ router.use(authenticate);
 router.post('/tasks', agentController.createTask);
 router.get('/tasks', agentController.listTasks);
 router.get('/tasks/:taskId', agentController.getTask);
-router.post('/intent', agentController.processNaturalLanguage.bind(agentController));
+router.post('/intent', agentController.processNaturalLanguage);
+router.post('/chat', agentController.chat);
+router.delete('/chat', agentController.clearHistory);
 
 export default router;
- 

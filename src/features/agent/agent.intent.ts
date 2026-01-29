@@ -91,8 +91,8 @@ export class AgentIntentClassifier {
 
         INSTRUCTIONS:
         1. If the text starts with a verb like "Buy", "Call", "Fix", "Remind", it is likely a COMMAND.
-      2. If the text describes feelings or past events("I went...", "It was..."), it is likely JOURNALING.
-      3. Return JSON matching the schema.Extract a concise 'title' that captures the core action.
+        2. If the text describes feelings or past events("I went...", "It was..."), it is likely JOURNALING.
+        3. Return JSON matching the schema.Extract a concise 'title' that captures the core action.
     `;
 
         try {

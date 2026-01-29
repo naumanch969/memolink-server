@@ -76,6 +76,35 @@ export class AgentController {
             ResponseHelper.error(res, 'Error processing natural language', 500, error);
         }
     }
+
+    public async chat(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const { message } = req.body;
+            const userId = (req as any).user._id;
+
+            if (!message) {
+                ResponseHelper.badRequest(res, 'Message is required');
+                return;
+            }
+
+            const response = await agentService.chat(userId, message);
+            ResponseHelper.success(res, { response }, 'Chat response');
+        } catch (error) {
+            logger.error('Error in agent chat', error);
+            ResponseHelper.error(res, 'Error in agent chat', 500, error);
+        }
+    }
+
+    public async clearHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            await agentService.clearHistory(userId);
+            ResponseHelper.success(res, null, 'Chat history cleared');
+        } catch (error) {
+            logger.error('Error clearing chat history', error);
+            ResponseHelper.error(res, 'Error clearing chat history', 500, error);
+        }
+    }
 }
 
 

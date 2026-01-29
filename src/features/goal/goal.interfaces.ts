@@ -10,6 +10,7 @@ export interface CreateGoalParams {
     why?: string;
     icon?: string;
     color?: string;
+    status?: GoalStatus;
     type: RoutineType;
 
     config: IGoalConfig;

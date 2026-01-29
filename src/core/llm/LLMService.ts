@@ -24,6 +24,16 @@ class LLMServiceClass {
     async generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T> {
         return this.provider.generateJSON(prompt, schema, options);
     }
+
+    /**
+     * Generate content allowing for tool usage (function calling)
+     */
+    async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
+        if (!this.provider.generateWithTools) {
+            throw new Error('Current provider does not support tools');
+        }
+        return this.provider.generateWithTools(prompt, options);
+    }
 }
 
 export const LLMService = new LLMServiceClass();

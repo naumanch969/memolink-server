@@ -205,9 +205,9 @@ export class EntryService implements IEntryService {
       // Date range filter
       if (searchParams.dateFrom || searchParams.dateTo) {
         const { from, to } = Helpers.getDateRange(searchParams.dateFrom, searchParams.dateTo);
-        filter.createdAt = {};
-        if (from) filter.createdAt.$gte = from;
-        if (to) filter.createdAt.$lte = to;
+        filter.date = {};
+        if (from) filter.date.$gte = from;
+        if (to) filter.date.$lte = to;
       }
 
       // Tags filter
