@@ -1,6 +1,8 @@
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
 import { DataType } from '../../shared/types';
+import Entry from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
 import reminderService from '../reminder/reminder.service';
@@ -58,14 +60,11 @@ export class AgentService {
             .limit(limit);
     }
 
-    /**
-     * Process natural language input, classify it, and route to the correct task
-     */
-    async processNaturalLanguage(userId: string, text: string): Promise<any> {
+    async processNaturalLanguage(userId: string, text: string, options: { tags?: string[], timezone?: string } = {}): Promise<any> {
         // 1. Get Context
         const history = await agentMemory.getHistory(userId);
 
-        const { intent, extractedEntities, parsedEntities } = await agentIntent.classify(text, history);
+        const { intent, extractedEntities, parsedEntities } = await agentIntent.classify(text, history, options.timezone);
 
         // 3. Update Memory (User)
         await agentMemory.addMessage(userId, 'user', text);
@@ -110,6 +109,31 @@ export class AgentService {
                 });
                 break;
 
+            case AgentIntentType.QUERY_KNOWLEDGE: {
+                taskType = AgentTaskType.KNOWLEDGE_QUERY;
+
+                // 1. Gather Context
+                const contextEntries = await this.findSimilarEntries(userId, text, 5);
+                const context = contextEntries.map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
+
+                // 2. Ask LLM
+                const answer = await LLMService.generateText(`
+                    You are a helpful personal assistant.
+                    User Question: "${text}"
+                    
+                    Relevant Memories:
+                    ${context || "No relevant memories found."}
+                    
+                    Instructions:
+                    - Answer the question based ONLY on the provided memories.
+                    - If you don't know, say "I couldn't find that in your recent memories."
+                    - Be concise and friendly.
+                `);
+
+                result = { answer };
+                break;
+            }
+
             case AgentIntentType.CMD_TASK_CREATE:
                 taskType = AgentTaskType.REMINDER_CREATE;
                 // For now, treat generic tasks as Reminders without time (Todo)
@@ -128,7 +152,8 @@ export class AgentService {
                 result = await entryService.createEntry(userId, {
                     content: text,
                     date: parsedEntities?.date || new Date(),
-                    type: 'text'
+                    type: 'text',
+                    tags: options.tags || []
                 });
                 break;
         }
@@ -162,8 +187,12 @@ export class AgentService {
         // Filter out the message we just added (if it appears in history) to avoid duplication in the prompt
         const previousHistory = history.filter(h => h.content !== message || h.timestamp < Date.now() - 1000);
 
+        // Limit context to prevent token overflow
+        const MAX_CONTEXT_MESSAGES = 15;
+        const recentHistory = previousHistory.slice(-MAX_CONTEXT_MESSAGES);
+
         // Format history for context
-        const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
+        const promptHistory = recentHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
 
         const systemPrompt = `You are Memolink, an intelligent personal assistant.
         You have direct access to the user's data (entries, goals, reminders) via tools.
@@ -174,11 +203,22 @@ export class AgentService {
         ${promptHistory}
         
         Current User Request: ${message}
+
+        RESPONSE FORMATTING:
+        - Use standard Markdown.
+        - When listing items (reminders, tasks, etc.), ALWAYS use a bulleted list.
+        - ENSURE each bullet point is on a NEW LINE.
+        - Bold key information like dates or titles.
+
+        BROAD QUERIES:
+        - If the user asks for a broad summary (e.g., "past year overview"), DO NOT try to fetch ALL data.
+        - Fetch a sample (e.g., search with a limit of 20) or use 'find_similar_entries' for key themes.
+        - explicitly state you are analyzing a sample of the data.
         `;
 
         let currentPrompt = systemPrompt;
         let iteration = 0;
-        const MAX_ITERATIONS = 5;
+        const MAX_ITERATIONS = 10;
 
         try {
             // Loop for ReAct / Tool use
@@ -252,6 +292,119 @@ export class AgentService {
 
     async getChatHistory(userId: string) {
         return await agentMemory.getHistory(userId);
+    }
+
+    /**
+     * Generates a proactive briefing for the user (Chief of Staff greeting)
+     */
+    async getDailyBriefing(userId: string): Promise<string> {
+        try {
+            // 1. Fetch Context
+            const now = new Date();
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(now.getDate() - 2);
+
+            const [entriesData, remindersData, goals] = await Promise.all([
+                entryService.searchEntries(userId, { dateFrom: twoDaysAgo.toISOString(), limit: 5 }),
+                reminderService.getUpcomingReminders(userId, 10),
+                goalService.getGoals(userId, {}),
+            ]);
+
+            const entries = entriesData.entries || [];
+            const reminders = remindersData || [];
+
+            // 2. Prepare Context for LLM
+            const entryContext = entries.map(e => `- [${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
+            const reminderContext = reminders.map(r => `- [Today/Soon] ${r.title} ${r.startTime ? `@ ${r.startTime}` : ''}`).join('\n');
+            const goalContext = goals.map(g => `- ${g.title} (${g.status})`).join('\n');
+
+            const prompt = `
+            You are the "Chief of Staff" for a user in the MemoLink application.
+            It is currently ${now.toDateString()}. 
+            
+            Based on the following data, provide a warm, professional, and highly encouraging greeting and daily briefing.
+            Goal: Make the user feel organized, supported, and ready to tackle the day.
+            
+            Rules:
+            - Start with a personalized greeting ("Good morning/afternoon", "Hello", etc.)
+            - Summarize their recent logs if any.
+            - Highlight their top active goals to keep them focused.
+            - Brief them on their reminders/plan for today.
+            - Keep it under 150 words.
+            - Use a supportive, premium, and sophisticated tone.
+            
+            DATA:
+            RECENT ENTRIES:
+            ${entryContext || 'No recent entries logged.'}
+            
+            TODAY/UPCOMING REMINDERS:
+            ${reminderContext || 'No reminders for today.'}
+            
+            ACTIVE GOALS:
+            ${goalContext || 'No active goals being tracked.'}
+            
+            Briefing:
+            `;
+
+            const briefing = await LLMService.generateText(prompt);
+            return briefing;
+        } catch (error) {
+            logger.error('Failed to generate daily briefing', error);
+            return "Good morning! I'm here to help you manage your day. Let's make it a productive one.";
+        }
+    }
+
+    /**
+     * Finds semantically similar entries for a given text
+     */
+    async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
+        try {
+            // 1. Generate Query Embedding
+            const queryVector = await LLMService.generateEmbeddings(text);
+
+            // 2. Perform Vector Search (Atlas)
+            // TODO: This requires a 'vector_index' to be defined in Atlas on the 'entries' collection
+
+            try {
+                const results = await Entry.aggregate([
+                    {
+                        $vectorSearch: {
+                            index: "vector_index",
+                            path: "embeddings",
+                            queryVector: queryVector,
+                            numCandidates: 100,
+                            limit: limit,
+                            filter: { userId: new Types.ObjectId(userId) }
+                        }
+                    },
+                    {
+                        $project: {
+                            content: 1,
+                            date: 1,
+                            type: 1,
+                            score: { $meta: "vectorSearchScore" }
+                        }
+                    }
+                ]);
+
+                if (results.length > 0) return results;
+            } catch (vError) {
+                logger.warn('Vector search failed or index missing. Falling back to keyword search.');
+            }
+
+            // Fallback to text search
+            const { entries } = await entryService.searchEntries(userId, { q: text, limit });
+            return entries.map(e => ({
+                content: e.content,
+                date: e.date,
+                type: e.type,
+                score: 0.5 // Estimated score
+            }));
+
+        } catch (error) {
+            logger.error('Similar entries lookup failed', error);
+            return [];
+        }
     }
 }
 

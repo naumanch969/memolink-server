@@ -14,4 +14,5 @@ export interface LLMProvider {
     generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string>;
     generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T>;
     generateWithTools?(prompt: string, options?: LLMGenerativeOptions): Promise<any>; // New method for tool output
+    generateEmbeddings?(text: string): Promise<number[]>;
 }

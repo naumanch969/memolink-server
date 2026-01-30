@@ -1,4 +1,4 @@
-import { createEntryTool, getRecentEntriesTool, searchEntriesTool } from './entry.tools';
+import { createEntryTool, findSimilarEntriesTool, getRecentEntriesTool, searchEntriesTool } from './entry.tools';
 import { createGoalTool, listGoalsTool, updateGoalTool } from './goal.tools';
 import { createReminderTool, getRemindersTool } from './reminder.tools';
 import { AgentTool } from './types';
@@ -7,6 +7,7 @@ export const agentTools: AgentTool[] = [
     createEntryTool,
     searchEntriesTool,
     getRecentEntriesTool,
+    findSimilarEntriesTool,
     createGoalTool,
     listGoalsTool,
     updateGoalTool,

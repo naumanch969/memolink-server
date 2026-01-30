@@ -103,6 +103,11 @@ export class EntryService implements IEntryService {
             entryId: entry._id.toString(),
             userId // Pass userId explicitly for the workflow
           }).catch(err => logger.error('Failed to trigger people extraction', err));
+
+          // 3. Ghost Memory (Semantic Embedding)
+          agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, {
+            entryId: entry._id.toString()
+          }).catch(err => logger.error('Failed to trigger entry embedding', err));
         });
       }
 

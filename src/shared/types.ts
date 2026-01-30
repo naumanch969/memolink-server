@@ -96,6 +96,7 @@ export interface IEntry extends BaseEntity {
   endTime?: string; // Format: HH:mm
   isMultiDay?: boolean; // Flag for collective entries
   isEdited?: boolean;
+  embeddings?: number[];
 }
 
 // Person Types

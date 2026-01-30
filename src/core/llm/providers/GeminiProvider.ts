@@ -132,4 +132,15 @@ export class GeminiProvider implements LLMProvider {
             throw error;
         }
     }
+
+    async generateEmbeddings(text: string): Promise<number[]> {
+        try {
+            const embeddingModel = this.client.getGenerativeModel({ model: 'text-embedding-004' });
+            const result = await embeddingModel.embedContent(text);
+            return result.embedding.values;
+        } catch (error) {
+            logger.error('Gemini generateEmbeddings error:', error);
+            throw error;
+        }
+    }
 }

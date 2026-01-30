@@ -1,6 +1,6 @@
-import mongoose, { Schema, Document } from 'mongoose';
-import { IEntry } from '../../shared/types';
+import mongoose, { Schema } from 'mongoose';
 import { ENTRY_TYPES } from '../../shared/constants';
+import { IEntry } from '../../shared/types';
 
 const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
@@ -24,6 +24,7 @@ const entrySchema = new Schema<IEntry>({
   endTime: { type: String, trim: true, },
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
+  embeddings: { type: [Number], select: false }, // Exclude by default due to size
 }, {
   timestamps: true,
 });

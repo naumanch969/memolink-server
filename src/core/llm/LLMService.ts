@@ -34,6 +34,13 @@ class LLMServiceClass {
         }
         return this.provider.generateWithTools(prompt, options);
     }
+
+    async generateEmbeddings(text: string): Promise<number[]> {
+        if (!this.provider.generateEmbeddings) {
+            throw new Error('Current provider does not support embeddings');
+        }
+        return this.provider.generateEmbeddings(text);
+    }
 }
 
 export const LLMService = new LLMServiceClass();

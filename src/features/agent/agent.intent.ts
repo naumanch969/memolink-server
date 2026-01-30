@@ -1,12 +1,12 @@
 
 
 import * as chrono from 'chrono-node';
+import fs from 'fs';
+import path from 'path';
 import { z } from 'zod';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
 import { ChatMessage } from './agent.memory';
-import fs from 'fs'
-import path from 'path'
 
 // 1. Define Intention Types
 export enum AgentIntentType {
@@ -45,7 +45,7 @@ export class AgentIntentClassifier {
      * Classify user natural language into an Intent + Entities
      * @param history Optional conversation history to resolve context
      */
-    async classify(text: string, history: ChatMessage[] = []): Promise<IntentResult> {
+    async classify(text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
 
         const historyText = history.length > 0
             ? history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')
@@ -104,7 +104,7 @@ export class AgentIntentClassifier {
             // 1. Try to parse the LLM extracted date string
             const entities = result.extractedEntities || {};
             if (entities.date) {
-                parsedDate = chrono.parseDate(entities.date);
+                parsedDate = chrono.parseDate(entities.date, new Date());
             }
 
             // 2. If LLM missed it, try parsing the whole text (fallback)

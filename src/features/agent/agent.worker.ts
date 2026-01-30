@@ -53,6 +53,20 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.EMBED_ENTRY: {
+                    const { runEntryEmbedding } = await import('./workflows/embedding.workflow');
+                    result = await runEntryEmbedding(task);
+                    break;
+                }
+
+                // Synchronous / No-op tasks
+                case AgentTaskType.REMINDER_CREATE:
+                case AgentTaskType.GOAL_CREATE:
+                case AgentTaskType.KNOWLEDGE_QUERY:
+                case AgentTaskType.DAILY_BRIEFING:
+                    result = { processed: true, sync: true };
+                    break;
+
                 default:
                     throw new Error(`Unknown agent task type: ${task.type}`);
             }

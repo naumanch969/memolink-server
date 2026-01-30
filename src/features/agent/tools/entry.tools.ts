@@ -133,3 +133,34 @@ export const getRecentEntriesTool: AgentTool = {
         }));
     }
 };
+
+export const findSimilarEntriesTool: AgentTool = {
+    definition: {
+        name: 'find_similar_entries',
+        description: 'Find past memories and journal entries that are semantically similar to a given topic or thought.',
+        parameters: {
+            type: 'OBJECT',
+            properties: {
+                text: {
+                    type: 'STRING',
+                    description: 'The topic, thought, or text to find similar entries for.'
+                },
+                limit: {
+                    type: 'NUMBER',
+                    description: 'Number of entries to retrieve (default 5).'
+                }
+            },
+            required: ['text']
+        }
+    },
+    handler: async (userId, args) => {
+        const { agentService } = await import('../agent.service');
+        const results = await agentService.findSimilarEntries(userId, args.text, args.limit || 5);
+        return results.map(r => ({
+            content: r.content,
+            date: r.date,
+            score: r.score,
+            type: r.type
+        }));
+    }
+};

@@ -56,7 +56,7 @@ export class AgentController {
 
     public async processNaturalLanguage(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
-            const { text } = req.body;
+            const { text, tags, timezone } = req.body;
             const userId = (req as any).user._id;
 
             if (!text) {
@@ -64,7 +64,7 @@ export class AgentController {
                 return;
             }
 
-            const processingResult = await agentService.processNaturalLanguage(userId, text);
+            const processingResult = await agentService.processNaturalLanguage(userId, text, { tags, timezone });
 
             ResponseHelper.success(res, {
                 intent: processingResult.intent,
@@ -114,6 +114,33 @@ export class AgentController {
         } catch (error) {
             logger.error('Error fetching chat history', error);
             ResponseHelper.error(res, 'Error fetching chat history', 500, error);
+        }
+    }
+
+    public async getBriefing(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            const briefing = await agentService.getDailyBriefing(userId);
+            ResponseHelper.success(res, { briefing }, 'Daily briefing generated');
+        } catch (error) {
+            logger.error('Error generating daily briefing', error);
+            ResponseHelper.error(res, 'Error generating daily briefing', 500, error);
+        }
+    }
+
+    public async getSimilarEntries(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            const text = req.query.text as string;
+            if (!text) {
+                ResponseHelper.error(res, 'Text query is required', 400);
+                return;
+            }
+            const results = await agentService.findSimilarEntries(userId, text, 3);
+            ResponseHelper.success(res, results, 'Similar entries found');
+        } catch (error) {
+            logger.error('Error finding similar entries', error);
+            ResponseHelper.error(res, 'Error finding similar entries', 500, error);
         }
     }
 }

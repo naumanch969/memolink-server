@@ -1,6 +1,7 @@
 
 import cron from 'node-cron';
 import { logger } from '../config/logger';
+import { agentAccountability } from '../features/agent/agent.accountability';
 import { User } from '../features/auth/auth.model';
 import { storageService } from '../features/media/storage.service';
 import { initNotificationProcessor } from '../features/notification/notification.cron';
@@ -8,6 +9,11 @@ import { initNotificationProcessor } from '../features/notification/notification
 export const initCronJobs = () => {
     // Start Notification Processor
     initNotificationProcessor();
+
+    // Agent Accountability: Every 4 hours
+    cron.schedule('0 */4 * * *', async () => {
+        await agentAccountability.runAccountabilityLoop();
+    });
 
     // Orphan Detection: Daily at 3 AM
     cron.schedule('0 3 * * *', async () => {

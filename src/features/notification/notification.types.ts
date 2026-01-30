@@ -4,7 +4,8 @@ export enum NotificationType {
     REMINDER = 'reminder',
     SYSTEM = 'system',
     ACHIEVEMENT = 'achievement',
-    GOAL = 'goal'
+    GOAL = 'goal',
+    NUDGE = 'nudge'
 }
 
 export interface INotification {
