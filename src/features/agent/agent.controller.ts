@@ -105,6 +105,17 @@ export class AgentController {
             ResponseHelper.error(res, 'Error clearing chat history', 500, error);
         }
     }
+
+    public async getHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            const history = await agentService.getChatHistory(userId);
+            ResponseHelper.success(res, history, 'Chat history retrieved');
+        } catch (error) {
+            logger.error('Error fetching chat history', error);
+            ResponseHelper.error(res, 'Error fetching chat history', 500, error);
+        }
+    }
 }
 
 

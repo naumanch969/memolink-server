@@ -245,9 +245,13 @@ export class AgentService {
             return "I'm sorry, I encountered an error while processing your request.";
         }
     }
-    
+
     async clearHistory(userId: string): Promise<void> {
         await agentMemory.clear(userId);
+    }
+
+    async getChatHistory(userId: string) {
+        return await agentMemory.getHistory(userId);
     }
 }
 
