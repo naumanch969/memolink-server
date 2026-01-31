@@ -64,7 +64,16 @@ export class AgentService {
         // 1. Get Context
         const history = await agentMemory.getHistory(userId);
 
-        const { intent, extractedEntities, parsedEntities } = await agentIntent.classify(text, history, options.timezone);
+        const { intent, extractedEntities, parsedEntities, needsClarification, missingInfos } = await agentIntent.classify(text, history, options.timezone);
+
+        if (needsClarification) {
+            return {
+                intent,
+                needsClarification: true,
+                missingInfos,
+                originalText: text
+            };
+        }
 
         // 3. Update Memory (User)
         await agentMemory.addMessage(userId, 'user', text);
@@ -145,8 +154,15 @@ export class AgentService {
                 });
                 break;
 
+            case AgentIntentType.UNKNOWN:
+                return {
+                    intent,
+                    needsClarification: true,
+                    missingInfos: ['intent'],
+                    originalText: text
+                };
+
             case AgentIntentType.JOURNALING:
-            default:
                 taskType = AgentTaskType.BRAIN_DUMP;
                 // Create Entry
                 result = await entryService.createEntry(userId, {
@@ -304,44 +320,72 @@ export class AgentService {
             const twoDaysAgo = new Date();
             twoDaysAgo.setDate(now.getDate() - 2);
 
-            const [entriesData, remindersData, goals] = await Promise.all([
+            const [entriesData, upcomingReminders, overdueReminders, goals] = await Promise.all([
                 entryService.searchEntries(userId, { dateFrom: twoDaysAgo.toISOString(), limit: 5 }),
-                reminderService.getUpcomingReminders(userId, 10),
+                reminderService.getUpcomingReminders(userId, 15),
+                reminderService.getOverdueReminders(userId),
                 goalService.getGoals(userId, {}),
             ]);
 
             const entries = entriesData.entries || [];
-            const reminders = remindersData || [];
 
-            // 2. Prepare Context for LLM
+            // 2. Process Reminders
+            const todayStr = now.toDateString();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toDateString();
+
+            const todayReminders: any[] = [];
+            const futureReminders: any[] = [];
+
+            (upcomingReminders || []).forEach((r: any) => {
+                const rDate = new Date(r.date).toDateString();
+                if (rDate === todayStr) {
+                    todayReminders.push(r);
+                } else {
+                    futureReminders.push(r);
+                }
+            });
+
+            // 3. Prepare Context for LLM
             const entryContext = entries.map(e => `- [${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
-            const reminderContext = reminders.map(r => `- [Today/Soon] ${r.title} ${r.startTime ? `@ ${r.startTime}` : ''}`).join('\n');
             const goalContext = goals.map(g => `- ${g.title} (${g.status})`).join('\n');
+
+            const overdueContext = (overdueReminders || []).map((r: any) => `- [OVERDUE: ${new Date(r.date).toLocaleDateString()}] ${r.title}`).join('\n');
+            const todayContext = todayReminders.map(r => `- [TODAY] ${r.title} ${r.startTime ? `@ ${r.startTime}` : '(All Day)'}`).join('\n');
+            const futureContext = futureReminders.map(r => `- [${new Date(r.date).toLocaleDateString()}] ${r.title} ${r.startTime ? `@ ${r.startTime}` : ''}`).join('\n');
 
             const prompt = `
             You are the "Chief of Staff" for a user in the MemoLink application.
             It is currently ${now.toDateString()}. 
             
-            Based on the following data, provide a warm, professional, and highly encouraging greeting and daily briefing.
-            Goal: Make the user feel organized, supported, and ready to tackle the day.
+            Based on the following data, provide a professional, objective, and executive daily briefing.
             
-            Rules:
-            - Start with a personalized greeting ("Good morning/afternoon", "Hello", etc.)
-            - Summarize their recent logs if any.
-            - Highlight their top active goals to keep them focused.
-            - Brief them on their reminders/plan for today.
-            - Keep it under 150 words.
-            - Use a supportive, premium, and sophisticated tone.
+            CRITICAL INSTRUCTIONS:
+            1. **Tone**: Be professional, concise, and objective. Avoid excessive optimism, cheerleading, or "fluff". Be direct.
+            2. **Schedule Accuracy**: accurately distinguish between what is happening TODAY versus what is upcoming.
+            3. **Structure**:
+               - Greeting: Simple and professional (e.g., "Good morning. Here is your briefing for [Date].")
+               - Review: Very brief summary of recent logs/entries (if any).
+               - Action Items (Today): Strictly list reminders for TODAY.
+               - Outlook: Briefly mention key upcoming items or overdue tasks if critical.
+               - Goals: Mention top active goal.
             
             DATA:
-            RECENT ENTRIES:
-            ${entryContext || 'No recent entries logged.'}
+            RECENT LOGS:
+            ${entryContext || 'No recent logs.'}
             
-            TODAY/UPCOMING REMINDERS:
-            ${reminderContext || 'No reminders for today.'}
+            OVERDUE TASKS (Action Required):
+            ${overdueContext || 'None.'}
+            
+            SCHEDULE FOR TODAY (${todayStr}):
+            ${todayContext || 'No specific tasks scheduled for today.'}
+            
+            UPCOMING (Future):
+            ${futureContext || 'No upcoming tasks found.'}
             
             ACTIVE GOALS:
-            ${goalContext || 'No active goals being tracked.'}
+            ${goalContext || 'No active goals.'}
             
             Briefing:
             `;
@@ -350,7 +394,7 @@ export class AgentService {
             return briefing;
         } catch (error) {
             logger.error('Failed to generate daily briefing', error);
-            return "Good morning! I'm here to help you manage your day. Let's make it a productive one.";
+            return "Good morning. I was unable to compile your full briefing at this time. Please check your dashboard for details.";
         }
     }
 

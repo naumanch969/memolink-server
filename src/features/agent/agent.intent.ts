@@ -1,8 +1,6 @@
 
 
 import * as chrono from 'chrono-node';
-import fs from 'fs';
-import path from 'path';
 import { z } from 'zod';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
@@ -18,131 +16,120 @@ export enum AgentIntentType {
     UNKNOWN = 'UNKNOWN'
 }
 
-// 2. Define Output Schema for the Classifier
-const intentSchema = z.object({
+// 2. Define Output Schema for the Router (Strictly Classification)
+const routerSchema = z.object({
     intent: z.nativeEnum(AgentIntentType).describe('The primary intent of the user input'),
-    confidence: z.number().min(0).max(1).optional().describe('Confidence score between 0 and 1'),
-    extractedEntities: z.object({
-        date: z.string().optional().describe('Relative or absolute dates found (e.g. "tomorrow", "next friday")'),
-        time: z.string().optional().describe('Time if specified (e.g. "5pm", "14:00")'),
-        title: z.string().optional().describe('A concise title for the task/reminder/goal'),
-        targetList: z.string().optional().describe('Target list/category if specified (e.g. "shopping list")'),
-        person: z.string().optional().describe('Any person mentioned that is relevant to the command'),
-        priority: z.enum(['low', 'medium', 'high']).optional().describe('Implied priority'),
-        isRecurring: z.boolean().optional().describe('If the task implies repetition'),
-    }).optional().describe('Key entities extracted for immediate use')
+    reasoning: z.string().describe('Brief reasoning for why this intent was chosen, distinguishing between past reflection (Journaling) and future requests (Commands)'),
+    confidence: z.number().min(0).max(1).optional().describe('Confidence score'),
 });
 
-export interface IntentResult extends z.infer<typeof intentSchema> {
+// 3. Define Extraction Schemas for Specialists
+const entitySchema = z.object({
+    date: z.string().optional().describe('Relative or absolute dates'),
+    time: z.string().optional().describe('Time if specified'),
+    title: z.string().optional().describe('Concise title'),
+    priority: z.enum(['low', 'medium', 'high']).optional(),
+    person: z.string().optional(),
+});
+
+export interface IntentResult {
+    intent: AgentIntentType;
+    confidence?: number;
+    extractedEntities?: z.infer<typeof entitySchema>;
     parsedEntities: {
         date?: Date;
     };
+    needsClarification?: boolean;
+    missingInfos?: string[];
 }
 
 export class AgentIntentClassifier {
 
     /**
-     * Classify user natural language into an Intent + Entities
-     * @param history Optional conversation history to resolve context
+     * Unified Classification & Extraction
+     * Performs intent classification and entity extraction in a single pass to reduce latency.
      */
     async classify(text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
+        // 1. Prepare Context
+        const historyText = history.slice(-3).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
-        const historyText = history.length > 0
-            ? history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')
-            : "No previous context.";
+        // 2. Define Output Schema
+        const classificationSchema = routerSchema.extend({
+            extractedEntities: entitySchema.optional().describe('Extracted entities if applicable for the intent')
+        });
 
+        // 3. Construct Prompt
         const prompt = `
-      You are an Intent Classifier for a personal life assistant AI.
-      Analyze the following user text and categorize it into one of the allowed intents.
+        You are the Intent Classifier and Entity Extractor for MemoLink.
+        Analyze the USER TEXT and determine the intent and extract relevant details.
+        
+        CONTEXT:
+        ${historyText}
+        
+        USER TEXT: "${text}"
+        
+        INTENT RULES:
+        1. CMD_REMINDER_CREATE: requests to be reminded/notified. (e.g. "Remind me...", "Don't let me forget")
+        2. CMD_TASK_CREATE: actionable to-dos. (e.g. "Buy milk", "Add to list")
+        3. CMD_GOAL_CREATE: long-term ambitions. (e.g. "Run a marathon")
+        4. QUERY_KNOWLEDGE: questions about past data/memories.
+        5. JOURNALING: recording past events/feelings (e.g. "I ran today").
+        6. UNKNOWN: gibberish.
 
-            Context(Recent Conversation):
-        """
-      ${historyText}
-        """
+        EXTRACTION RULES:
+        - For CMD intents, extract 'title', 'date', 'priority'.
+        - For JOURNALING, you can ignore entities or extract date if specified.
+        - 'date' should be relative or absolute (e.g. "tomorrow", "next friday", "5pm").
+        
+        CRITICAL:
+        - If the user implies a future action without explicit time, default to CMD_TASK_CREATE or CMD_REMINDER_CREATE based on urgency.
+        `;
 
-        Categories & Examples:
-        - JOURNALING:
-        Criteria: Personal stories, diary entries, thoughts, feelings, "brain dumps".No specific action requested.
-            Examples: "Today was a good day", "I felt anxious about the meeting", "Just thinking about life".
-      
-      - CMD_REMINDER_CREATE:
-        Criteria: Explicit request for a reminder or notification at a specific time / date.
-            Examples: "Remind me to call John at 5pm", "Wake me up at 7am", "Set a reminder for the dentist tomorrow".
-
-      - CMD_TASK_CREATE:
-        Criteria: Actionable to -do items, tasks, or errands without a strict notification time request.
-            Examples: "Buy milk", "Fix the garage door", "Add 'Email boss' to my list", "I need to clean the house".
-
-      - CMD_GOAL_CREATE:
-        Criteria: Long - term ambitious objectives, habits, or targets.
-            Examples: "I want to lose 5kg by June", "Read 12 books this year", "Learn Spanish".
-
-      - QUERY_KNOWLEDGE:
-        Criteria: Questions about past entries, stats, or seeking information from the system.
-            Examples: "What did I do last week?", "How many times did I exercise?", "When was the last time I saw Sarah?".
-
-      - UNKNOWN:
-        Criteria: Text that is unintelligible or completely unrelated.
-
-      User Text:
-        """
-      ${text}
-        """
-
-        INSTRUCTIONS:
-        1. If the text starts with a verb like "Buy", "Call", "Fix", "Remind", it is likely a COMMAND.
-        2. If the text describes feelings or past events("I went...", "It was..."), it is likely JOURNALING.
-        3. Return JSON matching the schema.Extract a concise 'title' that captures the core action.
-    `;
-
+        let result;
         try {
-            const result = await LLMService.generateJSON(prompt, intentSchema);
-
-            // Post-Processing: Parse Dates
-            let parsedDate: Date | undefined;
-
-            // 1. Try to parse the LLM extracted date string
-            const entities = result.extractedEntities || {};
-            if (entities.date) {
-                parsedDate = chrono.parseDate(entities.date, new Date());
-            }
-
-            // 2. If LLM missed it, try parsing the whole text (fallback)
-            // Only do this if we are in a context where a date is expected but missing,
-            // or just always try to find a reference date if none was found.
-            if (!parsedDate) {
-                const parsedResults = chrono.parse(text);
-                if (parsedResults.length > 0) {
-                    parsedDate = parsedResults[0].start.date();
-                }
-            }
-
+            result = await LLMService.generateJSON(prompt, classificationSchema);
+        } catch (e) {
+            logger.error("Classification Failed", e);
             return {
-                ...result,
-                parsedEntities: {
-                    date: parsedDate
-                }
-            };
-
-        } catch (error: unknown) {
-            logger.error('Intent Classification Failed', error);
-            try {
-                fs.appendFileSync(path.resolve(__dirname, '../../../debug-intent.log'),
-                    `[${new Date().toISOString()}] Error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))} \n`
-                );
-            } catch {
-                /* ignore */
-            }
-
-            // Fallback
-            return {
-                intent: AgentIntentType.JOURNALING, // Default safe fallback
-                confidence: 0,
-                extractedEntities: {},
-                parsedEntities: {}
+                intent: AgentIntentType.UNKNOWN,
+                parsedEntities: { date: undefined }
             };
         }
+
+        const { intent, extractedEntities = {}, confidence } = result;
+
+        // 4. Post-Process (Date Parsing)
+        let parsedDate: Date | undefined;
+        let needsClarification = false;
+        const missingInfos: string[] = [];
+
+        // Parse date from extracted entity OR fallback to full text
+        const dateText = extractedEntities?.date || (extractedEntities?.time ? `${extractedEntities.date || 'today'} ${extractedEntities.time}` : null);
+
+        if (dateText) {
+            parsedDate = chrono.parseDate(dateText, { timezone });
+        }
+
+        // Fallback: If no date extracted but chrono finds one in the text
+        if (!parsedDate && [AgentIntentType.CMD_REMINDER_CREATE, AgentIntentType.CMD_TASK_CREATE].includes(intent)) {
+            const parsedResults = chrono.parse(text, { timezone });
+            if (parsedResults.length > 0) parsedDate = parsedResults[0].start.date();
+        }
+
+        // Validation Checks
+        if (intent === AgentIntentType.CMD_REMINDER_CREATE && !parsedDate) {
+            needsClarification = true;
+            missingInfos.push('date/time');
+        }
+
+        return {
+            intent,
+            confidence: confidence || 1,
+            extractedEntities,
+            parsedEntities: { date: parsedDate },
+            needsClarification,
+            missingInfos
+        };
     }
 }
-
 export const agentIntent = new AgentIntentClassifier();
