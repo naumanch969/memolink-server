@@ -35,6 +35,9 @@ async function startWorker() {
         initAgentWorker();
         initEmailWorker();
 
+        const { graphWorker } = await import('./workers/graph.worker');
+        graphWorker.start();
+
         // DEV ONLY: Clear queues on startup to prevent zombie jobs
         if (config.NODE_ENV === 'development') {
             logger.info('Development mode detected: Cleaning queues...');
