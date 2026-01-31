@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { IPerson } from '../../shared/types';
+import { IPerson } from './person.interfaces';
 import { CreatePersonRequest, IPersonService, UpdatePersonRequest } from './person.interfaces';
 import { Person } from './person.model';
 

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { WidgetService } from './widget.service';
 import { asyncHandler, createError } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 
 const widgetService = new WidgetService();
 

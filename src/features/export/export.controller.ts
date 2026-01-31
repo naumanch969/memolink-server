@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { exportService } from './export.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { ExportRequest } from './export.interfaces';
 
 export class ExportController {

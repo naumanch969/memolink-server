@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { logViewerService } from '../../core/monitoring/log-viewer.service';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { adminAnalyticsService } from './admin.analytics.service';
 import { adminConfigService } from './admin.config.service';
 import { adminService } from './admin.service';

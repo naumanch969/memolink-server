@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IRelation } from '../../shared/types';
+import { IRelation } from './person.interfaces';
 
 const relationSchema = new Schema<IRelation>({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },

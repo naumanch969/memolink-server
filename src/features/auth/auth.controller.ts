@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from './auth.interfaces';
 import { ChangePasswordRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.interfaces';
 import { authService } from './auth.service';
 

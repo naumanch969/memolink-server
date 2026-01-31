@@ -7,7 +7,7 @@ import { Person } from '../person/person.model';
 import { Tag } from '../tag/tag.model';
 import { AnalyticsRequest } from './analytics.interfaces';
 
-import { AnalyticsData } from '../../shared/types';
+import { AnalyticsData } from './analytics.interfaces';
 
 export class AnalyticsService {
   static async getAnalytics(userId: string, options: AnalyticsRequest = {}): Promise<AnalyticsData> {

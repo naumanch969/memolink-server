@@ -2,7 +2,7 @@ import { Response } from 'express';
 import notificationService from './notification.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 
 class NotificationController {
 

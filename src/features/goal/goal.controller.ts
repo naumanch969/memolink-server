@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { goalService } from './goal.service';
 import { HTTP_STATUS } from '../../shared/constants';
 import { ResponseHelper } from '../../core/utils/response';

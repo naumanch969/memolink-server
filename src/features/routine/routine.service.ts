@@ -1,6 +1,7 @@
 import { FilterQuery, Types } from 'mongoose';
 import { ROUTINE_STATUS } from '../../shared/constants';
-import { DataType, IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType, } from '../../shared/types';
+import { IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType } from './routine.interfaces';
+import { DataType } from '../../shared/types';
 import { IChecklistConfig, ICounterConfig } from '../../shared/types/dataProperties';
 import { goalService } from '../goal/goal.service';
 import { CompletionCalculationResult, CreateRoutineLogParams, CreateRoutineTemplateParams, GetRoutineAnalyticsQuery, GetRoutineLogsQuery, GetRoutineStatsQuery, UpdateRoutineLogParams, UpdateRoutineTemplateParams, UpdateUserRoutinePreferencesParams, } from './routine.interfaces';

@@ -2,7 +2,7 @@ import { NextFunction, Response } from 'express';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
 import { Helpers } from '../../shared/helpers';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreatePersonRequest, UpdatePersonRequest } from './person.interfaces';
 import { personService } from './person.service';
 

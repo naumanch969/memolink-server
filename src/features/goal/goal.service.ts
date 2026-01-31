@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { GOAL_STATUS } from '../../shared/constants';
-import { IGoal, RoutineType } from '../../shared/types';
+import { IGoal } from './goal.interfaces';
+import { RoutineType } from '../routine/routine.interfaces';
 import { CreateGoalParams, GetGoalsQuery, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 

@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { documentService } from './document.service';
 
 export const createDocument = async (req: AuthenticatedRequest, res: Response) => {

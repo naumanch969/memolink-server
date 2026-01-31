@@ -1,5 +1,5 @@
 import { createNotFoundError, createValidationError } from '../../core/middleware/errorHandler';
-import { IRelation } from '../../shared/types';
+import { IRelation } from './person.interfaces';
 import { Person } from './person.model';
 import Relation from './relation.model';
 

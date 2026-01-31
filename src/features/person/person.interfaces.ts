@@ -1,4 +1,64 @@
-import { IPerson } from '../../shared/types';
+import { Types } from 'mongoose';
+import { BaseEntity } from '../../shared/types';
+
+// Person Types
+export interface IPerson extends BaseEntity {
+  userId: Types.ObjectId;
+  name: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+
+  // Professional Details
+  jobTitle?: string;
+  company?: string;
+
+  // Important Dates
+  birthday?: Date;
+
+  // Address
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
+
+  // Social & Web
+  socialLinks?: {
+    linkedin?: string;
+    twitter?: string;
+    website?: string;
+    facebook?: string;
+    instagram?: string;
+  };
+
+  // Organization
+  tags?: string[];
+  role?: string;
+
+  notes?: string;
+  isPlaceholder: boolean;
+  interactionCount: number;
+  lastInteractionAt?: Date;
+  lastInteractionSummary?: string;
+  sentimentScore?: number;
+
+  // Soft Delete
+  isDeleted: boolean;
+  deletedAt?: Date;
+}
+
+// Relation Types
+export interface IRelation extends BaseEntity {
+  userId: Types.ObjectId;     // The user who owns this data
+  sourceId: Types.ObjectId;   // Person A
+  targetId: Types.ObjectId;   // Person B
+  type: string;               // "Friend", "Spouse", "Colleague", etc.
+  strength?: number;          // 1-10 for visualization weight
+}
+
 
 export interface IPersonService {
   createPerson(userId: string, personData: CreatePersonRequest): Promise<IPerson>;

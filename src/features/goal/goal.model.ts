@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { COLLECTIONS, GOAL_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
-import { IGoal } from '../../shared/types';
+import { IGoal } from './goal.interfaces';
 
 // ============================================
 // SUB-SCHEMAS

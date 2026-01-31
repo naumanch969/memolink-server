@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { mediaService } from './media.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreateMediaRequest, MediaMetadata } from './media.interfaces';
 import { Helpers } from '../../shared/helpers';
 import { CloudinaryService } from '../../config/cloudinary';

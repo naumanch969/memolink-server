@@ -1,7 +1,7 @@
 import { NextFunction, Response } from 'express';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { AnalyticsRequest } from './analytics.interfaces';
 import { AnalyticsService } from './analytics.service';
 

@@ -1,8 +1,54 @@
-import {
-    GoalStatus,
-    IGoalConfig,
-    RoutineType
-} from '../../shared/types';
+import { Types } from 'mongoose';
+import { BaseEntity } from '../../shared/types';
+import { DataConfig, DataValue } from '../../shared/types/dataProperties';
+import { RoutineType } from '../routine/routine.interfaces'; // Import RoutineType
+
+// Goal Types
+export type GoalStatus = 'active' | 'completed' | 'failed' | 'archived';
+
+export type IGoalConfig = DataConfig;
+
+export interface IGoalProgress {
+    currentValue?: DataValue;
+    notes?: string;
+    lastUpdate?: Date;
+}
+
+export interface IGoalMilestone {
+    _id?: Types.ObjectId;
+    title: string;
+    targetValue?: number;
+    deadline?: Date;
+    completed: boolean;
+    completedAt?: Date;
+}
+
+export interface IGoal extends BaseEntity {
+    userId: Types.ObjectId;
+    title: string;
+    description?: string;
+    why?: string; // Motivation
+    icon?: string;
+    color?: string;
+
+    type: RoutineType; // reusing RoutineType which is now DataType
+    status: GoalStatus;
+
+    config: IGoalConfig;
+    progress: IGoalProgress;
+
+    startDate: Date;
+    deadline?: Date;
+    completedAt?: Date;
+
+    linkedRoutines?: Types.ObjectId[]; // Routines that contribute to this goal
+    milestones?: IGoalMilestone[];
+
+    priority: 'low' | 'medium' | 'high';
+    tags?: Types.ObjectId[];
+
+    reward?: string;
+}
 
 export interface CreateGoalParams {
     title: string;
@@ -58,8 +104,6 @@ export interface UpdateGoalParams {
     }>;
     retroactiveRoutines?: string[];
 }
-
-import { DataValue } from '../../shared/types/dataProperties';
 
 export interface UpdateGoalProgressParams {
     value?: DataValue; // Add/Set value

@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { folderService } from './folder.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 
 export class FolderController {
   static createFolder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

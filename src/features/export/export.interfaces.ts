@@ -1,4 +1,10 @@
-import { ExportOptions } from '../../shared/types';
+export interface ExportOptions {
+  format: 'json' | 'csv' | 'pdf' | 'markdown';
+  dateFrom?: Date;
+  dateTo?: Date;
+  includeMedia?: boolean;
+  includePrivate?: boolean;
+}
 
 export interface IExportService {
   exportData(userId: string, options: ExportRequest, res: any): Promise<void>;

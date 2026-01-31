@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { tagService } from './tag.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreateTagRequest, UpdateTagRequest } from './tag.interfaces';
 import { Helpers } from '../../shared/helpers';
 

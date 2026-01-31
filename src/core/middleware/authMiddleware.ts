@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { CryptoHelper } from '../utils/crypto';
 import { ResponseHelper } from '../utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../../features/auth/auth.interfaces';
 import { createUnauthorizedError, createForbiddenError } from './errorHandler';
 import { logger } from '../../config/logger';
 

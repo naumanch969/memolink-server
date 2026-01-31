@@ -1,4 +1,27 @@
-import { IEntry } from '../../shared/types';
+import { Types } from 'mongoose';
+import { BaseEntity } from '../../shared/types';
+
+// Entry Types
+export interface IEntry extends BaseEntity {
+  userId: Types.ObjectId;
+  content: string;
+  type: 'text' | 'media' | 'mixed';
+  mentions: Types.ObjectId[]; // Person IDs
+  tags: Types.ObjectId[]; // Tag IDs
+  media: Types.ObjectId[]; // Media IDs
+  isPrivate: boolean;
+  isImportant?: boolean; // Mark special/memorable days
+  mood?: string;
+  location?: string;
+  date: Date;
+  startDate?: Date; // For multi-day entries
+  endDate?: Date; // For multi-day entries
+  startTime?: string; // Format: HH:mm
+  endTime?: string; // Format: HH:mm
+  isMultiDay?: boolean; // Flag for collective entries
+  isEdited?: boolean;
+  embeddings?: number[];
+}
 
 export interface EntryResponse {
   entry: IEntry;

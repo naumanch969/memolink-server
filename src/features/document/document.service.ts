@@ -1,4 +1,4 @@
-import { CreateDocumentRequest, IDocument, UpdateDocumentRequest } from '../../shared/types';
+import { CreateDocumentRequest, IDocument, UpdateDocumentRequest } from './document.interfaces';
 import Document from './document.model';
 
 class DocumentService {

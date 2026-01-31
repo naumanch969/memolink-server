@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { COLLECTIONS, ROUTINE_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
-import { IRoutineLog, IRoutineTemplate, IUserRoutinePreferences, } from '../../shared/types';
+import { IRoutineLog, IRoutineTemplate, IUserRoutinePreferences } from './routine.interfaces';
 
 // ============================================
 // ROUTINE TEMPLATE SCHEMA

@@ -1,4 +1,81 @@
-import { IMedia } from '../../shared/types';
+import { Types } from 'mongoose';
+import { BaseEntity } from '../../shared/types';
+
+// Media Types
+export interface IMedia extends BaseEntity {
+  userId: Types.ObjectId;
+  folderId?: Types.ObjectId;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  cloudinaryId: string;
+  type: 'image' | 'video' | 'document' | 'audio' | 'archive' | 'data' | 'code';
+  thumbnail?: string;
+  tags?: string[];
+  extension?: string;
+  altText?: string;
+  description?: string;
+  status?: 'uploading' | 'processing' | 'ready' | 'error';
+  processingError?: string;
+  metadata?: {
+    width?: number;
+    height?: number;
+    duration?: number;
+    // Extended metadata
+    pages?: number;
+    frameRate?: number;
+    bitrate?: number;
+    codec?: string;
+    resolution?: string; // e.g., "1920x1080"
+    // Archive metadata
+    archiveContents?: Array<{
+      name: string;
+      size: number;
+      isDirectory: boolean;
+    }>;
+    // Data file metadata
+    rowCount?: number;
+    columnCount?: number;
+    // Code file metadata
+    language?: string;
+    lineCount?: number;
+    videoThumbnails?: string[]; // Multiple thumbnail options
+    selectedThumbnailIndex?: number;
+    exif?: {
+      make?: string; // Camera manufacturer
+      model?: string; // Camera model
+      dateTaken?: string; // ISO 8601 string for JSON compatibility
+      gps?: {
+        latitude?: number;
+        longitude?: number;
+        altitude?: number;
+      };
+      exposureTime?: string;
+      fNumber?: number;
+      iso?: number;
+      focalLength?: string;
+      lens?: string;
+      software?: string;
+      orientation?: number;
+    };
+    // OCR extracted text
+    ocrText?: string;
+    ocrConfidence?: number;
+    // AI-generated tags
+    aiTags?: Array<{
+      tag: string;
+      confidence: number;
+    }>;
+    // Face detection
+    faces?: Array<{
+      personId?: Types.ObjectId;
+      boundingBox?: { x: number; y: number; width: number; height: number };
+      confidence?: number;
+    }>;
+  };
+}
 
 export interface IMediaService {
   createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia>;

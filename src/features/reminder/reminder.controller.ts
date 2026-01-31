@@ -3,7 +3,7 @@ import reminderService from './reminder.service';
 import { CreateReminderRequest, UpdateReminderRequest, GetRemindersQuery } from './reminder.types';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 
 class ReminderController {
     // ============================================

@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { ITag } from '../../shared/types';
+import { ITag } from './tag.interfaces';
 import { CreateTagRequest, ITagService, UpdateTagRequest } from './tag.interfaces';
 import { Tag } from './tag.model';
 

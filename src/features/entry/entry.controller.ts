@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { entryService } from './entry.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreateEntryRequest, UpdateEntryRequest, EntrySearchRequest } from './entry.interfaces';
 import { Helpers } from '../../shared/helpers';
 

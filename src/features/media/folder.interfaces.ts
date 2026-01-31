@@ -1,4 +1,18 @@
 import { Types } from 'mongoose';
+import { BaseEntity } from '../../shared/types';
+
+// Folder Types
+export interface IFolder extends BaseEntity {
+  userId: Types.ObjectId;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  parentId?: Types.ObjectId;
+  path: string;
+  isDefault: boolean;
+  itemCount: number;
+}
 
 export interface CreateFolderRequest {
   name: string;
@@ -17,10 +31,10 @@ export interface UpdateFolderRequest {
 }
 
 export interface IFolderService {
-  createFolder(userId: string, folderData: CreateFolderRequest): Promise<any>;
-  updateFolder(folderId: string, userId: string, updateData: UpdateFolderRequest): Promise<any>;
-  getFolderById(folderId: string, userId: string): Promise<any>;
-  getUserFolders(userId: string, options?: any): Promise<any>;
+  createFolder(userId: string, folderData: CreateFolderRequest): Promise<IFolder>;
+  updateFolder(folderId: string, userId: string, updateData: UpdateFolderRequest): Promise<IFolder>;
+  getFolderById(folderId: string, userId: string): Promise<IFolder>;
+  getUserFolders(userId: string, options?: any): Promise<{ folders: IFolder[], total: number }>;
   deleteFolder(folderId: string, userId: string): Promise<void>;
   moveFolderItems(folderId: string, targetFolderId: string | null, userId: string): Promise<void>;
 }

@@ -4,7 +4,7 @@ import { logger } from '../../config/logger';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
 import { getMediaTypeFromMime } from '../../shared/constants';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { chunkedUploadService } from './chunked-upload.service';
 import { mediaEvents, MediaEventType } from './media.events';
 import { CreateMediaRequest, MediaMetadata } from './media.interfaces';

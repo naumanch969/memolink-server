@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { ENTRY_TYPES } from '../../shared/constants';
-import { IEntry } from '../../shared/types';
+import { IEntry } from './entry.interfaces';
 
 const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },

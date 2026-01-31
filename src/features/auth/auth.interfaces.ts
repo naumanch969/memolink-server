@@ -1,4 +1,62 @@
-import { IUser } from '../../shared/types';
+import { Request } from 'express';
+import { BaseEntity } from '../../shared/types';
+
+// User Types
+export interface IUser extends BaseEntity {
+  email: string;
+  password?: string;
+  googleId?: string;
+  name: string;
+  avatar?: string;
+  role: string;
+  isEmailVerified: boolean;
+  isActive: boolean;
+  lastLoginAt?: Date;
+  preferences: {
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    privacy: 'public' | 'private';
+    communication?: {
+      newsletter: boolean;
+      productUpdates: boolean;
+      security: boolean;
+    };
+  };
+  securityConfig?: {
+    question: string;
+    answerHash: string; // Hashed answer
+    timeoutMinutes: number; // e.g. 5, 15, 30
+    isEnabled: boolean;
+    maskEntries?: boolean;
+  };
+  // Storage quota tracking
+  storageUsed: number; // bytes
+  storageQuota: number; // bytes (default from STORAGE_LIMITS)
+}
+
+// Request Types
+export interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
+
+// OTP Types
+export interface IOtp extends BaseEntity {
+  email: string;
+  otp: string;
+  type: 'verification' | 'password_reset';
+  expiresAt: Date;
+  isUsed: boolean;
+  attempts: number;
+}
+
+// JWT Payload
+export interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+  iat?: number;
+  exp?: number;
+}
 
 export interface AuthResponse {
   user: Omit<IUser, 'password'>;

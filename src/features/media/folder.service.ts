@@ -4,7 +4,7 @@ import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { CreateFolderRequest, UpdateFolderRequest, IFolderService } from './folder.interfaces';
 import { Types } from 'mongoose';
-import { IFolder } from '../../shared/types';
+import { IFolder } from './folder.interfaces';
 
 export class FolderService implements IFolderService {
   async createFolder(userId: string, folderData: CreateFolderRequest): Promise<IFolder> {
@@ -89,7 +89,7 @@ export class FolderService implements IFolderService {
     }
   }
 
-  async getUserFolders(userId: string, options: any = {}): Promise<IFolder[]> {
+  async getUserFolders(userId: string, options: any = {}): Promise<{ folders: IFolder[]; total: number }> {
     try {
       const query: any = { userId };
       
@@ -111,7 +111,7 @@ export class FolderService implements IFolderService {
         })
       );
 
-      return folders;
+      return { folders, total: folders.length };
     } catch (error) {
       logger.error('Get user folders failed:', error);
       throw error;

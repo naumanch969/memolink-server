@@ -4,7 +4,7 @@ import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { CreateMediaRequest, IMediaService, UpdateMediaRequest } from './media.interfaces';
 import { Helpers } from '../../shared/helpers';
 import { Types } from 'mongoose';
-import { IMedia } from '../../shared/types';
+import { IMedia } from './media.interfaces';
 import { CloudinaryService } from '../../config/cloudinary';
 import { storageService } from './storage.service';
 import { mediaEvents, MediaEventType } from './media.events';

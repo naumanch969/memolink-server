@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IDocument } from '../../shared/types';
+import { IDocument } from './document.interfaces';
 
 const documentSchema = new Schema<IDocument>({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },

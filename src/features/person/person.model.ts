@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IPerson } from '../../shared/types';
+import { IPerson } from './person.interfaces';
 
 const personSchema = new Schema<IPerson>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },

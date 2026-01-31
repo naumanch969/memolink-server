@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { ITag } from '../../shared/types';
+import { ITag } from './tag.interfaces';
 
 const tagSchema = new Schema<ITag>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },

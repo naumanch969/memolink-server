@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { IEntry } from '../../shared/types';
+import { IEntry } from './entry.interfaces';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
 import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';

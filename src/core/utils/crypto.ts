@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/env';
-import { JWTPayload } from '../../shared/types';
+import { JWTPayload } from '../../features/auth/auth.interfaces';
 
 export class CryptoHelper {
   // Password hashing
@@ -38,10 +39,10 @@ export class CryptoHelper {
   // Token extraction from headers
   static extractTokenFromHeader(authHeader: string | undefined): string | null {
     if (!authHeader) return null;
-    
+
     const parts = authHeader.split(' ');
     if (parts.length !== 2 || parts[0] !== 'Bearer') return null;
-    
+
     return parts[1];
   }
 
@@ -57,7 +58,6 @@ export class CryptoHelper {
 
   // Generate secure random string
   static generateSecureRandomString(length: number = 32): string {
-    const crypto = require('crypto');
     return crypto.randomBytes(length).toString('hex');
   }
 
@@ -73,7 +73,6 @@ export class CryptoHelper {
 
   // Hash sensitive data (for logging purposes)
   static hashSensitiveData(data: string): string {
-    const crypto = require('crypto');
     return crypto.createHash('sha256').update(data).digest('hex').substring(0, 8);
   }
 }

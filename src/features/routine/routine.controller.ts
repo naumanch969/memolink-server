@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import routineService from './routine.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { asyncHandler } from '../../core/middleware/errorHandler';
-import { AuthenticatedRequest } from '../../shared/types';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreateRoutineTemplateParams, UpdateRoutineTemplateParams, CreateRoutineLogParams, UpdateRoutineLogParams, GetRoutineLogsQuery, GetRoutineStatsQuery, GetRoutineAnalyticsQuery, UpdateUserRoutinePreferencesParams, ReorderRoutinesParams, } from './routine.interfaces';
 
 export class RoutineController {
