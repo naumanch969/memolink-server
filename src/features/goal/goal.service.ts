@@ -1,8 +1,7 @@
 import { Types } from 'mongoose';
 import { GOAL_STATUS } from '../../shared/constants';
-import { IGoal } from './goal.interfaces';
 import { RoutineType } from '../routine/routine.interfaces';
-import { CreateGoalParams, GetGoalsQuery, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
+import { CreateGoalParams, GetGoalsQuery, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 
 export class GoalService {
@@ -14,6 +13,7 @@ export class GoalService {
             // Ensure specific fields are correctly parsed or set
             linkedRoutines: params.linkedRoutines?.map(id => new Types.ObjectId(id)),
             tags: params.tags?.map(id => new Types.ObjectId(id)),
+            metadata: params.metadata,
         });
 
         // Handle retroactive syncing

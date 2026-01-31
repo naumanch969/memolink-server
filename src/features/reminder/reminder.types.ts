@@ -87,6 +87,7 @@ export interface IReminder {
     // Metadata
     createdAt: Date;
     updatedAt: Date;
+    metadata?: Record<string, any>;
 }
 
 export interface IReminderDocument extends IReminder, Document {
@@ -135,7 +136,7 @@ export interface CreateReminderRequest {
     linkedTags?: string[];
     linkedPeople?: string[];
     linkedEntries?: string[];
-
+    metadata?: Record<string, any>;
 }
 
 export interface UpdateReminderRequest {

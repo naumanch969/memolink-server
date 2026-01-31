@@ -130,6 +130,7 @@ const goalSchema = new Schema<IGoal>(
         ],
 
         reward: { type: String, trim: true },
+        metadata: { type: Schema.Types.Mixed },
     },
     {
         timestamps: true,

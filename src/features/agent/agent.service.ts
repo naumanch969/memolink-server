@@ -62,75 +62,107 @@ export class AgentService {
     }
 
     async processNaturalLanguage(userId: string, text: string, options: { tags?: string[], timezone?: string } = {}): Promise<any> {
-        // 1. Get Context
+        // 1. PERSIST FIRST (The "Capture First" Reliability Pattern)
+        // Ensure data is in Mongo immediately. This solves the speed/reliability bottleneck.
+        let result: any = null;
+        try {
+            result = await entryService.createEntry(userId, {
+                content: text,
+                date: new Date(),
+                type: 'text',
+                status: 'processing',
+                tags: options.tags || [],
+                metadata: { source: 'capture-mode' }
+            });
+            logger.info("Reliability Capture: Entry saved to Mongo before AI processing", { userId, entryId: result._id });
+        } catch (saveError) {
+            logger.error("Reliability Capture Failed: Could not save initial entry", saveError);
+            // We continue anyway to try AI, though this shouldn't happen
+        }
+
+        // 2. Get Context for AI (Parallelize if possible, but keeping logic clear)
         const history = await agentMemory.getHistory(userId);
 
-        const { intent, extractedEntities, parsedEntities, needsClarification, missingInfos } = await agentIntent.classify(text, history, options.timezone);
+        // 3. AI Intent Analysis (The Potential Bottleneck)
+        let intentResult;
+        try {
+            intentResult = await agentIntent.classify(text, history, options.timezone);
+        } catch (aiError) {
+            logger.error("AI Bottleneck: Intent classification failed, falling back to raw entry", aiError);
+            // Fallback to raw journaling intent since we already saved it
+            intentResult = { intent: AgentIntentType.JOURNALING, parsedEntities: { date: new Date() } };
+        }
+
+        const { intent, extractedEntities, parsedEntities, needsClarification, missingInfos } = intentResult;
 
         if (needsClarification) {
             return {
                 intent,
                 needsClarification: true,
                 missingInfos,
-                originalText: text
+                originalText: text,
+                result // Return the entry we saved so the user knows it's captured
             };
         }
 
-        // 3. Update Memory (User)
+        // 4. Update Memory (User)
         await agentMemory.addMessage(userId, 'user', text);
 
-        let result: any = null;
         let taskType = AgentTaskType.BRAIN_DUMP;
+        let commandObject: any = null;
 
-        // 4. Route based on Intent
+        // 5. Route based on Intent
+        // If it's a command, we keep the entry as a log but create the specific object
         switch (intent) {
             case AgentIntentType.CMD_REMINDER_CREATE: {
                 taskType = AgentTaskType.REMINDER_CREATE;
-                // Create Reminder
-                const reminderDate = parsedEntities?.date || new Date();
-                if (extractedEntities?.time) {
-                    // Simple parser for time if needed, or rely on chrono having caught it in date
-                    // For now assuming chrono merged them if present
-                }
-
-                result = await reminderService.createReminder(userId, {
+                commandObject = await reminderService.createReminder(userId, {
                     title: extractedEntities?.title || text,
-                    date: reminderDate.toISOString(),
+                    date: parsedEntities?.date?.toISOString() || new Date().toISOString(),
                     priority: (extractedEntities?.priority as ReminderPriority) || ReminderPriority.MEDIUM,
                     notifications: {
                         enabled: true,
                         times: [{ type: NotificationTimeType.MINUTES, value: 15 }]
-                    }
+                    },
+                    metadata: { originEntryId: result?._id?.toString() }
                 });
+
+                // Remove the raw entry since it was successfully converted to a reminder
+                if (result?._id) {
+                    await entryService.deleteEntry(result._id.toString(), userId);
+                    result = null; // Clear result so we don't return the deleted entry
+                }
                 break;
             }
 
             case AgentIntentType.CMD_GOAL_CREATE:
                 taskType = AgentTaskType.GOAL_CREATE;
-                // Create Goal
-                result = await goalService.createGoal(userId, {
+                commandObject = await goalService.createGoal(userId, {
                     title: extractedEntities?.title || text,
                     type: DataType.CHECKLIST,
                     config: {
                         items: [],
                         allowMultiple: false
                     },
-                    deadline: parsedEntities?.date
+                    deadline: parsedEntities?.date,
+                    metadata: { originEntryId: result?._id?.toString() }
                 });
+
+                // Remove the raw entry since it was successfully converted to a goal
+                if (result?._id) {
+                    await entryService.deleteEntry(result._id.toString(), userId);
+                    result = null;
+                }
                 break;
 
             case AgentIntentType.QUERY_KNOWLEDGE: {
                 taskType = AgentTaskType.KNOWLEDGE_QUERY;
-
-                // 1. Gather Context (Semantic + Topological)
                 const [contextEntries, graphContext] = await Promise.all([
                     this.findSimilarEntries(userId, text, 5),
                     graphService.getGraphSummary(userId)
                 ]);
 
                 const entriesContextText = contextEntries.map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
-
-                // 2. Ask LLM
                 const answer = await LLMService.generateText(`
                     You are a helpful personal assistant.
                     User Question: "${text}"
@@ -147,49 +179,48 @@ export class AgentService {
                     - Be concise and friendly.
                 `);
 
-                result = { answer };
+                commandObject = { answer };
+
+                // Remove the query log from journal entries
+                if (result?._id) {
+                    await entryService.deleteEntry(result._id.toString(), userId);
+                    result = null;
+                }
                 break;
             }
 
             case AgentIntentType.CMD_REMINDER_UPDATE: {
                 taskType = AgentTaskType.REMINDER_UPDATE;
                 let searchTitle = extractedEntities?.title || text;
-
-                // Clean common filler words and qualifiers
                 searchTitle = searchTitle.replace(/^(that|the|my|this|a|it|task|reminder)\s+/i, '').trim();
                 searchTitle = searchTitle.replace(/\s+(task|reminder|doc)$/i, '').trim();
 
-                // If the search title is too short, use the full extracted title
-                const effectiveQuery = searchTitle.length > 2 ? searchTitle : (extractedEntities?.title || searchTitle);
-
-                // 1. Find the reminder
-                // We use a more flexible regex that matches the query anywhere in the title
                 const { reminders } = await reminderService.getReminders(userId, {
-                    q: effectiveQuery,
+                    q: searchTitle,
                     limit: 5,
                     status: [ReminderStatus.PENDING]
                 });
 
                 if (reminders.length > 0) {
-                    // Sort by relevance (shortest title matching usually wins or exact match)
-                    const reminder = reminders.find(r => r.title.toLowerCase() === effectiveQuery.toLowerCase()) || reminders[0];
+                    const reminder = reminders[0];
                     const updateData: any = {};
+                    if (parsedEntities?.date) updateData.date = parsedEntities.date.toISOString();
+                    if (extractedEntities?.priority) updateData.priority = extractedEntities.priority;
+                    commandObject = await reminderService.updateReminder(userId, reminder._id, updateData);
 
-                    if (parsedEntities?.date) {
-                        updateData.date = parsedEntities.date.toISOString();
+                    // Remove the raw entry since it was an update command
+                    if (result?._id) {
+                        await entryService.deleteEntry(result._id.toString(), userId);
+                        result = null;
                     }
 
-                    if (extractedEntities?.priority) {
-                        updateData.priority = extractedEntities.priority;
-                    }
-
-                    result = await reminderService.updateReminder(userId, reminder._id, updateData);
                 } else {
                     return {
                         intent,
                         needsClarification: true,
-                        missingInfos: [`I couldn't find a task matching "${effectiveQuery}" to reschedule.`],
-                        originalText: text
+                        missingInfos: [`I couldn't find a task matching "${searchTitle}" to update.`],
+                        originalText: text,
+                        result
                     };
                 }
                 break;
@@ -197,48 +228,55 @@ export class AgentService {
 
             case AgentIntentType.CMD_TASK_CREATE:
                 taskType = AgentTaskType.REMINDER_CREATE;
-                // For now, treat generic tasks as Reminders without time (Todo)
-                result = await reminderService.createReminder(userId, {
+                commandObject = await reminderService.createReminder(userId, {
                     title: extractedEntities?.title || text,
-                    date: new Date().toISOString(), // Today
+                    date: new Date().toISOString(),
                     allDay: true,
                     priority: (extractedEntities?.priority as ReminderPriority) || ReminderPriority.MEDIUM
                 });
-                break;
 
-            case AgentIntentType.UNKNOWN:
-                return {
-                    intent,
-                    needsClarification: true,
-                    missingInfos: ['intent'],
-                    originalText: text
-                };
+                // Remove the raw entry since it was successfully converted
+                if (result?._id) {
+                    await entryService.deleteEntry(result._id.toString(), userId);
+                    result = null;
+                }
+                break;
 
             case AgentIntentType.JOURNALING:
                 taskType = AgentTaskType.BRAIN_DUMP;
-                // Create Entry
-                result = await entryService.createEntry(userId, {
-                    content: text,
-                    date: parsedEntities?.date || new Date(),
-                    type: 'text',
-                    tags: options.tags || []
-                });
+                // We already saved the entry! 
+                // Just update it if the AI parsed a different date or extracted metadata
+                // Just update it if the AI parsed a different date or extracted metadata
+                if (result?._id) {
+                    await entryService.updateEntry(result._id.toString(), userId, {
+                        date: parsedEntities?.date || result.date,
+                        status: 'ready'
+                    });
+                }
                 break;
+
+            case AgentIntentType.UNKNOWN:
+                // It's already saved as an entry, mark it ready
+                if (result?._id) {
+                    await entryService.updateEntry(result._id.toString(), userId, { status: 'ready' });
+                }
+                return { task: null, result, intent: AgentIntentType.JOURNALING, note: "Saved as general entry (unknown intent)" };
         }
 
-        // 5. Create Task Record (Logging the action)
+        // 6. Create Task Record (Logging the action)
         const task = await this.createTask(userId, taskType, {
             text,
             intent,
             extractedEntities,
-            resultId: result?._id?.toString()
+            resultId: (commandObject?._id || result?._id)?.toString()
         });
 
-        // 6. Update Memory (Agent)
-        await agentMemory.addMessage(userId, 'agent', `Processed ${intent}. Result ID: ${result?._id}`);
+        // 7. Update Memory (Agent) - Log the final outcome
+        const actionLog = commandObject ? `Created ${taskType} (${commandObject._id})` : `Saved Entry (${result?._id})`;
+        await agentMemory.addMessage(userId, 'agent', `Processed ${intent}. ${actionLog}`);
 
-        // Return both the task record and the actual created object (Entry/Goal/Reminder)
-        return { task, result, intent };
+        // Return the primary result (the specific command object if created, otherwise the entry)
+        return { task, result: commandObject || result, intent };
     }
 
 

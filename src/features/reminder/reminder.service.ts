@@ -41,6 +41,9 @@ class ReminderService {
             if (data.linkedEntries?.length) {
                 reminderData.linkedEntries = data.linkedEntries.map((id) => new Types.ObjectId(id));
             }
+            if (data.metadata) {
+                reminderData.metadata = data.metadata;
+            }
 
 
             const reminder = await Reminder.create(reminderData);

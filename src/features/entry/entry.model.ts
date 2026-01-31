@@ -24,6 +24,7 @@ const entrySchema = new Schema<IEntry>({
   endTime: { type: String, trim: true, },
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
+  status: { type: String, enum: ['ready', 'processing', 'failed'], default: 'ready', index: true },
   embeddings: { type: [Number], select: false }, // Exclude by default due to size
 }, {
   timestamps: true,

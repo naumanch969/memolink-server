@@ -38,6 +38,12 @@ export const ENTRY_TYPES = {
   MEDIA: 'media',
   MIXED: 'mixed',
 } as const;
+// Entry Status
+export const ENTRY_STATUS = {
+  READY: 'ready',
+  PROCESSING: 'processing',
+  FAILED: 'failed',
+} as const;
 
 // Media Types
 export const MEDIA_TYPES = {

@@ -10,6 +10,7 @@ export enum EventType {
     TASK_RESCHEDULED = 'task_rescheduled',
     TASK_ABANDONED = 'task_abandoned',
     GOAL_PROGRESS = 'goal_progress',
+    INTENT_PROCESS_REQUESTED = 'intent_process_requested',
 
     // 3. Context Signals
     FOCUS_ENTERED = 'focus_entered',

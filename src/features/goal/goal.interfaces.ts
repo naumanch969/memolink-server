@@ -48,6 +48,7 @@ export interface IGoal extends BaseEntity {
     tags?: Types.ObjectId[];
 
     reward?: string;
+    metadata?: Record<string, any>;
 }
 
 export interface CreateGoalParams {
@@ -75,6 +76,7 @@ export interface CreateGoalParams {
         deadline?: string | Date;
     }>;
     retroactiveRoutines?: string[];
+    metadata?: Record<string, any>;
 }
 
 export interface UpdateGoalParams {

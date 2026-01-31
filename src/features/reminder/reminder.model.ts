@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IReminderDocument, INotificationQueueDocument, ReminderPriority, ReminderStatus, RecurrenceFrequency, NotificationTimeType, NotificationStatus, } from './reminder.types';
+import { INotificationQueueDocument, IReminderDocument, NotificationStatus, NotificationTimeType, RecurrenceFrequency, ReminderPriority, ReminderStatus, } from './reminder.types';
 
 // ============================================
 // REMINDER SCHEMA
@@ -74,7 +74,7 @@ const ReminderSchema = new Schema<IReminderDocument>(
         linkedTags: [{ type: Schema.Types.ObjectId, ref: 'Tag', },],
         linkedPeople: [{ type: Schema.Types.ObjectId, ref: 'Person', },],
         linkedEntries: [{ type: Schema.Types.ObjectId, ref: 'Entry', },],
-
+        metadata: { type: Schema.Types.Mixed },
     },
     { timestamps: true, }
 );

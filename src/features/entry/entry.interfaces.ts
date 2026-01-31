@@ -20,6 +20,7 @@ export interface IEntry extends BaseEntity {
   endTime?: string; // Format: HH:mm
   isMultiDay?: boolean; // Flag for collective entries
   isEdited?: boolean;
+  status?: 'ready' | 'processing' | 'failed';
   embeddings?: number[];
 }
 
