@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { IGraphEdge } from './graph.interface';
 
 export enum EdgeType {
     // Core
@@ -32,22 +33,6 @@ export enum NodeType {
     REMINDER = 'Reminder' // Aliased to Task usually
 }
 
-export interface IGraphEdge extends Document {
-    from: {
-        id: mongoose.Types.ObjectId;
-        type: NodeType;
-    };
-    to: {
-        id: mongoose.Types.ObjectId;
-        type: NodeType;
-    };
-    relation: EdgeType;
-    weight: number;
-    metadata: Record<string, any>;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
 const GraphEdgeSchema = new Schema<IGraphEdge>({
     from: {
         id: { type: Schema.Types.ObjectId, required: true, refPath: 'from.type' },
@@ -57,23 +42,9 @@ const GraphEdgeSchema = new Schema<IGraphEdge>({
         id: { type: Schema.Types.ObjectId, required: true, refPath: 'to.type' },
         type: { type: String, enum: Object.values(NodeType), required: true }
     },
-    relation: {
-        type: String,
-        enum: Object.values(EdgeType),
-        required: true,
-        index: true
-    },
-    weight: {
-        type: Number,
-        default: 1.0,
-        min: 0,
-        max: 1
-    },
-    metadata: {
-        type: Map,
-        of: Schema.Types.Mixed,
-        default: {}
-    }
+    relation: { type: String, enum: Object.values(EdgeType), required: true, index: true },
+    weight: { type: Number, default: 1.0, min: 0, max: 1 },
+    metadata: { type: Map, of: Schema.Types.Mixed, default: {} }
 }, {
     timestamps: true,
     collection: 'graph_edges'

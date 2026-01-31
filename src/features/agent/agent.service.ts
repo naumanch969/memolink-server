@@ -5,8 +5,9 @@ import { DataType } from '../../shared/types';
 import Entry from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
+import { graphService } from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
-import { NotificationTimeType, ReminderPriority } from '../reminder/reminder.types';
+import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../reminder/reminder.types';
 import { AgentIntentType, agentIntent } from './agent.intent';
 import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
@@ -121,25 +122,76 @@ export class AgentService {
             case AgentIntentType.QUERY_KNOWLEDGE: {
                 taskType = AgentTaskType.KNOWLEDGE_QUERY;
 
-                // 1. Gather Context
-                const contextEntries = await this.findSimilarEntries(userId, text, 5);
-                const context = contextEntries.map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
+                // 1. Gather Context (Semantic + Topological)
+                const [contextEntries, graphContext] = await Promise.all([
+                    this.findSimilarEntries(userId, text, 5),
+                    graphService.getGraphSummary(userId)
+                ]);
+
+                const entriesContextText = contextEntries.map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
 
                 // 2. Ask LLM
                 const answer = await LLMService.generateText(`
                     You are a helpful personal assistant.
                     User Question: "${text}"
                     
-                    Relevant Memories:
-                    ${context || "No relevant memories found."}
+                    Relevant Memories (Semantic):
+                    ${entriesContextText || "No relevant memories found."}
+
+                    Life Graph Context (Patterns & Goals):
+                    ${graphContext}
                     
                     Instructions:
-                    - Answer the question based ONLY on the provided memories.
+                    - Answer the question based on the provided memories and graph context.
                     - If you don't know, say "I couldn't find that in your recent memories."
                     - Be concise and friendly.
                 `);
 
                 result = { answer };
+                break;
+            }
+
+            case AgentIntentType.CMD_REMINDER_UPDATE: {
+                taskType = AgentTaskType.REMINDER_UPDATE;
+                let searchTitle = extractedEntities?.title || text;
+
+                // Clean common filler words and qualifiers
+                searchTitle = searchTitle.replace(/^(that|the|my|this|a|it|task|reminder)\s+/i, '').trim();
+                searchTitle = searchTitle.replace(/\s+(task|reminder|doc)$/i, '').trim();
+
+                // If the search title is too short, use the full extracted title
+                const effectiveQuery = searchTitle.length > 2 ? searchTitle : (extractedEntities?.title || searchTitle);
+
+                // 1. Find the reminder
+                // We use a more flexible regex that matches the query anywhere in the title
+                const { reminders } = await reminderService.getReminders(userId, {
+                    q: effectiveQuery,
+                    limit: 5,
+                    status: [ReminderStatus.PENDING]
+                });
+
+                if (reminders.length > 0) {
+                    // Sort by relevance (shortest title matching usually wins or exact match)
+                    const reminder = reminders.find(r => r.title.toLowerCase() === effectiveQuery.toLowerCase()) || reminders[0];
+                    const updateData: any = {};
+
+                    if (parsedEntities?.date) {
+                        updateData.date = parsedEntities.date.toISOString();
+                    }
+
+                    if (extractedEntities?.priority) {
+                        updateData.priority = extractedEntities.priority;
+                    }
+
+                    result = await reminderService.updateReminder(userId, reminder._id, updateData);
+                } else {
+                    return {
+                        intent,
+                        needsClarification: true,
+                        missingInfos: [`I couldn't find a task matching "${effectiveQuery}" to reschedule.`],
+                        originalText: text
+                    };
+                }
                 break;
             }
 
@@ -197,8 +249,11 @@ export class AgentService {
         // 1. Immediately persist user message to ensure it's captured
         await agentMemory.addMessage(userId, 'user', message);
 
-        // 2. Get Context
-        const history = await agentMemory.getHistory(userId);
+        // 2. Get Context (History + Graph)
+        const [history, graphContext] = await Promise.all([
+            agentMemory.getHistory(userId),
+            graphService.getGraphSummary(userId)
+        ]);
 
         // Filter out the message we just added (if it appears in history) to avoid duplication in the prompt
         const previousHistory = history.filter(h => h.content !== message || h.timestamp < Date.now() - 1000);
@@ -214,6 +269,9 @@ export class AgentService {
         You have direct access to the user's data (entries, goals, reminders) via tools.
         Always verify successful tool execution.
         Today is ${new Date().toDateString()}.
+
+        USER'S LIFE CONTEXT (Graph Summary):
+        ${graphContext}
         
         Recent Conversation:
         ${promptHistory}

@@ -9,6 +9,7 @@ import authRoutes from '../features/auth/auth.routes';
 import announcementRoutes from '../features/communication/announcement.routes';
 import documentRoutes from '../features/document/document.routes';
 import entryRoutes from '../features/entry/entry.routes';
+import eventsRoutes from '../features/events/events.routes';
 import exportRoutes from '../features/export/export.routes';
 import goalRoutes from '../features/goal/goal.routes';
 import chunkedUploadRoutes from '../features/media/chunked-upload.routes';
@@ -23,6 +24,7 @@ import routinePreferencesRoutes from '../features/routine/routine-preferences.ro
 import routineRoutes from '../features/routine/routine.routes';
 import tagRoutes from '../features/tag/tag.routes';
 import widgetRoutes from '../features/widget/widget.routes';
+import graphRoutes from '../features/graph/graph.routes';
 
 const router = Router();
 
@@ -82,10 +84,15 @@ router.use('/routine-preferences', routinePreferencesRoutes);
 router.use('/reminders', reminderRoutes);
 router.use('/goals', goalRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/graph', graphRoutes);
 router.use('/admin', adminRoutes);
 
 router.use('/documents', documentRoutes);
 router.use('/agents', agentRoutes);
+
+// ... existing routes
+
+router.use('/events', eventsRoutes);
 router.use('/announcements', announcementRoutes);
 
 // Log route registration

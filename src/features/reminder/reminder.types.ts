@@ -166,6 +166,7 @@ export interface GetRemindersQuery {
 
     limit?: number;
     skip?: number;
+    q?: string;
 }
 
 export interface CompleteReminderRequest {

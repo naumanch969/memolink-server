@@ -59,18 +59,17 @@ export class EventStream {
      * @param count Batch size
      */
     async read(lastId: string = '$', count: number = 100): Promise<{ streamId: string, event: MemolinkEvent }[]> {
-        // XREAD BLOCK 0 STREAMS key lastId
-        // Note: For a real worker, we'd use Consumer Groups (XREADGROUP).
-        // For V0 simplicity, we expose raw read.
-
         try {
-            const result = await this.redis.xread('COUNT', count, 'STREAMS', this.STREAM_KEY, lastId);
+            const result = await (this.redis as any).xread('BLOCK', '5000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, lastId);
 
-            if (!result) return [];
+            if (!result || result.length === 0) return [];
 
-            const [[, entries]] = result; // Destructure output: [ [ 'key', [ [id, [field, value]] ] ] ]
+            const streamData = result[0]; // [key, entries]
+            const entries: any[] = streamData[1]; // [[id, [field, value]], ...]
 
-            return entries.map(([id, fields]) => {
+            return entries.map((entry: any[]) => {
+                const id = entry[0];
+                const fields = entry[1];
                 const dataStr = fields[1]; // We stored as 'event', JSON
                 const event = JSON.parse(dataStr);
                 return { streamId: id, event };
@@ -93,6 +92,43 @@ export class EventStream {
                 throw error;
             }
             // Group already exists, ignore
+        }
+    }
+
+    /**
+     * Reads events from a consumer group.
+     */
+    async readGroup(groupName: string, consumerName: string, count: number = 10): Promise<{ streamId: string, event: MemolinkEvent }[]> {
+        try {
+            // '>' means only new messages that haven't been delivered to other consumers in the group
+            const result = await (this.redis as any).xreadgroup('GROUP', groupName, consumerName, 'BLOCK', '5000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, '>');
+
+            if (!result || result.length === 0) return [];
+
+            const streamData = result[0];
+            const entries: any[] = streamData[1];
+
+            return entries.map((entry: any[]) => {
+                const id = entry[0];
+                const fields = entry[1];
+                const dataStr = fields[1];
+                const event = JSON.parse(dataStr);
+                return { streamId: id, event };
+            });
+        } catch (error) {
+            logger.error(`[EventStream] readGroup failed for ${groupName}`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Acknowledges a message in a consumer group.
+     */
+    async ack(groupName: string, streamId: string): Promise<void> {
+        try {
+            await this.redis.xack(this.STREAM_KEY, groupName, streamId);
+        } catch (error) {
+            logger.error(`[EventStream] ack failed for ${streamId}`, error);
         }
     }
 }

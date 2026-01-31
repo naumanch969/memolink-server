@@ -1,8 +1,10 @@
+import { startOfDay } from 'date-fns';
 import { Types } from 'mongoose';
-import { Reminder, NotificationQueue } from './reminder.model';
-import { CreateReminderRequest, UpdateReminderRequest, GetRemindersQuery, ReminderResponse, GetRemindersResponse, ReminderStatus, NotificationStatus, IReminderDocument, } from './reminder.types';
+import { eventStream } from '../../core/events/EventStream';
+import { EventType } from '../../core/events/types';
 import { CustomError } from '../../core/middleware/errorHandler';
-import { addDays, addWeeks, addMonths, addYears, isBefore, isAfter, startOfDay } from 'date-fns';
+import { NotificationQueue, Reminder } from './reminder.model';
+import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, NotificationStatus, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
 
 class ReminderService {
     // ============================================
@@ -42,6 +44,16 @@ class ReminderService {
 
 
             const reminder = await Reminder.create(reminderData);
+
+            // Publish Event
+            eventStream.publish(
+                EventType.TASK_CREATED,
+                userId,
+                {
+                    taskId: reminder._id.toString(),
+                    title: reminder.title,
+                }
+            ).catch(err => console.error('Failed to publish TASK_CREATED event:', err));
 
             // Schedule notifications
             if (reminder.notifications.enabled) {
@@ -92,6 +104,11 @@ class ReminderService {
             }
             if (query.entryId) {
                 filter.linkedEntries = new Types.ObjectId(query.entryId);
+            }
+
+            // Title Search (Regex)
+            if (query.q) {
+                filter.title = { $regex: query.q, $options: 'i' };
             }
 
 
@@ -203,6 +220,9 @@ class ReminderService {
                 throw new CustomError('Reminder not found', 404);
             }
 
+            const oldDate = reminder.date ? new Date(reminder.date).toISOString() : null;
+            const newDate = data.date ? new Date(data.date).toISOString() : null;
+
             // Update fields
             if (data.title !== undefined) reminder.title = data.title;
             if (data.description !== undefined) reminder.description = data.description;
@@ -230,6 +250,20 @@ class ReminderService {
 
 
             await reminder.save();
+
+            // Publish Reschedule Event if date changed
+            if (data.date && oldDate !== newDate) {
+                eventStream.publish(
+                    EventType.TASK_RESCHEDULED,
+                    userId,
+                    {
+                        taskId: reminder._id.toString(),
+                        oldDate,
+                        newDate,
+                        title: reminder.title
+                    }
+                ).catch(err => console.error('Failed to publish TASK_RESCHEDULED event:', err));
+            }
 
             // Reschedule notifications if date/time changed
             if (data.date || data.startTime || data.notifications) {

@@ -33,7 +33,11 @@ async function main() {
         const monitorPromise = eventStream.read('0-0', 10); // Read from beginning
         const events = await monitorPromise;
 
-        const foundData = events.find(item => item.event.userId === testUserId && item.event.type === EventType.TASK_RESCHEDULED);
+        const foundData = events.find(item =>
+            item.event.userId === testUserId &&
+            item.event.type === EventType.TASK_RESCHEDULED &&
+            (item.event.payload as TaskRescheduledPayload).taskId === 'task-123'
+        );
 
         if (foundData) {
             const found = foundData.event;

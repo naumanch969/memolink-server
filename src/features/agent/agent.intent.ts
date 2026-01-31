@@ -12,6 +12,7 @@ export enum AgentIntentType {
     CMD_TASK_CREATE = 'CMD_TASK_CREATE', // "Remind me to buy milk" (Generic Task)
     CMD_REMINDER_CREATE = 'CMD_REMINDER_CREATE', // "Set a reminder for 5pm"
     CMD_GOAL_CREATE = 'CMD_GOAL_CREATE', // "I want to lose 5kg by June"
+    CMD_REMINDER_UPDATE = 'CMD_REMINDER_UPDATE', // "Move that doc task to tomorrow", "Reschedule my meeting"
     QUERY_KNOWLEDGE = 'QUERY_KNOWLEDGE', // "What did I do last week?"
     UNKNOWN = 'UNKNOWN'
 }
@@ -25,11 +26,11 @@ const routerSchema = z.object({
 
 // 3. Define Extraction Schemas for Specialists
 const entitySchema = z.object({
-    date: z.string().optional().describe('Relative or absolute dates'),
-    time: z.string().optional().describe('Time if specified'),
-    title: z.string().optional().describe('Concise title'),
-    priority: z.enum(['low', 'medium', 'high']).optional(),
-    person: z.string().optional(),
+    date: z.string().optional().nullable().describe('Relative or absolute dates'),
+    time: z.string().optional().nullable().describe('Time if specified'),
+    title: z.string().optional().nullable().describe('Concise title'),
+    priority: z.enum(['low', 'medium', 'high']).optional().nullable(),
+    person: z.string().optional().nullable(),
 });
 
 export interface IntentResult {
@@ -41,6 +42,7 @@ export interface IntentResult {
     };
     needsClarification?: boolean;
     missingInfos?: string[];
+    reasoning?: string;
 }
 
 export class AgentIntentClassifier {
@@ -72,17 +74,22 @@ export class AgentIntentClassifier {
         1. CMD_REMINDER_CREATE: requests to be reminded/notified. (e.g. "Remind me...", "Don't let me forget")
         2. CMD_TASK_CREATE: actionable to-dos. (e.g. "Buy milk", "Add to list")
         3. CMD_GOAL_CREATE: long-term ambitions. (e.g. "Run a marathon")
-        4. QUERY_KNOWLEDGE: questions about past data/memories.
-        5. JOURNALING: recording past events/feelings (e.g. "I ran today").
-        6. UNKNOWN: gibberish.
+        4. CMD_REMINDER_UPDATE: modifying existing tasks/reminders. (e.g. "Move that task to 5pm", "Reschedule the meeting to tomorrow", "Cancel that reminder")
+        5. QUERY_KNOWLEDGE: questions about past data/memories.
+        6. JOURNALING: recording past events/feelings (e.g. "I ran today").
+        7. UNKNOWN: gibberish.
 
         EXTRACTION RULES:
         - For CMD intents, extract 'title', 'date', 'priority'.
+        - For CMD_REMINDER_UPDATE, also extract 'title' of the task being referred to.
         - For JOURNALING, you can ignore entities or extract date if specified.
         - 'date' should be relative or absolute (e.g. "tomorrow", "next friday", "5pm").
         
         CRITICAL:
         - If the user implies a future action without explicit time, default to CMD_TASK_CREATE or CMD_REMINDER_CREATE based on urgency.
+        - If the user says "move", "reschedule", "change", "delay", "postpone", "cancel", or uses referential terms like "that", "the task", "it", it is ALWAYS CMD_REMINDER_UPDATE.
+        - You MUST include the 'reasoning' field explaining your choice.
+        - You MUST include 'extractedEntities' for CMD intents.
         `;
 
         let result;
@@ -111,7 +118,7 @@ export class AgentIntentClassifier {
         }
 
         // Fallback: If no date extracted but chrono finds one in the text
-        if (!parsedDate && [AgentIntentType.CMD_REMINDER_CREATE, AgentIntentType.CMD_TASK_CREATE].includes(intent)) {
+        if (!parsedDate && [AgentIntentType.CMD_REMINDER_CREATE, AgentIntentType.CMD_TASK_CREATE, AgentIntentType.CMD_REMINDER_UPDATE].includes(intent)) {
             const parsedResults = chrono.parse(text, { timezone });
             if (parsedResults.length > 0) parsedDate = parsedResults[0].start.date();
         }
@@ -128,7 +135,8 @@ export class AgentIntentClassifier {
             extractedEntities,
             parsedEntities: { date: parsedDate },
             needsClarification,
-            missingInfos
+            missingInfos,
+            reasoning: result.reasoning
         };
     }
 }
