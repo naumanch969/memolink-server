@@ -13,6 +13,7 @@ export enum AgentTaskType {
     DAILY_BRIEFING = 'DAILY_BRIEFING',
     EMBED_ENTRY = 'EMBED_ENTRY',
     KNOWLEDGE_QUERY = 'KNOWLEDGE_QUERY',
+    WEB_ACTIVITY_SUMMARY = 'WEB_ACTIVITY_SUMMARY',
 }
 
 export enum AgentTaskStatus {

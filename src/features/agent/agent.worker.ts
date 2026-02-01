@@ -59,6 +59,12 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.WEB_ACTIVITY_SUMMARY: {
+                    const { runWebActivitySummary } = await import('./workflows/activity.workflow');
+                    result = await runWebActivitySummary(task.userId, task.inputData);
+                    break;
+                }
+
                 // Synchronous / No-op tasks
                 case AgentTaskType.REMINDER_CREATE:
                 case AgentTaskType.GOAL_CREATE:

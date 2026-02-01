@@ -12,6 +12,7 @@ import entryRoutes from '../features/entry/entry.routes';
 import eventsRoutes from '../features/events/events.routes';
 import exportRoutes from '../features/export/export.routes';
 import goalRoutes from '../features/goal/goal.routes';
+import graphRoutes from '../features/graph/graph.routes';
 import chunkedUploadRoutes from '../features/media/chunked-upload.routes';
 import folderRoutes from '../features/media/folder.routes';
 import mediaRoutes from '../features/media/media.routes';
@@ -23,8 +24,8 @@ import routineLogRoutes from '../features/routine/routine-logs.routes';
 import routinePreferencesRoutes from '../features/routine/routine-preferences.routes';
 import routineRoutes from '../features/routine/routine.routes';
 import tagRoutes from '../features/tag/tag.routes';
+import webActivityRoutes from '../features/web-activity/web-activity.routes';
 import widgetRoutes from '../features/widget/widget.routes';
-import graphRoutes from '../features/graph/graph.routes';
 
 const router = Router();
 
@@ -89,6 +90,7 @@ router.use('/admin', adminRoutes);
 
 router.use('/documents', documentRoutes);
 router.use('/agents', agentRoutes);
+router.use('/activity', webActivityRoutes);
 
 // ... existing routes
 
@@ -114,6 +116,7 @@ logger.info('Routes registered successfully', {
     'notifications',
     'admin',
     'documents',
+    'activity',
   ],
 });
 

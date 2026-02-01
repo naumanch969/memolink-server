@@ -2,9 +2,12 @@
 import cron from 'node-cron';
 import { logger } from '../config/logger';
 import { agentAccountability } from '../features/agent/agent.accountability';
+import { agentService } from '../features/agent/agent.service';
+import { AgentTaskType } from '../features/agent/agent.types';
 import { User } from '../features/auth/auth.model';
 import { storageService } from '../features/media/storage.service';
 import { initNotificationProcessor } from '../features/notification/notification.cron';
+import { WebActivity } from '../features/web-activity/web-activity.model';
 
 export const initCronJobs = () => {
     // Start Notification Processor
@@ -57,6 +60,37 @@ export const initCronJobs = () => {
             logger.info('Storage sync cron job completed.');
         } catch (error) {
             logger.error('Storage sync cron job failed:', error);
+        }
+    });
+
+    // Web Activity Summarizer: Daily at 12:05 AM
+    cron.schedule('5 0 * * *', async () => {
+        logger.info('Running web activity summarizer cron job...');
+        try {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const dateStr = yesterday.toISOString().split('T')[0];
+
+            // Find unique users with activity yesterday who haven't been summarized
+            const activities = await WebActivity.find({
+                date: dateStr,
+                summaryCreated: { $ne: true },
+                totalSeconds: { $gt: 60 } // Only summarize if they spent at least a minute
+            }).select('userId');
+
+            for (const activity of activities) {
+                try {
+                    await agentService.createTask(activity.userId.toString(), AgentTaskType.WEB_ACTIVITY_SUMMARY, {
+                        date: dateStr
+                    });
+                } catch (err) {
+                    logger.error(`Failed to enqueue summary for user ${activity.userId}`, err);
+                }
+            }
+
+            logger.info(`Enqueued ${activities.length} activity summary tasks.`);
+        } catch (error) {
+            logger.error('Web activity summarizer cron job failed:', error);
         }
     });
 
