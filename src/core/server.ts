@@ -22,7 +22,7 @@ class Server {
       this.socketManager = new SocketManager(this.server);
 
       // Start server
-      this.server.listen(config.PORT, () => {
+      this.server.listen(Number(config.PORT), '0.0.0.0', () => {
         logger.info(`Server running on port ${config.PORT}`, {
           environment: config.NODE_ENV,
           port: config.PORT,
