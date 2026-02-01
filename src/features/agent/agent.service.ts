@@ -8,6 +8,7 @@ import { goalService } from '../goal/goal.service';
 import { graphService } from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
 import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../reminder/reminder.types';
+import { RoutineTemplate } from '../routine/routine.model';
 import { AgentIntentType, agentIntent } from './agent.intent';
 import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
@@ -135,18 +136,39 @@ export class AgentService {
                 break;
             }
 
-            case AgentIntentType.CMD_GOAL_CREATE:
+            case AgentIntentType.CMD_GOAL_CREATE: {
                 taskType = AgentTaskType.GOAL_CREATE;
+                const meta = extractedEntities?.metadata || {};
+                const hasTargetValue = meta.targetValue !== undefined && meta.targetValue !== null;
+
+                // Attempt to link routines if mentioned
+                const linkedRoutineIds: string[] = [];
+                if (meta.linkedRoutines && meta.linkedRoutines.length > 0) {
+                    const routines = await RoutineTemplate.find({
+                        userId: new Types.ObjectId(userId),
+                        name: { $in: meta.linkedRoutines.map((name: string) => new RegExp(`^${name}$`, 'i')) }
+                    }).select('_id').lean();
+                    routines.forEach(r => linkedRoutineIds.push(r._id.toString()));
+                }
+
                 commandObject = await goalService.createGoal(userId, {
                     title: extractedEntities?.title || text,
-                    type: DataType.CHECKLIST,
-                    config: {
+                    description: meta.description || undefined,
+                    why: meta.why || undefined,
+                    type: hasTargetValue ? DataType.COUNTER : DataType.CHECKLIST,
+                    priority: extractedEntities?.priority || 'medium',
+                    reward: meta.reward || undefined,
+                    config: hasTargetValue ? {
+                        targetValue: meta.targetValue,
+                        unit: meta.unit || 'units'
+                    } : {
                         items: [],
                         allowMultiple: false
                     },
                     deadline: parsedEntities?.date,
+                    linkedRoutines: linkedRoutineIds,
                     metadata: { originEntryId: result?._id?.toString() }
-                });
+                } as any);
 
                 // Remove the raw entry since it was successfully converted to a goal
                 if (result?._id) {
@@ -154,6 +176,7 @@ export class AgentService {
                     result = null;
                 }
                 break;
+            }
 
             case AgentIntentType.QUERY_KNOWLEDGE: {
                 taskType = AgentTaskType.KNOWLEDGE_QUERY;

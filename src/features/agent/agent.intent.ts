@@ -1,5 +1,4 @@
 
-
 import * as chrono from 'chrono-node';
 import { z } from 'zod';
 import { logger } from '../../config/logger';
@@ -29,8 +28,9 @@ const entitySchema = z.object({
     date: z.string().optional().nullable().describe('Relative or absolute dates'),
     time: z.string().optional().nullable().describe('Time if specified'),
     title: z.string().optional().nullable().describe('Concise title'),
-    priority: z.enum(['low', 'medium', 'high']).optional().nullable(),
+    priority: z.preprocess((val) => typeof val === 'string' ? val.toLowerCase() : val, z.enum(['low', 'medium', 'high']).optional().nullable()),
     person: z.string().optional().nullable(),
+    metadata: z.record(z.string(), z.any()).optional().describe('Any additional intent-specific metadata (e.g. why, reward, targetValue, unit, linkedRoutines for goals)'),
 });
 
 export interface IntentResult {
@@ -71,21 +71,35 @@ export class AgentIntentClassifier {
         USER TEXT: "${text}"
         
         INTENT RULES:
-        1. CMD_REMINDER_CREATE: requests to be reminded/notified. (e.g. "Remind me...", "Don't let me forget")
-        2. CMD_TASK_CREATE: actionable to-dos. (e.g. "Buy milk", "Add to list")
-        3. CMD_GOAL_CREATE: long-term ambitions. (e.g. "Run a marathon")
-        4. CMD_REMINDER_UPDATE: modifying existing tasks/reminders. (e.g. "Move that task to 5pm", "Reschedule the meeting to tomorrow", "Cancel that reminder")
-        5. QUERY_KNOWLEDGE: questions about past data/memories.
-        6. JOURNALING: recording past events/feelings (e.g. "I ran today").
-        7. UNKNOWN: gibberish.
+        1. CMD_GOAL_CREATE: 
+           - **CRITICAL PRIORITY**: If the user explicitly mentions "Create a goal", "Goal Title", "Target Metrics", or provides a structured goal definition, it MUST be classified as CMD_GOAL_CREATE.
+           - Even if the text contains long personal reflections or "Why" sections, if it's framed as a goal definition, it is NOT JOURNALING.
+
+        2. CMD_REMINDER_CREATE: Explicit requests to be reminded/notified. (e.g. "Remind me...", "Don't let me forget")
+        3. CMD_TASK_CREATE: Actionable to-dos that are short-term. (e.g. "Buy milk", "Add to list")
+        4. CMD_REMINDER_UPDATE: Modifying existing tasks/reminders. (e.g. "Move that task to 5pm", "Reschedule the meeting to tomorrow", "Cancel that reminder")
+        5. QUERY_KNOWLEDGE: Questions about past data/memories.
+        6. JOURNALING: Recording past events, feelings, or reflections (e.g. "I ran today").
+           - **NEGATIVE CONSTRAINT**: Do NOT use JOURNALING if the text looks like a goal setup.
+        7. UNKNOWN: Gibberish.
 
         EXTRACTION RULES:
-        - For CMD intents, extract 'title', 'date', 'priority'.
+        - For CMD intents, extract standard fields: 'title', 'date', 'priority' (MUST be 'low', 'medium', or 'high').
+        - For any other intent-specific details, extract them into the 'metadata' object.
+        - For CMD_GOAL_CREATE, specifically extract into 'metadata':
+            - 'why': The motivation part.
+            - 'targetValue': Any numeric target mentioned.
+            - 'unit': The unit for that number.
+            - 'reward': Any reward mentioned.
+            - 'description': Any additional psychological context or details.
+            - 'linkedRoutines': Names of existing routines or habits mentioned (e.g. ['Sending proposals', '8 hours of work']).
         - For CMD_REMINDER_UPDATE, also extract 'title' of the task being referred to.
         - For JOURNALING, you can ignore entities or extract date if specified.
         - 'date' should be relative or absolute (e.g. "tomorrow", "next friday", "5pm").
         
         CRITICAL:
+        - **PRIORITY**: Structured goal definitions (Title/Why/Target) always override JOURNALING.
+        - If the user says "Create a goal", classify as CMD_GOAL_CREATE even if the rest of the text looks like a story.
         - If the user implies a future action without explicit time, default to CMD_TASK_CREATE or CMD_REMINDER_CREATE based on urgency.
         - If the user says "move", "reschedule", "change", "delay", "postpone", "cancel", or uses referential terms like "that", "the task", "it", it is ALWAYS CMD_REMINDER_UPDATE.
         - You MUST include the 'reasoning' field explaining your choice.
