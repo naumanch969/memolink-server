@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import logger from '../../config/logger';
 import { GOAL_STATUS } from '../../shared/constants';
 import { RoutineType } from '../routine/routine.interfaces';
 import { CreateGoalParams, GetGoalsQuery, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
@@ -215,6 +216,14 @@ export class GoalService {
 
         return result.deletedCount === 1;
     }
+
+    // Delete all user data (Cascade Delete)
+    async deleteUserData(userId: string): Promise<number> {
+        const result = await Goal.deleteMany({ userId });
+        logger.info(`Deleted ${result.deletedCount} goals for user ${userId}`);
+        return result.deletedCount || 0;
+    }
 }
 
 export const goalService = new GoalService();
+export default goalService;

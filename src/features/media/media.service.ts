@@ -1,13 +1,12 @@
-import { Media } from './media.model';
+import { Types } from 'mongoose';
+import { CloudinaryService } from '../../config/cloudinary';
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
-import { CreateMediaRequest, IMediaService, UpdateMediaRequest } from './media.interfaces';
 import { Helpers } from '../../shared/helpers';
-import { Types } from 'mongoose';
-import { IMedia } from './media.interfaces';
-import { CloudinaryService } from '../../config/cloudinary';
-import { storageService } from './storage.service';
 import { mediaEvents, MediaEventType } from './media.events';
+import { CreateMediaRequest, IMedia, IMediaService, UpdateMediaRequest } from './media.interfaces';
+import { Media } from './media.model';
+import { storageService } from './storage.service';
 
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
@@ -81,16 +80,16 @@ export class MediaService implements IMediaService {
 
       // Build filter query
       const filter: Record<string, unknown> = { userId };
-      
+
       if (options.type) {
         filter.type = options.type;
       }
-      
+
       if (options.folderId !== undefined) {
         // If folderId is null or 'null', get media without folder
         filter.folderId = options.folderId === 'null' ? null : options.folderId;
       }
-      
+
       if (options.search) {
         filter.$or = [
           { originalName: { $regex: options.search, $options: 'i' } },
@@ -125,7 +124,7 @@ export class MediaService implements IMediaService {
           logger.info('Cloudinary file deleted', { cloudinaryId: media.cloudinaryId });
         } catch (cloudinaryError) {
           // Log error with details for manual cleanup
-          logger.error('Failed to delete from Cloudinary (orphan created)', { 
+          logger.error('Failed to delete from Cloudinary (orphan created)', {
             cloudinaryId: media.cloudinaryId,
             mediaId: media._id.toString(),
             userId,
@@ -186,7 +185,7 @@ export class MediaService implements IMediaService {
               // Continue with DB deletion even if Cloudinary fails
             }
           }
-          
+
           // Then delete from DB
           await Media.deleteOne({ _id: media._id });
           totalSizeDeleted += media.size;
@@ -231,7 +230,7 @@ export class MediaService implements IMediaService {
       };
 
       const result = await Media.updateMany(
-        { 
+        {
           _id: { $in: mediaIds.map(id => new Types.ObjectId(id)) },
           userId: new Types.ObjectId(userId)
         },
@@ -244,8 +243,15 @@ export class MediaService implements IMediaService {
       throw error;
     }
   }
+
+  // Delete all user data (Cascade Delete)
+  async deleteUserData(userId: string): Promise<number> {
+    const mediaItems = await Media.find({ userId });
+    const mediaIds = mediaItems.map(m => m._id.toString());
+    const result = await this.bulkDeleteMedia(userId, mediaIds);
+    return result.deleted;
+  }
 }
 
 export const mediaService = new MediaService();
-
-export default MediaService;
+export default mediaService;

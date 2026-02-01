@@ -2,8 +2,7 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { IPerson } from './person.interfaces';
-import { CreatePersonRequest, IPersonService, UpdatePersonRequest } from './person.interfaces';
+import { CreatePersonRequest, IPerson, IPersonService, UpdatePersonRequest } from './person.interfaces';
 import { Person } from './person.model';
 
 export class PersonService implements IPersonService {
@@ -50,7 +49,13 @@ export class PersonService implements IPersonService {
     }
   }
 
-  async getUserPersons(userId: string, options: any = {}): Promise<{
+  async getUserPersons(userId: string, options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}): Promise<{
     persons: IPerson[];
     total: number;
     page: number;
@@ -61,7 +66,7 @@ export class PersonService implements IPersonService {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
 
       // Determine sort
-      let sort: any = { updatedAt: -1 };
+      let sort: Record<string, number> = { updatedAt: -1 };
       if (options.sortBy === 'interactionCount') {
         sort = {
           interactionCount: options.sortOrder === 'asc' ? 1 : -1,
@@ -75,7 +80,7 @@ export class PersonService implements IPersonService {
       }
 
       // Filter
-      const query: any = {
+      const query: Record<string, any> = {
         userId: new Types.ObjectId(userId),
         isDeleted: { $ne: true }
       };
@@ -95,7 +100,7 @@ export class PersonService implements IPersonService {
 
       const [persons, total] = await Promise.all([
         Person.find(query)
-          .sort(sort)
+          .sort(sort as any)
           .skip(skip)
           .limit(limit)
           .lean(),
@@ -223,7 +228,7 @@ export class PersonService implements IPersonService {
     }
   }
 
-  async getPersonInteractions(personId: string, userId: string, options: any = {}): Promise<any> {
+  async getPersonInteractions(personId: string, userId: string, options: { page?: number; limit?: number } = {}): Promise<any> {
     try {
       const { page = 1, limit = 10 } = options;
       const skip = (page - 1) * limit;
@@ -260,8 +265,14 @@ export class PersonService implements IPersonService {
       throw error;
     }
   }
+
+  // Delete all user data (Cascade Delete)
+  async deleteUserData(userId: string): Promise<number> {
+    const result = await Person.deleteMany({ userId });
+    logger.info(`Deleted ${result.deletedCount} persons for user ${userId}`);
+    return result.deletedCount || 0;
+  }
 }
 
 export const personService = new PersonService();
-
-export default PersonService;
+export default personService;

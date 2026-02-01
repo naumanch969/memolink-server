@@ -1,5 +1,6 @@
 import { startOfDay } from 'date-fns';
 import { Types } from 'mongoose';
+import logger from '../../config/logger';
 import { eventStream } from '../../core/events/EventStream';
 import { EventType } from '../../core/events/types';
 import { CustomError } from '../../core/middleware/errorHandler';
@@ -450,6 +451,14 @@ class ReminderService {
             updatedAt: reminder.updatedAt.toISOString(),
         };
     }
+
+    // Delete all user data (Cascade Delete)
+    async deleteUserData(userId: string): Promise<number> {
+        const result = await Reminder.deleteMany({ userId });
+        logger.info(`Deleted ${result.deletedCount} reminders for user ${userId}`);
+        return result.deletedCount || 0;
+    }
 }
 
-export default new ReminderService();
+export const reminderService = new ReminderService();
+export default reminderService;

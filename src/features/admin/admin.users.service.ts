@@ -1,17 +1,31 @@
 import { logger } from '../../config/logger';
 import { User } from '../auth/auth.model';
+import { documentService } from '../document/document.service';
 import { Entry } from '../entry/entry.model';
+import { entryService } from '../entry/entry.service';
+import { goalService } from '../goal/goal.service';
+import { folderService } from '../media/folder.service';
+import { Media } from '../media/media.model';
+import { mediaService } from '../media/media.service';
+import { notificationService } from '../notification/notification.service';
+import { personService } from '../person/person.service';
+import { reminderService } from '../reminder/reminder.service';
+import { routineService } from '../routine/routine.service';
+import { tagService } from '../tag/tag.service';
+import { webActivityService } from '../web-activity/web-activity.service';
 
 export interface UserListFilter {
     page: number;
     limit: number;
     search?: string;
     role?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
     isVerified?: boolean;
 }
 
 export interface UserListResult {
-    users: any[];
+    users: any[]; // User objects from Mongo lean()
     total: number;
     page: number;
     totalPages: number;
@@ -23,7 +37,7 @@ export class AdminUserService {
      * Get all users with pagination and filtering
      */
     async getUsers(filter: UserListFilter): Promise<UserListResult> {
-        const { page = 1, limit = 20, search, role, isVerified } = filter;
+        const { page = 1, limit = 20, search, role, isVerified, sortBy, sortOrder } = filter;
         const skip = (page - 1) * limit;
 
         const query: any = {};
@@ -43,10 +57,17 @@ export class AdminUserService {
             query.isEmailVerified = isVerified;
         }
 
+        const sort: any = {};
+        if (sortBy) {
+            sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+        } else {
+            sort.createdAt = -1; // Default sort
+        }
+
         const [users, total] = await Promise.all([
             User.find(query)
                 .select('-password -googleId -securityConfig.answerHash') // Exclude sensitive
-                .sort({ createdAt: -1 })
+                .sort(sort)
                 .skip(skip)
                 .limit(limit)
                 .lean(),
@@ -76,8 +97,7 @@ export class AdminUserService {
         // Get summary stats for this user
         const [entryCount, mediaCount, storageUsed] = await Promise.all([
             Entry.countDocuments({ userId }),
-            // Helper for media count if Media model imported, else just placeholder
-            0,
+            Media.countDocuments({ userId }),
             user.storageUsed || 0
         ]);
 
@@ -85,7 +105,7 @@ export class AdminUserService {
             ...user,
             stats: {
                 entries: entryCount,
-                media: mediaCount, // Placeholder until MediaService linked
+                media: mediaCount,
                 storage: storageUsed
             }
         };
@@ -122,7 +142,7 @@ export class AdminUserService {
      * Delete user and ALL associated data (cascade delete)
      * WARNING: This is irreversible!
      */
-    async deleteUser(userId: string): Promise<{ success: boolean; deletedCounts: any }> {
+    async deleteUser(userId: string): Promise<{ success: boolean; deletedCounts: Record<string, number> }> {
         const user = await User.findById(userId);
         if (!user) {
             throw new Error('User not found');
@@ -130,126 +150,21 @@ export class AdminUserService {
 
         logger.warn(`Admin initiating CASCADE DELETE for user ${userId} (${user.email})`);
 
-        const deletedCounts: any = {};
+        const deletedCounts: Record<string, number> = {};
 
         try {
-            // Delete entries
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Entry } = require('../entry/entry.model');
-                const result = await Entry.deleteMany({ userId });
-                deletedCounts.entries = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting entries:', e);
-                deletedCounts.entries = 0;
-            }
-
-            // Delete people
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Person } = require('../person/person.model');
-                const result = await Person.deleteMany({ userId });
-                deletedCounts.people = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting people:', e);
-                deletedCounts.people = 0;
-            }
-
-            // Delete tags
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Tag } = require('../tag/tag.model');
-                const result = await Tag.deleteMany({ userId });
-                deletedCounts.tags = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting tags:', e);
-                deletedCounts.tags = 0;
-            }
-
-            // Delete media
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Media } = require('../media/media.model');
-                const result = await Media.deleteMany({ userId });
-                deletedCounts.media = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting media:', e);
-                deletedCounts.media = 0;
-            }
-
-            // Delete folders
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Folder } = require('../media/folder.model');
-                const result = await Folder.deleteMany({ userId });
-                deletedCounts.folders = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting folders:', e);
-                deletedCounts.folders = 0;
-            }
-
-            // Delete routines
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { RoutineTemplate, RoutineLog, UserRoutinePreferences } = require('../routine/routine.model');
-                const [templates, logs, prefs] = await Promise.all([
-                    RoutineTemplate.deleteMany({ userId }),
-                    RoutineLog.deleteMany({ userId }),
-                    UserRoutinePreferences.deleteMany({ userId })
-                ]);
-                deletedCounts.routineTemplates = templates.deletedCount || 0;
-                deletedCounts.routineLogs = logs.deletedCount || 0;
-                deletedCounts.routinePreferences = prefs.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting routines:', e);
-                deletedCounts.routineTemplates = 0;
-                deletedCounts.routineLogs = 0;
-                deletedCounts.routinePreferences = 0;
-            }
-
-            // Delete goals
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Goal } = require('../goal/goal.model');
-                const result = await Goal.deleteMany({ userId });
-                deletedCounts.goals = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting goals:', e);
-                deletedCounts.goals = 0;
-            }
-
-            // Delete reminders
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Reminder } = require('../reminder/reminder.model');
-                const result = await Reminder.deleteMany({ userId });
-                deletedCounts.reminders = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting reminders:', e);
-                deletedCounts.reminders = 0;
-            }
-
-            // Delete notifications
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Notification } = require('../notification/notification.model');
-                const result = await Notification.deleteMany({ userId });
-                deletedCounts.notifications = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting notifications:', e);
-                deletedCounts.notifications = 0;
-            }
-
-            // Delete documents
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
-                const { Document } = require('../document/document.model');
-                const result = await Document.deleteMany({ userId });
-                deletedCounts.documents = result.deletedCount || 0;
-            } catch (e) {
-                logger.error('Error deleting documents:', e);
-                deletedCounts.documents = 0;
-            }
+            // Use services to delete user data
+            deletedCounts.entries = await entryService.deleteUserData(userId);
+            deletedCounts.people = await personService.deleteUserData(userId);
+            deletedCounts.tags = await tagService.deleteUserData(userId);
+            deletedCounts.media = await mediaService.deleteUserData(userId);
+            deletedCounts.folders = await folderService.deleteUserData(userId);
+            deletedCounts.routines = await routineService.deleteUserData(userId);
+            deletedCounts.goals = await goalService.deleteUserData(userId);
+            deletedCounts.reminders = await reminderService.deleteUserData(userId);
+            deletedCounts.notifications = await notificationService.deleteUserData(userId);
+            deletedCounts.documents = await documentService.deleteUserData(userId);
+            deletedCounts.webActivity = await webActivityService.deleteUserData(userId);
 
             // Finally, delete the user
             await User.findByIdAndDelete(userId);
@@ -262,7 +177,7 @@ export class AdminUserService {
             };
         } catch (error) {
             logger.error('Error during user cascade delete:', error);
-            throw new Error('Failed to delete user and associated data');
+            throw new Error(`Failed to delete user and associated data: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 

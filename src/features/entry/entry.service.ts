@@ -4,10 +4,9 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { IEntry } from './entry.interfaces';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
-import { EntrySearchRequest, EntryStats, IEntryService } from './entry.interfaces';
+import { EntrySearchRequest, EntryStats, IEntry, IEntryService } from './entry.interfaces';
 
 export class EntryService implements IEntryService {
   // Helper method to extract mentions from content
@@ -437,6 +436,13 @@ export class EntryService implements IEntryService {
     }
   }
 
+  // Delete all user data (Cascade Delete)
+  async deleteUserData(userId: string): Promise<number> {
+    const result = await Entry.deleteMany({ userId });
+    logger.info(`Deleted ${result.deletedCount} entries for user ${userId}`);
+    return result.deletedCount || 0;
+  }
+
   // Get entry statistics
   async getEntryStats(userId: string): Promise<EntryStats> {
     try {
@@ -510,5 +516,4 @@ export class EntryService implements IEntryService {
 }
 
 export const entryService = new EntryService();
-
-export default EntryService;
+export default entryService;

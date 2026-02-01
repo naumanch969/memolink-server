@@ -58,7 +58,7 @@ class EmailService {
           to: email,
           name,
           resetToken,
-          frontendUrl: config.FRONTEND_URL || 'http://localhost:3000'
+          frontendUrl: config.FRONTEND_URL
         }
       });
       return true;
@@ -76,7 +76,7 @@ class EmailService {
         data: {
           to: email,
           name,
-          frontendUrl: config.FRONTEND_URL || 'http://localhost:3000'
+          frontendUrl: config.FRONTEND_URL
         }
       });
       return true;

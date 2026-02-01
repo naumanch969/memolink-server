@@ -4,8 +4,7 @@ import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { createConflictError, createError, createNotFoundError, createUnauthorizedError } from '../../core/middleware/errorHandler';
 import { CryptoHelper } from '../../core/utils/crypto';
-import { IUser } from './auth.interfaces';
-import { AuthResponse, ChangePasswordRequest, IAuthService, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
+import { AuthResponse, ChangePasswordRequest, IAuthService, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
 import { User } from './auth.model';
 import { Otp } from './otp.model';
 
@@ -462,5 +461,4 @@ export class AuthService implements IAuthService {
 }
 
 export const authService = new AuthService();
-
-export default AuthService;
+export default authService;

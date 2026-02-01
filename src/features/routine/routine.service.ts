@@ -1,20 +1,16 @@
 import { FilterQuery, Types } from 'mongoose';
+import { logger } from '../../config/logger';
 import { ROUTINE_STATUS } from '../../shared/constants';
-import { IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType } from './routine.interfaces';
 import { DataType } from '../../shared/types';
 import { IChecklistConfig, ICounterConfig } from '../../shared/types/dataProperties';
 import { goalService } from '../goal/goal.service';
-import { CompletionCalculationResult, CreateRoutineLogParams, CreateRoutineTemplateParams, GetRoutineAnalyticsQuery, GetRoutineLogsQuery, GetRoutineStatsQuery, UpdateRoutineLogParams, UpdateRoutineTemplateParams, UpdateUserRoutinePreferencesParams, } from './routine.interfaces';
+import { CompletionCalculationResult, CreateRoutineLogParams, CreateRoutineTemplateParams, GetRoutineAnalyticsQuery, GetRoutineLogsQuery, GetRoutineStatsQuery, IRoutineAnalytics, IRoutineConfig, IRoutineLog, IRoutineStats, IRoutineTemplate, IUserRoutinePreferences, RoutineType, UpdateRoutineLogParams, UpdateRoutineTemplateParams, UpdateUserRoutinePreferencesParams } from './routine.interfaces';
 import { RoutineLog, RoutineTemplate, UserRoutinePreferences, } from './routine.model';
 
 const DEFAULT_GRADUAL_THRESHOLD = 80;
 const DEFAULT_COMPLETION_MODE = 'strict';
 
 export class RoutineService {
-    // ============================================
-    // ROUTINE TEMPLATE METHODS
-    // ============================================
-
     /**
      * Create a new routine template
      */
@@ -831,48 +827,12 @@ export class RoutineService {
         const uniqueLogs: typeof logs = [];
 
         for (const log of logs) {
-            // Normalized to 00:00 UTC date string key
             const dayKey = new Date(log.date).toISOString().split('T')[0];
             if (!uniqueDaysSet.has(dayKey)) {
                 uniqueDaysSet.add(dayKey);
                 uniqueLogs.push(log);
             }
         }
-
-        // Helper: Diff in days between two dates
-        const getDiffDays = (d1: Date, d2: Date): number => {
-            const msPerDay = 1000 * 60 * 60 * 24;
-            return Math.round((d1.getTime() - d2.getTime()) / msPerDay);
-        };
-
-        // Helper: Check if gap contains only allowed inactive days
-        const isGapSafe = (startDate: Date, gapInDays: number): boolean => {
-            const dateCursor = new Date(startDate);
-            for (let i = 1; i < gapInDays; i++) {
-                dateCursor.setDate(dateCursor.getDate() - 1);
-                if (activeDays.includes(dateCursor.getDay())) {
-                    return false; // Missed an active day
-                }
-            }
-            return true;
-        };
-
-        // Helper: Calculate streak length starting from a specific index in redundant logs
-        const calculateSegmentStreak = (startIndex: number): number => {
-            let streak = 1;
-            for (let i = startIndex; i < uniqueLogs.length - 1; i++) {
-                const recent = new Date(uniqueLogs[i].date);
-                const older = new Date(uniqueLogs[i + 1].date);
-                const diff = getDiffDays(recent, older);
-
-                if (diff === 1 || (diff > 1 && isGapSafe(recent, diff))) {
-                    streak++;
-                } else {
-                    break;
-                }
-            }
-            return streak;
-        };
 
         // 3. Calculate Longest Streak
         let longestStreak = 0;
@@ -881,9 +841,9 @@ export class RoutineService {
             for (let i = 0; i < uniqueLogs.length - 1; i++) {
                 const recent = new Date(uniqueLogs[i].date);
                 const older = new Date(uniqueLogs[i + 1].date);
-                const diff = getDiffDays(recent, older);
+                const diff = this.getDiffDays(recent, older);
 
-                if (diff === 1 || (diff > 1 && isGapSafe(recent, diff))) {
+                if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, activeDays))) {
                     tempStreak++;
                 } else {
                     longestStreak = Math.max(longestStreak, tempStreak);
@@ -902,13 +862,12 @@ export class RoutineService {
             const lastLogDate = new Date(uniqueLogs[0].date);
             lastLogDate.setUTCHours(0, 0, 0, 0);
 
-            const diffFromNow = getDiffDays(now, lastLogDate);
+            const diffFromNow = this.getDiffDays(now, lastLogDate);
 
-            // 0 = Today, 1 = Yesterday
-            const isAlive = diffFromNow <= 1 || (diffFromNow > 1 && isGapSafe(now, diffFromNow));
+            const isAlive = diffFromNow <= 1 || (diffFromNow > 1 && this.isGapSafe(now, diffFromNow, activeDays));
 
             if (isAlive) {
-                currentStreak = calculateSegmentStreak(0);
+                currentStreak = this.calculateSegmentStreak(0, uniqueLogs, activeDays);
             }
         }
 
@@ -923,6 +882,51 @@ export class RoutineService {
         });
     }
 
+    private getDiffDays(d1: Date, d2: Date): number {
+        const msPerDay = 1000 * 60 * 60 * 24;
+        return Math.round((d1.getTime() - d2.getTime()) / msPerDay);
+    }
+
+    private isGapSafe(startDate: Date, gapInDays: number, activeDays: number[]): boolean {
+        const dateCursor = new Date(startDate);
+        for (let i = 1; i < gapInDays; i++) {
+            dateCursor.setDate(dateCursor.getDate() - 1);
+            if (activeDays.includes(dateCursor.getDay())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private calculateSegmentStreak(startIndex: number, logs: any[], activeDays: number[]): number {
+        let streak = 1;
+        for (let i = startIndex; i < logs.length - 1; i++) {
+            const recent = new Date(logs[i].date);
+            const older = new Date(logs[i + 1].date);
+            const diff = this.getDiffDays(recent, older);
+
+            if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, activeDays))) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }
+
+    // Delete all user data (Cascade Delete)
+    async deleteUserData(userId: string): Promise<number> {
+        const [templates, logs, prefs] = await Promise.all([
+            RoutineTemplate.deleteMany({ userId }),
+            RoutineLog.deleteMany({ userId }),
+            UserRoutinePreferences.deleteMany({ userId })
+        ]);
+        const total = (templates.deletedCount || 0) + (logs.deletedCount || 0) + (prefs.deletedCount || 0);
+        logger.info(`Deleted ${total} routine items for user ${userId}`);
+        return total;
+    }
+
 }
 
-export default new RoutineService();
+export const routineService = new RoutineService();
+export default routineService;

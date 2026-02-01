@@ -1,8 +1,8 @@
-import { User } from '../auth/auth.model';
-import { Media } from './media.model';
-import { MEDIA_TYPES } from '../../shared/constants';
-import { STORAGE_THRESHOLDS } from './media.constants';
 import { logger } from '../../config/logger';
+import { MEDIA_TYPES } from '../../shared/constants';
+import { User } from '../auth/auth.model';
+import { STORAGE_THRESHOLDS } from './media.constants';
+import { Media } from './media.model';
 
 // Storage Reservation for atomic operations
 export interface StorageReservation {
@@ -59,7 +59,7 @@ export interface CleanupSuggestion {
   description: string;
 }
 
-class StorageService {
+export class StorageService {
   // In-memory reservation tracking (consider Redis for distributed systems)
   private reservations = new Map<string, ReservationRecord>();
   private cleanupInterval: NodeJS.Timeout | null = null;
@@ -496,3 +496,4 @@ class StorageService {
 }
 
 export const storageService = new StorageService();
+export default storageService;

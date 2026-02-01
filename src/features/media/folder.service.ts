@@ -1,10 +1,9 @@
-import { Folder } from './folder.model';
-import { Media } from './media.model';
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
-import { CreateFolderRequest, UpdateFolderRequest, IFolderService } from './folder.interfaces';
-import { Types } from 'mongoose';
-import { IFolder } from './folder.interfaces';
+import { CreateFolderRequest, IFolder, IFolderService, UpdateFolderRequest } from './folder.interfaces';
+import { Folder } from './folder.model';
+import { Media } from './media.model';
 
 export class FolderService implements IFolderService {
   async createFolder(userId: string, folderData: CreateFolderRequest): Promise<IFolder> {
@@ -92,14 +91,14 @@ export class FolderService implements IFolderService {
   async getUserFolders(userId: string, options: any = {}): Promise<{ folders: IFolder[]; total: number }> {
     try {
       const query: any = { userId };
-      
+
       // Filter by parent (for nested structure)
       if (options.parentId !== undefined) {
         query.parentId = options.parentId || null;
       }
 
       const folders = await Folder.find(query).sort({ name: 1 });
-      
+
       // Update item counts
       await Promise.all(
         folders.map(async (folder) => {
@@ -171,7 +170,14 @@ export class FolderService implements IFolderService {
       throw error;
     }
   }
+
+  // Delete all user data (Cascade Delete)
+  async deleteUserData(userId: string): Promise<number> {
+    const result = await Folder.deleteMany({ userId });
+    logger.info(`Deleted ${result.deletedCount} folders for user ${userId}`);
+    return result.deletedCount || 0;
+  }
 }
 
 export const folderService = new FolderService();
-export default FolderService;
+export default folderService;

@@ -33,7 +33,7 @@ export class PersonController {
       limit: limitNum,
       search: search as string,
       sortBy: sortBy as string,
-      sortOrder: sortOrder as string
+      sortOrder: sortOrder as "asc" | "desc"
     });
 
     ResponseHelper.paginated(res, result.persons, {

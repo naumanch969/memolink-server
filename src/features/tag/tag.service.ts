@@ -2,8 +2,7 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { ITag } from './tag.interfaces';
-import { CreateTagRequest, ITagService, UpdateTagRequest } from './tag.interfaces';
+import { CreateTagRequest, ITag, ITagService, UpdateTagRequest } from './tag.interfaces';
 import { Tag } from './tag.model';
 
 export class TagService implements ITagService {
@@ -171,8 +170,14 @@ export class TagService implements ITagService {
     // TODO: Implement business logic
     return {};
   }
+
+  // Delete all user data (Cascade Delete)
+  async deleteUserData(userId: string): Promise<number> {
+    const result = await Tag.deleteMany({ userId });
+    logger.info(`Deleted ${result.deletedCount} tags for user ${userId}`);
+    return result.deletedCount || 0;
+  }
 }
 
 export const tagService = new TagService();
-
-export default TagService;
+export default tagService;

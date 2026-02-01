@@ -83,6 +83,7 @@ export interface IMediaService {
   getUserMedia(userId: string, options?: any): Promise<{ media: IMedia[]; total: number; page: number; limit: number; totalPages: number; }>;
   updateMedia(mediaId: string, userId: string, updateData: UpdateMediaRequest): Promise<IMedia>;
   deleteMedia(mediaId: string, userId: string): Promise<void>;
+  deleteUserData(userId: string): Promise<number>;
 }
 
 export type MediaType = 'image' | 'video' | 'document' | 'audio' | 'archive' | 'data' | 'code';

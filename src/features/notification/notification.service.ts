@@ -1,9 +1,9 @@
 import { Types } from 'mongoose';
-import { Notification } from './notification.model';
-import { CreateNotificationDTO, INotificationDocument, NotificationType } from './notification.types';
 import { CustomError } from '../../core/middleware/errorHandler';
+import { Notification } from './notification.model';
+import { CreateNotificationDTO, INotificationDocument } from './notification.types';
 
-class NotificationService {
+export class NotificationService {
 
     // Create a new notification
     async create(data: CreateNotificationDTO): Promise<INotificationDocument> {
@@ -87,6 +87,13 @@ class NotificationService {
             throw new CustomError('Failed to delete notification', 500);
         }
     }
+
+    // Delete all user data (Cascade Delete)
+    async deleteUserData(userId: string): Promise<number> {
+        const result = await Notification.deleteMany({ userId });
+        return result.deletedCount || 0;
+    }
 }
 
-export default new NotificationService();
+export const notificationService = new NotificationService();
+export default notificationService;

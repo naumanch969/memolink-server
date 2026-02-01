@@ -66,3 +66,4 @@ export class RelationService {
 }
 
 export const relationService = new RelationService();
+export default relationService;

@@ -53,6 +53,13 @@ class DocumentService {
             isArchived: false
         }).limit(20).lean();
     }
+
+    // Delete all user data (Cascade Delete)
+    async deleteUserData(userId: string): Promise<number> {
+        const result = await Document.deleteMany({ userId });
+        return result.deletedCount || 0;
+    }
 }
 
 export const documentService = new DocumentService();
+export default documentService;

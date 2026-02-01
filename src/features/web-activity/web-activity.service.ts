@@ -69,6 +69,13 @@ export class WebActivityService {
             throw error;
         }
     }
+
+    // Delete all user data (Cascade Delete)
+    async deleteUserData(userId: string): Promise<number> {
+        const result = await WebActivity.deleteMany({ userId });
+        return result.deletedCount || 0;
+    }
 }
 
 export const webActivityService = new WebActivityService();
+export default webActivityService;

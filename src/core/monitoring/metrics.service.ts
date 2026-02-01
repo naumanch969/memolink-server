@@ -1,11 +1,11 @@
-import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
+import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 import { logger } from '../../config/logger';
 
 /**
  * Metrics Service - Centralized monitoring and metrics collection
  * Uses Prometheus client for industry-standard metrics
  */
-class MetricsService {
+export class MetricsService {
     private registry: Registry;
 
     // HTTP Metrics
@@ -47,7 +47,19 @@ class MetricsService {
             gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5],
         });
 
-        // Initialize HTTP Metrics
+        this.initHttpMetrics();
+        this.initDbMetrics();
+        this.initAppMetrics();
+        this.initBusinessMetrics();
+        this.initCacheMetrics();
+
+        // Start collecting system metrics
+        this.startSystemMetricsCollection();
+
+        logger.info('Metrics service initialized successfully');
+    }
+
+    private initHttpMetrics(): void {
         this.httpRequestDuration = new Histogram({
             name: 'memolink_http_request_duration_seconds',
             help: 'Duration of HTTP requests in seconds',
@@ -85,8 +97,9 @@ class MetricsService {
             buckets: [100, 1000, 10000, 100000, 1000000, 10000000],
             registers: [this.registry],
         });
+    }
 
-        // Initialize Database Metrics
+    private initDbMetrics(): void {
         this.dbQueryDuration = new Histogram({
             name: 'memolink_db_query_duration_seconds',
             help: 'Duration of database queries in seconds',
@@ -114,8 +127,9 @@ class MetricsService {
             help: 'Number of active database connections',
             registers: [this.registry],
         });
+    }
 
-        // Initialize Application Metrics
+    private initAppMetrics(): void {
         this.activeUsers = new Gauge({
             name: 'memolink_active_users',
             help: 'Number of currently active users',
@@ -140,16 +154,15 @@ class MetricsService {
             help: 'Event loop lag in seconds',
             registers: [this.registry],
         });
+    }
 
-        // Initialize Business Metrics
+    private initBusinessMetrics(): void {
         this.entriesCreated = new Counter({
             name: 'memolink_entries_created_total',
             help: 'Total number of entries created',
             labelNames: ['user_id'],
             registers: [this.registry],
         });
-
-
 
         this.tagsCreated = new Counter({
             name: 'memolink_tags_created_total',
@@ -164,8 +177,9 @@ class MetricsService {
             labelNames: ['user_id', 'media_type'],
             registers: [this.registry],
         });
+    }
 
-        // Initialize Cache Metrics
+    private initCacheMetrics(): void {
         this.cacheHits = new Counter({
             name: 'memolink_cache_hits_total',
             help: 'Total number of cache hits',
@@ -179,11 +193,6 @@ class MetricsService {
             labelNames: ['cache_name'],
             registers: [this.registry],
         });
-
-        // Start collecting system metrics
-        this.startSystemMetricsCollection();
-
-        logger.info('Metrics service initialized successfully');
     }
 
     /**
@@ -351,3 +360,4 @@ class MetricsService {
 
 // Export singleton instance
 export const metricsService = new MetricsService();
+export default metricsService;
