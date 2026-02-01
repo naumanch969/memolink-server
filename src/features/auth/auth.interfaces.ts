@@ -13,7 +13,7 @@ export interface IUser extends BaseEntity {
   isActive: boolean;
   lastLoginAt?: Date;
   preferences: {
-    theme: 'light' | 'dark' | 'auto';
+    theme: 'light' | 'dark' | 'auto' | 'system';
     notifications: boolean;
     privacy: 'public' | 'private';
     communication?: {

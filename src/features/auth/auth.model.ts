@@ -19,7 +19,7 @@ const userSchema = new Schema<IUser>({
   isActive: { type: Boolean, default: false, },
   lastLoginAt: { type: Date, default: null, },
   preferences: {
-    theme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto', },
+    theme: { type: String, enum: ['light', 'dark', 'auto', 'system'], default: 'system', },
     notifications: { type: Boolean, default: true, },
     privacy: { type: String, enum: ['public', 'private'], default: 'private', },
     communication: {

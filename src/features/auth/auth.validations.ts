@@ -1,4 +1,4 @@
-import { body, param, query } from 'express-validator';
+import { body, param } from 'express-validator';
 import { VALIDATION } from '../../shared/constants';
 
 export const registerValidation = [
@@ -102,8 +102,8 @@ export const updateProfileValidation = [
 
   body('preferences.theme')
     .optional()
-    .isIn(['light', 'dark', 'auto'])
-    .withMessage('Theme must be light, dark, or auto'),
+    .isIn(['light', 'dark', 'auto', 'system'])
+    .withMessage('Theme must be light, dark, auto, or system'),
 
   body('preferences.notifications')
     .optional()
