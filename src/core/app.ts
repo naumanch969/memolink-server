@@ -1,19 +1,18 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import cors from 'cors';
+import express from 'express';
+import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
-import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import {
-  monitoringMiddleware,
-  requestContextMiddleware,
   errorTrackingMiddleware,
-  monitoringRoutes
+  monitoringMiddleware,
+  monitoringRoutes,
+  requestContextMiddleware
 } from './monitoring';
+import routes from './routes';
 
 const app = express();
 
@@ -31,7 +30,21 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: config.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = config.CORS_ORIGIN;
+    const isAllowed = allowedOrigins.some(ao => origin === ao) ||
+      origin.startsWith('chrome-extension://');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS blocked origin:', { origin });
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

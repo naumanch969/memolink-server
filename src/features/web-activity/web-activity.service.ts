@@ -77,13 +77,13 @@ export class WebActivityService {
     }
 
     /**
-     * Get stats for today
+     * Get stats for a specific day (defaults to today)
      */
-    async getTodayStats(userId: string): Promise<IWebActivity | null> {
-        const today = new Date().toISOString().split('T')[0];
+    async getTodayStats(userId: string, date?: string): Promise<IWebActivity | null> {
+        const targetDate = date || new Date().toISOString().split('T')[0];
         return WebActivity.findOne({
             userId: new Types.ObjectId(userId),
-            date: today
+            date: targetDate
         });
     }
 }
