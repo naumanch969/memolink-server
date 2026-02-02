@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { Job, Processor, Queue, QueueOptions, Worker, WorkerOptions } from 'bullmq';
 import { logger } from '../../config/logger';
 import redisConnection from '../../config/redis';
@@ -65,6 +66,18 @@ export class QueueService {
 
         worker.on('failed', (job: Job | undefined, err: Error) => {
             logger.error(`Job ${job?.id} in queue [${name}] failed: ${err.message}`);
+
+            Sentry.withScope((scope) => {
+                scope.setTag('queue', name);
+                if (job) {
+                    scope.setContext('job', {
+                        id: job.id,
+                        name: job.name,
+                        data: job.data,
+                    });
+                }
+                Sentry.captureException(err);
+            });
         });
 
         this.workers.set(name, worker);

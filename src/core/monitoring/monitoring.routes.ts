@@ -5,6 +5,7 @@ import path from 'path';
 import { ResponseHelper } from '../utils/response';
 import { metricsService } from './metrics.service';
 import { getHealthCheckData } from './monitoring.middleware';
+import redisConnection from '../../config/redis';
 
 const router = Router();
 
@@ -74,13 +75,21 @@ router.get('/health', async (req: Request, res: Response) => {
             3: 'disconnecting',
         };
 
-        const isHealthy = dbStatus === 1;
+        // Check Redis connection
+        const redisStatus = redisConnection.status;
+        const isRedisHealthy = redisStatus === 'ready' || redisStatus === 'connect';
+
+        const isHealthy = dbStatus === 1 && isRedisHealthy;
         const data = {
             ...healthData,
             status: isHealthy ? 'healthy' : 'unhealthy',
             database: {
                 status: dbStatusMap[dbStatus] || 'unknown',
                 connected: dbStatus === 1,
+            },
+            redis: {
+                status: redisStatus,
+                connected: isRedisHealthy,
             },
         };
 
@@ -115,13 +124,18 @@ router.get('/health/live', (req: Request, res: Response) => {
 router.get('/health/ready', async (req: Request, res: Response) => {
     try {
         const dbConnected = mongoose.connection.readyState === 1;
+        const redisStatus = redisConnection.status;
+        const redisConnected = redisStatus === 'ready' || redisStatus === 'connect';
+
+        const isReady = dbConnected && redisConnected;
         const data = {
-            status: dbConnected ? 'ready' : 'not ready',
+            status: isReady ? 'ready' : 'not ready',
             timestamp: new Date().toISOString(),
             database: dbConnected ? 'connected' : 'not connected',
+            redis: redisConnected ? 'connected' : 'not connected',
         };
 
-        if (dbConnected) {
+        if (isReady) {
             ResponseHelper.success(res, data);
         } else {
             ResponseHelper.error(res, 'System not ready', 503, data);

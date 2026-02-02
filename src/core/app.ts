@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
@@ -6,12 +7,7 @@ import morgan from 'morgan';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import {
-  errorTrackingMiddleware,
-  monitoringMiddleware,
-  monitoringRoutes,
-  requestContextMiddleware
-} from './monitoring';
+import { errorTrackingMiddleware, monitoringMiddleware, monitoringRoutes, requestContextMiddleware } from './monitoring';
 import routes from './routes';
 
 const app = express();
@@ -104,6 +100,11 @@ app.get('/', (req, res) => {
 
 // 404 handler
 app.use(notFoundHandler);
+
+// Sentry error handler - must be before local error handler
+if (config.SENTRY_DSN_URL) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // Error tracking middleware
 app.use(errorTrackingMiddleware);
