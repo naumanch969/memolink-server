@@ -7,6 +7,7 @@ import { CryptoHelper } from '../../core/utils/crypto';
 import { AuthResponse, ChangePasswordRequest, IAuthService, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
 import { User } from './auth.model';
 import { Otp } from './otp.model';
+import { CloudinaryService } from '../../config/cloudinary';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -227,6 +228,91 @@ export class AuthService implements IAuthService {
       return user;
     } catch (error) {
       logger.error('Profile update failed:', error);
+      throw error;
+    }
+  }
+
+  // Upload and update avatar
+  async uploadAvatar(userId: string, file: Express.Multer.File): Promise<IUser> {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw createNotFoundError('User');
+      }
+
+      // Delete old avatar from Cloudinary if it exists
+      if (user.avatar) {
+        try {
+          // Extract public_id from Cloudinary URL
+          const urlParts = user.avatar.split('/');
+          const publicIdWithExtension = urlParts.slice(-2).join('/'); // e.g., "memolink/avatars/abc123.jpg"
+          const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, ''); // Remove extension
+          await CloudinaryService.deleteFile(publicId);
+        } catch (deleteError) {
+          logger.warn('Failed to delete old avatar from Cloudinary:', deleteError);
+          // Continue even if delete fails
+        }
+      }
+
+      // Upload new avatar to Cloudinary
+      const result = await CloudinaryService.uploadFile(file, 'memolink/avatars', {
+        extractExif: false,
+        enableOcr: false,
+        enableAiTagging: false,
+      });
+
+      // Generate optimized avatar URL (small size for profile pictures)
+      const avatarUrl = CloudinaryService.getOptimizedUrl(result.public_id, {
+        width: 256,
+        height: 256,
+        crop: 'fill',
+        gravity: 'face',
+        quality: 'auto',
+        format: 'auto',
+      });
+
+      // Update user with new avatar URL
+      user.avatar = avatarUrl;
+      await user.save();
+
+      logger.info('Avatar uploaded successfully', { userId: user._id, email: user.email });
+
+      return user;
+    } catch (error) {
+      logger.error('Avatar upload failed:', error);
+      throw error;
+    }
+  }
+
+  // Remove avatar
+  async removeAvatar(userId: string): Promise<IUser> {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw createNotFoundError('User');
+      }
+
+      // Delete avatar from Cloudinary if it exists
+      if (user.avatar) {
+        try {
+          const urlParts = user.avatar.split('/');
+          const publicIdWithExtension = urlParts.slice(-2).join('/');
+          const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, '');
+          await CloudinaryService.deleteFile(publicId);
+        } catch (deleteError) {
+          logger.warn('Failed to delete avatar from Cloudinary:', deleteError);
+        }
+      }
+
+      // Remove avatar from user
+      user.avatar = undefined;
+      await user.save();
+
+      logger.info('Avatar removed successfully', { userId: user._id, email: user.email });
+
+      return user;
+    } catch (error) {
+      logger.error('Avatar removal failed:', error);
       throw error;
     }
   }

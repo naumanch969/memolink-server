@@ -240,14 +240,7 @@ export class CloudinaryService {
       gravity?: 'auto' | 'face' | 'center';
     } = {}
   ): string {
-    const {
-      width,
-      height,
-      crop = 'limit',
-      quality = 'auto',
-      format = 'auto',
-      gravity = 'auto',
-    } = options;
+    const { width, height, crop = 'limit', quality = 'auto', format = 'auto', gravity = 'auto', } = options;
 
     const transformations: string[] = [];
 

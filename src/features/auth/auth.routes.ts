@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../../core/middleware/authMiddleware';
+import { uploadSingle, validateFileContent } from '../../core/middleware/uploadMiddleware';
 import { validationMiddleware } from '../../core/middleware/validationMiddleware';
 import { AuthController } from './auth.controller';
 import { changePasswordValidation, forgotPasswordValidation, loginValidation, refreshTokenValidation, registerValidation, resendVerificationValidation, resetPasswordValidation, updateProfileValidation, updateSecurityConfigValidation, verifyEmailValidation, verifySecurityAnswerValidation } from './auth.validations';
@@ -21,6 +22,8 @@ router.use(authenticate); // All routes below require authentication
 
 router.get('/profile', AuthController.getProfile);
 router.put('/profile', updateProfileValidation, validationMiddleware, AuthController.updateProfile);
+router.post('/avatar', uploadSingle('avatar'), validateFileContent, AuthController.uploadAvatar);
+router.delete('/avatar', AuthController.removeAvatar);
 router.put('/change-password', changePasswordValidation, validationMiddleware, AuthController.changePassword);
 router.put('/security-config', updateSecurityConfigValidation, validationMiddleware, AuthController.updateSecurityConfig);
 router.post('/verify-security', verifySecurityAnswerValidation, validationMiddleware, AuthController.verifySecurityAnswer);

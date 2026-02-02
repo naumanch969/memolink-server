@@ -97,8 +97,17 @@ export const updateProfileValidation = [
 
   body('avatar')
     .optional()
-    .isURL()
-    .withMessage('Avatar must be a valid URL'),
+    .custom((value) => {
+      // Allow empty string for avatar removal
+      if (value === '' || value === null) return true;
+      // Validate URL if a value is provided
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        throw new Error('Avatar must be a valid URL');
+      }
+    }),
 
   body('preferences.theme')
     .optional()

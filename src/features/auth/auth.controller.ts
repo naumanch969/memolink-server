@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
-import { AuthenticatedRequest } from './auth.interfaces';
-import { ChangePasswordRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.interfaces';
+import { AuthenticatedRequest, ChangePasswordRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.interfaces';
 import { authService } from './auth.service';
 
 export class AuthController {
@@ -53,6 +52,26 @@ export class AuthController {
     const user = await authService.updateProfile(userId, updateData);
 
     ResponseHelper.success(res, user, 'Profile updated successfully');
+  });
+
+  // Upload avatar
+  static uploadAvatar = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+
+    if (!req.file) {
+      ResponseHelper.error(res, 'No file uploaded', 400);
+      return;
+    }
+
+    const user = await authService.uploadAvatar(userId, req.file);
+    ResponseHelper.success(res, user, 'Avatar uploaded successfully');
+  });
+
+  // Remove avatar
+  static removeAvatar = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!._id.toString();
+    const user = await authService.removeAvatar(userId);
+    ResponseHelper.success(res, user, 'Avatar removed successfully');
   });
 
   // Change password

@@ -36,6 +36,7 @@
     "@types/jsonwebtoken": "^8.5.9",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",
+    "apminsight": "^5.2.1",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.66.5",
     "chrono-node": "^2.9.0",
