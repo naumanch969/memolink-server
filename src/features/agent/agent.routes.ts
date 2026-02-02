@@ -1,20 +1,20 @@
 import { Router } from 'express';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import { agentController } from './agent.controller';
+import { AgentController } from './agent.controller';
 
 const router = Router();
 
 // Protect all agent routes
 router.use(authenticate);
 
-router.post('/tasks', agentController.createTask);
-router.get('/tasks', agentController.listTasks);
-router.get('/tasks/:taskId', agentController.getTask);
-router.post('/intent', agentController.processNaturalLanguage);
-router.post('/chat', agentController.chat);
-router.get('/chat', agentController.getHistory);
-router.get('/briefing', agentController.getBriefing);
-router.get('/similar', agentController.getSimilarEntries);
-router.delete('/chat', agentController.clearHistory);
+router.post('/tasks', AgentController.createTask);
+router.get('/tasks', AgentController.listTasks);
+router.get('/tasks/:taskId', AgentController.getTask);
+router.post('/intent', AgentController.processNaturalLanguage);
+router.post('/chat', AgentController.chat);
+router.get('/chat', AgentController.getHistory);
+router.get('/briefing', AgentController.getBriefing);
+router.get('/similar', AgentController.getSimilarEntries);
+router.delete('/chat', AgentController.clearHistory);
 
 export default router;

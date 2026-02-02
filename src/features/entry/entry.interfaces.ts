@@ -20,6 +20,7 @@ export interface IEntry extends BaseEntity {
   endTime?: string; // Format: HH:mm
   isMultiDay?: boolean; // Flag for collective entries
   isEdited?: boolean;
+  isFavorite?: boolean;
   status?: 'ready' | 'processing' | 'failed';
   embeddings?: number[];
 }
@@ -49,6 +50,9 @@ export interface IEntryService {
   deleteEntry(entryId: string, userId: string): Promise<void>;
   getEntryStats(userId: string): Promise<EntryStats>;
   getFeed(userId: string, feedParams: EntryFeedRequest): Promise<EntryFeedResponse>;
+  deleteUserData(userId: string): Promise<number>;
+  toggleFavorite(entryId: string, userId: string): Promise<IEntry>;
+  getCalendarEntries(userId: string, startDate: string, endDate: string): Promise<any[]>;
 }
 
 export interface CreateEntryRequest {
@@ -67,6 +71,8 @@ export interface CreateEntryRequest {
   startTime?: string;
   endTime?: string;
   isMultiDay?: boolean;
+  status?: 'ready' | 'processing' | 'failed';
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateEntryRequest {
@@ -79,6 +85,8 @@ export interface UpdateEntryRequest {
   isImportant?: boolean;
   mood?: string;
   location?: string;
+  date?: Date;
+  status?: 'ready' | 'processing' | 'failed';
 }
 
 export interface EntrySearchRequest {

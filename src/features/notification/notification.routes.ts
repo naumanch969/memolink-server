@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import notificationController from './notification.controller';
 import { authenticate } from '../../core/middleware/authMiddleware';
+import { NotificationController } from './notification.controller';
 
 const router = Router();
 
 // Apply auth middleware to all routes
 router.use(authenticate);
 
-router.get('/', notificationController.getNotifications);
-router.put('/mark-all-read', notificationController.markAllAsRead);
-router.put('/:id/read', notificationController.markAsRead);
-router.delete('/:id', notificationController.deleteNotification);
+router.get('/', NotificationController.getNotifications);
+router.put('/mark-all-read', NotificationController.markAllAsRead);
+router.put('/:id/read', NotificationController.markAsRead);
+router.delete('/:id', NotificationController.deleteNotification);
 
 export default router;

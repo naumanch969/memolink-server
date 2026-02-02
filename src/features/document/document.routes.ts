@@ -1,16 +1,16 @@
-import express from 'express';
+import { Router } from 'express';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import * as documentController from './document.controller';
+import { DocumentController } from './document.controller';
 
-const router = express.Router();
+const router = Router();
 
 router.use(authenticate);
 
-router.post('/', documentController.createDocument);
-router.get('/', documentController.getDocuments);
-router.get('/recent', documentController.getRecentDocuments);
-router.get('/:id', documentController.getDocumentById);
-router.put('/:id', documentController.updateDocument);
-router.delete('/:id', documentController.deleteDocument);
+router.post('/', DocumentController.createDocument);
+router.get('/', DocumentController.getDocuments);
+router.get('/recent', DocumentController.getRecentDocuments);
+router.get('/:id', DocumentController.getDocumentById);
+router.put('/:id', DocumentController.updateDocument);
+router.delete('/:id', DocumentController.deleteDocument);
 
 export default router;

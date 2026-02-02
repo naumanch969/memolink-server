@@ -1,12 +1,19 @@
-import { Entry } from './entry.model';
-
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
-import { EntrySearchRequest, EntryStats, IEntry, IEntryService } from './entry.interfaces';
+import {
+  CreateEntryRequest,
+  EntryFeedRequest,
+  EntrySearchRequest,
+  EntryStats,
+  IEntry,
+  IEntryService,
+  UpdateEntryRequest
+} from './entry.interfaces';
+import { Entry } from './entry.model';
 
 export class EntryService implements IEntryService {
   // Helper method to extract mentions from content
@@ -23,7 +30,7 @@ export class EntryService implements IEntryService {
   }
 
   // Create new entry
-  async createEntry(userId: string, entryData: any): Promise<IEntry> {
+  async createEntry(userId: string, entryData: CreateEntryRequest): Promise<IEntry> {
     try {
       // Extract mentions from content
       const mentionNames = this.extractMentions(entryData.content || '');
@@ -85,25 +92,21 @@ export class EntryService implements IEntryService {
       });
 
       // TRIGGER AGENT: Auto-Tagging & People Extraction
-      // We don't await this, it runs in background
       if (entryData.content && entryData.content.length > 20) {
         Promise.all([
           import('../agent/agent.service'),
           import('../agent/agent.types')
         ]).then(([{ agentService }, { AgentTaskType }]) => {
-          // 1. Silent Librarian (Tagging)
           agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
             entryId: entry._id.toString(),
             content: entryData.content
           }).catch(err => logger.error('Failed to trigger auto-tagging', err));
 
-          // 2. Chief of Staff (People Extraction)
           agentService.createTask(userId, AgentTaskType.PEOPLE_EXTRACTION, {
             entryId: entry._id.toString(),
-            userId // Pass userId explicitly for the workflow
+            userId
           }).catch(err => logger.error('Failed to trigger people extraction', err));
 
-          // 3. Ghost Memory (Semantic Embedding)
           agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, {
             entryId: entry._id.toString()
           }).catch(err => logger.error('Failed to trigger entry embedding', err));
@@ -133,24 +136,16 @@ export class EntryService implements IEntryService {
   }
 
   // Get user entries
-  async getUserEntries(userId: string, options: any = {}): Promise<{
-    entries: IEntry[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  async getUserEntries(userId: string, options: any = {}): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
       const { page, limit } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'createdAt');
-      const filter = { userId, ...options.filter };
+      const filter = { userId, ...options };
 
       const [entries, total] = await Promise.all([
         Entry.find(filter)
           .populate(['mentions', 'tags', 'media'])
           .sort(sort as any),
-        // .skip(skip)
-        // .limit(limit),
         Entry.countDocuments(filter),
       ]);
 
@@ -170,13 +165,7 @@ export class EntryService implements IEntryService {
   }
 
   // Search entries
-  async searchEntries(userId: string, searchParams: EntrySearchRequest): Promise<{
-    entries: IEntry[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  async searchEntries(userId: string, searchParams: EntrySearchRequest): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(searchParams);
       let sort: any = Helpers.getSortParams(searchParams, 'createdAt');
@@ -184,29 +173,16 @@ export class EntryService implements IEntryService {
       const filter: any = { userId };
       const projection: any = {};
 
-      // Text search with relevance scoring
       if (searchParams.q) {
         const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
-        logger.info('Search query sanitized', {
-          original: searchParams.q,
-          sanitized: sanitizedQuery
-        });
-
         if (sanitizedQuery) {
           filter.$text = { $search: sanitizedQuery };
-          // Add text score for relevance ranking
           projection.score = { $meta: 'textScore' };
-          // Sort by relevance score when searching
           sort = { score: { $meta: 'textScore' }, ...sort };
         }
       }
 
-      // Type filter
-      if (searchParams.type) {
-        filter.type = searchParams.type;
-      }
-
-      // Date range filter
+      if (searchParams.type) filter.type = searchParams.type;
       if (searchParams.dateFrom || searchParams.dateTo) {
         const { from, to } = Helpers.getDateRange(searchParams.dateFrom, searchParams.dateTo);
         filter.date = {};
@@ -214,40 +190,18 @@ export class EntryService implements IEntryService {
         if (to) filter.date.$lte = to;
       }
 
-      // Tags filter
       if (searchParams.tags && searchParams.tags.length > 0) {
         filter.tags = { $in: searchParams.tags.map(id => new Types.ObjectId(id)) };
       }
 
-      // People filter
       if (searchParams.people && searchParams.people.length > 0) {
         filter.mentions = { $in: searchParams.people.map(id => new Types.ObjectId(id)) };
       }
 
-      // Privacy filter
-      if (searchParams.isPrivate !== undefined) {
-        filter.isPrivate = searchParams.isPrivate;
-      }
-
-      // Important days filter
-      if (searchParams.isImportant !== undefined) {
-        filter.isImportant = searchParams.isImportant;
-      }
-
-      // Mood filter
-      if (searchParams.mood) {
-        filter.mood = new RegExp(searchParams.mood, 'i'); // Case-insensitive partial match
-      }
-
-      // Location filter
-      if (searchParams.location) {
-        filter.location = new RegExp(searchParams.location, 'i'); // Case-insensitive partial match
-      }
-
-      logger.info('Search filter built', {
-        filter: JSON.stringify(filter),
-        hasTextSearch: !!filter.$text
-      });
+      if (searchParams.isPrivate !== undefined) filter.isPrivate = searchParams.isPrivate;
+      if (searchParams.isImportant !== undefined) filter.isImportant = searchParams.isImportant;
+      if (searchParams.mood) filter.mood = new RegExp(searchParams.mood, 'i');
+      if (searchParams.location) filter.location = new RegExp(searchParams.location, 'i');
 
       const [entries, total] = await Promise.all([
         Entry.find(filter, projection)
@@ -260,14 +214,7 @@ export class EntryService implements IEntryService {
 
       const totalPages = Math.ceil(total / limit);
 
-      logger.info('Search completed', {
-        userId,
-        query: searchParams.q,
-        filters: Object.keys(filter).length,
-        resultsCount: entries.length,
-      });
-
-      return { entries, total, page, limit, totalPages, };
+      return { entries, total, page, limit, totalPages };
     } catch (error) {
       logger.error('Search entries failed:', error);
       throw error;
@@ -275,20 +222,12 @@ export class EntryService implements IEntryService {
   }
 
   // Get feed with cursor-based pagination
-  async getFeed(userId: string, feedParams: any): Promise<{
-    entries: IEntry[];
-    nextCursor?: string;
-    hasMore: boolean;
-  }> {
+  async getFeed(userId: string, feedParams: EntryFeedRequest): Promise<{ entries: IEntry[]; nextCursor?: string; hasMore: boolean; }> {
     try {
-      const limit = Math.min(Math.max(1, feedParams.limit || 20), 50); // Clamp limit between 1 and 50
-
+      const limit = Math.min(Math.max(1, feedParams.limit || 20), 50);
       const filter: any = { userId };
 
-      // Cursor pagination logic
-      // We rely on natural sort order (created at desc) and _id as tiebreaker
       if (feedParams.cursor) {
-        // Find the cursor entry first to get its date
         const cursorEntry = await Entry.findById(feedParams.cursor);
         if (cursorEntry) {
           filter.$or = [
@@ -301,7 +240,6 @@ export class EntryService implements IEntryService {
         }
       }
 
-      // Apply other filters
       if (feedParams.type) filter.type = feedParams.type;
       if (feedParams.tags && feedParams.tags.length > 0) {
         filter.tags = { $in: feedParams.tags.map((id: string) => new Types.ObjectId(id)) };
@@ -316,21 +254,17 @@ export class EntryService implements IEntryService {
       const entries = await Entry.find(filter)
         .populate(['mentions', 'tags', 'media'])
         .sort({ createdAt: -1, _id: -1 })
-        .limit(limit + 1); // Fetch one extra to check if there are more
+        .limit(limit + 1);
 
       const hasMore = entries.length > limit;
       let nextCursor = undefined;
 
       if (hasMore) {
-        entries.pop(); // Remove the extra entry
+        entries.pop();
         nextCursor = entries[entries.length - 1]._id.toString();
       }
 
-      return {
-        entries,
-        nextCursor,
-        hasMore
-      };
+      return { entries, nextCursor, hasMore };
     } catch (error) {
       logger.error('Get feed failed:', error);
       throw error;
@@ -338,17 +272,13 @@ export class EntryService implements IEntryService {
   }
 
   // Update entry
-  async updateEntry(entryId: string, userId: string, updateData: any): Promise<IEntry> {
+  async updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry> {
     try {
-      // Get existing entry to compare tags
       const existingEntry = await Entry.findOne({ _id: entryId, userId });
-      if (!existingEntry) {
-        throw createNotFoundError('Entry');
-      }
+      if (!existingEntry) throw createNotFoundError('Entry');
 
       const oldTags = (existingEntry.tags || []).map(t => t.toString());
 
-      // Process tags (IDs or Names) for update
       if (updateData.tags) {
         const resolvedTagIds: string[] = [];
         for (const tagIdentifier of updateData.tags) {
@@ -368,29 +298,16 @@ export class EntryService implements IEntryService {
         { new: true, runValidators: true }
       ).populate(['mentions', 'tags', 'media']);
 
-      if (!entry) {
-        throw createNotFoundError('Entry');
-      }
+      if (!entry) throw createNotFoundError('Entry');
 
-      // Handle tag usage updates if tags changed
       if (updateData.tags) {
-        const newTags = updateData.tags; // These are now all IDs string
-
+        const newTags = updateData.tags;
         const addedTags = newTags.filter((t: string) => !oldTags.includes(t));
         const removedTags = oldTags.filter((t: string) => !newTags.includes(t));
 
-        if (addedTags.length > 0) {
-          await tagService.incrementUsage(userId, addedTags);
-        }
-        if (removedTags.length > 0) {
-          await tagService.decrementUsage(userId, removedTags);
-        }
+        if (addedTags.length > 0) await tagService.incrementUsage(userId, addedTags);
+        if (removedTags.length > 0) await tagService.decrementUsage(userId, removedTags);
       }
-
-      logger.info('Entry updated successfully', {
-        entryId: entry._id,
-        userId,
-      });
 
       return entry;
     } catch (error) {
@@ -403,35 +320,82 @@ export class EntryService implements IEntryService {
   async deleteEntry(entryId: string, userId: string): Promise<void> {
     try {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
-      if (!entry) {
-        throw createNotFoundError('Entry');
-      }
+      if (!entry) throw createNotFoundError('Entry');
 
-      // Decrement usage for associated tags
       if (entry.tags && entry.tags.length > 0) {
         const tagIds = entry.tags.map(t => t.toString());
         await tagService.decrementUsage(userId, tagIds);
       }
 
-      // Handle associated media cleanup
-      // Option: Delete media that was exclusively attached to this entry
-      // For now, we'll leave media orphaned (user can manage in media gallery)
-      // But we log it for potential future cleanup jobs
-      if (entry.media && entry.media.length > 0) {
-        logger.info('Entry deleted with associated media', {
-          entryId: entry._id,
-          mediaIds: entry.media.map(m => m.toString()),
-          userId,
-          note: 'Media left in gallery for manual cleanup'
-        });
-      }
-
-      logger.info('Entry deleted successfully', {
-        entryId: entry._id,
-        userId,
-      });
+      return;
     } catch (error) {
       logger.error('Entry deletion failed:', error);
+      throw error;
+    }
+  }
+
+  // Get entry statistics
+  async getEntryStats(userId: string): Promise<EntryStats> {
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [totalEntries, entriesToday, entriesThisWeek, entriesThisMonth, entryTypes, averageWords, mostActiveDayData] = await Promise.all([
+        Entry.countDocuments({ userId }),
+        Entry.countDocuments({ userId, createdAt: { $gte: startOfDay } }),
+        Entry.countDocuments({ userId, createdAt: { $gte: startOfWeek } }),
+        Entry.countDocuments({ userId, createdAt: { $gte: startOfMonth } }),
+        Entry.aggregate([{ $match: { userId: new Types.ObjectId(userId) } }, { $group: { _id: '$type', count: { $sum: 1 } } }]),
+        Entry.aggregate([{ $match: { userId: new Types.ObjectId(userId) } }, { $project: { wordCount: { $size: { $split: ['$content', ' '] } } } }, { $group: { _id: null, avgWords: { $avg: '$wordCount' } } }]),
+        Entry.aggregate([{ $match: { userId: new Types.ObjectId(userId) } }, { $group: { _id: { $dayOfWeek: '$createdAt' }, count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 1 }])
+      ]);
+
+      const typeStats = { text: 0, media: 0, mixed: 0 };
+      entryTypes.forEach((type: any) => { typeStats[type._id as keyof typeof typeStats] = type.count; });
+
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const mostActiveDay = mostActiveDayData[0] ? dayNames[mostActiveDayData[0]._id - 1] : 'Unknown';
+
+      return {
+        totalEntries,
+        entriesThisMonth,
+        entriesThisWeek,
+        entriesToday,
+        averageWordsPerEntry: Math.round(averageWords[0]?.avgWords || 0),
+        mostActiveDay,
+        entryTypes: typeStats
+      };
+    } catch (error) {
+      logger.error('Get entry stats failed:', error);
+      throw error;
+    }
+  }
+
+  // Toggle favorite status
+  async toggleFavorite(entryId: string, userId: string): Promise<IEntry> {
+    try {
+      const entry = await Entry.findOne({ _id: entryId, userId });
+      if (!entry) throw createNotFoundError('Entry');
+      entry.isFavorite = !entry.isFavorite;
+      await entry.save();
+      return entry;
+    } catch (error) {
+      logger.error('Toggle favorite failed:', error);
+      throw error;
+    }
+  }
+
+  // Get calendar entries
+  async getCalendarEntries(userId: string, startDate: string, endDate: string): Promise<any[]> {
+    try {
+      return await Entry.find({
+        userId,
+        date: { $gte: new Date(startDate), $lte: new Date(endDate) }
+      }).select('date mood type isImportant isFavorite title').sort({ date: 1 });
+    } catch (error) {
+      logger.error('Get calendar entries failed:', error);
       throw error;
     }
   }
@@ -441,77 +405,6 @@ export class EntryService implements IEntryService {
     const result = await Entry.deleteMany({ userId });
     logger.info(`Deleted ${result.deletedCount} entries for user ${userId}`);
     return result.deletedCount || 0;
-  }
-
-  // Get entry statistics
-  async getEntryStats(userId: string): Promise<EntryStats> {
-    try {
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const [
-        totalEntries,
-        entriesToday,
-        entriesThisWeek,
-        entriesThisMonth,
-        entryTypes,
-        averageWords,
-        mostActiveDayData,
-      ] = await Promise.all([
-        Entry.countDocuments({ userId }),
-        Entry.countDocuments({ userId, createdAt: { $gte: startOfDay } }),
-        Entry.countDocuments({ userId, createdAt: { $gte: startOfWeek } }),
-        Entry.countDocuments({ userId, createdAt: { $gte: startOfMonth } }),
-        Entry.aggregate([
-          { $match: { userId: new Types.ObjectId(userId) } },
-          { $group: { _id: '$type', count: { $sum: 1 } } },
-        ]),
-        Entry.aggregate([
-          { $match: { userId: new Types.ObjectId(userId) } },
-          { $project: { wordCount: { $size: { $split: ['$content', ' '] } } } },
-          { $group: { _id: null, avgWords: { $avg: '$wordCount' } } },
-        ]),
-        Entry.aggregate([
-          { $match: { userId: new Types.ObjectId(userId) } },
-          { $group: { _id: { $dayOfWeek: '$createdAt' }, count: { $sum: 1 } } },
-          { $sort: { count: -1 } },
-          { $limit: 1 },
-        ]),
-      ]);
-
-      const typeStats = {
-        text: 0,
-        media: 0,
-        mixed: 0,
-      };
-
-      entryTypes.forEach((type: any) => {
-        typeStats[type._id as keyof typeof typeStats] = type.count;
-      });
-
-      // Calculate most active day
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const mostActiveDay = mostActiveDayData[0]
-        ? dayNames[mostActiveDayData[0]._id - 1] || 'Unknown'
-        : 'Unknown';
-
-      const stats: EntryStats = {
-        totalEntries,
-        entriesThisMonth,
-        entriesThisWeek,
-        entriesToday,
-        averageWordsPerEntry: Math.round(averageWords[0]?.avgWords || 0),
-        mostActiveDay,
-        entryTypes: typeStats,
-      };
-
-      return stats;
-    } catch (error) {
-      logger.error('Get entry stats failed:', error);
-      throw error;
-    }
   }
 }
 

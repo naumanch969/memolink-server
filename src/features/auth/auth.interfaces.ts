@@ -12,6 +12,7 @@ export interface IUser extends BaseEntity {
   isEmailVerified: boolean;
   isActive: boolean;
   lastLoginAt?: Date;
+  lastLogoutAt?: Date;
   preferences: {
     theme: 'light' | 'dark' | 'auto' | 'system';
     notifications: boolean;
@@ -80,6 +81,7 @@ export interface IAuthService {
   updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<void>;
   verifySecurityAnswer(userId: string, answer: string): Promise<{ valid: boolean }>;
   googleLogin(idToken: string): Promise<AuthResponse>;
+  logout(userId: string): Promise<void>;
 }
 
 export interface GoogleLoginRequest {

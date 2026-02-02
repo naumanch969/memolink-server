@@ -15,30 +15,30 @@ export class AdminController {
     // BACKUPS
     // ==========================================
 
-    async getBackups(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getBackups(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const backups = await adminService.listBackups();
             ResponseHelper.success(res, backups, 'Backups retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async triggerBackup(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async triggerBackup(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             await adminService.triggerBackup();
             ResponseHelper.success(res, null, 'Backup process initiated successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getBackupRuns(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getBackupRuns(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const runs = await adminService.getBackupRuns();
             ResponseHelper.success(res, runs, 'Backup runs retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
@@ -46,48 +46,48 @@ export class AdminController {
     // MONITORING
     // ==========================================
 
-    async getSystemHealth(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getSystemHealth(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const health = await monitorService.getSystemMetrics();
             ResponseHelper.success(res, health, 'System health retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getDatabaseStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getDatabaseStats(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const stats = await monitorService.getDatabaseStats();
             ResponseHelper.success(res, stats, 'Database stats retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getJobQueueStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getJobQueueStats(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const queues = await monitorService.getJobQueues();
             ResponseHelper.success(res, queues, 'Job queue stats retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getLogs(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getLogs(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const logs = logViewerService.getLogs();
             ResponseHelper.success(res, logs, 'Logs retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async clearLogs(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async clearLogs(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             logViewerService.clear();
             ResponseHelper.success(res, null, 'Logs cleared successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
@@ -95,84 +95,84 @@ export class AdminController {
     // ANALYTICS
     // ==========================================
 
-    async getAnalyticsUserGrowth(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsUserGrowth(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getUserGrowth();
             ResponseHelper.success(res, data, 'User growth analytics retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsPlatform(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsPlatform(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getPlatformStats();
             ResponseHelper.success(res, data, 'Platform stats retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsUserAccounts(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsUserAccounts(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getUserAccountStats();
             ResponseHelper.success(res, data, 'User account stats retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsActiveUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsActiveUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getActiveUserStats();
             ResponseHelper.success(res, data, 'Active user stats retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsContentGrowth(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsContentGrowth(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getContentGrowth();
             ResponseHelper.success(res, data, 'Content growth analytics retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsFeatureBreakdown(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsFeatureBreakdown(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getFeatureUsageBreakdown();
             ResponseHelper.success(res, data, 'Feature breakdown analytics retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsRetention(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsRetention(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getRetentionStats();
             ResponseHelper.success(res, data, 'Retention analytics retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getAnalyticsFeatures(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getAnalyticsFeatures(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getFeatureStats();
             ResponseHelper.success(res, data, 'Feature stats retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async getDashboardOverview(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getDashboardOverview(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const data = await adminAnalyticsService.getDashboardStats();
             ResponseHelper.success(res, data, 'Dashboard overview retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
@@ -180,7 +180,7 @@ export class AdminController {
     // USER MANAGEMENT
     // ==========================================
 
-    async getUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 20;
@@ -195,59 +195,59 @@ export class AdminController {
                 totalPages: result.totalPages
             }, 'Users retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
 
-    async getUserDetails(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getUserDetails(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const { id } = req.params;
             const user = await adminUserService.getUserDetails(id);
             ResponseHelper.success(res, user, 'User details retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async updateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async updateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const { id } = req.params;
             const updates = req.body;
             const user = await adminUserService.updateUser(id, updates);
             ResponseHelper.success(res, user, 'User updated successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async deleteUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async deleteUser(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const { id } = req.params;
             const result = await adminUserService.deleteUser(id);
             ResponseHelper.success(res, result, 'User and all associated data deleted successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async deactivateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async deactivateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const { id } = req.params;
             const user = await adminUserService.deactivateUser(id);
             ResponseHelper.success(res, user, 'User account deactivated successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async reactivateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async reactivateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const { id } = req.params;
             const user = await adminUserService.reactivateUser(id);
             ResponseHelper.success(res, user, 'User account reactivated successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
@@ -255,16 +255,16 @@ export class AdminController {
     // SYSTEM CONFIGURATION
     // ==========================================
 
-    async getSystemConfigs(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async getSystemConfigs(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const configs = await adminConfigService.getAllConfigs();
             ResponseHelper.success(res, configs, 'System configurations retrieved successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 
-    async updateSystemConfig(req: AuthenticatedRequest, res: Response): Promise<void> {
+    static async updateSystemConfig(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const { key } = req.params;
             const { value } = req.body;
@@ -276,9 +276,7 @@ export class AdminController {
             }
             ResponseHelper.success(res, config, 'Configuration updated successfully');
         } catch (error) {
-            ResponseHelper.error(res, error);
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
 }
-
-export const adminController = new AdminController();

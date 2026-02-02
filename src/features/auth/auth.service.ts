@@ -1,4 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
+import { CloudinaryService } from '../../config/cloudinary';
 import { emailService } from '../../config/email';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
@@ -7,7 +8,6 @@ import { CryptoHelper } from '../../core/utils/crypto';
 import { AuthResponse, ChangePasswordRequest, IAuthService, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
 import { User } from './auth.model';
 import { Otp } from './otp.model';
-import { CloudinaryService } from '../../config/cloudinary';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -541,6 +541,18 @@ export class AuthService implements IAuthService {
       return { valid: isValid };
     } catch (error) {
       logger.error('Verify security answer failed', error);
+      throw error;
+    }
+  }
+
+  async logout(userId: string): Promise<void> {
+    try {
+      await User.findByIdAndUpdate(userId, {
+        lastLogoutAt: new Date()
+      });
+      logger.info('User logged out successfully', { userId });
+    } catch (error) {
+      logger.error('Logout failed', error);
       throw error;
     }
   }

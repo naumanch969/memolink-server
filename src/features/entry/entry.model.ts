@@ -15,6 +15,7 @@ const entrySchema = new Schema<IEntry>({
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
   isPrivate: { type: Boolean, default: false, },
   isImportant: { type: Boolean, default: false, },
+  isFavorite: { type: Boolean, default: false, },
   mood: { type: String, trim: true, maxlength: [50, 'Mood cannot exceed 50 characters'], },
   location: { type: String, trim: true, maxlength: [200, 'Location cannot exceed 200 characters'], },
   date: { type: Date, default: Date.now, index: true, },

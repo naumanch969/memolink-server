@@ -1,88 +1,108 @@
 import { Response } from 'express';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { goalService } from './goal.service';
-import { HTTP_STATUS } from '../../shared/constants';
 import { ResponseHelper } from '../../core/utils/response';
-import { asyncHandler } from '../../core/middleware/errorHandler';
-import { CreateGoalParams, UpdateGoalParams, UpdateGoalProgressParams, GetGoalsQuery, } from './goal.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { CreateGoalParams, GetGoalsQuery, UpdateGoalParams, UpdateGoalProgressParams, } from './goal.interfaces';
+import { goalService } from './goal.service';
 
 export class GoalController {
 
-    create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const params: CreateGoalParams = req.body;
+    static async create(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const params: CreateGoalParams = req.body;
 
-        const goal = await goalService.createGoal(userId, params);
+            const goal = await goalService.createGoal(userId, params);
 
-        ResponseHelper.created(res, goal, 'Goal created successfully');
-    });
-
-    list = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const query = req.query as unknown as GetGoalsQuery;
-
-        const goals = await goalService.getGoals(userId, query);
-
-        ResponseHelper.success(res, goals, 'Goals retrieved successfully');
-    });
-
-    getOne = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-
-        const goal = await goalService.getGoalById(userId, id);
-
-        if (!goal) {
-            ResponseHelper.notFound(res, 'Goal not found');
-            return;
+            ResponseHelper.created(res, goal, 'Goal created successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to create goal', 500, error);
         }
+    }
 
-        ResponseHelper.success(res, goal, 'Goal retrieved successfully');
-    });
+    static async list(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const query = req.query as unknown as GetGoalsQuery;
 
-    update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-        const params: UpdateGoalParams = req.body;
+            const goals = await goalService.getGoals(userId, query);
 
-        const goal = await goalService.updateGoal(userId, id, params);
-
-        if (!goal) {
-            ResponseHelper.notFound(res, 'Goal not found');
-            return;
+            ResponseHelper.success(res, goals, 'Goals retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to retrieve goals', 500, error);
         }
+    }
 
-        ResponseHelper.success(res, goal, 'Goal updated successfully');
-    });
+    static async getOne(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
 
-    updateProgress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-        const params: UpdateGoalProgressParams = req.body;
+            const goal = await goalService.getGoalById(userId, id);
 
-        const goal = await goalService.updateProgress(userId, id, params);
+            if (!goal) {
+                ResponseHelper.notFound(res, 'Goal not found');
+                return;
+            }
 
-        if (!goal) {
-            ResponseHelper.notFound(res, 'Goal not found');
-            return;
+            ResponseHelper.success(res, goal, 'Goal retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to retrieve goal', 500, error);
         }
+    }
 
-        ResponseHelper.success(res, goal, 'Goal progress updated successfully');
-    });
+    static async update(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+            const params: UpdateGoalParams = req.body;
 
-    delete = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
+            const goal = await goalService.updateGoal(userId, id, params);
 
-        const success = await goalService.deleteGoal(userId, id);
+            if (!goal) {
+                ResponseHelper.notFound(res, 'Goal not found');
+                return;
+            }
 
-        if (!success) {
-            ResponseHelper.notFound(res, 'Goal not found or could not be deleted');
-            return;
+            ResponseHelper.success(res, goal, 'Goal updated successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to update goal', 500, error);
         }
+    }
 
-        ResponseHelper.success(res, null, 'Goal deleted successfully');
-    });
+    static async updateProgress(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+            const params: UpdateGoalProgressParams = req.body;
+
+            const goal = await goalService.updateProgress(userId, id, params);
+
+            if (!goal) {
+                ResponseHelper.notFound(res, 'Goal not found');
+                return;
+            }
+
+            ResponseHelper.success(res, goal, 'Goal progress updated successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to update goal progress', 500, error);
+        }
+    }
+
+    static async delete(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+
+            const success = await goalService.deleteGoal(userId, id);
+
+            if (!success) {
+                ResponseHelper.notFound(res, 'Goal not found or could not be deleted');
+                return;
+            }
+
+            ResponseHelper.success(res, null, 'Goal deleted successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to delete goal', 500, error);
+        }
+    }
 }
-
-export const goalController = new GoalController();

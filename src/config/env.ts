@@ -74,6 +74,16 @@ export const config = {
 
   // Redis Configuration
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+
+  // AI Configuration
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+
+  // Auth Configuration
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  TEST_AUTH_TOKEN: process.env.TEST_AUTH_TOKEN || '',
+
+  // Observability
+  SENTRY_DSN_URL: process.env.SENTRY_DSN_URL || '',
 } as const;
 
 export type Config = typeof config;

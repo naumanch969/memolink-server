@@ -97,27 +97,5 @@ router.use('/activity', webActivityRoutes);
 router.use('/events', eventsRoutes);
 router.use('/announcements', announcementRoutes);
 
-// Log route registration
-logger.info('Routes registered successfully', {
-  features: [
-    'auth',
-    'entries',
-    'people',
-    'tags',
-    'media',
-    'folders',
-    'storage',
-    'analytics',
-    'export',
-    'widgets',
-    'routines',
-    'reminders',
-    'goals',
-    'notifications',
-    'admin',
-    'documents',
-    'activity',
-  ],
-});
 
 export default router;

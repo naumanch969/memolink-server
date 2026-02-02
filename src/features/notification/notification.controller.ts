@@ -1,57 +1,70 @@
 import { Response } from 'express';
-import notificationService from './notification.service';
 import { ResponseHelper } from '../../core/utils/response';
-import { asyncHandler } from '../../core/middleware/errorHandler';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import notificationService from './notification.service';
 
-class NotificationController {
+export class NotificationController {
 
     // Get notifications
-    getNotifications = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 20;
-        const offset = (page - 1) * limit;
-        const unreadOnly = req.query.unread === 'true';
+    static async getNotifications(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 20;
+            const offset = (page - 1) * limit;
+            const unreadOnly = req.query.unread === 'true';
 
-        const result = await notificationService.getUserNotifications(
-            userId,
-            limit,
-            offset,
-            unreadOnly
-        );
+            const result = await notificationService.getUserNotifications(
+                userId,
+                limit,
+                offset,
+                unreadOnly
+            );
 
-        ResponseHelper.paginated(res, result.notifications, {
-            total: result.total,
-            page,
-            limit,
-            unreadCount: result.unreadCount,
-            totalPages: Math.ceil(result.total / limit)
-        } as any, 'Notifications retrieved successfully');
-    });
+            ResponseHelper.paginated(res, result.notifications, {
+                total: result.total,
+                page,
+                limit,
+                unreadCount: result.unreadCount,
+                totalPages: Math.ceil(result.total / limit)
+            } as any, 'Notifications retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to retrieve notifications', 500, error);
+        }
+    }
 
     // Mark one as read
-    markAsRead = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-        await notificationService.markAsRead(userId, id);
-        ResponseHelper.success(res, null, 'Notification marked as read');
-    });
+    static async markAsRead(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+            await notificationService.markAsRead(userId, id);
+            ResponseHelper.success(res, null, 'Notification marked as read');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to mark notification as read', 500, error);
+        }
+    }
 
     // Mark all as read
-    markAllAsRead = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        await notificationService.markAllAsRead(userId);
-        ResponseHelper.success(res, null, 'All notifications marked as read');
-    });
+    static async markAllAsRead(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            await notificationService.markAllAsRead(userId);
+            ResponseHelper.success(res, null, 'All notifications marked as read');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to mark all notifications as read', 500, error);
+        }
+    }
 
     // Delete notification
-    deleteNotification = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-        await notificationService.delete(userId, id);
-        ResponseHelper.success(res, null, 'Notification deleted');
-    });
+    static async deleteNotification(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+            await notificationService.delete(userId, id);
+            ResponseHelper.success(res, null, 'Notification deleted');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to delete notification', 500, error);
+        }
+    }
 }
-
-export default new NotificationController();

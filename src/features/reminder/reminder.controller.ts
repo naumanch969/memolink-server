@@ -1,117 +1,150 @@
-import { Response, NextFunction } from 'express';
-import reminderService from './reminder.service';
-import { CreateReminderRequest, UpdateReminderRequest, GetRemindersQuery } from './reminder.types';
-import { asyncHandler } from '../../core/middleware/errorHandler';
+import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import reminderService from './reminder.service';
+import { CreateReminderRequest, GetRemindersQuery, UpdateReminderRequest } from './reminder.types';
 
-class ReminderController {
+export class ReminderController {
     // ============================================
     // CREATE
     // ============================================
 
-    createReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const data: CreateReminderRequest = req.body;
+    static async createReminder(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const data: CreateReminderRequest = req.body;
 
-        const reminder = await reminderService.createReminder(userId, data);
+            const reminder = await reminderService.createReminder(userId, data);
 
-        ResponseHelper.created(res, reminder, 'Reminder created successfully');
-    });
+            ResponseHelper.created(res, reminder, 'Reminder created successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to create reminder', 500, error);
+        }
+    }
 
     // ============================================
     // READ
     // ============================================
 
-    getReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const query: GetRemindersQuery = req.query;
+    static async getReminders(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const query: GetRemindersQuery = req.query;
 
-        const result = await reminderService.getReminders(userId, query);
+            const result = await reminderService.getReminders(userId, query);
 
-        ResponseHelper.paginated(res, result.reminders, {
-            page: result.page,
-            limit: result.limit,
-            total: result.total,
-            totalPages: Math.ceil(result.total / result.limit),
-        }, 'Reminders fetched successfully');
-    });
+            ResponseHelper.paginated(res, result.reminders, {
+                page: result.page,
+                limit: result.limit,
+                total: result.total,
+                totalPages: Math.ceil(result.total / result.limit),
+            }, 'Reminders fetched successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to fetch reminders', 500, error);
+        }
+    }
 
-    getReminderById = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
+    static async getReminderById(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
 
-        const reminder = await reminderService.getReminderById(userId, id);
+            const reminder = await reminderService.getReminderById(userId, id);
 
-        ResponseHelper.success(res, reminder, 'Reminder fetched successfully');
-    });
+            ResponseHelper.success(res, reminder, 'Reminder fetched successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to fetch reminder', 500, error);
+        }
+    }
 
-    getUpcomingReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+    static async getUpcomingReminders(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
 
-        const reminders = await reminderService.getUpcomingReminders(userId, limit);
+            const reminders = await reminderService.getUpcomingReminders(userId, limit);
 
-        ResponseHelper.success(res, reminders, 'Upcoming reminders fetched successfully');
-    });
+            ResponseHelper.success(res, reminders, 'Upcoming reminders fetched successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to fetch upcoming reminders', 500, error);
+        }
+    }
 
-    getOverdueReminders = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
+    static async getOverdueReminders(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
 
-        const reminders = await reminderService.getOverdueReminders(userId);
+            const reminders = await reminderService.getOverdueReminders(userId);
 
-        ResponseHelper.success(res, reminders, 'Overdue reminders fetched successfully');
-    });
+            ResponseHelper.success(res, reminders, 'Overdue reminders fetched successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to fetch overdue reminders', 500, error);
+        }
+    }
 
     // ============================================
     // UPDATE
     // ============================================
 
-    updateReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-        const data: UpdateReminderRequest = req.body;
+    static async updateReminder(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+            const data: UpdateReminderRequest = req.body;
 
-        const reminder = await reminderService.updateReminder(userId, id, data);
+            const reminder = await reminderService.updateReminder(userId, id, data);
 
-        ResponseHelper.success(res, reminder, 'Reminder updated successfully');
-    });
+            ResponseHelper.success(res, reminder, 'Reminder updated successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to update reminder', 500, error);
+        }
+    }
 
-    completeReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
-        const { completedAt } = req.body;
+    static async completeReminder(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
+            const { completedAt } = req.body;
 
-        const reminder = await reminderService.completeReminder(
-            userId,
-            id,
-            completedAt ? new Date(completedAt) : undefined
-        );
+            const reminder = await reminderService.completeReminder(
+                userId,
+                id,
+                completedAt ? new Date(completedAt) : undefined
+            );
 
-        ResponseHelper.success(res, reminder, 'Reminder completed successfully');
-    });
+            ResponseHelper.success(res, reminder, 'Reminder completed successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to complete reminder', 500, error);
+        }
+    }
 
-    cancelReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
+    static async cancelReminder(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
 
-        const reminder = await reminderService.cancelReminder(userId, id);
+            const reminder = await reminderService.cancelReminder(userId, id);
 
-        ResponseHelper.success(res, reminder, 'Reminder cancelled successfully');
-    });
+            ResponseHelper.success(res, reminder, 'Reminder cancelled successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to cancel reminder', 500, error);
+        }
+    }
 
     // ============================================
     // DELETE
     // ============================================
 
-    deleteReminder = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        const userId = req.user!._id.toString();
-        const { id } = req.params;
+    static async deleteReminder(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { id } = req.params;
 
-        await reminderService.deleteReminder(userId, id);
+            await reminderService.deleteReminder(userId, id);
 
-        ResponseHelper.success(res, null, 'Reminder deleted successfully');
-    });
+            ResponseHelper.success(res, null, 'Reminder deleted successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to delete reminder', 500, error);
+        }
+    }
 }
-
-export default new ReminderController();

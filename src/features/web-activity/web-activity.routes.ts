@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import { webActivityController } from './web-activity.controller';
+import { WebActivityController } from './web-activity.controller';
 
 const router = Router();
 
@@ -8,7 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 // Activity routes
-router.post('/sync', webActivityController.sync);
-router.get('/today', webActivityController.getToday);
+router.post('/sync', WebActivityController.sync);
+router.get('/today', WebActivityController.getToday);
 
 export default router;

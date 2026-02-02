@@ -5,7 +5,7 @@ import { announcementService } from './announcement.service';
 
 export class AnnouncementController {
 
-    async create(req: Request, res: Response) {
+    static async create(req: Request, res: Response) {
         try {
             if (!req.user) return ResponseHelper.unauthorized(res);
 
@@ -21,7 +21,7 @@ export class AnnouncementController {
         }
     }
 
-    async getAll(req: Request, res: Response) {
+    static async getAll(req: Request, res: Response) {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
@@ -40,7 +40,7 @@ export class AnnouncementController {
         }
     }
 
-    async getOne(req: Request, res: Response) {
+    static async getOne(req: Request, res: Response) {
         try {
             const announcement = await announcementService.getAnnouncementById(req.params.id);
             if (!announcement) {
@@ -53,7 +53,7 @@ export class AnnouncementController {
         }
     }
 
-    async update(req: Request, res: Response) {
+    static async update(req: Request, res: Response) {
         try {
             const announcement = await announcementService.updateAnnouncement(req.params.id, req.body);
             if (!announcement) {
@@ -66,7 +66,7 @@ export class AnnouncementController {
         }
     }
 
-    async delete(req: Request, res: Response) {
+    static async delete(req: Request, res: Response) {
         try {
             const success = await announcementService.deleteAnnouncement(req.params.id);
             if (!success) {
@@ -79,7 +79,7 @@ export class AnnouncementController {
         }
     }
 
-    async send(req: Request, res: Response) {
+    static async send(req: Request, res: Response) {
         try {
             const announcement = await announcementService.dispatchAnnouncement(req.params.id);
             ResponseHelper.success(res, announcement, 'Announcement dispatch started');
@@ -89,7 +89,7 @@ export class AnnouncementController {
         }
     }
 
-    async getDeliveryLogs(req: Request, res: Response) {
+    static async getDeliveryLogs(req: Request, res: Response) {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 50;
@@ -109,5 +109,3 @@ export class AnnouncementController {
         }
     }
 }
-
-export const announcementController = new AnnouncementController();

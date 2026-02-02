@@ -1,7 +1,6 @@
 import { Response } from 'express';
 import { CloudinaryService } from '../../config/cloudinary';
 import { logger } from '../../config/logger';
-import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
 import { getMediaTypeFromMime } from '../../shared/constants';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
@@ -16,26 +15,26 @@ export class ChunkedUploadController {
   /**
    * Initialize a chunked upload session
    */
-  static initSession = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!._id.toString();
-    const { fileName, mimeType, totalSize, chunkSize, metadata } = req.body;
-
-    // Validate required fields
-    if (!fileName || !mimeType || !totalSize) {
-      ResponseHelper.badRequest(res, 'fileName, mimeType, and totalSize are required');
-      return;
-    }
-
-    // Check storage quota
-    const quotaCheck = await storageService.canUpload(userId, totalSize);
-    if (!quotaCheck.allowed) {
-      ResponseHelper.error(res, quotaCheck.reason || 'Storage quota exceeded', 403, {
-        code: 'QUOTA_EXCEEDED',
-      });
-      return;
-    }
-
+  static async initSession(req: AuthenticatedRequest, res: Response) {
     try {
+      const userId = req.user!._id.toString();
+      const { fileName, mimeType, totalSize, chunkSize, metadata } = req.body;
+
+      // Validate required fields
+      if (!fileName || !mimeType || !totalSize) {
+        ResponseHelper.badRequest(res, 'fileName, mimeType, and totalSize are required');
+        return;
+      }
+
+      // Check storage quota
+      const quotaCheck = await storageService.canUpload(userId, totalSize);
+      if (!quotaCheck.allowed) {
+        ResponseHelper.error(res, quotaCheck.reason || 'Storage quota exceeded', 403, {
+          code: 'QUOTA_EXCEEDED',
+        });
+        return;
+      }
+
       const session = chunkedUploadService.createSession({
         userId,
         fileName,
@@ -48,40 +47,40 @@ export class ChunkedUploadController {
       ResponseHelper.created(res, session, 'Upload session created');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to create session';
-      logger.error('Failed to create chunked upload session', { error: msg, userId });
+      logger.error('Failed to create chunked upload session', { error: msg, userId: req.user?._id });
       ResponseHelper.error(res, msg, 500);
     }
-  });
+  }
 
   /**
    * Upload a chunk
    */
-  static uploadChunk = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!._id.toString();
-    const { sessionId } = req.params;
-    const chunkIndex = parseInt(req.query.chunkIndex as string, 10);
-    const checksum = req.query.checksum as string;
-
-    // Validate session ownership
-    if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
-      ResponseHelper.error(res, 'Upload session not found', 404);
-      return;
-    }
-
-    // Validate chunk index
-    if (isNaN(chunkIndex) || chunkIndex < 0) {
-      ResponseHelper.badRequest(res, 'Valid chunkIndex is required');
-      return;
-    }
-
-    // Get raw body as Buffer
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
-    }
-    const data = Buffer.concat(chunks);
-
+  static async uploadChunk(req: AuthenticatedRequest, res: Response) {
     try {
+      const userId = req.user!._id.toString();
+      const { sessionId } = req.params;
+      const chunkIndex = parseInt(req.query.chunkIndex as string, 10);
+      const checksum = req.query.checksum as string;
+
+      // Validate session ownership
+      if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
+        ResponseHelper.error(res, 'Upload session not found', 404);
+        return;
+      }
+
+      // Validate chunk index
+      if (isNaN(chunkIndex) || chunkIndex < 0) {
+        ResponseHelper.badRequest(res, 'Valid chunkIndex is required');
+        return;
+      }
+
+      // Get raw body as Buffer
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const data = Buffer.concat(chunks);
+
       const result = chunkedUploadService.uploadChunk({
         sessionId,
         chunkIndex,
@@ -92,48 +91,52 @@ export class ChunkedUploadController {
       ResponseHelper.success(res, result, 'Chunk uploaded');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to upload chunk';
-      logger.error('Failed to upload chunk', { error: msg, sessionId, chunkIndex });
+      logger.error('Failed to upload chunk', { error: msg, sessionId: req.params.sessionId, chunkIndex: req.query.chunkIndex });
       ResponseHelper.error(res, msg, 400);
     }
-  });
+  }
 
   /**
    * Get session status
    */
-  static getSessionStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!._id.toString();
-    const { sessionId } = req.params;
+  static async getSessionStatus(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!._id.toString();
+      const { sessionId } = req.params;
 
-    // Validate session ownership
-    if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
-      ResponseHelper.error(res, 'Upload session not found', 404);
-      return;
+      // Validate session ownership
+      if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
+        ResponseHelper.error(res, 'Upload session not found', 404);
+        return;
+      }
+
+      const status = chunkedUploadService.getSessionStatus(sessionId);
+      if (!status) {
+        ResponseHelper.error(res, 'Upload session not found', 404);
+        return;
+      }
+
+      ResponseHelper.success(res, status, 'Session status retrieved');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to retrieval session status', 500, error);
     }
-
-    const status = chunkedUploadService.getSessionStatus(sessionId);
-    if (!status) {
-      ResponseHelper.error(res, 'Upload session not found', 404);
-      return;
-    }
-
-    ResponseHelper.success(res, status, 'Session status retrieved');
-  });
+  }
 
   /**
    * Complete chunked upload and create media record
    */
-  static completeUpload = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!._id.toString();
-    const { sessionId } = req.params;
-    const { folderId, tags, altText, description, enableOcr, enableAiTagging } = req.body;
-
-    // Validate session ownership
-    if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
-      ResponseHelper.error(res, 'Upload session not found', 404);
-      return;
-    }
-
+  static async completeUpload(req: AuthenticatedRequest, res: Response) {
     try {
+      const userId = req.user!._id.toString();
+      const { sessionId } = req.params;
+      const { folderId, tags, altText, description, enableOcr, enableAiTagging } = req.body;
+
+      // Validate session ownership
+      if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
+        ResponseHelper.error(res, 'Upload session not found', 404);
+        return;
+      }
+
       // Assemble the file (peek first, don't delete yet)
       const { chunks, session } = chunkedUploadService.peekUpload(sessionId);
 
@@ -242,34 +245,42 @@ export class ChunkedUploadController {
       ResponseHelper.created(res, media, 'Chunked upload completed');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to complete upload';
-      logger.error('Failed to complete chunked upload', { error: msg, sessionId });
+      logger.error('Failed to complete chunked upload', { error: msg, sessionId: req.params.sessionId });
       ResponseHelper.error(res, msg, 500);
     }
-  });
+  }
 
   /**
    * Cancel upload session
    */
-  static cancelSession = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!._id.toString();
-    const { sessionId } = req.params;
+  static async cancelSession(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!._id.toString();
+      const { sessionId } = req.params;
 
-    // Validate session ownership
-    if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
-      ResponseHelper.error(res, 'Upload session not found', 404);
-      return;
+      // Validate session ownership
+      if (!chunkedUploadService.validateOwnership(sessionId, userId)) {
+        ResponseHelper.error(res, 'Upload session not found', 404);
+        return;
+      }
+
+      chunkedUploadService.cancelSession(sessionId);
+      ResponseHelper.success(res, null, 'Upload session cancelled');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to cancel session', 500, error);
     }
-
-    chunkedUploadService.cancelSession(sessionId);
-    ResponseHelper.success(res, null, 'Upload session cancelled');
-  });
+  }
 
   /**
    * Get user's active upload sessions
    */
-  static getUserSessions = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user!._id.toString();
-    const sessions = chunkedUploadService.getUserSessions(userId);
-    ResponseHelper.success(res, sessions, 'Sessions retrieved');
-  });
+  static async getUserSessions(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!._id.toString();
+      const sessions = chunkedUploadService.getUserSessions(userId);
+      ResponseHelper.success(res, sessions, 'Sessions retrieved');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to retrieve sessions', 500, error);
+    }
+  }
 }

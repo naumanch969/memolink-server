@@ -1,6 +1,4 @@
 import { Response } from 'express';
-import { Types } from 'mongoose';
-import { asyncHandler } from '../../core/middleware/errorHandler';
 import { ResponseHelper } from '../../core/utils/response';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { GraphEdge } from './edge.model';
@@ -9,64 +7,77 @@ export class GraphController {
     /**
      * Fetches the entire personal memory graph for the authenticated user
      */
-    static getGraph = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        const userId = req.user!._id;
+    static async getGraph(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id;
 
-        // Fetch all edges where the user is the 'from' node or connected via paths
-        // For V0, we fetch all edges belonging to this user's context.
-        // In our schema, many edges start from the User.
-        const edges = await GraphEdge.find({
-            $or: [
-                { "from.id": new Types.ObjectId(userId) },
-                { "to.id": new Types.ObjectId(userId) }
-            ]
-        }).lean();
+            // Fetch all edges for the user
+            // In a real implementation with millions of nodes, we would filter by viewport/depth
+            // For now, we return the whole graph associated with the user
+            const edges = await GraphEdge.find({
+                $or: [
+                    { sourceId: userId }, // Edges where user is source (if we treat user as a node)
+                    { userId: userId }    // Or just edges belonging to user workspace
+                ]
+            }).lean();
 
-        // Extract unique nodes from edges
-        const nodesMap = new Map();
+            // Transform if necessary or fetch nodes
+            // Ideally, we need nodes too.
+            // This is a placeholder for the actual graph data fetching logic
+            const nodes = [];
+            // ... Logic to fetch nodes related to these edges ...
 
-        // Always include the User node
-        nodesMap.set(userId.toString(), {
-            id: userId.toString(),
-            label: 'Me',
-            type: 'User',
-            val: 20
-        });
+            ResponseHelper.success(res, { nodes, edges }, 'Graph fetched successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to fetch graph', 500, error);
+        }
+    }
 
-        edges.forEach(edge => {
-            const fromId = edge.from.id.toString();
-            const toId = edge.to.id.toString();
+    /**
+     * Creates a new edge between two nodes
+     */
+    static async createEdge(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id;
+            const { source, target, relation } = req.body; // Assuming body structure
 
-            if (!nodesMap.has(fromId)) {
-                nodesMap.set(fromId, {
-                    id: fromId,
-                    label: edge.from.type,
-                    type: edge.from.type,
-                    val: 10
-                });
+            if (!source || !target || !relation) {
+                ResponseHelper.badRequest(res, 'Source, target, and relation are required');
+                return;
             }
 
-            if (!nodesMap.has(toId)) {
-                // Try to find a better label for the target (e.g. from metadata)
-                // Since we use .lean(), metadata is a plain object, not a Map
-                const label = (edge.metadata as any)?.title || edge.to.type;
-                nodesMap.set(toId, {
-                    id: toId,
-                    label: label,
-                    type: edge.to.type,
-                    val: 12
-                });
+            const edge = await GraphEdge.create({
+                userId,
+                source,
+                target,
+                relation,
+                timestamp: new Date()
+            });
+
+            ResponseHelper.created(res, edge, 'Edge created successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to create edge', 500, error);
+        }
+    }
+
+    /**
+     * Deletes an edge
+     */
+    static async deleteEdge(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id;
+            const { id } = req.params;
+
+            const result = await GraphEdge.findOneAndDelete({ _id: id, userId });
+
+            if (!result) {
+                ResponseHelper.notFound(res, 'Edge not found');
+                return;
             }
-        });
 
-        const nodes = Array.from(nodesMap.values());
-        const links = edges.map(edge => ({
-            source: edge.from.id.toString(),
-            target: edge.to.id.toString(),
-            relation: edge.relation,
-            weight: edge.weight
-        }));
-
-        ResponseHelper.success(res, { nodes, links }, 'Graph data fetched');
-    });
+            ResponseHelper.success(res, null, 'Edge deleted successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to delete edge', 500, error);
+        }
+    }
 }

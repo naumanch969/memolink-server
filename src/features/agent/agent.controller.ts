@@ -1,11 +1,11 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
 
 export class AgentController {
-    public async createTask(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async createTask(req: Request, res: Response): Promise<void> {
         try {
             const { type, inputData } = req.body;
             const userId = (req as any).user._id;
@@ -23,7 +23,7 @@ export class AgentController {
         }
     }
 
-    public async getTask(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async getTask(req: Request, res: Response): Promise<void> {
         try {
             const { taskId } = req.params;
             const userId = (req as any).user._id;
@@ -42,7 +42,7 @@ export class AgentController {
         }
     }
 
-    public async listTasks(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async listTasks(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
             const tasks = await agentService.listUserTasks(userId);
@@ -54,7 +54,7 @@ export class AgentController {
         }
     }
 
-    public async processNaturalLanguage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async processNaturalLanguage(req: Request, res: Response): Promise<void> {
         try {
             const { text, tags, timezone } = req.body;
             const userId = (req as any).user._id;
@@ -77,7 +77,7 @@ export class AgentController {
         }
     }
 
-    public async chat(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async chat(req: Request, res: Response): Promise<void> {
         try {
             const { message } = req.body;
             const userId = (req as any).user._id;
@@ -95,7 +95,7 @@ export class AgentController {
         }
     }
 
-    public async clearHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async clearHistory(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
             await agentService.clearHistory(userId);
@@ -106,7 +106,7 @@ export class AgentController {
         }
     }
 
-    public async getHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async getHistory(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
             const history = await agentService.getChatHistory(userId);
@@ -117,7 +117,7 @@ export class AgentController {
         }
     }
 
-    public async getBriefing(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async getBriefing(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
             const briefing = await agentService.getDailyBriefing(userId);
@@ -128,7 +128,7 @@ export class AgentController {
         }
     }
 
-    public async getSimilarEntries(req: Request, res: Response, next: NextFunction): Promise<void> {
+    static async getSimilarEntries(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
             const text = req.query.text as string;
@@ -144,6 +144,3 @@ export class AgentController {
         }
     }
 }
-
-
-export const agentController = new AgentController();

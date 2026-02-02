@@ -18,6 +18,7 @@ const userSchema = new Schema<IUser>({
   isEmailVerified: { type: Boolean, default: false, },
   isActive: { type: Boolean, default: false, },
   lastLoginAt: { type: Date, default: null, },
+  lastLogoutAt: { type: Date, default: null, },
   preferences: {
     theme: { type: String, enum: ['light', 'dark', 'auto', 'system'], default: 'system', },
     notifications: { type: Boolean, default: true, },

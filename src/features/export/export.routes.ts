@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { ExportController } from './export.controller';
 import { authenticate } from '../../core/middleware/authMiddleware';
-import { exportValidation } from './export.validations';
 import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { ExportController } from './export.controller';
+import { exportValidation } from './export.validations';
 
 const router = Router();
 
