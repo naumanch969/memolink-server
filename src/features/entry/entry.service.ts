@@ -138,14 +138,31 @@ export class EntryService implements IEntryService {
   // Get user entries
   async getUserEntries(userId: string, options: any = {}): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
-      const { page, limit } = Helpers.getPaginationParams(options);
+      const { page, limit, skip } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'createdAt');
-      const filter = { userId, ...options };
+
+      // Construct filter, excluding pagination/sort params
+      const filter: any = { userId: new Types.ObjectId(userId) };
+
+      if (options.dateFrom || options.dateTo) {
+        filter.date = {};
+        if (options.dateFrom) filter.date.$gte = new Date(options.dateFrom);
+        if (options.dateTo) filter.date.$lte = new Date(options.dateTo);
+      }
+
+      if (options.mood) filter.mood = new RegExp(options.mood, 'i');
+      if (options.isFavorite !== undefined) filter.isFavorite = options.isFavorite;
+
+      if (options.tags && options.tags.length > 0) {
+        filter.tags = { $in: options.tags.map((id: string) => new Types.ObjectId(id)) };
+      }
 
       const [entries, total] = await Promise.all([
         Entry.find(filter)
           .populate(['mentions', 'tags', 'media'])
-          .sort(sort as any),
+          .sort(sort as any)
+          .skip(skip)
+          .limit(limit),
         Entry.countDocuments(filter),
       ]);
 

@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { config } from '../config/env';
-import { logger } from '../config/logger';
 
 import adminRoutes from '../features/admin/admin.routes';
 import agentRoutes from '../features/agent/agent.routes';
@@ -17,6 +16,7 @@ import chunkedUploadRoutes from '../features/media/chunked-upload.routes';
 import folderRoutes from '../features/media/folder.routes';
 import mediaRoutes from '../features/media/media.routes';
 import storageRoutes from '../features/media/storage.routes';
+import moodRoutes from '../features/mood/mood.routes';
 import notificationRoutes from '../features/notification/notification.routes';
 import personRoutes from '../features/person/person.routes';
 import reminderRoutes from '../features/reminder/reminder.routes';
@@ -37,12 +37,6 @@ router.get('/health', (req, res) => {
     environment: config.NODE_ENV,
     version: config.npm_package_version || '1.0.0',
   });
-});
-
-// Sentry debug endpoint
-router.get('/debug-sentry', (req, res) => {
-  logger.info('Sentry debug route triggered');
-  throw new Error('MemoLink Sentry Test Error');
 });
 
 // API documentation endpoint
@@ -67,6 +61,7 @@ router.get('/docs', (req, res) => {
       routinePreferences: '/api/routine-preferences',
       reminders: '/api/reminders',
       goals: '/api/goals',
+      moods: '/api/moods',
       admin: '/api/admin',
     },
     documentation: 'https://github.com/naumanch969/memolink-server',
@@ -89,6 +84,7 @@ router.use('/routines', routineRoutes);
 router.use('/routine-logs', routineLogRoutes);
 router.use('/routine-preferences', routinePreferencesRoutes);
 router.use('/reminders', reminderRoutes);
+router.use('/moods', moodRoutes);
 router.use('/goals', goalRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/graph', graphRoutes);

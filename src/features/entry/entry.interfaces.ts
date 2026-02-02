@@ -101,6 +101,7 @@ export interface EntrySearchRequest {
   isImportant?: boolean;
   mood?: string;
   location?: string;
+  isFavorite?: boolean;
   page?: number;
   limit?: number;
   sort?: string;

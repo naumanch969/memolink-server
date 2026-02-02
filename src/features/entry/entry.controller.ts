@@ -33,6 +33,7 @@ export class EntryController {
         dateFrom: startDate as string,
         dateTo: endDate as string,
         mood: mood as string,
+        isFavorite: isFavorite === 'true' ? true : (isFavorite === 'false' ? false : undefined),
       };
 
       const result = await entryService.getUserEntries(userId, searchParams);
