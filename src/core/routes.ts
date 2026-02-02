@@ -39,6 +39,12 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Sentry debug endpoint
+router.get('/debug-sentry', (req, res) => {
+  logger.info('Sentry debug route triggered');
+  throw new Error('MemoLink Sentry Test Error');
+});
+
 // API documentation endpoint
 router.get('/docs', (req, res) => {
   res.json({
