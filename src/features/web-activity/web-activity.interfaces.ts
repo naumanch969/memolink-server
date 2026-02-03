@@ -12,6 +12,7 @@ export interface IWebActivity extends BaseEntity {
 }
 
 export interface ActivitySyncBatch {
+    syncId: string; // Client-generated UUID for idempotency
     date: string;
     totalSeconds: number;
     productiveSeconds: number;

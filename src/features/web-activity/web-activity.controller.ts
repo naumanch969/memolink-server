@@ -38,4 +38,30 @@ export class WebActivityController {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
         }
     }
+    
+    /**
+     * GET /api/activity/definitions
+     */
+    static async getDefinitions(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const definitions = await webActivityService.getDefinitions(userId);
+            ResponseHelper.success(res, definitions, 'Definitions retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
+
+    /**
+     * POST /api/activity/definitions
+     */
+    static async updateDefinitions(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const definitions = await webActivityService.updateDefinitions(userId, req.body);
+            ResponseHelper.success(res, definitions, 'Definitions updated successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
 }

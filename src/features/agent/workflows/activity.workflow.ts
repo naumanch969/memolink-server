@@ -16,8 +16,8 @@ export const runWebActivitySummary = async (userId: string, inputData: { date: s
 
     // 2. Format data for LLM
     // Convert map to array and sort by time
-    const topDomains = Object.entries(activity.domainMap)
-        .map(([domain, seconds]) => ({ domain: domain.replace(/_dot_/g, '.'), seconds }))
+    const topDomains = Object.entries(activity.domainMap || {})
+        .map(([domain, seconds]) => ({ domain: domain.replace(/__dot__/g, '.'), seconds }))
         .sort((a, b) => b.seconds - a.seconds)
         .slice(0, 15);
 

@@ -9,6 +9,7 @@ import { storageService } from '../features/media/storage.service';
 import { initNotificationProcessor } from '../features/notification/notification.cron';
 import { notificationService } from '../features/notification/notification.service';
 import { WebActivity } from '../features/web-activity/web-activity.model';
+import DateManager from './utils/DateManager';
 
 export const initCronJobs = () => {
     // Start Notification Processor
@@ -73,9 +74,7 @@ export const initCronJobs = () => {
     cron.schedule('5 0 * * *', async () => {
         logger.info('Running web activity summarizer cron job...');
         try {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const dateStr = yesterday.toISOString().split('T')[0];
+            const dateStr = DateManager.getYesterdayDateKey();
 
             // Find unique users with activity yesterday who haven't been summarized
             const activities = await WebActivity.find({

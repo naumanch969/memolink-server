@@ -11,4 +11,8 @@ router.use(authenticate);
 router.post('/sync', WebActivityController.sync);
 router.get('/today', WebActivityController.getToday);
 
+// Custom categorization
+router.get('/definitions', WebActivityController.getDefinitions);
+router.post('/definitions', WebActivityController.updateDefinitions);
+
 export default router;

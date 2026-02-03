@@ -15,6 +15,8 @@ import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { getAgentQueue } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
 import { agentToolDefinitions, agentToolHandlers } from './tools';
+import webActivityService from '../web-activity/web-activity.service';
+import DateManager from '../../core/utils/DateManager';
 
 export class AgentService {
     /**
@@ -442,11 +444,12 @@ export class AgentService {
             const twoDaysAgo = new Date();
             twoDaysAgo.setDate(now.getDate() - 2);
 
-            const [entriesData, upcomingReminders, overdueReminders, goals] = await Promise.all([
+            const [entriesData, upcomingReminders, overdueReminders, goals, webActivity] = await Promise.all([
                 entryService.searchEntries(userId, { dateFrom: twoDaysAgo.toISOString(), limit: 5 }),
                 reminderService.getUpcomingReminders(userId, 15),
                 reminderService.getOverdueReminders(userId),
                 goalService.getGoals(userId, {}),
+                webActivityService.getTodayStats(userId, DateManager.getYesterdayDateKey())
             ]);
 
             const entries = entriesData.entries || [];
@@ -477,6 +480,23 @@ export class AgentService {
             const todayContext = todayReminders.map(r => `- [TODAY] ${r.title} ${r.startTime ? `@ ${r.startTime}` : '(All Day)'}`).join('\n');
             const futureContext = futureReminders.map(r => `- [${new Date(r.date).toLocaleDateString()}] ${r.title} ${r.startTime ? `@ ${r.startTime}` : ''}`).join('\n');
 
+            // 4. Process Activity Context
+            let activityContext = "No web activity tracked for yesterday.";
+            if (webActivity && webActivity.totalSeconds > 0) {
+                const h = Math.floor(webActivity.totalSeconds / 3600);
+                const m = Math.floor((webActivity.totalSeconds % 3600) / 60);
+                const focus = Math.round((webActivity.productiveSeconds / webActivity.totalSeconds) * 100);
+                activityContext = `Tracked ${h}h ${m}m of web activity yesterday. Focus Score: ${focus}%.`;
+
+                // Top 3 domains
+                const top3 = Object.entries(webActivity.domainMap || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([d, s]) => `${d.replace(/__dot__/g, '.')}(${Math.round(s / 60)}m)`)
+                    .join(', ');
+                activityContext += ` Top sites: ${top3}.`;
+            }
+
             const prompt = `
             You are the "Chief of Staff" for a user in the MemoLink application.
             It is currently ${now.toDateString()}. 
@@ -490,12 +510,16 @@ export class AgentService {
                - **Today's Mission**: List essential tasks for TODAY. 
                  *IMPORTANT*: Check "RECENT LOGS" for any section titled "Plan for Tomorrow" or similar from yesterday's entries. These are high-priority tasks the user set for themselves. Merge them with the specific scheduled tasks.
                - **Goal Pulse**: succinct reminder of active goals and their relevance to today.
+               - **Activity Insight**: Briefly mention yesterday's web activity (Focus vs Distraction) and offer one tactical coaching tip.
                - **Daily Boost**: A short quote relevant to productivity.
             
             DATA:
             RECENT LOGS (Check here for "Plan for Tomorrow"):
             ${entryContext || 'No recent logs.'}
             
+            WEB ACTIVITY YESTERDAY:
+            ${activityContext}
+
             OVERDUE TASKS:
             ${overdueContext || 'None.'}
             

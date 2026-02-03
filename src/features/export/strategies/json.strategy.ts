@@ -1,12 +1,13 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
-import { ExportStrategy } from './export.strategy';
-import { ExportRequest } from '../export.interfaces';
+import { Helpers } from '../../../shared/helpers';
 import { Entry } from '../../entry/entry.model';
+import { Media } from '../../media/media.model';
 import { Person } from '../../person/person.model';
 import { Tag } from '../../tag/tag.model';
-import { Media } from '../../media/media.model';
-import { Helpers } from '../../../shared/helpers';
+import { WebActivity } from '../../web-activity/web-activity.model';
+import { ExportRequest } from '../export.interfaces';
+import { ExportStrategy } from './export.strategy';
 
 export class JsonStrategy implements ExportStrategy {
     async execute(res: Response, userId: string, options: ExportRequest): Promise<void> {
@@ -50,7 +51,7 @@ export class JsonStrategy implements ExportStrategy {
         }
         res.write('\n  ],\n');
 
-        // Stream People (can use cursor or regular find if not huge, but let's be consistent)
+        // Stream People
         res.write('  "people": [\n');
         const peopleCursor = Person.find({ userId: userObjectId }).cursor();
         let isFirstPerson = true;
@@ -58,6 +59,17 @@ export class JsonStrategy implements ExportStrategy {
             if (!isFirstPerson) res.write(',\n');
             res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    '));
             isFirstPerson = false;
+        }
+        res.write('\n  ],\n');
+
+        // Stream Web Activity
+        res.write('  "webActivity": [\n');
+        const activityCursor = WebActivity.find({ userId: userObjectId }).cursor();
+        let isFirstActivity = true;
+        for (let doc = await activityCursor.next(); doc != null; doc = await activityCursor.next()) {
+            if (!isFirstActivity) res.write(',\n');
+            res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    '));
+            isFirstActivity = false;
         }
         res.write('\n  ],\n');
 
