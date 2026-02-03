@@ -4,8 +4,10 @@ import logger from '../../config/logger';
 import { eventStream } from '../../core/events/EventStream';
 import { EventType } from '../../core/events/types';
 import { CustomError } from '../../core/middleware/errorHandler';
-import { NotificationQueue, Reminder } from './reminder.model';
-import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, NotificationStatus, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
+import { NotificationQueue } from '../notification/notification.model';
+import { NotificationStatus } from '../notification/notification.types';
+import { Reminder } from './reminder.model';
+import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
 
 class ReminderService {
     // ============================================
@@ -22,7 +24,7 @@ class ReminderService {
                 date: new Date(data.date),
                 startTime: data.startTime,
                 endTime: data.endTime,
-                allDay: data.allDay ?? (!data.startTime && !data.endTime),
+                allDay: data.allDay,
                 recurring: data.recurring || { enabled: false },
                 notifications: data.notifications || {
                     enabled: true,
@@ -31,6 +33,21 @@ class ReminderService {
                 priority: data.priority || 'medium',
                 status: ReminderStatus.PENDING,
             };
+
+            // Enhanced logic: If date contains a time (not midnight) and startTime is missing, extract it
+            const dateObj = new Date(data.date);
+            if (!reminderData.startTime && (dateObj.getHours() !== 0 || dateObj.getMinutes() !== 0)) {
+                reminderData.startTime = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                if (reminderData.allDay === undefined) {
+                    reminderData.allDay = false;
+                }
+            }
+
+            // Default allDay to true only if no startTime at all
+            if (reminderData.allDay === undefined) {
+                reminderData.allDay = !reminderData.startTime;
+            }
+
 
             // Add linked items if provided
             if (data.linkedTags?.length) {

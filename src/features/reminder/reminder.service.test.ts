@@ -1,23 +1,26 @@
-
-import { NotificationQueue, Reminder } from './reminder.model';
+import { NotificationQueue } from '../notification/notification.model';
+import { Reminder } from './reminder.model';
 import reminderService from './reminder.service';
 import { ReminderStatus } from './reminder.types';
 
 jest.mock('./reminder.model', () => {
-    const mockReminder = {
-        create: jest.fn(),
-        find: jest.fn(),
-        findOne: jest.fn(),
-        findOneAndDelete: jest.fn(),
-        countDocuments: jest.fn(),
-    };
-    const mockNotificationQueue = {
-        insertMany: jest.fn(),
-        deleteMany: jest.fn(),
-    };
     return {
-        Reminder: mockReminder,
-        NotificationQueue: mockNotificationQueue,
+        Reminder: {
+            create: jest.fn(),
+            find: jest.fn(),
+            findOne: jest.fn(),
+            findOneAndDelete: jest.fn(),
+            countDocuments: jest.fn(),
+        },
+    };
+});
+
+jest.mock('../notification/notification.model', () => {
+    return {
+        NotificationQueue: {
+            insertMany: jest.fn(),
+            deleteMany: jest.fn(),
+        },
     };
 });
 

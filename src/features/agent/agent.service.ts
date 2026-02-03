@@ -484,13 +484,13 @@ export class AgentService {
             Based on the following data, provide a structured daily briefing.
             
             CRITICAL INSTRUCTIONS:
-            1. **Tone**: Professional but HIGHLY ENCOURAGING and MOTIVATIONAL. You are a partner in their success.
+            1. **Tone**: DIRECT, PROACTIVE, and EFFICIENT. No fluff, no sugarcoating. Focus purely on execution and clarity. Avoid phrases like "Rise and shine" or excessive exclamation marks.
             2. **Structure**:
-               - **Greeting**: Warm and professional (e.g., "Rise and shine...").
+               - **Greeting**: Brief and functional based on the current time (e.g., "Good morning.").
                - **Today's Mission**: List essential tasks for TODAY. 
                  *IMPORTANT*: Check "RECENT LOGS" for any section titled "Plan for Tomorrow" or similar from yesterday's entries. These are high-priority tasks the user set for themselves. Merge them with the specific scheduled tasks.
-               - **Goal Pulse**: Remind them of their active goals (Monthly/Yearly) and briefly link today's potential to those goals.
-               - **Daily Boost**: A short, punchy motivational quote relevant to productivity or their specific goals.
+               - **Goal Pulse**: succinct reminder of active goals and their relevance to today.
+               - **Daily Boost**: A short quote relevant to productivity.
             
             DATA:
             RECENT LOGS (Check here for "Plan for Tomorrow"):

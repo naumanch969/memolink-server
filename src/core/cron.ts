@@ -7,11 +7,17 @@ import { AgentTaskType } from '../features/agent/agent.types';
 import { User } from '../features/auth/auth.model';
 import { storageService } from '../features/media/storage.service';
 import { initNotificationProcessor } from '../features/notification/notification.cron';
+import { notificationService } from '../features/notification/notification.service';
 import { WebActivity } from '../features/web-activity/web-activity.model';
 
 export const initCronJobs = () => {
     // Start Notification Processor
     initNotificationProcessor();
+
+    // Notification Cleanup: Daily at 4 AM
+    cron.schedule('0 4 * * *', async () => {
+        await notificationService.cleanupOldNotifications();
+    });
 
     // Agent Accountability: Every 4 hours
     cron.schedule('0 */4 * * *', async () => {

@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import { logger } from '../../config/logger';
 import { CustomError } from '../../core/middleware/errorHandler';
 import { Notification } from './notification.model';
 import { CreateNotificationDTO, INotificationDocument } from './notification.types';
@@ -16,10 +17,16 @@ export class NotificationService {
                 referenceId: data.referenceId ? new Types.ObjectId(data.referenceId) : undefined,
                 referenceModel: data.referenceModel,
                 actionUrl: data.actionUrl,
+                eventId: data.eventId,
                 isRead: false
             });
+
             return notification;
         } catch (error: any) {
+            // Handle duplicate eventId (idempotency)
+            if (error.code === 11000 && error.keyPattern?.eventId) {
+                return (await Notification.findOne({ eventId: data.eventId })) as INotificationDocument;
+            }
             throw new CustomError('Failed to create notification', 500);
         }
     }
@@ -92,6 +99,34 @@ export class NotificationService {
     async deleteUserData(userId: string): Promise<number> {
         const result = await Notification.deleteMany({ userId });
         return result.deletedCount || 0;
+    }
+
+    // Cleanup old notifications
+    async cleanupOldNotifications(): Promise<number> {
+        try {
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+            // 1. Delete read notifications older than 30 days
+            const readResult = await Notification.deleteMany({
+                isRead: true,
+                updatedAt: { $lte: thirtyDaysAgo }
+            });
+
+            // 2. Delete ALL notifications older than 90 days
+            const allResult = await Notification.deleteMany({
+                createdAt: { $lte: ninetyDaysAgo }
+            });
+
+            const total = (readResult.deletedCount || 0) + (allResult.deletedCount || 0);
+            if (total > 0) {
+                logger.info(`[NotificationService] Cleaned up ${total} old notifications`);
+            }
+            return total;
+        } catch (error) {
+            logger.error('[NotificationService] Cleanup failed', error);
+            return 0;
+        }
     }
 }
 

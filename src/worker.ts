@@ -36,7 +36,10 @@ async function startWorker() {
         initEmailWorker();
 
         const { graphWorker } = await import('./workers/graph.worker');
+        const { notificationWorker } = await import('./features/notification/notification.worker');
+
         graphWorker.start();
+        notificationWorker.start();
 
         // DEV ONLY: Clear queues on startup to prevent zombie jobs
         if (config.NODE_ENV === 'development') {
@@ -66,6 +69,9 @@ async function startWorker() {
         const shutdown = async (signal: string) => {
             logger.info(`${signal} received. Shutting down worker...`);
             try {
+                const { notificationWorker } = await import('./features/notification/notification.worker');
+                await notificationWorker.stop();
+
                 await QueueService.close();
                 await mongoose.disconnect();
                 // Redis connection is shared, but we can disconnect it last

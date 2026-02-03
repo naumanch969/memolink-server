@@ -1,9 +1,8 @@
 import cron from 'node-cron';
-import { NotificationQueue } from '../reminder/reminder.model';
-import { NotificationStatus } from '../reminder/reminder.types';
-import notificationService from './notification.service';
-import { NotificationType } from './notification.types';
 import { logger } from '../../config/logger';
+import notificationDispatcher from './notification.dispatcher';
+import { NotificationQueue } from './notification.model';
+import { NotificationStatus, NotificationType } from './notification.types';
 
 let isRunning = false;
 
@@ -40,26 +39,43 @@ const processNotificationQueue = async () => {
                     continue;
                 }
 
-                // Create In-App Notification
-                await notificationService.create({
-                    userId: item.userId.toString(),
-                    type: NotificationType.REMINDER,
-                    title: `Reminder: ${reminder.title}`,
-                    message: reminder.description || `Time for your reminder: ${reminder.title}`,
-                    referenceId: reminder._id.toString(),
-                    referenceModel: 'Reminder',
-                    actionUrl: `/reminders?highlight=${reminder._id}`
-                });
+                // Create Notification using Template
+                await notificationDispatcher.dispatchFromTemplate(
+                    item.userId.toString(),
+                    NotificationType.REMINDER,
+                    'REMINDER_DUE',
+                    {
+                        title: reminder.title,
+                        description: reminder.description,
+                        id: reminder._id.toString()
+                    },
+                    {
+                        referenceId: reminder._id.toString(),
+                        referenceModel: 'Reminder'
+                    }
+                );
 
                 // Update Queue Item Status
                 item.status = NotificationStatus.SENT;
                 item.sentAt = new Date();
+                item.attempts += 1;
                 await item.save();
 
             } catch (err: any) {
                 logger.error(`Failed to process notification queue item ${item._id}`, err);
-                item.status = NotificationStatus.FAILED;
+
+                item.attempts += 1;
                 item.error = err.message;
+
+                if (item.attempts >= 5) {
+                    item.status = NotificationStatus.FAILED;
+                } else {
+                    // Exponential backoff: retry in 1, 2, 4, 8 minutes
+                    const backoffMinutes = Math.pow(2, item.attempts - 1);
+                    item.scheduledFor = new Date(Date.now() + backoffMinutes * 60000);
+                    item.status = NotificationStatus.PENDING;
+                }
+
                 await item.save();
             }
         }

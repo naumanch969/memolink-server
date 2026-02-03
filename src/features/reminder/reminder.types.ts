@@ -94,31 +94,7 @@ export interface IReminderDocument extends IReminder, Document {
     _id: Types.ObjectId;
 }
 
-// ============================================
-// NOTIFICATION QUEUE
-// ============================================
-
-export enum NotificationStatus {
-    PENDING = 'pending',
-    SENT = 'sent',
-    FAILED = 'failed',
-}
-
-export interface INotificationQueue {
-    userId: Types.ObjectId;
-    reminderId: Types.ObjectId;
-    scheduledFor: Date; // When the notification should fire
-    status: NotificationStatus;
-    sentAt?: Date;
-    error?: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export interface INotificationQueueDocument extends INotificationQueue, Document {
-    _id: Types.ObjectId;
-}
-
+ 
 // ============================================
 // REQUEST TYPES
 // ============================================

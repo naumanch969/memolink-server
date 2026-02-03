@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { INotificationQueueDocument, IReminderDocument, NotificationStatus, NotificationTimeType, RecurrenceFrequency, ReminderPriority, ReminderStatus, } from './reminder.types';
+import { IReminderDocument, NotificationTimeType, RecurrenceFrequency, ReminderPriority, ReminderStatus, } from './reminder.types';
 
 // ============================================
 // REMINDER SCHEMA
@@ -86,31 +86,7 @@ ReminderSchema.index({ userId: 1, priority: 1 });
 ReminderSchema.index({ userId: 1, date: 1, status: 1 });
 
 // ============================================
-// NOTIFICATION QUEUE SCHEMA
-// ============================================
-
-const NotificationQueueSchema = new Schema<INotificationQueueDocument>(
-    {
-        userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },
-        reminderId: { type: Schema.Types.ObjectId, ref: 'Reminder', required: true, index: true, },
-        scheduledFor: { type: Date, required: true, index: true, },
-        status: { type: String, enum: Object.values(NotificationStatus), default: NotificationStatus.PENDING, index: true, },
-        sentAt: { type: Date, },
-        error: { type: String, },
-    },
-    { timestamps: true, }
-);
-
-// Indexes for notification processing
-NotificationQueueSchema.index({ status: 1, scheduledFor: 1 });
-NotificationQueueSchema.index({ reminderId: 1, status: 1 });
-
-// ============================================
 // MODELS
 // ============================================
 
 export const Reminder = mongoose.model<IReminderDocument>('Reminder', ReminderSchema);
-export const NotificationQueue = mongoose.model<INotificationQueueDocument>(
-    'NotificationQueue',
-    NotificationQueueSchema
-);
