@@ -235,7 +235,7 @@
   <script>
     const API_BASE = window.location.origin;
 
-    async function fetchMetrics() {
+    async function getMetrics() {
       try {
         const [health, stats, metricsJson] = await Promise.all([
           fetch(`${API_BASE}/monitoring/health`).then(r => r.json()),
@@ -389,10 +389,10 @@
     }
 
     // Initial fetch
-    fetchMetrics();
+    getMetrics();
 
     // Auto-refresh every 5 seconds
-    setInterval(fetchMetrics, 5000);
+    setInterval(getMetrics, 5000);
   </script>
 </body>
 </html>
