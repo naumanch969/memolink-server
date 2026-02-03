@@ -14,21 +14,30 @@ const processNotificationQueue = async () => {
     try {
         const now = new Date();
 
-        // 1. Find pending notifications due now or in the past
-        const batch = await NotificationQueue.find({
-            status: NotificationStatus.PENDING,
-            scheduledFor: { $lte: now }
-        }).limit(50).populate('reminderId');
+        // 1. Process items one by one or in small batches using atomic updates to 'claim' them
+        // This prevents race conditions in multi-instance environments
+        let processedCount = 0;
+        const batchSize = 20;
 
-        if (batch.length === 0) {
-            isRunning = false;
-            return;
-        }
+        while (processedCount < batchSize) {
+            const item = await NotificationQueue.findOneAndUpdate(
+                {
+                    status: NotificationStatus.PENDING,
+                    scheduledFor: { $lte: now }
+                },
+                {
+                    $set: { status: NotificationStatus.PROCESSING }
+                },
+                {
+                    new: true,
+                    sort: { scheduledFor: 1 }
+                }
+            ).populate('reminderId');
 
-        logger.info(`Processing ${batch.length} notifications...`);
+            if (!item) break;
 
-        // 2. Process each item
-        for (const item of batch) {
+            processedCount++;
+
             try {
                 const reminder: any = item.reminderId;
 
@@ -40,6 +49,9 @@ const processNotificationQueue = async () => {
                 }
 
                 // Create Notification using Template
+                // Added eventId for idempotency in the dispatcher/service
+                const eventId = `cron-notif-${item._id}`;
+
                 await notificationDispatcher.dispatchFromTemplate(
                     item.userId.toString(),
                     NotificationType.REMINDER,
@@ -51,7 +63,8 @@ const processNotificationQueue = async () => {
                     },
                     {
                         referenceId: reminder._id.toString(),
-                        referenceModel: 'Reminder'
+                        referenceModel: 'Reminder',
+                        eventId
                     }
                 );
 
@@ -78,6 +91,10 @@ const processNotificationQueue = async () => {
 
                 await item.save();
             }
+        }
+
+        if (processedCount > 0) {
+            logger.info(`[NotificationCron] Processed ${processedCount} notifications.`);
         }
     } catch (error) {
         logger.error('Error in Notification Processor:', error);

@@ -98,13 +98,13 @@ app.get('/', (req, res) => {
   });
 });
 
-// 404 handler
-app.use(notFoundHandler);
-
 // Sentry error handler - must be before local error handler
 if (config.SENTRY_DSN_URL) {
   Sentry.setupExpressErrorHandler(app);
 }
+
+// 404 handler
+app.use(notFoundHandler);
 
 // Error tracking middleware
 app.use(errorTrackingMiddleware);

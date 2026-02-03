@@ -1,4 +1,3 @@
-import apminsight from 'apminsight';
 import { createServer, Server as HttpServer } from 'http';
 import database from '../config/database';
 import { config } from '../config/env';

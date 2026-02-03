@@ -156,7 +156,7 @@ class MonitorService {
                 pending: mediaStats.pending,
                 completed: mediaStats.completed,
                 failed: mediaStats.failed,
-                paused: false, // It's in-memory, simple
+                paused: false,
             });
         } catch (error) {
             logger.error('Failed to get media queue stats:', error);

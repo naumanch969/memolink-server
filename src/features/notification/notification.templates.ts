@@ -5,40 +5,39 @@ export interface NotificationContent {
     actionUrl?: string;
 }
 
-export type NotificationTemplateType = 'REMINDER_DUE' | 'TASK_CREATED' | 'GOAL_ACHIEVED' | 'SYSTEM_ALERT';
+export type NotificationTemplateType = 'REMINDER_DUE' | 'TASK_CREATED' | 'GOAL_PROGRESS' | 'SYSTEM_ALERT' | 'NUDGE';
 
 export class NotificationTemplates {
     private static templates: Record<string, (payload: any) => NotificationContent> = {
         REMINDER_DUE: (payload) => ({
-            title: `⏰ Reminder: ${payload.title}`,
-            message: payload.description || `It's time for: ${payload.title}`,
+            title: `⏰ Time for: ${payload.title}`,
+            message: payload.description || `This is your scheduled reminder for "${payload.title}".`,
             actionUrl: `/reminders?highlight=${payload.id}`
         }),
         TASK_CREATED: (payload) => ({
-            title: '📝 New Task Metadata',
-            message: `Success! Task "${payload.title}" has been recorded.`,
+            title: '📝 Reminder Set',
+            message: `We've scheduled "${payload.title}" for you.`,
             actionUrl: `/reminders?id=${payload.id}`
         }),
         GOAL_PROGRESS: (payload) => ({
-            title: '🎯 Goal Milestone!',
-            message: `You just made progress on "${payload.title}". Keep it up!`,
+            title: '🎯 Milestone Reached!',
+            message: `Great job! You made progress on your goal: "${payload.title}".`,
             actionUrl: `/goals/${payload.id}`
         }),
         SYSTEM_ALERT: (payload) => ({
-            title: '⚠️ System Update',
+            title: '⚠️ System Notification',
             message: payload.message,
             actionUrl: payload.url
+        }),
+        NUDGE: (payload) => ({
+            title: '✨ Just a thought...',
+            message: payload.message || "How is your day going? Want to record a quick thought?",
+            actionUrl: '/dashboard'
         })
     };
 
     static get(type: string, payload: any): NotificationContent {
-        const generator = this.templates[type];
-        if (!generator) {
-            return {
-                title: 'Notification',
-                message: 'You have a new update.'
-            };
-        }
+        const generator = this.templates[type] || this.templates['SYSTEM_ALERT'];
         return generator(payload);
     }
 }

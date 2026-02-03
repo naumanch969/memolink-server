@@ -1,3 +1,4 @@
+import 'apminsight';
 import mongoose from 'mongoose';
 import { config } from './config/env';
 import { logger } from './config/logger';

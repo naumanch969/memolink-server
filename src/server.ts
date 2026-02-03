@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import 'apminsight';
 import { config } from './config/env';
 import { initCronJobs } from './core/cron';
 import Server from './core/server';
