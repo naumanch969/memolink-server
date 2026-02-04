@@ -15,6 +15,7 @@ router.post('/chat', AgentController.chat);
 router.get('/chat', AgentController.getHistory);
 router.get('/briefing', AgentController.getBriefing);
 router.get('/similar', AgentController.getSimilarEntries);
+router.post('/goal-architect', AgentController.goalArchitectChat);
 router.delete('/chat', AgentController.clearHistory);
 
 export default router;

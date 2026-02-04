@@ -143,4 +143,23 @@ export class AgentController {
             ResponseHelper.error(res, 'Error finding similar entries', 500, error);
         }
     }
+
+    static async goalArchitectChat(req: Request, res: Response): Promise<void> {
+        try {
+            const { message, history } = req.body;
+            const userId = (req as any).user._id;
+
+            if (!message) {
+                ResponseHelper.badRequest(res, 'Message is required');
+                return;
+            }
+
+            const response = await agentService.goalArchitect(userId, message, history || []);
+            ResponseHelper.success(res, { response }, 'Goal architect response');
+        } catch (error) {
+            logger.error('Error in goal architect chat', error);
+            ResponseHelper.error(res, 'Error in goal architect chat', 500, error);
+        }
+    }
 }
+

@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
+import DateManager from '../../core/utils/DateManager';
 import { DataType } from '../../shared/types';
 import Entry from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
@@ -9,14 +10,13 @@ import { graphService } from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
 import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../reminder/reminder.types';
 import { RoutineTemplate } from '../routine/routine.model';
+import webActivityService from '../web-activity/web-activity.service';
 import { AgentIntentType, agentIntent } from './agent.intent';
 import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { getAgentQueue } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
 import { agentToolDefinitions, agentToolHandlers } from './tools';
-import webActivityService from '../web-activity/web-activity.service';
-import DateManager from '../../core/utils/DateManager';
 
 export class AgentService {
     /**
@@ -594,6 +594,73 @@ export class AgentService {
             logger.error('Similar entries lookup failed', error);
             return [];
         }
+    }
+
+    async goalArchitect(userId: string, message: string, history: Array<{ role: string, content: string }>): Promise<string> {
+        const historyText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+
+        const prompt = `
+            SYSTEM INSTRUCTION:
+            You are an expert Goal Architect and Coaching AI. Your role is to help users operationalize their ambitions into concrete Goals and Routines.
+
+            CONVERSATION HISTORY:
+            ${historyText}
+            USER: ${message}
+
+            CONVERSATION STYLE:
+            - Be concise and natural, like a human coach.
+            - DO NOT interrogate the user with a wall of questions.
+            - Ask ONE or TWO most critical clarifying questions at a time.
+            - MATCH the user's energy. If they are brief, be brief. If they are detailed, match that depth.
+
+            PHASE 1: INTELLIGENT DISCOVERY
+            Analyze the user's input. Do you have enough context to build a robust system?
+            Context needed:
+            1. The specific OUTCOME/VISION (What exactly do they want to achieve?)
+            2. The MOTIVATION (Why now? What's the driver?) - *Infer this if possible, or ask later.*
+            3. The OBSTACLES (Optional, ask only if the goal seems hard).
+
+            DECISION LOGIC:
+            - IF the goal is trivial (e.g. "drink water"): SKIP discovery and propose a plan immediately.
+            - IF the goal is broad (e.g. "get fit"): Ask ONE specific question to narrow it down (e.g. "Do you have a specific sport in mind, or just general health?").
+            - IF the context is clear but missing details: Propose a "Draft Plan" and ask for feedback.
+
+            PHASE 2: ARCHITECTURE (When ready)
+            Once you have enough context, propose a "System" consisting of:
+            - A High-Level Goal (The Outcome)
+            - A Strategy (The Description/Approach)
+            - Linked Routines (The Daily/Weekly input metrics)
+
+            VALID TYPES for Routines (Strict):
+            - boolean (Simple checkbox, e.g. "Wake up on time")
+            - warning: 'checklist' is NOT supported for routines yet, use boolean or text.
+            - counter (Numeric, e.g. "Drink 5 glasses", requires target)
+            - duration (Time-based, e.g. "Read for 30 mins", requires target)
+            - scale (1-10 rating, e.g. "Energy level")
+            - text (Journaling/logging inputs)
+
+            OUTPUT FORMAT:
+            - If asking questions, just output the plain text question.
+            - If proposing a plan, output the JSON ONLY within triple backticks like this:
+            \`\`\`json
+            {
+              "title": "Become a Marathon Runner",
+              "why": "To demonstrate resilience and mastery over my physical limits",
+              "description": "A 16-week progressive training block culminating in the London Marathon.",
+              "type": "counter", 
+              "targetValue": 42.2, 
+              "unit": "km",
+              "deadline": "2024-12-31",
+              "routines": [
+                 { "name": "Zone 2 Training", "frequency": "daily", "type": "duration", "description": "45 min low heart rate run" },
+                 { "name": "Long Run", "frequency": "weekly", "type": "duration", "description": "90+ min endurance run" },
+                 { "name": "Recovery Sleep", "frequency": "daily", "type": "scale", "description": "Rate sleep quality 1-10" }
+              ]
+            }
+            \`\`\`
+        `;
+
+        return await LLMService.generateText(prompt);
     }
 }
 
