@@ -6,6 +6,7 @@
     "dev": "nodemon src/server.ts",
     "worker": "nodemon --exec ts-node src/worker.ts",
     "build": "tsc",
+    "deploy": "npm run build && fly deploy",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "test": "jest",

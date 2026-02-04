@@ -113,10 +113,105 @@ export class EntryService implements IEntryService {
         });
       }
 
+      // Background Task: Update Daily Mood based on entries
+      // Fire and forget - do not await
+      this.updateDailyMood(userId, entry.date || new Date())
+        .catch(err => logger.error('Failed to auto-update daily mood', err));
+
       return entry;
     } catch (error) {
       logger.error('Entry creation failed:', error);
       throw error;
+    }
+  }
+
+  // Helper to map mood strings to scores (1-5)
+  private getMoodScore(mood: string): number {
+    const m = mood.toLowerCase().trim();
+
+    const moodMap: Record<string, number> = {
+      // 5 - Excellent
+      'ecstatic': 5, 'happy': 5, 'excited': 5, 'great': 5, 'wonderful': 5,
+      'amazing': 5, 'loved': 5, 'joyful': 5, 'energetic': 5, 'motivated': 5,
+      'proud': 5, 'optimistic': 5, 'appreciative': 5, 'blissful': 5,
+      'empowered': 5, 'accomplished': 5, 'determined': 5,
+
+      // 4 - Good (Positive)
+      'good': 4, 'content': 4, 'calm': 4, 'peaceful': 4, 'satisfied': 4,
+      'fine': 4, 'okay': 4, 'relaxed': 4, 'productive': 4, 'confident': 4,
+      'focused': 4, 'grateful': 4, 'hopeful': 4, 'positive': 4, 'constructive': 4,
+
+      // 3 - Neutral (Cautious)
+      'average': 3, 'neutral': 3, 'bored': 3, 'tired': 3, 'indifferent': 3,
+      'confused': 3, 'busy': 3, 'uncertain': 3, 'pensive': 3, 'distracted': 3,
+      'numb': 3, 'sleepy': 3, 'cautious': 3, 'reflective': 3, 'mixed': 3, 'observant': 3,
+
+      // 2 - Bad (Negative/Challenging)
+      'sad': 2, 'anxious': 2, 'nervous': 2, 'annoyed': 2, 'frustrated': 2,
+      'lonely': 2, 'stressed': 2, 'shame': 2, 'guilt': 2, 'awkward': 2,
+      'disappointed': 2, 'overwhelmed': 2, 'insecure': 2, 'scared': 2,
+      'negative': 2, 'challenging': 2, 'difficult': 2, 'concerned': 2,
+
+      // 1 - Terrible
+      'angry': 1, 'depressed': 1, 'devastated': 1, 'furious': 1, 'miserable': 1,
+      'terrible': 1, 'exhausted': 1, 'hopeless': 1, 'hurt': 1, 'grief': 1,
+      'panic': 1, 'desperate': 1
+    };
+
+    // Direct match
+    if (moodMap[m]) return moodMap[m];
+
+    // Fallback logic if needed (or default to neutral 3 if unknown but not empty)
+    // For now, if unknown, return null (handled by caller)
+    return 0;
+  }
+
+  private async updateDailyMood(userId: string, date: Date): Promise<void> {
+    try {
+      const { moodService } = await import('../mood/mood.service');
+
+      // 1. Get date range for the day
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // 2. Fetch all entries for this day that have a mood
+      const entries = await Entry.find({
+        userId: new Types.ObjectId(userId),
+        date: { $gte: startOfDay, $lte: endOfDay },
+        mood: { $exists: true, $ne: '' }
+      }).select('mood');
+
+      if (entries.length === 0) return;
+
+      // 3. Calculate average score
+      let totalScore = 0;
+      let validCount = 0;
+
+      for (const entry of entries) {
+        if (!entry.mood) continue;
+        const score = this.getMoodScore(entry.mood);
+        if (score > 0) {
+          totalScore += score;
+          validCount++;
+        }
+      }
+
+      if (validCount === 0) return;
+
+      const averageScore = Math.round(totalScore / validCount);
+      const clampedScore = Math.min(5, Math.max(1, averageScore));
+
+      // 4. Update Mood
+      await moodService.upsertMood(userId, {
+        date: date, // moodService normalizes this
+        score: clampedScore,
+        note: `Auto-calculated from ${validCount} entries`
+      });
+
+    } catch (err) {
+      logger.error(`Error calculating daily mood for user ${userId}:`, err);
     }
   }
 
@@ -325,6 +420,11 @@ export class EntryService implements IEntryService {
         if (addedTags.length > 0) await tagService.incrementUsage(userId, addedTags);
         if (removedTags.length > 0) await tagService.decrementUsage(userId, removedTags);
       }
+
+      // Background Task: Update Daily Mood based on entries
+      // Fire and forget - do not await
+      this.updateDailyMood(userId, entry.date || new Date())
+        .catch(err => logger.error('Failed to auto-update daily mood', err));
 
       return entry;
     } catch (error) {
