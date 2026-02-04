@@ -1,4 +1,4 @@
-import { FilterQuery, Types } from 'mongoose';
+import mongoose, { ClientSession, FilterQuery, Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import DateManager from '../../core/utils/DateManager';
 import { ROUTINE_STATUS } from '../../shared/constants';
@@ -260,76 +260,91 @@ export class RoutineService {
      * Create or update a routine log
      */
     async createOrUpdateRoutineLog(userId: string, params: CreateRoutineLogParams): Promise<IRoutineLog> {
-        // Get the routine template
-        const routine = await RoutineTemplate.findOne({
-            _id: new Types.ObjectId(params.routineId),
-            userId: new Types.ObjectId(userId),
-        });
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-        if (!routine) {
-            throw new Error('Routine not found');
-        }
+        try {
+            // Get the routine template - strictly within session
+            const routine = await RoutineTemplate.findOne({
+                _id: new Types.ObjectId(params.routineId),
+                userId: new Types.ObjectId(userId),
+            }).session(session);
 
-        // Normalize date to 00:00:00 UTC to match search/filter logic
-        const logDate = DateManager.normalizeToUTC(params.date);
-
-        // Calculate completion percentage and streak eligibility
-        // We calculate this upfront since logic is same for create/update
-        const { completionPercentage, countsForStreak } =
-            this.calculateCompletion(routine.type as RoutineType, params.data, routine.config, routine, logDate);
-
-        // Fetch existing log to calculate delta for goal updates
-        const existingLog = await RoutineLog.findOne({
-            userId: new Types.ObjectId(userId),
-            routineId: new Types.ObjectId(params.routineId),
-            date: logDate,
-        });
-
-        const delta = this.calculateDelta(routine.type as RoutineType, existingLog?.data, params.data);
-        if (delta !== 0) {
-            await goalService.updateProgressFromRoutineLog(
-                userId,
-                params.routineId,
-                routine.type as RoutineType,
-                delta
-            );
-        }
-
-        // Use findOneAndUpdate with upsert: true to handle concurrency safely
-        // This avoids race conditions where two requests try to insert same day log
-
-        const updateOps: any = {
-            $set: {
-                data: params.data,
-                completionPercentage,
-                countsForStreak,
-                loggedAt: new Date(),
+            if (!routine) {
+                throw new Error('Routine not found');
             }
-        };
 
-        if (params.journalEntryId) {
-            updateOps.$set.journalEntryId = new Types.ObjectId(params.journalEntryId);
-        }
+            // Normalize date to 00:00:00 UTC to match search/filter logic
+            const logDate = DateManager.normalizeToUTC(params.date);
 
-        const log = await RoutineLog.findOneAndUpdate(
-            {
+            // Calculate completion percentage and streak eligibility
+            const { completionPercentage, countsForStreak } =
+                this.calculateCompletion(routine.type as RoutineType, params.data, routine.config, routine, logDate);
+
+            // Fetch existing log within session to calculate delta for goal updates
+            const existingLog = await RoutineLog.findOne({
                 userId: new Types.ObjectId(userId),
                 routineId: new Types.ObjectId(params.routineId),
                 date: logDate,
-            },
-            updateOps,
-            {
-                new: true,
-                upsert: true,
-                runValidators: true,
-                setDefaultsOnInsert: true
+            }).session(session);
+
+            const delta = this.calculateDelta(routine.type as RoutineType, existingLog?.data, params.data);
+            if (delta !== 0) {
+                await goalService.updateProgressFromRoutineLog(
+                    userId,
+                    params.routineId,
+                    routine.type as RoutineType,
+                    delta,
+                    [], // linkedGoalIds (routine template link handles this typically)
+                    session
+                );
             }
-        ).populate('routineId');
 
-        // Recalculate streaks with timezone awareness
-        await this.recalculateStreaks(userId, params.routineId, params.timezoneOffset);
+            const updateOps: any = {
+                $set: {
+                    data: params.data,
+                    completionPercentage,
+                    countsForStreak,
+                    loggedAt: new Date(),
+                }
+            };
 
-        return log.toObject();
+            if (params.journalEntryId) {
+                updateOps.$set.journalEntryId = new Types.ObjectId(params.journalEntryId);
+            }
+
+            // Atomic Upsert within Transaction
+            const log = await RoutineLog.findOneAndUpdate(
+                {
+                    userId: new Types.ObjectId(userId),
+                    routineId: new Types.ObjectId(params.routineId),
+                    date: logDate,
+                },
+                updateOps,
+                {
+                    new: true,
+                    upsert: true,
+                    runValidators: true,
+                    setDefaultsOnInsert: true,
+                    session // CRITICAL: Link to transaction
+                }
+            ).populate('routineId');
+
+            if (!log) throw new Error('Failed to create or update routine log');
+
+            // Recalculate streaks with timezone awareness - within session
+            await this.recalculateStreaks(userId, params.routineId, params.timezoneOffset, session);
+
+            await session.commitTransaction();
+            return log.toObject();
+
+        } catch (error) {
+            await session.abortTransaction();
+            logger.error(`Transaction aborted in createOrUpdateRoutineLog: ${error}`);
+            throw error;
+        } finally {
+            await session.endSession();
+        }
     }
 
     /**
@@ -834,11 +849,11 @@ export class RoutineService {
     /**
      * Recalculate streaks for a routine
      */
-    private async recalculateStreaks(userId: string, routineId: string, timezoneOffset?: number): Promise<void> {
+    private async recalculateStreaks(userId: string, routineId: string, timezoneOffset?: number, session?: ClientSession): Promise<void> {
         const routine = await RoutineTemplate.findOne({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
-        });
+        }).session(session || null);
 
         if (!routine) return;
 
@@ -848,6 +863,7 @@ export class RoutineService {
             countsForStreak: true,
         })
             .sort({ date: -1 })
+            .session(session || null)
             .lean();
 
         // Calculate User's current day based on timezoneOffset
@@ -862,7 +878,7 @@ export class RoutineService {
                     'streakData.lastCompletedDate': undefined,
                     'streakData.bankedSkips': 0,
                 },
-            });
+            }, { session });
             return;
         }
 
@@ -900,7 +916,7 @@ export class RoutineService {
                 'streakData.totalCompletions': logs.length,
                 'streakData.lastCompletedDate': logs.length > 0 ? logs[0].date : undefined,
             },
-        });
+        }, { session });
     }
 
     private calculateDayStreaks(routine: IRoutineTemplate, uniqueLogs: any[], referenceNow: Date): { current: number, longest: number } {

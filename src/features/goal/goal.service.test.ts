@@ -11,6 +11,7 @@ jest.mock('./goal.model', () => {
         findById: jest.fn(),
         findOneAndUpdate: jest.fn(),
         deleteOne: jest.fn(),
+        updateMany: jest.fn(),
     };
     return {
         __esModule: true,
@@ -32,14 +33,14 @@ describe('GoalService', () => {
             const mockGoal = { _id: '507f1f77bcf86cd799439014', ...params, progress: { currentValue: 0 } };
 
             // Mock static create
-            (Goal.create as jest.Mock).mockResolvedValue(mockGoal);
-            (Goal.findById as jest.Mock).mockReturnValue({
+            (Goal as any).create.mockResolvedValue(mockGoal);
+            (Goal as any).findById.mockReturnValue({
                 lean: jest.fn().mockResolvedValue(mockGoal)
             });
 
             const result = await goalService.createGoal(userId, params);
 
-            expect(Goal.create).toHaveBeenCalledWith(expect.objectContaining({
+            expect((Goal as any).create).toHaveBeenCalledWith(expect.objectContaining({
                 userId: expect.anything(),
                 title: 'Run 5k'
             }));
@@ -55,7 +56,7 @@ describe('GoalService', () => {
             const sortMock = jest.fn().mockReturnThis();
             const leanMock = jest.fn().mockResolvedValue(mockGoals);
 
-            (Goal.find as jest.Mock).mockReturnValue({
+            (Goal as any).find.mockReturnValue({
                 sort: sortMock,
                 lean: leanMock
             });
@@ -64,9 +65,40 @@ describe('GoalService', () => {
 
             await goalService.getGoals(userId, {});
 
-            expect(Goal.find).toHaveBeenCalledWith(expect.objectContaining({
+            expect((Goal as any).find).toHaveBeenCalledWith(expect.objectContaining({
                 status: { $ne: GOAL_STATUS.ARCHIVED }
             }));
         });
+        describe('updateProgressFromRoutineLog', () => {
+            it('should update progress for all linked goals atomically', async () => {
+                const userId = '507f1f77bcf86cd799439011';
+                const routineId = '507f1f77bcf86cd799439015';
+                const delta = 5;
+                const mockSession = {} as any;
+
+                await goalService.updateProgressFromRoutineLog(
+                    userId,
+                    routineId,
+                    'counter' as any,
+                    delta,
+                    [],
+                    mockSession
+                );
+
+                expect((Goal as any).updateMany).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        userId: expect.anything(),
+                        $or: expect.arrayContaining([
+                            { linkedRoutines: expect.anything() }
+                        ])
+                    }),
+                    expect.objectContaining({
+                        $inc: { 'progress.currentValue': 5 }
+                    }),
+                    expect.objectContaining({ session: mockSession })
+                );
+            });
+        });
     });
+
 });

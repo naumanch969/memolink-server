@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { ClientSession, Types } from 'mongoose';
 import logger from '../../config/logger';
 import { GOAL_STATUS } from '../../shared/constants';
 import { RoutineType } from '../routine/routine.interfaces';
@@ -176,7 +176,8 @@ export class GoalService {
         routineId: string,
         routineType: RoutineType,
         delta: number | any,
-        linkedGoalIds: string[] = []
+        linkedGoalIds: string[] = [],
+        session?: ClientSession
     ): Promise<void> {
         const goalIds = linkedGoalIds.map(id => new Types.ObjectId(id));
         const increment = Number(delta) || 0;
@@ -196,7 +197,8 @@ export class GoalService {
             {
                 $inc: { 'progress.currentValue': increment },
                 $set: { 'progress.lastUpdate': new Date() }
-            }
+            },
+            { session }
         );
     }
 
