@@ -78,13 +78,49 @@ export const createRoutineTemplateValidation = [
         .isObject()
         .withMessage('Schedule must be an object'),
 
-    body('schedule.activeDays')
-        .isArray({ min: 1, max: ROUTINE_VALIDATION.MAX_ACTIVE_DAYS })
-        .withMessage('Active days must be an array with 1-7 elements'),
+    body('schedule.type')
+        .isIn(['specific_days', 'frequency', 'interval'])
+        .withMessage('Schedule type must be one of: specific_days, frequency, interval'),
 
-    body('schedule.activeDays.*')
+    body('schedule.days')
+        .optional()
+        .isArray({ max: ROUTINE_VALIDATION.MAX_ACTIVE_DAYS })
+        .withMessage('Days must be an array with up to 7 elements'),
+
+    body('schedule.days.*')
+        .optional()
         .isInt({ min: 0, max: 6 })
-        .withMessage('Each active day must be a number between 0 (Sunday) and 6 (Saturday)'),
+        .withMessage('Each day must be a number between 0 (Sunday) and 6 (Saturday)'),
+
+    body('schedule.dates')
+        .optional()
+        .isArray()
+        .withMessage('Dates must be an array'),
+
+    body('schedule.dates.*')
+        .optional()
+        .isInt({ min: 1, max: 31 })
+        .withMessage('Each date must be between 1 and 31'),
+
+    body('schedule.frequencyCount')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Frequency count must be at least 1'),
+
+    body('schedule.frequencyPeriod')
+        .optional()
+        .isIn(['week', 'month'])
+        .withMessage('Frequency period must be week or month'),
+
+    body('schedule.intervalValue')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Interval value must be at least 1'),
+
+    body('schedule.intervalUnit')
+        .optional()
+        .isIn(['day', 'week', 'month'])
+        .withMessage('Interval unit must be day, week, or month'),
 
     body('completionMode')
         .optional()
@@ -146,15 +182,45 @@ export const updateRoutineTemplateValidation = [
         .isObject()
         .withMessage('Schedule must be an object'),
 
-    body('schedule.activeDays')
+    body('schedule.days')
         .optional()
-        .isArray({ min: 1, max: ROUTINE_VALIDATION.MAX_ACTIVE_DAYS })
-        .withMessage('Active days must be an array with 1-7 elements'),
+        .isArray({ max: ROUTINE_VALIDATION.MAX_ACTIVE_DAYS })
+        .withMessage('Days must be an array with up to 7 elements'),
 
-    body('schedule.activeDays.*')
+    body('schedule.days.*')
         .optional()
         .isInt({ min: 0, max: 6 })
-        .withMessage('Each active day must be a number between 0 (Sunday) and 6 (Saturday)'),
+        .withMessage('Each day must be a number between 0 (Sunday) and 6 (Saturday)'),
+
+    body('schedule.dates')
+        .optional()
+        .isArray()
+        .withMessage('Dates must be an array'),
+
+    body('schedule.dates.*')
+        .optional()
+        .isInt({ min: 1, max: 31 })
+        .withMessage('Each date must be between 1 and 31'),
+
+    body('schedule.frequencyCount')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Frequency count must be at least 1'),
+
+    body('schedule.frequencyPeriod')
+        .optional()
+        .isIn(['week', 'month'])
+        .withMessage('Frequency period must be week or month'),
+
+    body('schedule.intervalValue')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Interval value must be at least 1'),
+
+    body('schedule.intervalUnit')
+        .optional()
+        .isIn(['day', 'week', 'month'])
+        .withMessage('Interval unit must be day, week, or month'),
 
     body('completionMode')
         .optional()

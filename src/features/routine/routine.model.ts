@@ -38,16 +38,34 @@ const routineConfigSchema = new Schema(
     { _id: false }
 );
 
-const routineScheduleSchema = new Schema(
+const scheduleConfigSchema = new Schema(
     {
-        activeDays: {
-            type: [{ type: Number, min: 0, max: 6 }],
+        type: {
+            type: String,
+            enum: ['specific_days', 'frequency', 'interval'],
             required: true,
-            validate: {
-                validator: (v: number[]) => v.length > 0 && v.length <= 7,
-                message: 'Active days must have at least 1 and at most 7 days',
-            },
+            default: 'specific_days',
         },
+        // Mode A: Specific
+        days: [{ type: Number, min: 0, max: 6 }],
+        dates: [{ type: Number, min: 1, max: 31 }],
+
+        // Mode B: Frequency
+        frequencyCount: { type: Number },
+        frequencyPeriod: { type: String, enum: ['week', 'month'] },
+
+        // Mode C: Interval
+        intervalValue: { type: Number },
+        intervalUnit: { type: String, enum: ['day', 'week', 'month'] },
+    },
+    { _id: false }
+);
+
+const streakConfigSchema = new Schema(
+    {
+        allowSkips: { type: Boolean, default: false },
+        maxBankedSkips: { type: Number, default: 0 },
+        skipCost: { type: Number, default: 1 },
     },
     { _id: false }
 );
@@ -64,84 +82,47 @@ const routineStreakDataSchema = new Schema(
 
 const routineTemplateSchema = new Schema<IRoutineTemplate>(
     {
-        userId: {
-            type: Schema.Types.ObjectId,
-            ref: 'User',
-            required: [true, 'User ID is required'],
-            index: true,
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
+        name: { type: String, required: true },
+        description: { type: String },
+        icon: { type: String },
+        type: { type: String, enum: Object.values(ROUTINE_TYPES), required: true, },
+
+        config: { type: routineConfigSchema, default: {} },
+        schedule: { type: scheduleConfigSchema, required: true },
+        streakConfig: {
+            type: streakConfigSchema,
+            default: () => ({ allowSkips: false, maxBankedSkips: 0, skipCost: 1 }),
         },
-        name: {
-            type: String,
-            required: [true, 'Routine name is required'],
-            trim: true,
-            minlength: [1, 'Name must be at least 1 character'],
-            maxlength: [100, 'Name cannot exceed 100 characters'],
-        },
-        description: {
-            type: String,
-            trim: true,
-            maxlength: [500, 'Description cannot exceed 500 characters'],
-        },
-        icon: {
-            type: String,
-            trim: true,
-        },
-        type: {
-            type: String,
-            required: [true, 'Routine type is required'],
-            enum: Object.values(ROUTINE_TYPES),
-        },
-        config: {
-            type: routineConfigSchema,
-            required: true,
-            default: {},
-        },
-        schedule: {
-            type: routineScheduleSchema,
-            required: true,
-        },
-        completionMode: {
-            type: String,
-            enum: ['strict', 'gradual'],
-            default: 'strict',
-        },
-        gradualThreshold: {
-            type: Number,
-            min: 1,
-            max: 100,
-            default: 80,
-        },
+
+        completionMode: { type: String, enum: ['strict', 'gradual'], default: 'strict', },
+        gradualThreshold: { type: Number },
+
         streakData: {
             type: routineStreakDataSchema,
             default: () => ({
                 currentStreak: 0,
                 longestStreak: 0,
                 totalCompletions: 0,
+                bankedSkips: 0,
             }),
         },
+
         status: {
             type: String,
             enum: Object.values(ROUTINE_STATUS),
             default: ROUTINE_STATUS.ACTIVE,
             index: true,
         },
-        linkedTags: [
-            {
-                type: Schema.Types.ObjectId,
-                ref: 'Tag',
-            },
-        ],
-        order: {
-            type: Number,
-            default: 0,
-        },
-        archivedAt: {
-            type: Date,
-        },
+
+        linkedGoals: [{ type: Schema.Types.ObjectId, ref: 'Goal' }],
+        linkedTags: [{ type: Schema.Types.ObjectId, ref: 'Tag' }],
+        order: { type: Number, default: 0 },
+        archivedAt: { type: String }, // ISO Date string
     },
     {
         timestamps: true,
-        collection: COLLECTIONS.ROUTINE_TEMPLATES,
+        collection: COLLECTIONS.ROUTINE_TEMPLATES, // Changed to ROUTINE_TEMPLATE as per instruction
     }
 );
 
@@ -151,11 +132,13 @@ routineTemplateSchema.index({ userId: 1, order: 1 });
 routineTemplateSchema.index({ userId: 1, createdAt: -1 });
 
 // Pre-save middleware to set archivedAt
+// Pre-save middleware to set archivedAt
 routineTemplateSchema.pre('save', function (next) {
-    if (this.status === ROUTINE_STATUS.ARCHIVED && !this.archivedAt) {
-        this.archivedAt = new Date();
-    } else if (this.status !== ROUTINE_STATUS.ARCHIVED) {
-        this.archivedAt = undefined;
+    const doc = this as unknown as IRoutineTemplate;
+    if (doc.status === ROUTINE_STATUS.ARCHIVED && !doc.archivedAt) {
+        doc.archivedAt = new Date().toISOString();
+    } else if (doc.status !== ROUTINE_STATUS.ARCHIVED) {
+        doc.archivedAt = undefined;
     }
     next();
 });

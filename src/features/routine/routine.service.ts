@@ -406,11 +406,15 @@ export class RoutineService {
             // Calculate delta and update goals
             const delta = this.calculateDelta(routine.type as RoutineType, oldData, log.data);
             if (delta !== 0) {
+                // Pass linked goals for update
+                const linkedGoalIds = routine.linkedGoals?.map(id => id.toString()) || [];
+
                 await goalService.updateProgressFromRoutineLog(
                     userId,
                     log.routineId.toString(),
                     routine.type as RoutineType,
-                    delta
+                    delta,
+                    linkedGoalIds
                 );
             }
         }
@@ -799,9 +803,6 @@ export class RoutineService {
 
         if (!routine) return;
 
-        const activeDays = routine.schedule.activeDays;
-        if (!activeDays || activeDays.length === 0) return;
-
         const logs = await RoutineLog.find({
             userId: new Types.ObjectId(userId),
             routineId: new Types.ObjectId(routineId),
@@ -817,12 +818,13 @@ export class RoutineService {
                     'streakData.longestStreak': 0,
                     'streakData.totalCompletions': 0,
                     'streakData.lastCompletedDate': undefined,
+                    'streakData.bankedSkips': 0,
                 },
             });
             return;
         }
 
-        // 1. Deduplicate/Normalize Logs in memory (Idempotent)
+        // 1. Deduplicate/Normalize Logs
         const uniqueDaysSet = new Set<string>();
         const uniqueLogs: typeof logs = [];
 
@@ -834,8 +836,37 @@ export class RoutineService {
             }
         }
 
-        // 3. Calculate Longest Streak
+        // Logic split based on Schedule Type
+        let currentStreak = 0;
         let longestStreak = 0;
+
+        // Use new helper methods (implied to be added)
+        if (routine.schedule.type === 'frequency') {
+            const { current, longest } = await this.calculateFrequencyStreaks(routine, uniqueLogs);
+            currentStreak = current;
+            longestStreak = longest;
+        } else {
+            const { current, longest } = this.calculateDayStreaks(routine, uniqueLogs);
+            currentStreak = current;
+            longestStreak = longest;
+        }
+
+        // Update Routine
+        await RoutineTemplate.findByIdAndUpdate(routineId, {
+            $set: {
+                'streakData.currentStreak': currentStreak,
+                'streakData.longestStreak': longestStreak,
+                'streakData.totalCompletions': logs.length,
+                'streakData.lastCompletedDate': logs.length > 0 ? logs[0].date : undefined,
+            },
+        });
+    }
+
+    private calculateDayStreaks(routine: IRoutineTemplate, uniqueLogs: any[]): { current: number, longest: number } {
+        let longestStreak = 0;
+        let currentStreak = 0;
+
+        // Longest Streak
         if (uniqueLogs.length > 0) {
             let tempStreak = 1;
             for (let i = 0; i < uniqueLogs.length - 1; i++) {
@@ -843,7 +874,7 @@ export class RoutineService {
                 const older = new Date(uniqueLogs[i + 1].date);
                 const diff = this.getDiffDays(recent, older);
 
-                if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, activeDays))) {
+                if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, routine))) {
                     tempStreak++;
                 } else {
                     longestStreak = Math.max(longestStreak, tempStreak);
@@ -853,8 +884,7 @@ export class RoutineService {
             longestStreak = Math.max(longestStreak, tempStreak);
         }
 
-        // 4. Calculate Current Streak
-        let currentStreak = 0;
+        // Current Streak
         if (uniqueLogs.length > 0) {
             const now = new Date();
             now.setUTCHours(0, 0, 0, 0);
@@ -864,22 +894,93 @@ export class RoutineService {
 
             const diffFromNow = this.getDiffDays(now, lastLogDate);
 
-            const isAlive = diffFromNow <= 1 || (diffFromNow > 1 && this.isGapSafe(now, diffFromNow, activeDays));
+            // If I did it today (0) or yesterday (1), streak is alive.
+            // If gap is bigger, check if gap was 'safe' (not due).
+            const isAlive = diffFromNow <= 1 || (diffFromNow > 1 && this.isGapSafe(now, diffFromNow, routine));
 
             if (isAlive) {
-                currentStreak = this.calculateSegmentStreak(0, uniqueLogs, activeDays);
+                // Calculate streak backwards from last log
+                let streak = 1;
+                for (let i = 0; i < uniqueLogs.length - 1; i++) {
+                    const recent = new Date(uniqueLogs[i].date);
+                    const older = new Date(uniqueLogs[i + 1].date);
+                    const diff = this.getDiffDays(recent, older);
+
+                    if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, routine))) {
+                        streak++;
+                    } else {
+                        break;
+                    }
+                }
+                currentStreak = streak;
             }
         }
 
-        // Update Routine
-        await RoutineTemplate.findByIdAndUpdate(routineId, {
-            $set: {
-                'streakData.currentStreak': currentStreak,
-                'streakData.longestStreak': longestStreak,
-                'streakData.totalCompletions': uniqueLogs.length,
-                'streakData.lastCompletedDate': uniqueLogs.length > 0 ? uniqueLogs[0].date : undefined,
-            },
+        return { current: currentStreak, longest: longestStreak };
+    }
+
+    private async calculateFrequencyStreaks(routine: IRoutineTemplate, logs: any[]): Promise<{ current: number, longest: number }> {
+        if (!routine.schedule.frequencyCount) return { current: 0, longest: 0 };
+        const target = routine.schedule.frequencyCount;
+        const period = routine.schedule.frequencyPeriod || 'week'; // Default week
+
+        // Helper to get period key
+        const getPeriodKey = (d: Date) => {
+            const date = new Date(d);
+            date.setUTCHours(0, 0, 0, 0);
+            if (period === 'month') {
+                return `${date.getUTCFullYear()}-${date.getUTCMonth()}`; // YYYY-M
+            } else {
+                // Week number
+                const firstDayOfYear = new Date(date.getUTCFullYear(), 0, 1);
+                const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+                const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+                return `${date.getUTCFullYear()}-W${weekNum}`;
+            }
+        };
+
+        const periodCounts = new Map<string, number>();
+        logs.forEach(l => {
+            const key = getPeriodKey(new Date(l.date));
+            periodCounts.set(key, (periodCounts.get(key) || 0) + 1);
         });
+
+        // Determine "Success" periods
+        let currentStreak = 0;
+        let longestStreak = 0;
+        let tempStreak = 0;
+        let isStreakAlive = true;
+
+        // Check last 52 periods
+        const checkDate = new Date();
+
+        for (let i = 0; i < 52; i++) {
+            const key = getPeriodKey(checkDate);
+            const count = periodCounts.get(key) || 0;
+
+            if (count >= target) {
+                tempStreak++;
+                if (isStreakAlive) currentStreak++;
+            } else {
+                // Exception: Current period is allowed to be incomplete if we are strictly calculating PAST streaks?
+                // No, "Frequency" streak implies you are maintaining the volume.
+                // If this is the CURRENT week, and I haven't finished, the streak isn't "broken" yet, but it's not "incremented" either?
+                // It's ambiguous. Logic: Do NOT break streak on current week if Incomplete.
+                if (i === 0) {
+                    // Current week incomplete. Do not increment streak, do not break flag.
+                } else {
+                    isStreakAlive = false;
+                    longestStreak = Math.max(longestStreak, tempStreak);
+                    tempStreak = 0;
+                }
+            }
+
+            // Move back 1 period
+            if (period === 'month') checkDate.setMonth(checkDate.getMonth() - 1);
+            else checkDate.setDate(checkDate.getDate() - 7);
+        }
+
+        return { current: currentStreak, longest: Math.max(longestStreak, tempStreak, currentStreak) };
     }
 
     private getDiffDays(d1: Date, d2: Date): number {
@@ -887,31 +988,32 @@ export class RoutineService {
         return Math.round((d1.getTime() - d2.getTime()) / msPerDay);
     }
 
-    private isGapSafe(startDate: Date, gapInDays: number, activeDays: number[]): boolean {
+    private isGapSafe(startDate: Date, gapInDays: number, routine: IRoutineTemplate): boolean {
         const dateCursor = new Date(startDate);
         for (let i = 1; i < gapInDays; i++) {
             dateCursor.setDate(dateCursor.getDate() - 1);
-            if (activeDays.includes(dateCursor.getDay())) {
+            if (this.isRoutineDueStrict(routine, dateCursor)) {
                 return false;
             }
         }
         return true;
     }
 
-    private calculateSegmentStreak(startIndex: number, logs: any[], activeDays: number[]): number {
-        let streak = 1;
-        for (let i = startIndex; i < logs.length - 1; i++) {
-            const recent = new Date(logs[i].date);
-            const older = new Date(logs[i + 1].date);
-            const diff = this.getDiffDays(recent, older);
-
-            if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, activeDays))) {
-                streak++;
-            } else {
-                break;
+    // Check if a routine was specifically scheduled for this day (ignoring completion)
+    private isRoutineDueStrict(routine: IRoutineTemplate, date: Date): boolean {
+        const schedule = routine.schedule;
+        if (schedule.type === 'specific_days') {
+            if (schedule.days && schedule.days.length > 0) {
+                return schedule.days.includes(date.getDay());
+            }
+            if (schedule.dates && schedule.dates.length > 0) {
+                return schedule.dates.includes(date.getDate());
             }
         }
-        return streak;
+        if (schedule.type === 'interval') {
+            return true;
+        }
+        return false;
     }
 
     // Delete all user data (Cascade Delete)

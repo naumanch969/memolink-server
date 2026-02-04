@@ -1,4 +1,5 @@
 import { isAfter, startOfDay, subDays } from 'date-fns';
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { GOAL_STATUS } from '../../shared/constants';
 import { User } from '../auth/auth.model';
@@ -7,7 +8,6 @@ import Goal from '../goal/goal.model';
 import notificationService from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
 import { RoutineLog, RoutineTemplate } from '../routine/routine.model';
-import { Types } from 'mongoose';
 
 export class AgentAccountability {
     /**
@@ -88,7 +88,7 @@ export class AgentAccountability {
         const activeRoutines = await RoutineTemplate.find({
             userId,
             status: 'active',
-            'schedule.activeDays': dayOfWeek
+            'schedule.days': dayOfWeek
         });
 
         for (const routine of activeRoutines) {

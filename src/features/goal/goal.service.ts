@@ -175,13 +175,22 @@ export class GoalService {
         userId: string,
         routineId: string,
         routineType: RoutineType,
-        delta: number | any
+        delta: number | any,
+        linkedGoalIds: string[] = []
     ): Promise<void> {
-        // Find linked goals
+        // Find linked goals (bi-directional check)
+        // 1. Goals that have this routine in their linkedRoutines
+        // 2. Goals that are listed in the routine's linkedGoals
+
+        const goalIds = linkedGoalIds.map(id => new Types.ObjectId(id));
+
         const goals = await Goal.find({
             userId: new Types.ObjectId(userId),
-            linkedRoutines: new Types.ObjectId(routineId),
-            status: GOAL_STATUS.ACTIVE // Only update active goals
+            status: GOAL_STATUS.ACTIVE,
+            $or: [
+                { linkedRoutines: new Types.ObjectId(routineId) },
+                { _id: { $in: goalIds } }
+            ]
         });
 
         for (const goal of goals) {

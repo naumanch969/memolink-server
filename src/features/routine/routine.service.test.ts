@@ -101,7 +101,7 @@ describe('RoutineService', () => {
                 config: {},
                 streakData: {},
                 completionMode: 'strict',
-                schedule: { activeDays: [1, 2, 3, 4, 5, 6, 0] }
+                schedule: { type: 'specific_days', days: [1, 2, 3, 4, 5, 6, 0] }
             };
 
             (RoutineTemplate.findOne as jest.Mock).mockResolvedValue(routineMock);

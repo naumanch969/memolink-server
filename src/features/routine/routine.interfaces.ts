@@ -1,18 +1,61 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
-import { DataConfig, DataType, DataValue } from '../../shared/types/dataProperties';
+import { DataType, DataValue } from '../../shared/types/dataProperties';
 
 // Routine Types
 export type RoutineType = DataType;
 export type RoutineStatus = 'active' | 'paused' | 'archived';
 export type CompletionMode = 'strict' | 'gradual';
 
-// Routine Configuration (type-specific)
-export type IRoutineConfig = DataConfig;
+// ============================================
+// ROUTINE CONFIGURATION
+// ============================================
 
-// Routine Schedule
-export interface IRoutineSchedule {
-    activeDays: number[]; // 0-6 (Sunday-Saturday)
+export interface IRoutineConfig {
+    // Checklist type
+    items?: string[];
+
+    // Counter/Duration type
+    target?: number;
+    unit?: string;
+
+    // Scale type
+    scale?: number;
+    scaleLabels?: string[];
+
+    // Text type
+    prompt?: string;
+
+    // Time type
+    targetTime?: string; // HH:mm format
+}
+
+// ============================================
+// SCHEDULING (NEW ROBUST SYSTEM)
+// ============================================
+
+export type ScheduleType = 'specific_days' | 'frequency' | 'interval';
+
+export interface IScheduleConfig {
+    type: ScheduleType;
+
+    // Mode A: Specific Days (e.g. Mon, Wed OR 1st, 15th)
+    days?: number[]; // 0-6 (Sunday-Saturday)
+    dates?: number[]; // 1-31 (Day of month)
+
+    // Mode B: Frequency (e.g. 3 times per week)
+    frequencyCount?: number;
+    frequencyPeriod?: 'week' | 'month';
+
+    // Mode C: Interval (e.g. Every 3 days)
+    intervalValue?: number;
+    intervalUnit?: 'day' | 'week' | 'month';
+}
+
+export interface IStreakConfig {
+    allowSkips: boolean;
+    maxBankedSkips: number; // Max accumulated 'skip' days
+    skipCost: number; // How many banked skips to use per missed day (usually 1)
 }
 
 // Routine Streak Data
@@ -20,25 +63,38 @@ export interface IRoutineStreakData {
     currentStreak: number;
     longestStreak: number;
     totalCompletions: number;
-    lastCompletedDate?: Date;
+    lastCompletedDate?: string; // ISO String
+    bankedSkips: number; // Current available skips
 }
 
-// Routine Template
+// ============================================
+// ROUTINE TEMPLATE
+// ============================================
+
 export interface IRoutineTemplate extends BaseEntity {
     userId: Types.ObjectId;
     name: string;
     description?: string;
     icon?: string;
     type: RoutineType;
+
     config: IRoutineConfig;
-    schedule: IRoutineSchedule;
+    schedule: IScheduleConfig; // Updated schedule engine
+    streakConfig: IStreakConfig; // New streak controls
+
     completionMode: CompletionMode;
     gradualThreshold?: number;
+
     streakData: IRoutineStreakData;
+
     status: RoutineStatus;
-    linkedTags?: Types.ObjectId[];
+
+    // Explicit Goal Linking
+    linkedGoals?: string[]; // IDs of goals this routine contributes to
+    linkedTags?: string[] | any[];
+
     order: number;
-    archivedAt?: Date;
+    archivedAt?: string;
 }
 
 // Routine Log Data (type-specific)
@@ -100,7 +156,7 @@ export interface IRoutineAnalytics {
 }
 
 // ============================================
-// REQUEST PARAMS
+// REQUEST TYPES
 // ============================================
 
 export interface CreateRoutineTemplateParams {
@@ -108,10 +164,15 @@ export interface CreateRoutineTemplateParams {
     description?: string;
     icon?: string;
     type: RoutineType;
+
     config: IRoutineConfig;
-    schedule: IRoutineSchedule;
+    schedule: IScheduleConfig;
+    streakConfig?: Partial<IStreakConfig>;
+
     completionMode?: CompletionMode;
     gradualThreshold?: number;
+
+    linkedGoals?: string[];
     linkedTags?: string[];
     order?: number;
 }
@@ -120,11 +181,15 @@ export interface UpdateRoutineTemplateParams {
     name?: string;
     description?: string;
     icon?: string;
-    type?: RoutineType;
+
     config?: IRoutineConfig;
-    schedule?: IRoutineSchedule;
+    schedule?: IScheduleConfig;
+    streakConfig?: Partial<IStreakConfig>;
+
     completionMode?: CompletionMode;
     gradualThreshold?: number;
+
+    linkedGoals?: string[];
     linkedTags?: string[];
     order?: number;
 }
