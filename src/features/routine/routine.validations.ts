@@ -281,34 +281,15 @@ export const createRoutineLogValidation = [
         .isObject()
         .withMessage('Data must be an object'),
 
-    body('data.completed')
-        .optional()
-        .isBoolean()
-        .withMessage('Completed must be a boolean'),
-
-    body('data.checkedItems')
-        .optional()
-        .isArray()
-        .withMessage('Checked items must be an array'),
-
-    body('data.checkedItems.*')
-        .optional()
-        .isBoolean()
-        .withMessage('Each checked item must be a boolean'),
-
     body('data.value')
-        .optional(),
+        .exists()
+        .withMessage('Data value is required'),
 
-    body('data.text')
+    body('data.notes')
         .optional()
         .trim()
         .isLength({ max: ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH })
-        .withMessage(`Text cannot exceed ${ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH} characters`),
-
-    body('data.time')
-        .optional()
-        .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-        .withMessage('Time must be in HH:mm format'),
+        .withMessage(`Notes cannot exceed ${ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH} characters`),
 
     body('journalEntryId')
         .optional()
@@ -322,34 +303,14 @@ export const updateRoutineLogValidation = [
         .isObject()
         .withMessage('Data must be an object'),
 
-    body('data.completed')
-        .optional()
-        .isBoolean()
-        .withMessage('Completed must be a boolean'),
-
-    body('data.checkedItems')
-        .optional()
-        .isArray()
-        .withMessage('Checked items must be an array'),
-
-    body('data.checkedItems.*')
-        .optional()
-        .isBoolean()
-        .withMessage('Each checked item must be a boolean'),
-
     body('data.value')
         .optional(),
 
-    body('data.text')
+    body('data.notes')
         .optional()
         .trim()
         .isLength({ max: ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH })
-        .withMessage(`Text cannot exceed ${ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH} characters`),
-
-    body('data.time')
-        .optional()
-        .matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-        .withMessage('Time must be in HH:mm format'),
+        .withMessage(`Notes cannot exceed ${ROUTINE_VALIDATION.TEXT_RESPONSE_MAX_LENGTH} characters`),
 
     body('journalEntryId')
         .optional()

@@ -20,14 +20,23 @@ export interface IRoutineConfig {
     unit?: string;
 
     // Scale type
-    scale?: number;
-    scaleLabels?: string[];
+    min?: number;
+    max?: number;
+    minLabel?: string;
+    maxLabel?: string;
+    step?: number;
 
     // Text type
-    prompt?: string;
+    maxLength?: number;
+    placeholder?: string;
+    multiline?: boolean;
 
     // Time type
+    format?: '12' | '24';
     targetTime?: string; // HH:mm format
+
+    // Duration specific
+    targetSeconds?: number;
 }
 
 // ============================================
@@ -202,6 +211,7 @@ export interface CreateRoutineLogParams {
         notes?: string;
     };
     journalEntryId?: string;
+    timezoneOffset?: number; // In minutes
 }
 
 export interface UpdateRoutineLogParams {

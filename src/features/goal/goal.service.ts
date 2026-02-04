@@ -178,36 +178,26 @@ export class GoalService {
         delta: number | any,
         linkedGoalIds: string[] = []
     ): Promise<void> {
-        // Find linked goals (bi-directional check)
-        // 1. Goals that have this routine in their linkedRoutines
-        // 2. Goals that are listed in the routine's linkedGoals
-
         const goalIds = linkedGoalIds.map(id => new Types.ObjectId(id));
+        const increment = Number(delta) || 0;
 
-        const goals = await Goal.find({
-            userId: new Types.ObjectId(userId),
-            status: GOAL_STATUS.ACTIVE,
-            $or: [
-                { linkedRoutines: new Types.ObjectId(routineId) },
-                { _id: { $in: goalIds } }
-            ]
-        });
+        if (increment === 0) return;
 
-        for (const goal of goals) {
-            // We treat delta as a numeric contribution to the goal
-            // This allows cross-type linking (e.g. checklist routine -> counter goal)
-            const increment = Number(delta) || 0;
-
-            if (increment !== 0) {
-                // Update goal progress
-                // We strictly update the currentValue for all types.
-                const current = (goal.progress.currentValue as number) || 0;
-                goal.progress.currentValue = current + increment;
-                goal.progress.lastUpdate = new Date();
-
-                await goal.save();
+        // Atomic update to all linked goals using MongoDB $inc
+        await Goal.updateMany(
+            {
+                userId: new Types.ObjectId(userId),
+                status: GOAL_STATUS.ACTIVE,
+                $or: [
+                    { linkedRoutines: new Types.ObjectId(routineId) },
+                    { _id: { $in: goalIds } }
+                ]
+            },
+            {
+                $inc: { 'progress.currentValue': increment },
+                $set: { 'progress.lastUpdate': new Date() }
             }
-        }
+        );
     }
 
     async removeLinkedRoutine(routineId: string): Promise<void> {

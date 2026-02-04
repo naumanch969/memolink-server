@@ -59,6 +59,49 @@ export class DateManager {
     static nowInSeconds(): number {
         return Math.floor(Date.now() / 1000);
     }
+
+    /**
+     * Normalizes a date to 00:00:00 UTC
+     */
+    static normalizeToUTC(date: Date | string): Date {
+        const d = typeof date === 'string' ? parseISO(date) : new Date(date);
+        const normalized = new Date(d);
+        normalized.setUTCHours(0, 0, 0, 0);
+        return normalized;
+    }
+
+    /**
+     * Get a reference date (start of day) based on a timezone offset in minutes
+     */
+    static getReferenceNow(timezoneOffset?: number): Date {
+        const now = new Date();
+        if (timezoneOffset !== undefined) {
+            now.setMinutes(now.getMinutes() - timezoneOffset);
+        }
+        now.setUTCHours(0, 0, 0, 0);
+        return now;
+    }
+
+    /**
+     * Get the difference between two dates in days
+     */
+    static getDiffDays(d1: Date, d2: Date): number {
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const normalized1 = new Date(d1);
+        normalized1.setUTCHours(0, 0, 0, 0);
+        const normalized2 = new Date(d2);
+        normalized2.setUTCHours(0, 0, 0, 0);
+        return Math.round((normalized1.getTime() - normalized2.getTime()) / msPerDay);
+    }
+
+    /**
+     * Safely parse anything to a Date object at start of day UTC
+     */
+    static parseToDate(input: any): Date {
+        if (!input) return new Date();
+        const d = input instanceof Date ? input : parseISO(String(input));
+        return this.normalizeToUTC(d);
+    }
 }
 
 export default DateManager;

@@ -1,5 +1,6 @@
 import { FilterQuery, Types } from 'mongoose';
 import { logger } from '../../config/logger';
+import DateManager from '../../core/utils/DateManager';
 import { ROUTINE_STATUS } from '../../shared/constants';
 import { DataType } from '../../shared/types';
 import { IChecklistConfig, ICounterConfig } from '../../shared/types/dataProperties';
@@ -188,27 +189,50 @@ export class RoutineService {
 
     /**
      * Delete a routine template and all its logs
+     * Ensures linked goals are updated to remove progress contributed by this routine
      */
     async deleteRoutineTemplate(userId: string, routineId: string): Promise<boolean> {
-        const routine = await RoutineTemplate.findOneAndDelete({
+        const routine = await RoutineTemplate.findOne({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
         });
 
-        if (routine) {
-            // Delete all logs for this routine
-            await RoutineLog.deleteMany({
-                routineId: new Types.ObjectId(routineId),
-                userId: new Types.ObjectId(userId),
-            });
+        if (!routine) return false;
 
-            // Cleanup linked goals
-            await goalService.removeLinkedRoutine(routineId);
+        // 1. Calculate total contribution of all logs to subtract from goals
+        const logs = await RoutineLog.find({
+            routineId: routine._id,
+            userId: routine.userId
+        });
 
-            return true;
+        let totalDelta = 0;
+        for (const log of logs) {
+            totalDelta += this.calculateDelta(routine.type as RoutineType, log.data, null);
         }
 
-        return false;
+        if (totalDelta !== 0) {
+            const linkedGoalIds = routine.linkedGoals?.map(id => id.toString()) || [];
+            await goalService.updateProgressFromRoutineLog(
+                userId,
+                routineId,
+                routine.type as RoutineType,
+                totalDelta,
+                linkedGoalIds
+            );
+        }
+
+        // 2. Delete routine and logs
+        await RoutineLog.deleteMany({
+            routineId: routine._id,
+            userId: routine.userId,
+        });
+
+        await RoutineTemplate.deleteOne({ _id: routine._id });
+
+        // 3. Cleanup linked references in goals
+        await goalService.removeLinkedRoutine(routineId);
+
+        return true;
     }
 
     /**
@@ -247,8 +271,7 @@ export class RoutineService {
         }
 
         // Normalize date to 00:00:00 UTC to match search/filter logic
-        const logDate = new Date(params.date);
-        logDate.setUTCHours(0, 0, 0, 0);
+        const logDate = DateManager.normalizeToUTC(params.date);
 
         // Calculate completion percentage and streak eligibility
         // We calculate this upfront since logic is same for create/update
@@ -303,8 +326,8 @@ export class RoutineService {
             }
         ).populate('routineId');
 
-        // Recalculate streaks
-        await this.recalculateStreaks(userId, params.routineId);
+        // Recalculate streaks with timezone awareness
+        await this.recalculateStreaks(userId, params.routineId, params.timezoneOffset);
 
         return log.toObject();
     }
@@ -437,18 +460,35 @@ export class RoutineService {
      * Delete a routine log
      */
     async deleteRoutineLog(userId: string, logId: string): Promise<boolean> {
-        const log = await RoutineLog.findOneAndDelete({
+        const log = await RoutineLog.findOne({
             _id: new Types.ObjectId(logId),
             userId: new Types.ObjectId(userId),
         });
 
-        if (log) {
-            // Recalculate streaks
-            await this.recalculateStreaks(userId, log.routineId.toString());
-            return true;
+        if (!log) return false;
+
+        // Get the routine template to find linked goals
+        const routine = await RoutineTemplate.findById(log.routineId);
+
+        // Calculate negative delta to subtract from goals
+        const delta = this.calculateDelta(routine?.type as RoutineType, log.data, null);
+
+        if (delta !== 0) {
+            const linkedGoalIds = routine?.linkedGoals?.map(id => id.toString()) || [];
+            await goalService.updateProgressFromRoutineLog(
+                userId,
+                log.routineId.toString(),
+                routine?.type as RoutineType,
+                delta,
+                linkedGoalIds
+            );
         }
 
-        return false;
+        await RoutineLog.deleteOne({ _id: log._id });
+
+        // Recalculate streaks
+        await this.recalculateStreaks(userId, log.routineId.toString());
+        return true;
     }
 
     // ============================================
@@ -738,7 +778,6 @@ export class RoutineService {
         const config = defaultConfig;
 
         let completionPercentage = 0;
-        console.log('data', data, config)
         switch (type) {
             case DataType.BOOLEAN:
                 completionPercentage = data.value ? 100 : 0;
@@ -795,7 +834,7 @@ export class RoutineService {
     /**
      * Recalculate streaks for a routine
      */
-    private async recalculateStreaks(userId: string, routineId: string): Promise<void> {
+    private async recalculateStreaks(userId: string, routineId: string, timezoneOffset?: number): Promise<void> {
         const routine = await RoutineTemplate.findOne({
             _id: new Types.ObjectId(routineId),
             userId: new Types.ObjectId(userId),
@@ -810,6 +849,9 @@ export class RoutineService {
         })
             .sort({ date: -1 })
             .lean();
+
+        // Calculate User's current day based on timezoneOffset
+        const referenceNow = DateManager.getReferenceNow(timezoneOffset);
 
         if (logs.length === 0) {
             await RoutineTemplate.findByIdAndUpdate(routineId, {
@@ -840,13 +882,12 @@ export class RoutineService {
         let currentStreak = 0;
         let longestStreak = 0;
 
-        // Use new helper methods (implied to be added)
         if (routine.schedule.type === 'frequency') {
-            const { current, longest } = await this.calculateFrequencyStreaks(routine, uniqueLogs);
+            const { current, longest } = await this.calculateFrequencyStreaks(routine, uniqueLogs, referenceNow);
             currentStreak = current;
             longestStreak = longest;
         } else {
-            const { current, longest } = this.calculateDayStreaks(routine, uniqueLogs);
+            const { current, longest } = this.calculateDayStreaks(routine, uniqueLogs, referenceNow);
             currentStreak = current;
             longestStreak = longest;
         }
@@ -862,7 +903,7 @@ export class RoutineService {
         });
     }
 
-    private calculateDayStreaks(routine: IRoutineTemplate, uniqueLogs: any[]): { current: number, longest: number } {
+    private calculateDayStreaks(routine: IRoutineTemplate, uniqueLogs: any[], referenceNow: Date): { current: number, longest: number } {
         let longestStreak = 0;
         let currentStreak = 0;
 
@@ -872,7 +913,7 @@ export class RoutineService {
             for (let i = 0; i < uniqueLogs.length - 1; i++) {
                 const recent = new Date(uniqueLogs[i].date);
                 const older = new Date(uniqueLogs[i + 1].date);
-                const diff = this.getDiffDays(recent, older);
+                const diff = DateManager.getDiffDays(recent, older);
 
                 if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, routine))) {
                     tempStreak++;
@@ -886,17 +927,14 @@ export class RoutineService {
 
         // Current Streak
         if (uniqueLogs.length > 0) {
-            const now = new Date();
-            now.setUTCHours(0, 0, 0, 0);
-
             const lastLogDate = new Date(uniqueLogs[0].date);
             lastLogDate.setUTCHours(0, 0, 0, 0);
 
-            const diffFromNow = this.getDiffDays(now, lastLogDate);
+            const diffFromNow = DateManager.getDiffDays(referenceNow, lastLogDate);
 
             // If I did it today (0) or yesterday (1), streak is alive.
             // If gap is bigger, check if gap was 'safe' (not due).
-            const isAlive = diffFromNow <= 1 || (diffFromNow > 1 && this.isGapSafe(now, diffFromNow, routine));
+            const isAlive = diffFromNow <= 1 || (diffFromNow > 1 && this.isGapSafe(referenceNow, diffFromNow, routine));
 
             if (isAlive) {
                 // Calculate streak backwards from last log
@@ -904,7 +942,7 @@ export class RoutineService {
                 for (let i = 0; i < uniqueLogs.length - 1; i++) {
                     const recent = new Date(uniqueLogs[i].date);
                     const older = new Date(uniqueLogs[i + 1].date);
-                    const diff = this.getDiffDays(recent, older);
+                    const diff = DateManager.getDiffDays(recent, older);
 
                     if (diff === 1 || (diff > 1 && this.isGapSafe(recent, diff, routine))) {
                         streak++;
@@ -919,23 +957,20 @@ export class RoutineService {
         return { current: currentStreak, longest: longestStreak };
     }
 
-    private async calculateFrequencyStreaks(routine: IRoutineTemplate, logs: any[]): Promise<{ current: number, longest: number }> {
+    private async calculateFrequencyStreaks(routine: IRoutineTemplate, logs: any[], referenceNow: Date): Promise<{ current: number, longest: number }> {
         if (!routine.schedule.frequencyCount) return { current: 0, longest: 0 };
         const target = routine.schedule.frequencyCount;
-        const period = routine.schedule.frequencyPeriod || 'week'; // Default week
+        const period = routine.schedule.frequencyPeriod || 'week';
 
-        // Helper to get period key
+        const { startOfWeek, startOfMonth, format, subWeeks, subMonths } = await import('date-fns');
+
+        // Helper to get period key (standardized)
         const getPeriodKey = (d: Date) => {
             const date = new Date(d);
-            date.setUTCHours(0, 0, 0, 0);
             if (period === 'month') {
-                return `${date.getUTCFullYear()}-${date.getUTCMonth()}`; // YYYY-M
+                return format(startOfMonth(date), 'yyyy-MM');
             } else {
-                // Week number
-                const firstDayOfYear = new Date(date.getUTCFullYear(), 0, 1);
-                const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-                const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-                return `${date.getUTCFullYear()}-W${weekNum}`;
+                return format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-\'W\'ww'); // ISO-like week
             }
         };
 
@@ -952,7 +987,7 @@ export class RoutineService {
         let isStreakAlive = true;
 
         // Check last 52 periods
-        const checkDate = new Date();
+        const checkDate = new Date(referenceNow);
 
         for (let i = 0; i < 52; i++) {
             const key = getPeriodKey(checkDate);
@@ -976,19 +1011,22 @@ export class RoutineService {
             }
 
             // Move back 1 period
-            if (period === 'month') checkDate.setMonth(checkDate.getMonth() - 1);
-            else checkDate.setDate(checkDate.getDate() - 7);
+            if (period === 'month') checkDate.setTime(subMonths(checkDate, 1).getTime());
+            else checkDate.setTime(subWeeks(checkDate, 1).getTime());
         }
 
         return { current: currentStreak, longest: Math.max(longestStreak, tempStreak, currentStreak) };
     }
 
-    private getDiffDays(d1: Date, d2: Date): number {
-        const msPerDay = 1000 * 60 * 60 * 24;
-        return Math.round((d1.getTime() - d2.getTime()) / msPerDay);
-    }
-
     private isGapSafe(startDate: Date, gapInDays: number, routine: IRoutineTemplate): boolean {
+        if (routine.schedule.type === 'interval') {
+            const interval = (routine.schedule.intervalValue || 1) *
+                (routine.schedule.intervalUnit === 'week' ? 7 :
+                    routine.schedule.intervalUnit === 'month' ? 30 : 1);
+
+            return gapInDays <= interval;
+        }
+
         const dateCursor = new Date(startDate);
         for (let i = 1; i < gapInDays; i++) {
             dateCursor.setDate(dateCursor.getDate() - 1);
@@ -1010,9 +1048,9 @@ export class RoutineService {
                 return schedule.dates.includes(date.getDate());
             }
         }
-        if (schedule.type === 'interval') {
-            return true;
-        }
+
+        // Interval routines are NOT due on specific days; they are due based on the last completion date.
+        // The isGapSafe method handles interval-based 'safe' gaps instead.
         return false;
     }
 

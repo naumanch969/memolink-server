@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { COLLECTIONS, ROUTINE_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
 import { IRoutineLog, IRoutineTemplate, IUserRoutinePreferences } from './routine.interfaces';
+import DateManager from '../../core/utils/DateManager';
 
 // ============================================
 // ROUTINE TEMPLATE SCHEMA
@@ -76,6 +77,7 @@ const routineStreakDataSchema = new Schema(
         longestStreak: { type: Number, default: 0, min: 0 },
         totalCompletions: { type: Number, default: 0, min: 0 },
         lastCompletedDate: { type: Date },
+        bankedSkips: { type: Number, default: 0, min: 0 },
     },
     { _id: false }
 );
@@ -157,47 +159,14 @@ const routineLogDataSchema = new Schema(
 
 const routineLogSchema = new Schema<IRoutineLog>(
     {
-        userId: {
-            type: Schema.Types.ObjectId,
-            ref: 'User',
-            required: [true, 'User ID is required'],
-            index: true,
-        },
-        routineId: {
-            type: Schema.Types.ObjectId,
-            ref: 'RoutineTemplate',
-            required: [true, 'Routine ID is required'],
-            index: true,
-        },
-        date: {
-            type: Date,
-            required: [true, 'Date is required'],
-            index: true,
-        },
-        data: {
-            type: routineLogDataSchema,
-            required: true,
-            default: {},
-        },
-        completionPercentage: {
-            type: Number,
-            min: 0,
-            max: 100,
-            default: 0,
-        },
-        countsForStreak: {
-            type: Boolean,
-            default: false,
-        },
-        journalEntryId: {
-            type: Schema.Types.ObjectId,
-            ref: 'Entry',
-            index: true,
-        },
-        loggedAt: {
-            type: Date,
-            default: Date.now,
-        }
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
+        routineId: { type: Schema.Types.ObjectId, ref: 'RoutineTemplate', required: [true, 'Routine ID is required'], index: true, },
+        date: { type: Date, required: [true, 'Date is required'], index: true, },
+        data: { type: routineLogDataSchema, required: true, default: {}, },
+        completionPercentage: { type: Number, min: 0, max: 100, default: 0, },
+        countsForStreak: { type: Boolean, default: false, },
+        journalEntryId: { type: Schema.Types.ObjectId, ref: 'Entry', index: true, },
+        loggedAt: { type: Date, default: Date.now, }
     },
     {
         timestamps: true,
@@ -218,12 +187,9 @@ routineLogSchema.index(
 );
 
 // Pre-save middleware to normalize date to start of day
-// Pre-save middleware to normalize date to start of day
 routineLogSchema.pre('save', function (next) {
     if (this.date) {
-        const normalized = new Date(this.date);
-        normalized.setUTCHours(0, 0, 0, 0);
-        this.date = normalized;
+        this.date = DateManager.normalizeToUTC(this.date);
     }
     next();
 });
@@ -234,16 +200,8 @@ routineLogSchema.pre('save', function (next) {
 
 const customReminderSchema = new Schema(
     {
-        routineId: {
-            type: Schema.Types.ObjectId,
-            ref: 'RoutineTemplate',
-            required: true,
-        },
-        time: {
-            type: String,
-            required: true,
-            match: /^([01]\d|2[0-3]):([0-5]\d)$/,
-        },
+        routineId: { type: Schema.Types.ObjectId, ref: 'RoutineTemplate', required: true, },
+        time: { type: String, required: true, match: /^([01]\d|2[0-3]):([0-5]\d)$/, },
         message: { type: String, trim: true },
     },
     { _id: false }
@@ -264,13 +222,7 @@ const reminderSettingsSchema = new Schema(
 
 const userRoutinePreferencesSchema = new Schema<IUserRoutinePreferences>(
     {
-        userId: {
-            type: Schema.Types.ObjectId,
-            ref: 'User',
-            required: [true, 'User ID is required'],
-            unique: true,
-            index: true,
-        },
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], unique: true, index: true, },
         reminders: {
             type: reminderSettingsSchema,
             default: () => ({
@@ -279,15 +231,8 @@ const userRoutinePreferencesSchema = new Schema<IUserRoutinePreferences>(
                 customReminders: [],
             }),
         },
-        defaultView: {
-            type: String,
-            enum: ['list', 'grid', 'compact'],
-            default: 'list',
-        },
-        showStreaksOnCalendar: {
-            type: Boolean,
-            default: true,
-        },
+        defaultView: { type: String, enum: ['list', 'grid', 'compact'], default: 'list', },
+        showStreaksOnCalendar: { type: Boolean, default: true, },
     },
     {
         timestamps: true,
