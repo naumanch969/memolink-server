@@ -144,6 +144,7 @@ const goalSchema = new Schema<IGoal>(
 
 goalSchema.index({ userId: 1, status: 1 });
 goalSchema.index({ userId: 1, deadline: 1 });
+goalSchema.index({ title: 'text', description: 'text', why: 'text' });
 
 // Auto-set completedAt when status changes to completed
 goalSchema.pre('save', function (next) {

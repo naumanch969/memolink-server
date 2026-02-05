@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
+import { LLMService } from '../../core/llm/LLMService';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
 import { personService } from '../person/person.service';
@@ -235,61 +236,185 @@ export class EntryService implements IEntryService {
     }
   }
 
-  // Search entries
+  // Search entries with Hybrid (Keyword + Semantic) support
   async searchEntries(userId: string, searchParams: EntrySearchRequest): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
-      const { page, limit, skip } = Helpers.getPaginationParams(searchParams);
-      let sort: any = Helpers.getSortParams(searchParams, 'createdAt');
+      const mode = searchParams.mode || 'instant';
 
-      const filter: any = { userId };
-      const projection: any = {};
-
-      if (searchParams.q) {
-        const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
-        if (sanitizedQuery) {
-          filter.$text = { $search: sanitizedQuery };
-          projection.score = { $meta: 'textScore' };
-          sort = { score: { $meta: 'textScore' }, ...sort };
-        }
+      // If q is empty, fallback to normal list search
+      if (!searchParams.q?.trim()) {
+        return this.getUserEntries(userId, searchParams);
       }
 
-      if (searchParams.type) filter.type = searchParams.type;
-      if (searchParams.dateFrom || searchParams.dateTo) {
-        const { from, to } = Helpers.getDateRange(searchParams.dateFrom, searchParams.dateTo);
-        filter.date = {};
-        if (from) filter.date.$gte = from;
-        if (to) filter.date.$lte = to;
+      if (mode === 'deep') {
+        return this.performVectorSearch(userId, searchParams);
       }
 
-      if (searchParams.tags && searchParams.tags.length > 0) {
-        filter.tags = { $in: searchParams.tags.map(id => new Types.ObjectId(id)) };
+      if (mode === 'hybrid') {
+        return this.performHybridSearch(userId, searchParams);
       }
 
-      if (searchParams.people && searchParams.people.length > 0) {
-        filter.mentions = { $in: searchParams.people.map(id => new Types.ObjectId(id)) };
-      }
-
-      if (searchParams.isPrivate !== undefined) filter.isPrivate = searchParams.isPrivate;
-      if (searchParams.isImportant !== undefined) filter.isImportant = searchParams.isImportant;
-      if (searchParams.mood) filter.mood = new RegExp(searchParams.mood, 'i');
-      if (searchParams.location) filter.location = new RegExp(searchParams.location, 'i');
-
-      const [entries, total] = await Promise.all([
-        Entry.find(filter, projection)
-          .populate(['mentions', 'tags', 'media'])
-          .sort(sort)
-          .skip(skip)
-          .limit(limit),
-        Entry.countDocuments(filter),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return { entries, total, page, limit, totalPages };
+      // Default: instant/keyword mode
+      return this.performKeywordSearch(userId, searchParams);
     } catch (error) {
       logger.error('Search entries failed:', error);
       throw error;
     }
+  }
+
+  // Tier 1: Fast Keyword Search
+  private async performKeywordSearch(userId: string, searchParams: EntrySearchRequest): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
+    const { page, limit, skip } = Helpers.getPaginationParams(searchParams);
+    let sort: any = Helpers.getSortParams(searchParams, 'createdAt');
+
+    const filter: any = { userId: new Types.ObjectId(userId) };
+    const projection: any = {};
+
+    if (searchParams.q) {
+      const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
+      if (sanitizedQuery) {
+        filter.$text = { $search: sanitizedQuery };
+        projection.score = { $meta: 'textScore' };
+        sort = { score: { $meta: 'textScore' }, ...sort };
+      }
+    }
+
+    this.applyFilters(filter, searchParams);
+
+    const [entries, total] = await Promise.all([
+      Entry.find(filter, projection)
+        .populate(['mentions', 'tags', 'media'])
+        .sort(sort)
+        .skip(skip)
+        .limit(limit),
+      Entry.countDocuments(filter),
+    ]);
+
+    return { entries, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  // Tier 2: Semantic (Vector) Search
+  private async performVectorSearch(userId: string, searchParams: EntrySearchRequest): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
+    const { page, limit, skip } = Helpers.getPaginationParams(searchParams);
+
+    if (!searchParams.q) return { entries: [], total: 0, page, limit, totalPages: 0 };
+
+    // 1. Generate Embedding
+    const queryVector = await LLMService.generateEmbeddings(searchParams.q);
+
+    // 2. Aggregate Pipeline
+    const pipeline: any[] = [
+      {
+        $vectorSearch: {
+          index: "vector_index",
+          path: "embeddings",
+          queryVector,
+          numCandidates: 100,
+          limit: 50,
+          filter: { userId: new Types.ObjectId(userId) }
+        }
+      },
+      {
+        $addFields: { score: { $meta: "vectorSearchScore" } }
+      }
+    ];
+
+    // 3. Filters
+    const filter: any = {};
+    this.applyFilters(filter, searchParams);
+    if (Object.keys(filter).length > 0) {
+      pipeline.push({ $match: filter });
+    }
+
+    // 4. Final results
+    pipeline.push({ $skip: skip });
+    pipeline.push({ $limit: limit });
+
+    const entries = await Entry.aggregate(pipeline);
+    await Entry.populate(entries, 'mentions tags media');
+
+    if (entries.length === 0) {
+      logger.info(`Semantic search returned 0 results for query: "${searchParams.q}"`);
+    }
+
+    return {
+      entries,
+      total: entries.length, // Vector search total is usually the result set size within limit
+      page,
+      limit,
+      totalPages: 1
+    };
+  }
+
+  // Tier 3: Hybrid (RRF) Search
+  private async performHybridSearch(userId: string, searchParams: EntrySearchRequest): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
+    const { page, limit } = Helpers.getPaginationParams(searchParams);
+
+    // Run both in parallel
+    const [keywordRes, vectorRes] = await Promise.all([
+      this.performKeywordSearch(userId, { ...searchParams, limit: 50, page: 1, mode: 'instant' }),
+      this.performVectorSearch(userId, { ...searchParams, limit: 50, page: 1, mode: 'deep' })
+    ]);
+
+    const mixedEntries = this.applyRRF(keywordRes.entries, vectorRes.entries, limit);
+
+    return {
+      entries: mixedEntries,
+      total: mixedEntries.length,
+      page,
+      limit,
+      totalPages: 1
+    };
+  }
+
+  private applyFilters(filter: any, searchParams: EntrySearchRequest) {
+    if (searchParams.type) filter.type = searchParams.type;
+
+    if (searchParams.dateFrom || searchParams.dateTo) {
+      const { from, to } = Helpers.getDateRange(searchParams.dateFrom, searchParams.dateTo);
+      filter.date = {};
+      if (from) filter.date.$gte = from;
+      if (to) filter.date.$lte = to;
+    }
+
+    if (searchParams.tags && searchParams.tags.length > 0) {
+      filter.tags = { $in: searchParams.tags.map(id => new Types.ObjectId(id)) };
+    }
+
+    if (searchParams.people && searchParams.people.length > 0) {
+      filter.mentions = { $in: searchParams.people.map(id => new Types.ObjectId(id)) };
+    }
+
+    if (searchParams.isPrivate !== undefined) filter.isPrivate = searchParams.isPrivate;
+    if (searchParams.isImportant !== undefined) filter.isImportant = searchParams.isImportant;
+    if (searchParams.isFavorite !== undefined) filter.isFavorite = searchParams.isFavorite;
+    if (searchParams.mood) filter.mood = new RegExp(searchParams.mood, 'i');
+    if (searchParams.location) filter.location = new RegExp(searchParams.location, 'i');
+  }
+
+  private applyRRF(keywordResults: any[], vectorResults: any[], limit: number, k: number = 60): any[] {
+    const scores: Record<string, { entry: any; score: number }> = {};
+
+    keywordResults.forEach((entry, index) => {
+      const id = entry._id.toString();
+      const score = 1 / (k + index + 1);
+      scores[id] = { entry, score };
+    });
+
+    vectorResults.forEach((entry, index) => {
+      const id = entry._id.toString();
+      const score = 1 / (k + index + 1);
+      if (scores[id]) {
+        scores[id].score += score;
+      } else {
+        scores[id] = { entry, score };
+      }
+    });
+
+    return Object.values(scores)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(s => s.entry);
   }
 
   // Get feed with cursor-based pagination

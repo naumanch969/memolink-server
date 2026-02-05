@@ -112,6 +112,7 @@ export interface EntrySearchRequest {
   limit?: number;
   sort?: string;
   order?: 'asc' | 'desc';
+  mode?: 'instant' | 'deep' | 'hybrid';
 }
 
 export interface EntryFeedRequest {

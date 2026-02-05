@@ -80,6 +80,7 @@ const ReminderSchema = new Schema<IReminderDocument>(
 );
 
 // Indexes for performance
+ReminderSchema.index({ title: 'text', description: 'text' });
 ReminderSchema.index({ userId: 1, date: 1 });
 ReminderSchema.index({ userId: 1, status: 1 });
 ReminderSchema.index({ userId: 1, priority: 1 });

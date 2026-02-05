@@ -26,6 +26,8 @@ import routineRoutes from '../features/routine/routine.routes';
 import tagRoutes from '../features/tag/tag.routes';
 import webActivityRoutes from '../features/web-activity/web-activity.routes';
 import widgetRoutes from '../features/widget/widget.routes';
+import searchRoutes from '../features/search/search.routes';
+
 
 const router = Router();
 
@@ -93,6 +95,7 @@ router.use('/admin', adminRoutes);
 router.use('/documents', documentRoutes);
 router.use('/agents', agentRoutes);
 router.use('/activity', webActivityRoutes);
+router.use('/search', searchRoutes);
 
 // ... existing routes
 

@@ -72,10 +72,27 @@ export class GeminiProvider implements LLMProvider {
             // Parse and validate
             let json = JSON.parse(cleanJson);
 
-            // Robustness: If we expect an object but got an array, take the first item
+            // Robustness: Handle schema mismatch between Array and Object
             if (Array.isArray(json)) {
-                logger.warn('Gemini returned an array, using first item');
-                json = json[0];
+                const schemaJson = schema._def && (schema._def as any).shape ? (schema._def as any).shape : null;
+
+                // If the schema is an object but we got an array, check if we should wrap it or grab first item
+                if (schemaJson) {
+                    const keys = Object.keys(schemaJson);
+                    // Scenario 1: Schema expects { someKey: [...] } but LLM returned [...]
+                    if (keys.length === 1) {
+                        const singleKey = keys[0];
+                        logger.warn(`Gemini returned an array for object schema. Wrapping with key: ${singleKey}`);
+                        json = { [singleKey]: json };
+                    } else {
+                        // Scenario 2: Schema expects an object, but we got an array of such objects (common Gemini quirk)
+                        logger.warn('Gemini returned an array for multi-key object schema. Using first item.');
+                        json = json[0];
+                    }
+                }
+            } else if (typeof json === 'object' && json !== null) {
+                // Scenario 3: Schema expects an array, but we got wrapped object { data: [...] } or { entries: [...] }
+                // This is less common but good to handle
             }
 
             return schema.parse(json);
