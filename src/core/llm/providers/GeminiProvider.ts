@@ -3,7 +3,7 @@ import { ZodSchema } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMGenerativeOptions, LLMProvider } from '../types';
 
-const DEFAULT_MODEL = 'models/gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 export class GeminiProvider implements LLMProvider {
     public name = DEFAULT_MODEL;
@@ -15,7 +15,6 @@ export class GeminiProvider implements LLMProvider {
             throw new Error('GEMINI_API_KEY is not defined');
         }
         this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Using gemini-pro as stable fallback for now
         this.model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
     }
 
@@ -54,17 +53,18 @@ export class GeminiProvider implements LLMProvider {
             const textResponse = await this.generateText(prompt, {
                 ...options,
                 jsonMode: true,
-                // Append instruction to ensure JSON match if not already present
                 systemInstruction: options?.systemInstruction
-                    ? `${options.systemInstruction}\n\nIMPORTANT: Output strictly valid JSON.`
-                    : 'You are a helpful assistant. Output strictly valid JSON.',
+                    ? `${options.systemInstruction}\n\nIMPORTANT: Output strictly valid JSON matching the schema.`
+                    : 'You are a helpful assistant. Output strictly valid JSON matching the schema.',
             });
 
-            // Clean Markdown code blocks (```json ... ```)
-            const cleanJson = textResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
-            // Sometimes Gemini wraps in [] even for single object requests
-            if (cleanJson.startsWith('[') && cleanJson.endsWith(']')) {
-                // Determine if we should treat it as an array or just peel it
+            // Clean leading/trailing markdown and whitespace
+            let cleanJson = textResponse.trim();
+
+            // If it's wrapped in markdown code blocks, extract it
+            const jsonMatch = cleanJson.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+            if (jsonMatch) {
+                cleanJson = jsonMatch[0];
             }
 
             logger.debug('Gemini Raw JSON:', { cleanJson });
@@ -74,25 +74,21 @@ export class GeminiProvider implements LLMProvider {
 
             // Robustness: Handle schema mismatch between Array and Object
             if (Array.isArray(json)) {
-                const schemaJson = schema._def && (schema._def as any).shape ? (schema._def as any).shape : null;
-
-                // If the schema is an object but we got an array, check if we should wrap it or grab first item
-                if (schemaJson) {
-                    const keys = Object.keys(schemaJson);
-                    // Scenario 1: Schema expects { someKey: [...] } but LLM returned [...]
-                    if (keys.length === 1) {
-                        const singleKey = keys[0];
-                        logger.warn(`Gemini returned an array for object schema. Wrapping with key: ${singleKey}`);
-                        json = { [singleKey]: json };
-                    } else {
-                        // Scenario 2: Schema expects an object, but we got an array of such objects (common Gemini quirk)
-                        logger.warn('Gemini returned an array for multi-key object schema. Using first item.');
-                        json = json[0];
-                    }
+                // If the schema is an object but we got an array, try to grab the first item
+                // This is a common quirk where LLM returns a list of results
+                if (typeof json[0] === 'object' && json[0] !== null) {
+                    json = json[0];
                 }
             } else if (typeof json === 'object' && json !== null) {
-                // Scenario 3: Schema expects an array, but we got wrapped object { data: [...] } or { entries: [...] }
-                // This is less common but good to handle
+                // Scenario 3: LLM wrapped the result in a key like "result" or "analysis"
+                const keys = Object.keys(json);
+                if (keys.length === 1 && typeof json[keys[0]] === 'object' && json[keys[0]] !== null) {
+                    const inner = json[keys[0]];
+                    // Only unwrap if the inner object seems to match more than just being an object
+                    if (!Array.isArray(inner) || keys[0] !== 'topTags') { // specifically ignore topTags array wrapping if it's the only key
+                        json = inner;
+                    }
+                }
             }
 
             return schema.parse(json);

@@ -7,6 +7,7 @@ import { Person } from '../person/person.model';
 import { Tag } from '../tag/tag.model';
 import { AnalyticsRequest } from './analytics.interfaces';
 
+import { AgentTask } from '../agent/agent.model';
 import { AnalyticsData } from './analytics.interfaces';
 
 export class AnalyticsService {
@@ -44,6 +45,31 @@ export class AnalyticsService {
       // Get media stats
       const mediaStats = await this.getMediaStats(userId);
 
+      // Get latest reflection from agent tasks
+      const latestReflectionTask = await AgentTask.findOne({
+        userId: userObjectId,
+        type: 'DAILY_REFLECTION',
+        status: 'COMPLETED'
+      }).sort({ completedAt: -1 }).lean();
+
+      const latestWeeklyTask = await AgentTask.findOne({
+        userId: userObjectId,
+        type: 'WEEKLY_ANALYSIS',
+        status: 'COMPLETED'
+      }).sort({ completedAt: -1 }).lean();
+
+      // Proactive: If no weekly analysis or it's older than 7 days, trigger a new one
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const shouldTriggerWeekly = !latestWeeklyTask ||
+        (new Date().getTime() - new Date(latestWeeklyTask.completedAt!).getTime() > SEVEN_DAYS_MS);
+
+      if (shouldTriggerWeekly) {
+        // Trigger in background via AgentService to avoid blocking analytics response
+        const { agentService } = await import('../agent/agent.service');
+        agentService.createTask(userId, 'WEEKLY_ANALYSIS' as any, {})
+          .catch(err => logger.error('Failed to auto-trigger weekly analysis', err));
+      }
+
       const analytics: AnalyticsData = {
         totalEntries,
         entriesThisMonth,
@@ -54,6 +80,8 @@ export class AnalyticsService {
         topPeople,
         topTags,
         mediaStats,
+        latestReflection: latestReflectionTask?.outputData,
+        latestWeeklyAnalysis: latestWeeklyTask?.outputData
       };
 
       logger.info('Analytics retrieved successfully', { userId });

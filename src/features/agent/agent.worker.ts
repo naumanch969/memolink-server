@@ -41,6 +41,12 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.WEEKLY_ANALYSIS: {
+                    const { runWeeklyAnalysis } = await import('./workflows/analysis.workflow');
+                    result = await runWeeklyAnalysis(task.userId);
+                    break;
+                }
+
                 case AgentTaskType.PEOPLE_EXTRACTION: {
                     const { runPeopleExtraction } = await import('./workflows/extraction.workflow');
                     result = await runPeopleExtraction(task);

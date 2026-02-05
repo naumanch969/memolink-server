@@ -26,6 +26,8 @@ export interface AnalyticsData {
     totalVideos: number;
     totalDocuments: number;
   };
+  latestReflection?: any;
+  latestWeeklyAnalysis?: any;
 }
 
 export interface AnalyticsRequest {
