@@ -23,6 +23,12 @@ export interface IEntry extends BaseEntity {
   isFavorite?: boolean;
   status?: 'ready' | 'processing' | 'failed';
   embeddings?: number[];
+  moodMetadata?: {
+    category: string;
+    score: number;
+    color: string;
+    icon: string;
+  };
 }
 
 export interface EntryResponse {

@@ -16,6 +16,7 @@ export type EntryTaggingInput = z.infer<typeof EntryTaggingInputSchema>;
 const TaggingOutputSchema = z.object({
     suggestedTags: z.array(z.string()).describe("A list of 1-5 relevant tags for the content. Prefer existing tags over new ones if they match conceptually."),
     sentiment: z.string().describe("The emotional tone of the entry (e.g., Happy, Anxious, Neutral)."),
+    category: z.enum(['excellent', 'good', 'neutral', 'calm', 'focus', 'stressed', 'sad', 'angry']).optional(),
 });
 
 export type TaggingOutput = z.infer<typeof TaggingOutputSchema>;
@@ -43,12 +44,15 @@ export async function runEntryTagging(userId: string, input: EntryTaggingInput):
     1. Identify 1-5 highly relevant topics or themes. 
        - If a topic matches an Existing Tag (fuzzy match), use the Existing Tag name exactly.
        - If it's a new concept, create a concise, 1-2 word tag (Capitalized).
-    2. Determine the sentiment/mood of the entry.
+    2. Determine the emotional tone/mood of the entry.
+       - Provide a descriptive word (e.g. "Peaceful", "Ecstatic", "A bit overwhelmed").
+       - Also categorize it into one of these standard buckets: excellent, good, neutral, calm, focus, stressed, sad, angry.
 
     Output strictly in JSON with the following keys:
     {
         "suggestedTags": ["tag1", "tag2"],
-        "sentiment": "string"
+        "sentiment": "string",
+        "category": "excellent | good | neutral | calm | focus | stressed | sad | angry"
     }
     `;
 
@@ -86,6 +90,12 @@ export async function runEntryTagging(userId: string, input: EntryTaggingInput):
     // Update Mood if not set manually
     if (!entry.mood) {
         entry.mood = result.sentiment;
+    }
+
+    // Apply AI category if provided
+    if (result.category) {
+        const { MOOD_METADATA } = await import('../../entry/mood.config');
+        entry.moodMetadata = MOOD_METADATA[result.category as any];
     }
 
     await entry.save();

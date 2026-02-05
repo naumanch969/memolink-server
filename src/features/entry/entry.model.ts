@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { ENTRY_TYPES } from '../../shared/constants';
 import { IEntry } from './entry.interfaces';
+import { classifyMood } from './mood.config';
 
 const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
@@ -27,6 +28,12 @@ const entrySchema = new Schema<IEntry>({
   isEdited: { type: Boolean, default: false, },
   status: { type: String, enum: ['ready', 'processing', 'failed'], default: 'ready', index: true },
   embeddings: { type: [Number], select: false }, // Exclude by default due to size
+  moodMetadata: {
+    category: { type: String },
+    score: { type: Number },
+    color: { type: String },
+    icon: { type: String },
+  },
 }, {
   timestamps: true,
 });
@@ -60,6 +67,12 @@ entrySchema.pre('save', function (next) {
   } else {
     this.type = ENTRY_TYPES.TEXT;
   }
+
+  // Auto-classify mood if changed or missing metadata
+  if (this.mood && (!this.moodMetadata || this.isModified('mood'))) {
+    this.moodMetadata = classifyMood(this.mood);
+  }
+
   next();
 });
 

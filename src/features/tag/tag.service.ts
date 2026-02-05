@@ -16,7 +16,11 @@ export class TagService implements ITagService {
         throw createConflictError('Tag with this name already exists');
       }
 
-      const tag = new Tag({ userId: new Types.ObjectId(userId), ...tagData, });
+      const tag = new Tag({
+        userId: new Types.ObjectId(userId),
+        ...tagData,
+        color: tagData.color || Helpers.generateRandomHexColor()
+      });
 
       await tag.save();
       logger.info('Tag created successfully', { tagId: tag._id, userId });
@@ -124,6 +128,7 @@ export class TagService implements ITagService {
         tag = new Tag({
           userId: new Types.ObjectId(userId),
           name: uppercasedName,
+          color: Helpers.generateRandomHexColor()
         });
         await tag.save();
         logger.info('Tag auto-created', { tagId: tag._id, userId, name: uppercasedName });

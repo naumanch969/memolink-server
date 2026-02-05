@@ -181,6 +181,12 @@ export class Helpers {
     }
     return error.message || 'Database error';
   }
+
+  // Color helpers
+  static generateRandomHexColor(): string {
+    const hex = Math.floor(Math.random() * 16777215).toString(16);
+    return '#' + hex.padStart(6, '0');
+  }
 }
 
 export default Helpers;

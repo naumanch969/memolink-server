@@ -4,16 +4,9 @@ import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
 import { personService } from '../person/person.service';
 import { tagService } from '../tag/tag.service';
-import {
-  CreateEntryRequest,
-  EntryFeedRequest,
-  EntrySearchRequest,
-  EntryStats,
-  IEntry,
-  IEntryService,
-  UpdateEntryRequest
-} from './entry.interfaces';
+import { CreateEntryRequest, EntryFeedRequest, EntrySearchRequest, EntryStats, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
 import { Entry } from './entry.model';
+import { classifyMood } from './mood.config';
 
 export class EntryService implements IEntryService {
   // Helper method to extract mentions from content
@@ -62,6 +55,7 @@ export class EntryService implements IEntryService {
         ...entryData,
         mentions: [...(entryData.mentions || []), ...mentionIds],
         tags: tagIds,
+        moodMetadata: entryData.mood ? classifyMood(entryData.mood) : undefined
       });
 
       await entry.save();
@@ -127,43 +121,8 @@ export class EntryService implements IEntryService {
 
   // Helper to map mood strings to scores (1-5)
   private getMoodScore(mood: string): number {
-    const m = mood.toLowerCase().trim();
-
-    const moodMap: Record<string, number> = {
-      // 5 - Excellent
-      'ecstatic': 5, 'happy': 5, 'excited': 5, 'great': 5, 'wonderful': 5,
-      'amazing': 5, 'loved': 5, 'joyful': 5, 'energetic': 5, 'motivated': 5,
-      'proud': 5, 'optimistic': 5, 'appreciative': 5, 'blissful': 5,
-      'empowered': 5, 'accomplished': 5, 'determined': 5,
-
-      // 4 - Good (Positive)
-      'good': 4, 'content': 4, 'calm': 4, 'peaceful': 4, 'satisfied': 4,
-      'fine': 4, 'okay': 4, 'relaxed': 4, 'productive': 4, 'confident': 4,
-      'focused': 4, 'grateful': 4, 'hopeful': 4, 'positive': 4, 'constructive': 4,
-
-      // 3 - Neutral (Cautious)
-      'average': 3, 'neutral': 3, 'bored': 3, 'tired': 3, 'indifferent': 3,
-      'confused': 3, 'busy': 3, 'uncertain': 3, 'pensive': 3, 'distracted': 3,
-      'numb': 3, 'sleepy': 3, 'cautious': 3, 'reflective': 3, 'mixed': 3, 'observant': 3,
-
-      // 2 - Bad (Negative/Challenging)
-      'sad': 2, 'anxious': 2, 'nervous': 2, 'annoyed': 2, 'frustrated': 2,
-      'lonely': 2, 'stressed': 2, 'shame': 2, 'guilt': 2, 'awkward': 2,
-      'disappointed': 2, 'overwhelmed': 2, 'insecure': 2, 'scared': 2,
-      'negative': 2, 'challenging': 2, 'difficult': 2, 'concerned': 2,
-
-      // 1 - Terrible
-      'angry': 1, 'depressed': 1, 'devastated': 1, 'furious': 1, 'miserable': 1,
-      'terrible': 1, 'exhausted': 1, 'hopeless': 1, 'hurt': 1, 'grief': 1,
-      'panic': 1, 'desperate': 1
-    };
-
-    // Direct match
-    if (moodMap[m]) return moodMap[m];
-
-    // Fallback logic if needed (or default to neutral 3 if unknown but not empty)
-    // For now, if unknown, return null (handled by caller)
-    return 0;
+    const classified = classifyMood(mood);
+    return classified ? classified.score : 0;
   }
 
   private async updateDailyMood(userId: string, date: Date): Promise<void> {
@@ -406,7 +365,13 @@ export class EntryService implements IEntryService {
 
       const entry = await Entry.findOneAndUpdate(
         { _id: entryId, userId },
-        { $set: { ...updateData, isEdited: true } },
+        {
+          $set: {
+            ...updateData,
+            isEdited: true,
+            moodMetadata: updateData.mood ? classifyMood(updateData.mood) : existingEntry.moodMetadata
+          }
+        },
         { new: true, runValidators: true }
       ).populate(['mentions', 'tags', 'media']);
 
