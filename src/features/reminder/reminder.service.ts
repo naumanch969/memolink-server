@@ -83,6 +83,9 @@ class ReminderService {
 
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
+            if (error.code === 11000) {
+                throw new CustomError('A similar pending reminder already exists for this time.', 409);
+            }
             throw new CustomError(error.message || 'Failed to create reminder', 500);
         }
     }

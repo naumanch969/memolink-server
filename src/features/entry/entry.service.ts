@@ -26,6 +26,19 @@ export class EntryService implements IEntryService {
   // Create new entry
   async createEntry(userId: string, entryData: CreateEntryRequest): Promise<IEntry> {
     try {
+      // 1. FAST DEDUPLICATION (Double-submit prevention)
+      const last30Secs = new Date(Date.now() - 30000);
+      const existing = await Entry.findOne({
+        userId: new Types.ObjectId(userId),
+        content: entryData.content?.trim(),
+        createdAt: { $gt: last30Secs }
+      }).select('_id');
+
+      if (existing) {
+        logger.info('Duplicate entry detected (30s window), returning existing', { userId, entryId: existing._id });
+        return this.getEntryById(existing._id.toString(), userId);
+      }
+
       // Extract mentions from content
       const mentionNames = this.extractMentions(entryData.content || '');
 

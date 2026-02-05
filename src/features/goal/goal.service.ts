@@ -4,26 +4,34 @@ import { GOAL_STATUS } from '../../shared/constants';
 import { RoutineType } from '../routine/routine.interfaces';
 import { CreateGoalParams, GetGoalsQuery, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
+import { CustomError } from '../../core/middleware/errorHandler';
 
 export class GoalService {
 
     async createGoal(userId: string, params: CreateGoalParams): Promise<IGoal> {
-        const goal = await Goal.create({
-            userId: new Types.ObjectId(userId),
-            ...params,
-            // Ensure specific fields are correctly parsed or set
-            linkedRoutines: params.linkedRoutines?.map(id => new Types.ObjectId(id)),
-            tags: params.tags?.map(id => new Types.ObjectId(id)),
-            metadata: params.metadata,
-        });
+        try {
+            const goal = await Goal.create({
+                userId: new Types.ObjectId(userId),
+                ...params,
+                // Ensure specific fields are correctly parsed or set
+                linkedRoutines: params.linkedRoutines?.map(id => new Types.ObjectId(id)),
+                tags: params.tags?.map(id => new Types.ObjectId(id)),
+                metadata: params.metadata,
+            });
 
-        // Handle retroactive syncing
-        if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
-            await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
+            // Handle retroactive syncing
+            if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
+                await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
+            }
+
+            // Re-fetch to get updated progress
+            return (await Goal.findById(goal._id).lean()) as IGoal;
+        } catch (error: any) {
+            if (error.code === 11000) {
+                throw new CustomError('An active goal with this title already exists.', 409);
+            }
+            throw error;
         }
-
-        // Re-fetch to get updated progress
-        return (await Goal.findById(goal._id).lean()) as IGoal;
     }
 
     async getGoals(userId: string, query: GetGoalsQuery): Promise<IGoal[]> {

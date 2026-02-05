@@ -142,6 +142,16 @@ const goalSchema = new Schema<IGoal>(
 // INDEXES & MIDDLEWARE
 // ============================================
 
+// Unique active goal per user (Case-insensitive)
+goalSchema.index(
+    { userId: 1, title: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { status: GOAL_STATUS.ACTIVE },
+        collation: { locale: 'en', strength: 2 }
+    }
+);
+
 goalSchema.index({ userId: 1, status: 1 });
 goalSchema.index({ userId: 1, deadline: 1 });
 goalSchema.index({ title: 'text', description: 'text', why: 'text' });

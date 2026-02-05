@@ -86,6 +86,16 @@ ReminderSchema.index({ userId: 1, status: 1 });
 ReminderSchema.index({ userId: 1, priority: 1 });
 ReminderSchema.index({ userId: 1, date: 1, status: 1 });
 
+// Prevent duplicate pending reminders (Same user, title, date, time)
+ReminderSchema.index(
+    { userId: 1, title: 1, date: 1, startTime: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { status: ReminderStatus.PENDING },
+        collation: { locale: 'en', strength: 2 }
+    }
+);
+
 // ============================================
 // MODELS
 // ============================================
