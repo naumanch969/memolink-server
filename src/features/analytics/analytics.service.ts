@@ -47,15 +47,15 @@ export class AnalyticsService {
 
       // Get latest reflection from agent tasks
       const latestReflectionTask = await AgentTask.findOne({
-        userId: userObjectId,
+        userId: userId, // Use string ID for AgentTask model
         type: 'DAILY_REFLECTION',
-        status: 'COMPLETED'
+        status: { $in: ['COMPLETED', 'completed'] }
       }).sort({ completedAt: -1 }).lean();
 
       const latestWeeklyTask = await AgentTask.findOne({
-        userId: userObjectId,
+        userId: userId, // Use string ID for AgentTask model
         type: 'WEEKLY_ANALYSIS',
-        status: 'COMPLETED'
+        status: { $in: ['COMPLETED', 'completed'] }
       }).sort({ completedAt: -1 }).lean();
 
       // Proactive: If no weekly analysis or it's older than 7 days, trigger a new one
