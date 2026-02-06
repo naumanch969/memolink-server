@@ -29,7 +29,7 @@ export async function runWeeklyAnalysis(userId: string): Promise<WeeklyAnalysisO
     const dailyReflections = await AgentTask.find({
         userId,
         type: AgentTaskType.DAILY_REFLECTION,
-        status: 'completed',
+        status: { $in: ['COMPLETED', 'completed'] },
         createdAt: { $gte: weekAgo }
     }).sort({ createdAt: 1 }).select('outputData createdAt');
 
@@ -96,12 +96,15 @@ export async function runWeeklyAnalysis(userId: string): Promise<WeeklyAnalysisO
     - You MUST return a valid JSON object with ALL the keys defined in the schema. Do not omit any keys.
 
     Task:
-    1. Period Summary: A 2-3 sentence overview of their week's narrative.
-    2. Mood Trend: Analyze how their mood changed and why (if detectable).
-    3. Key Achievements: Highlight specific wins, even small ones.
-    4. Pattern Discovery: Look for correlations (e.g., "Logging 'work' late at night correlates with lower mood").
-    5. Weekly Alignment Score: A number (1-10) reflecting how much their actions matched their goals.
-    6. Next Week Focus: A single, actionable priority for the next 7 days.
+    1. periodSummary: A 2-3 sentence overview of their week's narrative.
+    2. moodTrend: Analyze how their mood changed and why (if detectable).
+    3. keyAchievements: Highlight 3-5 specific wins, even small ones. (Array of strings)
+    4. areasForImprovement: 1-3 concrete areas for growth. (Array of strings)
+    5. patternDiscovery: Look for correlations (e.g., "Logging 'work' late at night correlates with lower mood").
+    6. score: A number (1-10) reflecting how much their actions matched their goals.
+    7. nextWeekFocus: A single, actionable priority for the next 7 days.
+    
+    IMPORTANT: You MUST use these exact keys in your JSON response. Do not wrap the result in any other object.
     
     Return ONLY JSON.
     `;

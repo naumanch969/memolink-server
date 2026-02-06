@@ -80,18 +80,18 @@ export class GeminiProvider implements LLMProvider {
 
                 // Robustness: Handle schema mismatch between Array and Object
                 if (Array.isArray(json)) {
-                // If the schema is an object but we got an array, try to grab the first item
-                // This is a common quirk where LLM returns a list of results
+                    // If the schema is an object but we got an array, try to grab the first item
+                    // This is a common quirk where LLM returns a list of results
                     if (typeof json[0] === 'object' && json[0] !== null) {
                         json = json[0];
                     }
                 } else if (typeof json === 'object' && json !== null) {
-                // Scenario 3: LLM wrapped the result in a key like "result" or "analysis"
+                    // Scenario 3: LLM wrapped the result in a key like "result" or "analysis"
                     const keys = Object.keys(json);
                     if (keys.length === 1 && typeof json[keys[0]] === 'object' && json[keys[0]] !== null) {
                         const inner = json[keys[0]];
-                    // Only unwrap if the inner object seems to match more than just being an object
-                    if (!Array.isArray(inner) || keys[0] !== 'topTags') { // specifically ignore topTags array wrapping if it's the only key
+                        // Only unwrap if the inner object seems to match more than just being an object
+                        if (!Array.isArray(inner) || keys[0] !== 'topTags') { // specifically ignore topTags array wrapping if it's the only key
                             json = inner;
                         }
                     }

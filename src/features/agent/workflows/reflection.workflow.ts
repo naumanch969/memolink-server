@@ -75,7 +75,7 @@ export async function runDailyReflection(userId: string, input: DailyReflectionI
     const pastTasks = await AgentTask.find({
         userId,
         type: AgentTaskType.DAILY_REFLECTION,
-        status: 'completed',
+        status: { $in: ['COMPLETED', 'completed'] },
         createdAt: { $lt: new Date() } // exclude current one if any
     })
         .sort({ createdAt: -1 })
