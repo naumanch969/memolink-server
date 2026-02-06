@@ -1,6 +1,7 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { ZodSchema } from 'zod';
 import { logger } from '../../../config/logger';
+import { withRetry } from '../../utils/retry';
 import { LLMGenerativeOptions, LLMProvider } from '../types';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
@@ -34,68 +35,87 @@ export class GeminiProvider implements LLMProvider {
                 responseMimeType: options?.jsonMode ? 'application/json' : 'text/plain',
             };
 
-            const result = await modelToUse.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig,
-            });
+            const response = await withRetry(async () => {
+                const result = await modelToUse.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig,
+                });
+                return result.response;
+            }, { operationName: 'Gemini.generateText' });
 
-            const response = result.response;
             return response.text();
         } catch (error) {
+            // Error is already logged by withRetry if it exhausts attempts, 
+            // but we keep this for immediate visibility and backward compatibility
             logger.error('Gemini generateText error:', error);
             throw error;
         }
     }
 
     async generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T> {
-        try {
-            // Force JSON mode
-            const textResponse = await this.generateText(prompt, {
-                ...options,
-                jsonMode: true,
-                systemInstruction: options?.systemInstruction
-                    ? `${options.systemInstruction}\n\nIMPORTANT: Output strictly valid JSON matching the schema.`
-                    : 'You are a helpful assistant. Output strictly valid JSON matching the schema.',
-            });
+        return withRetry(async () => {
+            try {
+                // Force JSON mode
+                const textResponse = await this.generateText(prompt, {
+                    ...options,
+                    jsonMode: true,
+                    systemInstruction: options?.systemInstruction
+                        ? `${options.systemInstruction}\n\nIMPORTANT: Output strictly valid JSON matching the schema.`
+                        : 'You are a helpful assistant. Output strictly valid JSON matching the schema.',
+                });
 
-            // Clean leading/trailing markdown and whitespace
-            let cleanJson = textResponse.trim();
+                // Clean leading/trailing markdown and whitespace
+                let cleanJson = textResponse.trim();
 
-            // If it's wrapped in markdown code blocks, extract it
-            const jsonMatch = cleanJson.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-            if (jsonMatch) {
-                cleanJson = jsonMatch[0];
-            }
+                // If it's wrapped in markdown code blocks, extract it
+                const jsonMatch = cleanJson.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    cleanJson = jsonMatch[0];
+                }
 
-            logger.debug('Gemini Raw JSON:', { cleanJson });
+                logger.debug('Gemini Raw JSON:', { cleanJson });
 
-            // Parse and validate
-            let json = JSON.parse(cleanJson);
+                // Parse and validate
+                let json = JSON.parse(cleanJson);
 
-            // Robustness: Handle schema mismatch between Array and Object
-            if (Array.isArray(json)) {
+                // Robustness: Handle schema mismatch between Array and Object
+                if (Array.isArray(json)) {
                 // If the schema is an object but we got an array, try to grab the first item
                 // This is a common quirk where LLM returns a list of results
-                if (typeof json[0] === 'object' && json[0] !== null) {
-                    json = json[0];
-                }
-            } else if (typeof json === 'object' && json !== null) {
+                    if (typeof json[0] === 'object' && json[0] !== null) {
+                        json = json[0];
+                    }
+                } else if (typeof json === 'object' && json !== null) {
                 // Scenario 3: LLM wrapped the result in a key like "result" or "analysis"
-                const keys = Object.keys(json);
-                if (keys.length === 1 && typeof json[keys[0]] === 'object' && json[keys[0]] !== null) {
-                    const inner = json[keys[0]];
+                    const keys = Object.keys(json);
+                    if (keys.length === 1 && typeof json[keys[0]] === 'object' && json[keys[0]] !== null) {
+                        const inner = json[keys[0]];
                     // Only unwrap if the inner object seems to match more than just being an object
                     if (!Array.isArray(inner) || keys[0] !== 'topTags') { // specifically ignore topTags array wrapping if it's the only key
-                        json = inner;
+                            json = inner;
+                        }
                     }
                 }
-            }
 
-            return schema.parse(json);
-        } catch (error) {
-            logger.error('Gemini generateJSON error:', error);
-            throw error;
-        }
+                return schema.parse(json);
+            } catch (error: any) {
+                // If it's a SyntaxError (JSON.parse) or ZodError (schema.parse), 
+                // we treat it as a retryable "hallucination" error for this operation.
+                const isValidationError = error instanceof SyntaxError || error.name === 'ZodError';
+                if (isValidationError) {
+                    logger.warn('Gemini JSON validation failed, will retry...', { error: error.message });
+                    // We throw a custom property to help withRetry identify it if we wanted to be very specific,
+                    // but for now, we'll just let withRetry's default or custom logic handle it.
+                    // Actually, let's make sure it's retried.
+                    (error as any).isTransientValidation = true;
+                }
+                throw error;
+            }
+        }, {
+            maxAttempts: 2, // Fewer attempts for logic errors to save latency
+            shouldRetry: (err) => err.status === 429 || err.status >= 500 || err.isTransientValidation,
+            operationName: 'Gemini.generateJSON'
+        });
     }
 
     async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
@@ -121,12 +141,13 @@ export class GeminiProvider implements LLMProvider {
                 maxOutputTokens: options?.maxOutputTokens,
             };
 
-            const result = await modelToUse.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig,
-            });
-
-            const response = result.response;
+            const response = await withRetry(async () => {
+                const result = await modelToUse.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig,
+                });
+                return result.response;
+            }, { operationName: 'Gemini.generateWithTools' });
 
             // Check for function calls
             const functionCalls = response.functionCalls();
@@ -148,8 +169,10 @@ export class GeminiProvider implements LLMProvider {
 
     async generateEmbeddings(text: string): Promise<number[]> {
         try {
-            const embeddingModel = this.client.getGenerativeModel({ model: 'text-embedding-004' });
-            const result = await embeddingModel.embedContent(text);
+            const result = await withRetry(async () => {
+                const embeddingModel = this.client.getGenerativeModel({ model: 'text-embedding-004' });
+                return await embeddingModel.embedContent(text);
+            }, { operationName: 'Gemini.generateEmbeddings' });
             return result.embedding.values;
         } catch (error) {
             logger.error('Gemini generateEmbeddings error:', error);
