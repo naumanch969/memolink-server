@@ -4,6 +4,8 @@ import logger from '../../config/logger';
 import { eventStream } from '../../core/events/EventStream';
 import { EventType } from '../../core/events/types';
 import { CustomError } from '../../core/middleware/errorHandler';
+import { EdgeType, NodeType } from '../graph/edge.model';
+import { graphService } from '../graph/graph.service';
 import { NotificationQueue } from '../notification/notification.model';
 import { NotificationStatus } from '../notification/notification.types';
 import { Reminder } from './reminder.model';
@@ -80,6 +82,16 @@ class ReminderService {
             if (reminder.notifications.enabled) {
                 await this.scheduleNotifications(reminder);
             }
+
+            // Create Graph Association
+            await graphService.createAssociation({
+                fromId: userId,
+                fromType: NodeType.USER,
+                toId: reminder._id.toString(),
+                toType: NodeType.REMINDER,
+                relation: EdgeType.HAS_TASK,
+                metadata: { title: reminder.title }
+            }).catch(err => console.error('[ReminderService] Graph association failed:', err));
 
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
@@ -370,6 +382,10 @@ class ReminderService {
 
             // Cancel pending notifications
             await this.cancelNotifications(reminderId);
+
+            // Cleanup Graph
+            const { graphService } = await import('../graph/graph.service');
+            await graphService.removeNodeEdges(reminderId).catch(err => logger.error(`[ReminderService] Graph cleanup failed`, err));
         } catch (error: any) {
             if (error instanceof CustomError) throw error;
             throw new CustomError(error.message || 'Failed to delete reminder', 500);

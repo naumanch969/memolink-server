@@ -1,8 +1,8 @@
 import { ClientSession, Types } from 'mongoose';
 import { logger } from '../../config/logger';
+import Helpers from '../../shared/helpers';
 import { EdgeType, GraphEdge, NodeType } from './edge.model';
 import { IGraphEdge } from './graph.interface';
-import Helpers from '../../shared/helpers';
 
 /**
  * Strict Ontology: Defines which source nodes can have which relations to which target nodes.
@@ -12,30 +12,30 @@ const VALID_RELATIONS: Record<EdgeType, { from: NodeType[]; to: NodeType[] }> = 
     // Core User Relations
     [EdgeType.HAS_GOAL]: { from: [NodeType.USER], to: [NodeType.GOAL] },
     [EdgeType.HAS_TASK]: { from: [NodeType.USER], to: [NodeType.TASK, NodeType.REMINDER] },
-    [EdgeType.KNOWS]: { from: [NodeType.USER], to: [NodeType.PERSON] },
-    [EdgeType.INTERESTED_IN]: { from: [NodeType.USER], to: [NodeType.TOPIC, NodeType.PROJECT, NodeType.ORGANIZATION] },
+    [EdgeType.KNOWS]: { from: [NodeType.USER, NodeType.PERSON, NodeType.ENTITY], to: [NodeType.PERSON, NodeType.ENTITY, NodeType.USER] },
+    [EdgeType.INTERESTED_IN]: { from: [NodeType.USER, NodeType.PERSON, NodeType.ENTITY], to: [NodeType.TOPIC, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER] },
     [EdgeType.MENTIONED_IN]: { from: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER], to: [NodeType.CONTEXT] },
 
     // Organizational & World Relations (Inter-linking)
-    [EdgeType.WORKS_AT]: { from: [NodeType.PERSON], to: [NodeType.ORGANIZATION] },
-    [EdgeType.CONTRIBUTES_TO]: { from: [NodeType.PERSON, NodeType.ORGANIZATION], to: [NodeType.PROJECT, NodeType.ORGANIZATION] },
-    [EdgeType.MEMBER_OF]: { from: [NodeType.PERSON, NodeType.ORGANIZATION], to: [NodeType.ORGANIZATION, NodeType.PROJECT] },
-    [EdgeType.PART_OF]: { from: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.GOAL], to: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.GOAL] },
-    [EdgeType.OWNED_BY]: { from: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.GOAL, NodeType.REMINDER, NodeType.TASK], to: [NodeType.USER, NodeType.PERSON, NodeType.ORGANIZATION] },
-    [EdgeType.ASSOCIATED_WITH]: { from: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER], to: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER] },
+    [EdgeType.WORKS_AT]: { from: [NodeType.PERSON, NodeType.ENTITY], to: [NodeType.ORGANIZATION, NodeType.ENTITY] },
+    [EdgeType.CONTRIBUTES_TO]: { from: [NodeType.PERSON, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER], to: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY] },
+    [EdgeType.MEMBER_OF]: { from: [NodeType.PERSON, NodeType.ORGANIZATION, NodeType.ENTITY], to: [NodeType.ORGANIZATION, NodeType.PROJECT, NodeType.ENTITY] },
+    [EdgeType.PART_OF]: { from: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.GOAL, NodeType.ENTITY], to: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.GOAL, NodeType.ENTITY] },
+    [EdgeType.OWNED_BY]: { from: [NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.GOAL, NodeType.REMINDER, NodeType.TASK, NodeType.ENTITY], to: [NodeType.USER, NodeType.PERSON, NodeType.ORGANIZATION, NodeType.ENTITY] },
+    [EdgeType.ASSOCIATED_WITH]: { from: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER, NodeType.TOPIC], to: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.USER, NodeType.TOPIC] },
 
     // Behavioral & Psychological (User Memory)
-    [EdgeType.AVOIDS]: { from: [NodeType.USER], to: [NodeType.TASK, NodeType.GOAL, NodeType.PERSON, NodeType.PROJECT] },
+    [EdgeType.AVOIDS]: { from: [NodeType.USER], to: [NodeType.TASK, NodeType.GOAL, NodeType.PERSON, NodeType.PROJECT, NodeType.ENTITY] },
     [EdgeType.NEGLECTS]: { from: [NodeType.USER], to: [NodeType.GOAL, NodeType.ROUTINE] },
-    [EdgeType.STRUGGLES_WITH]: { from: [NodeType.USER, NodeType.PERSON], to: [NodeType.TOPIC, NodeType.TASK, NodeType.EMOTION, NodeType.PROJECT] },
+    [EdgeType.STRUGGLES_WITH]: { from: [NodeType.USER, NodeType.PERSON], to: [NodeType.TOPIC, NodeType.TASK, NodeType.EMOTION, NodeType.PROJECT, NodeType.ENTITY] },
     [EdgeType.CONSISTENT_IN]: { from: [NodeType.USER], to: [NodeType.ROUTINE, NodeType.TASK] },
-    [EdgeType.TRIGGERS]: { from: [NodeType.TOPIC, NodeType.PERSON, NodeType.TASK, NodeType.CONTEXT, NodeType.PROJECT, NodeType.REMINDER], to: [NodeType.EMOTION, NodeType.GOAL] },
+    [EdgeType.TRIGGERS]: { from: [NodeType.TOPIC, NodeType.PERSON, NodeType.TASK, NodeType.CONTEXT, NodeType.PROJECT, NodeType.REMINDER, NodeType.ENTITY], to: [NodeType.EMOTION, NodeType.GOAL] },
     [EdgeType.INFLUENCES]: { from: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.TOPIC], to: [NodeType.USER, NodeType.PERSON, NodeType.EMOTION] },
 
     // Dependency
-    [EdgeType.BLOCKS]: { from: [NodeType.TASK, NodeType.GOAL], to: [NodeType.TASK, NodeType.GOAL] },
-    [EdgeType.SUPPORTS]: { from: [NodeType.ROUTINE, NodeType.TASK, NodeType.GOAL, NodeType.PROJECT], to: [NodeType.GOAL, NodeType.PROJECT] },
-    [EdgeType.REQUIRES]: { from: [NodeType.TASK, NodeType.GOAL, NodeType.PROJECT], to: [NodeType.TASK, NodeType.CONTEXT, NodeType.PROJECT] },
+    [EdgeType.BLOCKS]: { from: [NodeType.TASK, NodeType.GOAL, NodeType.ENTITY], to: [NodeType.TASK, NodeType.GOAL, NodeType.ENTITY] },
+    [EdgeType.SUPPORTS]: { from: [NodeType.ROUTINE, NodeType.TASK, NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY], to: [NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY] },
+    [EdgeType.REQUIRES]: { from: [NodeType.TASK, NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY], to: [NodeType.TASK, NodeType.CONTEXT, NodeType.PROJECT, NodeType.ENTITY] },
 };
 
 /**
@@ -132,10 +132,23 @@ export class GraphService {
      * Removes an edge.
      */
     async removeEdge(fromId: string, toId: string, relation: EdgeType): Promise<void> {
-        await GraphEdge.deleteOne({
+        await GraphEdge.deleteMany({
             "from.id": new Types.ObjectId(fromId),
             "to.id": new Types.ObjectId(toId),
             relation
+        });
+    }
+
+    /**
+     * Removes all edges associated with a node (from or to).
+     * Used for cascading deletions.
+     */
+    async removeNodeEdges(nodeId: string): Promise<void> {
+        await GraphEdge.deleteMany({
+            $or: [
+                { "from.id": new Types.ObjectId(nodeId) },
+                { "to.id": new Types.ObjectId(nodeId) }
+            ]
         });
     }
 
@@ -181,8 +194,11 @@ export class GraphService {
     async getEntityContext(entityId: string, name: string): Promise<string> {
         try {
             const edges = await GraphEdge.find({
-                "from.id": new Types.ObjectId(entityId),
-                "metadata.isInverse": { $ne: true } // Prefer forward links for description
+                $or: [
+                    { "from.id": new Types.ObjectId(entityId) },
+                    { "to.id": new Types.ObjectId(entityId) }
+                ],
+                "metadata.isInverse": { $ne: true }
             })
                 .sort({ createdAt: -1 })
                 .limit(10)
@@ -191,8 +207,14 @@ export class GraphService {
             if (edges.length === 0) return "";
 
             const relations = edges.map(edge => {
-                const targetName = edge.metadata?.targetName || edge.metadata?.name || edge.to.type;
-                return `${name} ${edge.relation.toLowerCase().replace(/_/g, ' ')} ${targetName}`;
+                const isSource = edge.from.id.toString() === entityId;
+                if (isSource) {
+                    const targetName = edge.metadata?.targetName || edge.metadata?.name || edge.to.type;
+                    return `${name} ${edge.relation.toLowerCase().replace(/_/g, ' ')} ${targetName}`;
+                } else {
+                    const sourceName = edge.metadata?.sourceName || edge.metadata?.name || edge.from.type;
+                    return `${sourceName} ${edge.relation.toLowerCase().replace(/_/g, ' ')} ${name}`;
+                }
             });
 
             return `ENTITY: ${name}\nGraph: ${relations.join(', ')}`;
@@ -214,26 +236,49 @@ export class GraphService {
 
             const categories: Record<string, string[]> = {
                 "Goals": [],
-                "Patterns": [],
+                "People & Connections": [],
                 "Top Interests": [],
+                "Patterns": [],
             };
 
+            const peopleIds = userEdges
+                .filter(e => e.relation === EdgeType.KNOWS)
+                .map(e => e.to.id);
+
+            // Fetch 2-hop relations for known people (e.g., where they work)
+            const secondHopEdges = await GraphEdge.find({
+                "from.id": { $in: peopleIds },
+                relation: { $in: [EdgeType.WORKS_AT, EdgeType.MEMBER_OF, EdgeType.CONTRIBUTES_TO, EdgeType.PART_OF] }
+            }).lean();
+
             userEdges.forEach(edge => {
-                const title = edge.metadata?.title || 'Unknown';
+                const title = edge.metadata?.title || edge.metadata?.name || 'Unknown';
+                const targetType = edge.to.type;
+
                 switch (edge.relation) {
                     case EdgeType.HAS_GOAL:
                         categories["Goals"].push(title);
+                        break;
+                    case EdgeType.KNOWS:
+                        categories["People & Connections"].push(title);
                         break;
                     case EdgeType.AVOIDS:
                         categories["Patterns"].push(`Avoiding task: ${title}`);
                         break;
                     case EdgeType.STRUGGLES_WITH:
-                        categories["Patterns"].push(`Struggling with: ${edge.to.type}`);
+                        categories["Patterns"].push(`Struggling with: ${targetType}`);
                         break;
                     case EdgeType.INTERESTED_IN:
-                        categories["Top Interests"].push(edge.to.type === NodeType.TOPIC ? title : edge.to.type);
+                        categories["Top Interests"].push(`${targetType}: ${title}`);
                         break;
                 }
+            });
+
+            // Add second-hop context
+            secondHopEdges.forEach(edge => {
+                const sourceName = edge.metadata?.sourceName || edge.metadata?.name || 'Someone';
+                const targetName = edge.metadata?.targetName || edge.metadata?.name || 'Organization';
+                categories["People & Connections"].push(`${sourceName} ${edge.relation.toLowerCase().replace(/_/g, ' ')} ${targetName}`);
             });
 
             return Object.entries(categories)

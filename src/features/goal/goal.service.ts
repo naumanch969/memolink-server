@@ -1,10 +1,12 @@
 import { ClientSession, Types } from 'mongoose';
 import logger from '../../config/logger';
+import { CustomError } from '../../core/middleware/errorHandler';
 import { GOAL_STATUS } from '../../shared/constants';
+import { EdgeType, NodeType } from '../graph/edge.model';
+import graphService from '../graph/graph.service';
 import { RoutineType } from '../routine/routine.interfaces';
 import { CreateGoalParams, GetGoalsQuery, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
-import { CustomError } from '../../core/middleware/errorHandler';
 
 export class GoalService {
 
@@ -23,6 +25,16 @@ export class GoalService {
             if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
                 await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
             }
+
+            // Create Graph Association
+            await graphService.createAssociation({
+                fromId: userId,
+                fromType: NodeType.USER,
+                toId: goal._id.toString(),
+                toType: NodeType.GOAL,
+                relation: EdgeType.HAS_GOAL,
+                metadata: { title: goal.title }
+            }).catch(err => logger.error(`[GoalService] Graph association failed`, err));
 
             // Re-fetch to get updated progress
             return (await Goal.findById(goal._id).lean()) as IGoal;
@@ -222,6 +234,11 @@ export class GoalService {
             _id: new Types.ObjectId(goalId),
             userId: new Types.ObjectId(userId),
         });
+
+        if (result.deletedCount === 1) {
+            const { graphService } = await import('../graph/graph.service');
+            await graphService.removeNodeEdges(goalId).catch(err => logger.error(`[GoalService] Failed to cleanup graph edges`, err));
+        }
 
         return result.deletedCount === 1;
     }

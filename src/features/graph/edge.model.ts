@@ -70,7 +70,10 @@ GraphEdgeSchema.index({ "from.id": 1, relation: 1 });
 // 2. "Find what triggers Anxiety" -> { "to.id": 1, "relation": 1 }
 GraphEdgeSchema.index({ "to.id": 1, relation: 1 });
 
-// 3. Unique edge constraint (User can't HAVE_GOAL the same goal twice)
+// 3. Temporal traversal: "Recent interactions for Entity X"
+GraphEdgeSchema.index({ "from.id": 1, relation: 1, createdAt: -1 });
+
+// 4. Unique edge constraint (User can't HAVE_GOAL the same goal twice)
 GraphEdgeSchema.index({ "from.id": 1, "to.id": 1, relation: 1 }, { unique: true });
 
 export const GraphEdge = mongoose.model<IGraphEdge>('GraphEdge', GraphEdgeSchema);
