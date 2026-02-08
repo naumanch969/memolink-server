@@ -15,6 +15,7 @@ export enum AgentTaskType {
     KNOWLEDGE_QUERY = 'KNOWLEDGE_QUERY',
     WEB_ACTIVITY_SUMMARY = 'WEB_ACTIVITY_SUMMARY',
     SYNC = 'SYNC',
+    PERSONA_SYNTHESIS = 'PERSONA_SYNTHESIS',
 }
 
 export enum AgentTaskStatus {

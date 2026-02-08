@@ -210,7 +210,11 @@ export class EntryService implements IEntryService {
       const sort = Helpers.getSortParams(options, 'createdAt');
 
       // Construct filter, excluding pagination/sort params
-      const filter: any = { userId: new Types.ObjectId(userId) };
+      const filter: any = {
+        userId: typeof userId === 'string' && Types.ObjectId.isValid(userId)
+          ? new Types.ObjectId(userId)
+          : userId
+      };
 
       if (options.dateFrom || options.dateTo) {
         filter.date = {};
@@ -227,7 +231,11 @@ export class EntryService implements IEntryService {
 
       const [entries, total] = await Promise.all([
         Entry.find(filter)
-          .populate(['mentions', 'tags', 'media'])
+          .populate([
+            { path: 'mentions' },
+            { path: 'tags' },
+            { path: 'media' }
+          ])
           .sort(sort as any)
           .skip(skip)
           .limit(limit),
@@ -243,8 +251,8 @@ export class EntryService implements IEntryService {
         limit,
         totalPages,
       };
-    } catch (error) {
-      logger.error('Get user entries failed:', error);
+    } catch (error: any) {
+      logger.error(`Get user entries failed for user ${userId}: ${error.message}`, error);
       throw error;
     }
   }

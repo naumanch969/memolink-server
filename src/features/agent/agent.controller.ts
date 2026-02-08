@@ -3,6 +3,7 @@ import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
+import { personaService } from './persona.service';
 
 export class AgentController {
     static async createTask(req: Request, res: Response): Promise<void> {
@@ -162,16 +163,38 @@ export class AgentController {
         }
     }
 
-    static async syncEntries(req: Request, res: Response): Promise<void> {
+    /**
+     * Unified sync endpoint.
+     * Use POST /agent/sync?type=persona for persona sync
+     * Use POST /agent/sync for entry enhancement
+     */
+    static async syncLibrary(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
-            const { entryId } = req.body;
+            const { entryId, force } = req.body;
+            const type = req.query.type as string;
 
-            const result = await agentService.syncEntries(userId, entryId);
-            ResponseHelper.success(res, result, 'Library sync tasks enqueued');
+            if (type === 'persona') {
+                const result = await agentService.syncPersona(userId, force);
+                ResponseHelper.success(res, result, 'Persona sync task enqueued');
+            } else {
+                const result = await agentService.syncEntries(userId, entryId);
+                ResponseHelper.success(res, result, 'Library enrichment tasks enqueued');
+            }
         } catch (error) {
-            logger.error('Error syncing library entries', error);
-            ResponseHelper.error(res, 'Error syncing library entries', 500, error);
+            logger.error('Error syncing library', error);
+            ResponseHelper.error(res, 'Error syncing library', 500, error);
+        }
+    }
+
+    static async getPersona(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            const persona = await personaService.getPersona(userId);
+            ResponseHelper.success(res, persona, 'User persona retrieved');
+        } catch (error) {
+            logger.error('Error fetching user persona', error);
+            ResponseHelper.error(res, 'Error fetching user persona', 500, error);
         }
     }
 }

@@ -16,6 +16,7 @@ import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { getAgentQueue } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
+import { personaService } from './persona.service';
 import { agentToolDefinitions, agentToolHandlers } from './tools';
 
 export class AgentService {
@@ -122,6 +123,9 @@ export class AgentService {
         // 7. Update Memory (Agent)
         const actionLog = commandObject ? `Created ${taskType} (${commandObject._id})` : `Saved Entry (${finalResult?._id})`;
         await agentMemory.addMessage(userId, 'agent', `Processed ${intent}. ${actionLog}`);
+
+        // 8. Trigger Persona Synthesis (Async / Throttled)
+        personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
 
         return { task, result: commandObject || finalResult, intent };
     }
@@ -315,10 +319,11 @@ export class AgentService {
         // 1. Immediately persist user message to ensure it's captured
         await agentMemory.addMessage(userId, 'user', message);
 
-        // 2. Get Context (History + Graph)
-        const [history, graphContext] = await Promise.all([
+        // 2. Get Context (History + Graph + Persona)
+        const [history, graphContext, personaContext] = await Promise.all([
             agentMemory.getHistory(userId),
-            graphService.getGraphSummary(userId)
+            graphService.getGraphSummary(userId),
+            personaService.getPersonaContext(userId)
         ]);
 
         // Filter out the message we just added (if it appears in history) to avoid duplication in the prompt
@@ -338,6 +343,9 @@ export class AgentService {
 
         USER'S LIFE CONTEXT (Graph Summary):
         ${graphContext}
+
+        USER'S PERSONA & PSYCHOLOGY:
+        ${personaContext}
         
         Recent Conversation:
         ${promptHistory}
@@ -409,6 +417,9 @@ export class AgentService {
 
                     // Update Memory with Agent Response
                     await agentMemory.addMessage(userId, 'agent', finalAnswer);
+
+                    // Trigger Persona Synthesis (Async / Throttled)
+                    personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
 
                     return finalAnswer;
                 } else {
@@ -677,6 +688,17 @@ export class AgentService {
 
         logger.info(`Library sync request initiated for user ${userId}. TaskId: ${task._id}`);
 
+        return { taskId: task._id.toString() };
+    }
+
+    /**
+     * Triggers a deep persona synthesis for the user.
+     * This analyzes the deep nature of the user (philosophy, psychology, patterns)
+     * independently from standard entry enrichment.
+     */
+    async syncPersona(userId: string, force: boolean = false): Promise<{ taskId: string }> {
+        const task = await this.createTask(userId, AgentTaskType.PERSONA_SYNTHESIS, { force });
+        logger.info(`Persona sync initiated for user ${userId}. TaskId: ${task._id}`);
         return { taskId: task._id.toString() };
     }
 }

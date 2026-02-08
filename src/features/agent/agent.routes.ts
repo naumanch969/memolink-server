@@ -16,7 +16,8 @@ router.get('/chat', AgentController.getHistory);
 router.get('/briefing', AgentController.getBriefing);
 router.get('/similar', AgentController.getSimilarEntries);
 router.post('/goal-architect', AgentController.goalArchitectChat);
-router.post('/sync', AgentController.syncEntries);
+router.post('/sync', AgentController.syncLibrary);
+router.get('/persona', AgentController.getPersona);
 router.delete('/chat', AgentController.clearHistory);
 
 export default router;

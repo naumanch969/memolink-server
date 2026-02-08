@@ -26,7 +26,20 @@ class Logger {
 
   private formatMessage(level: LogLevel, message: string, meta?: any): string {
     const timestamp = new Date().toISOString();
-    const metaString = meta ? ` ${JSON.stringify(meta)}` : '';
+    let metaString = '';
+
+    if (meta) {
+      if (meta instanceof Error) {
+        metaString = ` ${meta.message}${meta.stack ? `\n${meta.stack}` : ''}`;
+      } else {
+        try {
+          metaString = ` ${JSON.stringify(meta)}`;
+        } catch (e) {
+          metaString = ' [Circular or Complex Metadata]';
+        }
+      }
+    }
+
     return `[${timestamp}] ${level.toUpperCase()}: ${message}${metaString}`;
   }
 

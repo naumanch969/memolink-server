@@ -77,6 +77,12 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.PERSONA_SYNTHESIS: {
+                    const { runPersonaSynthesis } = await import('./workflows/persona.workflow');
+                    result = await runPersonaSynthesis(task.userId, task.inputData);
+                    break;
+                }
+
                 // Synchronous / No-op tasks
                 case AgentTaskType.REMINDER_CREATE:
                 case AgentTaskType.GOAL_CREATE:
