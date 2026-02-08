@@ -134,9 +134,25 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
             relation: EdgeType.MENTIONED_IN,
             metadata: { entryDate: entry.date, name: e.name, isExtraction: true }
         });
+
+        // 6. Create Ego-Edge (User -> Entity)
+        const egoRelation = otype === NodeType.PERSON ? EdgeType.KNOWS : EdgeType.INTERESTED_IN;
+        await graphService.createAssociation({
+            fromId: userId,
+            fromType: NodeType.USER,
+            toId: entity!._id.toString(),
+            toType: otype,
+            relation: egoRelation,
+            metadata: {
+                name: e.name,
+                sentiment: e.sentiment,
+                originEntryId: entryId,
+                isExtraction: true
+            }
+        }).catch(err => logger.debug(`[Extraction] Ego-edge failed for ${e.name}`));
     }
 
-    // 6. Upsert Relationships (Between Entities)
+    // 7. Upsert Relationships (Between Entities)
     for (const rel of relationsData) {
         const source = nameToIdMap[rel.source.toLowerCase()];
         const target = nameToIdMap[rel.target.toLowerCase()];
