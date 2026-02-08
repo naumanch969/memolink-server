@@ -42,7 +42,7 @@ export class MarkdownStrategy implements ExportStrategy {
             const metadata = [];
             if (entry.mood) metadata.push(`**Mood:** ${entry.mood}`);
             if (entry.location) metadata.push(`**Location:** ${entry.location}`);
-            if (entry.mentions?.length) metadata.push(`**People:** ${entry.mentions.map((p: any) => p.name).join(', ')}`);
+            if (entry.mentions?.length) metadata.push(`**Entity:** ${entry.mentions.map((p: any) => p.name).join(', ')}`);
             if (entry.tags?.length) metadata.push(`**Tags:** ${entry.tags.map((t: any) => t.name).join(', ')}`);
 
             if (metadata.length > 0) {

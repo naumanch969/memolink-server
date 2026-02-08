@@ -1,0 +1,37 @@
+[2026-02-08T17:01:52.875Z] INFO: Initializing Migration Script...
+[2026-02-08T17:01:52.946Z] INFO: Redis connection established
+✅ Database connected successfully
+[2026-02-08T17:01:58.760Z] INFO: Starting Global Migration Loop...
+[2026-02-08T17:01:58.760Z] INFO: Starting Global Migration: Persons -> KnowledgeEntities
+(node:64074) [MONGOOSE] Warning: Duplicate schema index on {"email":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2026-02-08T17:02:00.042Z] INFO: Found 7 users for migration.
+[2026-02-08T17:02:00.042Z] INFO: Migrating data for user: 68d232582180df9d736099d4
+[2026-02-08T17:02:02.013Z] ERROR: Migration failed for user 68d232582180df9d736099d4: Cast to ObjectId failed for value "[]" (type Array) at path "personId" for model "Media"
+CastError: Cast to ObjectId failed for value "[]" (type Array) at path "personId" for model "Media"
+    at SchemaObjectId.cast (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schema/objectId.js:251:11)
+    at SchemaObjectId.SchemaType.applySetters (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1258:12)
+    at SchemaObjectId.SchemaType.castForQuery (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1694:17)
+    at SchemaObjectId.handleSingle (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1617:15)
+    at SchemaObjectId.SchemaType.castForQuery (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1690:20)
+    at cast (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/cast.js:367:39)
+    at model.Query.Query.cast (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:5060:12)
+    at model.Query.Query._castConditions (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:2374:10)
+    at model.Query._find (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:2401:8)
+    at model.Query.exec (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:4627:80)
+[2026-02-08T17:02:02.014Z] ERROR: Global Migration Failed: Cast to ObjectId failed for value "[]" (type Array) at path "personId" for model "Media"
+CastError: Cast to ObjectId failed for value "[]" (type Array) at path "personId" for model "Media"
+    at SchemaObjectId.cast (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schema/objectId.js:251:11)
+    at SchemaObjectId.SchemaType.applySetters (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1258:12)
+    at SchemaObjectId.SchemaType.castForQuery (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1694:17)
+    at SchemaObjectId.handleSingle (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1617:15)
+    at SchemaObjectId.SchemaType.castForQuery (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/schemaType.js:1690:20)
+    at cast (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/cast.js:367:39)
+    at model.Query.Query.cast (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:5060:12)
+    at model.Query.Query._castConditions (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:2374:10)
+    at model.Query._find (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:2401:8)
+    at model.Query.exec (/Users/apple/Documents/code/next/memo/memolink-server/node_modules/mongoose/lib/query.js:4627:80)
+[2026-02-08T17:02:02.015Z] INFO: Migration Loop Finished.
+⚠️ Database disconnected
+✅ Database disconnected successfully
+[2026-02-08T17:02:02.031Z] INFO: Database connection closed. Script exiting.

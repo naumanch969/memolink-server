@@ -6,7 +6,7 @@ export interface IEntry extends BaseEntity {
   userId: Types.ObjectId;
   content: string;
   type: 'text' | 'media' | 'mixed';
-  mentions: Types.ObjectId[]; // Person IDs
+  mentions: Types.ObjectId[]; // KnowledgeEntity IDs
   tags: Types.ObjectId[]; // Tag IDs
   media: Types.ObjectId[]; // Media IDs
   isPrivate: boolean;
@@ -101,7 +101,7 @@ export interface EntrySearchRequest {
   dateFrom?: string;
   dateTo?: string;
   tags?: string[];
-  people?: string[];
+  entities?: string[];
   mediaType?: string;
   isPrivate?: boolean;
   isImportant?: boolean;
@@ -120,7 +120,7 @@ export interface EntryFeedRequest {
   limit?: number;
   type?: string;
   tags?: string[];
-  people?: string[];
+  entities?: string[];
   isPrivate?: boolean;
   isImportant?: boolean;
   mood?: string;

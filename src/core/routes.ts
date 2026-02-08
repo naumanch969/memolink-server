@@ -7,6 +7,7 @@ import analyticsRoutes from '../features/analytics/analytics.routes';
 import authRoutes from '../features/auth/auth.routes';
 import announcementRoutes from '../features/communication/announcement.routes';
 import documentRoutes from '../features/document/document.routes';
+import entityRoutes from '../features/entity/entity.routes';
 import entryRoutes from '../features/entry/entry.routes';
 import eventsRoutes from '../features/events/events.routes';
 import exportRoutes from '../features/export/export.routes';
@@ -18,15 +19,14 @@ import mediaRoutes from '../features/media/media.routes';
 import storageRoutes from '../features/media/storage.routes';
 import moodRoutes from '../features/mood/mood.routes';
 import notificationRoutes from '../features/notification/notification.routes';
-import personRoutes from '../features/person/person.routes';
 import reminderRoutes from '../features/reminder/reminder.routes';
 import routineLogRoutes from '../features/routine/routine-logs.routes';
 import routinePreferencesRoutes from '../features/routine/routine-preferences.routes';
 import routineRoutes from '../features/routine/routine.routes';
+import searchRoutes from '../features/search/search.routes';
 import tagRoutes from '../features/tag/tag.routes';
 import webActivityRoutes from '../features/web-activity/web-activity.routes';
 import widgetRoutes from '../features/widget/widget.routes';
-import searchRoutes from '../features/search/search.routes';
 
 
 const router = Router();
@@ -50,7 +50,6 @@ router.get('/docs', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       entries: '/api/entries',
-      people: '/api/people',
       tags: '/api/tags',
       media: '/api/media',
       folders: '/api/folders',
@@ -73,7 +72,7 @@ router.get('/docs', (req, res) => {
 // Feature routes
 router.use('/auth', authRoutes);
 router.use('/entries', entryRoutes);
-router.use('/people', personRoutes);
+router.use('/entities', entityRoutes);
 router.use('/tags', tagRoutes);
 router.use('/media', mediaRoutes);
 router.use('/media/upload/chunked', chunkedUploadRoutes);

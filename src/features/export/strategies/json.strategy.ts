@@ -1,9 +1,9 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
 import { Helpers } from '../../../shared/helpers';
+import { KnowledgeEntity } from '../../entity/entity.model';
 import { Entry } from '../../entry/entry.model';
 import { Media } from '../../media/media.model';
-import { Person } from '../../person/person.model';
 import { Tag } from '../../tag/tag.model';
 import { WebActivity } from '../../web-activity/web-activity.model';
 import { ExportRequest } from '../export.interfaces';
@@ -51,14 +51,14 @@ export class JsonStrategy implements ExportStrategy {
         }
         res.write('\n  ],\n');
 
-        // Stream People
-        res.write('  "people": [\n');
-        const peopleCursor = Person.find({ userId: userObjectId }).cursor();
-        let isFirstPerson = true;
-        for (let doc = await peopleCursor.next(); doc != null; doc = await peopleCursor.next()) {
-            if (!isFirstPerson) res.write(',\n');
+        // Stream Entities
+        res.write('  "entities": [\n');
+        const entityCursor = KnowledgeEntity.find({ userId: userObjectId, isDeleted: false }).cursor();
+        let isFirstEntity = true;
+        for (let doc = await entityCursor.next(); doc != null; doc = await entityCursor.next()) {
+            if (!isFirstEntity) res.write(',\n');
             res.write(JSON.stringify(doc, null, 2).replace(/^/gm, '    '));
-            isFirstPerson = false;
+            isFirstEntity = false;
         }
         res.write('\n  ],\n');
 

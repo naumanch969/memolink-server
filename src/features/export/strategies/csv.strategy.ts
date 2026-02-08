@@ -23,7 +23,7 @@ export class CsvStrategy implements ExportStrategy {
         res.write('\uFEFF');
 
         // Write Headers
-        const headers = 'Date,Content,Type,Mood,Location,People,Tags,Media\n';
+        const headers = 'Date,Content,Type,Mood,Location,Entity,Tags,Media\n';
         res.write(headers);
 
         const cursor = Entry.find(filter)
@@ -34,13 +34,13 @@ export class CsvStrategy implements ExportStrategy {
         for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
             const entry = doc as any; // Cast to access populated fields
 
-            const people = entry.mentions?.map((p: any) => p.name).join('; ') || '';
+            const entities = entry.mentions?.map((p: any) => p.name).join('; ') || '';
             const tags = entry.tags?.map((t: any) => t.name).join('; ') || '';
             const media = entry.media?.map((m: any) => m.originalName).join('; ') || '';
 
             // Escape quotes
             const safeContent = (entry.content || '').replace(/"/g, '""');
-            const safePeople = people.replace(/"/g, '""');
+            const safeEntity = entities.replace(/"/g, '""');
             const safeTags = tags.replace(/"/g, '""');
             const safeMedia = media.replace(/"/g, '""');
             const safeMood = (entry.mood || '').replace(/"/g, '""');
@@ -52,7 +52,7 @@ export class CsvStrategy implements ExportStrategy {
                 entry.type || '',
                 `"${safeMood}"`,
                 `"${safeLocation}"`,
-                `"${safePeople}"`,
+                `"${safeEntity}"`,
                 `"${safeTags}"`,
                 `"${safeMedia}"`,
             ].join(',');

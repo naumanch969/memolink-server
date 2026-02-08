@@ -70,7 +70,7 @@ describe('ReminderService', () => {
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 linkedTags: [],
-                linkedPeople: [],
+                linkedEntities: [],
                 linkedEntries: []
             }];
 

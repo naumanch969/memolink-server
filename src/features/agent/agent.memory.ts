@@ -9,7 +9,7 @@ export interface ChatMessage {
 }
 
 const MEMORY_TTL = 60 * 60 * 24; // 24 hours
-const MAX_HISTORY = 10;
+const MAX_HISTORY = 100; // Increased to allow buffer for flushing
 
 export class AgentMemory {
 

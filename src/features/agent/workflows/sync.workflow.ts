@@ -57,7 +57,7 @@ async function enqueueEntryTasks(userId: string, entryId: string) {
     // We use the central service to ensure consistent task creation
     await Promise.all([
         agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, { entryId }),
-        agentService.createTask(userId, AgentTaskType.PEOPLE_EXTRACTION, { entryId, userId }),
+        agentService.createTask(userId, AgentTaskType.ENTITY_EXTRACTION, { entryId, userId }),
         agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, { entryId })
     ]);
 }

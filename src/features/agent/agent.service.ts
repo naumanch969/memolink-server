@@ -3,6 +3,7 @@ import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
 import DateManager from '../../core/utils/DateManager';
 import { DataType } from '../../shared/types';
+import { entityService } from '../entity/entity.service';
 import Entry from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
@@ -313,55 +314,101 @@ export class AgentService {
 
 
     /**
-     * Conversational Agent with Tool Access
+     * Conversational Agent with Tool Access (Enhanced with TAO Context)
      */
     async chat(userId: string, message: string): Promise<string> {
-        // 1. Immediately persist user message to ensure it's captured
+        // 1. Immediately persist user message
         await agentMemory.addMessage(userId, 'user', message);
 
-        // 2. Get Context (History + Graph + Persona)
-        const [history, graphContext, personaContext] = await Promise.all([
+        // 2. TAO: Fast Entity Detection (Redis Registry)
+        const entityRegistry = await entityService.getEntityRegistry(userId);
+        const detectedEntityIds = new Set<string>();
+
+        // Optimized detection: Build a single combined regex for all entities
+        const names = Object.keys(entityRegistry);
+        if (names.length > 0) {
+            // Escape names to prevent regex injection and join with boundaries
+            const escapedNames = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const combinedRegex = new RegExp(`\\b(${escapedNames.join('|')})\\b`, 'gi');
+
+            let match;
+            while ((match = combinedRegex.exec(message)) !== null) {
+                const matchedName = match[0].toLowerCase();
+                const id = entityRegistry[matchedName];
+                if (id) detectedEntityIds.add(id);
+            }
+        }
+
+        // 3. TAO: 1-Hop Knowledge Retrieval (Optimized Bulk Fetch)
+        const detectedEntityContexts: string[] = [];
+        if (detectedEntityIds.size > 0) {
+            const entityIds = Array.from(detectedEntityIds);
+            const entities = await entityService.getEntitiesByIds(entityIds, userId);
+
+            // Fetch Graph Context and Notes in parallel
+            const contexts = await graphService.getEntitiesContext(
+                entities.map(e => ({ id: e._id.toString(), name: e.name }))
+            );
+
+            // Construct context blocks
+            entities.forEach((entity, index) => {
+                let contextBlock = `ENTITY: ${entity.name} (${entity.otype})\n`;
+                if (entity.summary) contextBlock += `Summary: ${entity.summary}\n`;
+
+                // Match graph context by name or index (since they were mapped in order)
+                const gContext = contexts.find(c => c.includes(`ENTITY: ${entity.name}`));
+                if (gContext) contextBlock += `${gContext}\n`;
+
+                if (entity.rawMarkdown) {
+                    contextBlock += `Notes:\n${entity.rawMarkdown.slice(0, 1000)}\n`;
+                }
+                detectedEntityContexts.push(contextBlock);
+            });
+        }
+
+        // 4. Get Full Context
+        const [history, graphSummary, personaContext] = await Promise.all([
             agentMemory.getHistory(userId),
             graphService.getGraphSummary(userId),
             personaService.getPersonaContext(userId)
         ]);
 
-        // Filter out the message we just added (if it appears in history) to avoid duplication in the prompt
-        const previousHistory = history.filter(h => h.content !== message || h.timestamp < Date.now() - 1000);
+        // Filter and limit history (Increasing to 30 as per plan)
+        const MAX_CONTEXT_MESSAGES = 30;
+        const previousHistory = history
+            .filter(h => h.content !== message || h.timestamp < Date.now() - 1000)
+            .slice(-MAX_CONTEXT_MESSAGES);
 
-        // Limit context to prevent token overflow
-        const MAX_CONTEXT_MESSAGES = 15;
-        const recentHistory = previousHistory.slice(-MAX_CONTEXT_MESSAGES);
+        const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
 
-        // Format history for context
-        const promptHistory = recentHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
+        const systemPrompt = `You are Memolink, a supportive and intelligent life partner (AI). 
+        Your goal is to be a natural, conversational presence. You are not just a tool; you are a partner in the user's journey.
 
-        const systemPrompt = `You are Memolink, an intelligent personal assistant.
-        You have direct access to the user's data (entries, goals, reminders) via tools.
-        Always verify successful tool execution.
         Today is ${new Date().toDateString()}.
 
-        USER'S LIFE CONTEXT (Graph Summary):
-        ${graphContext}
+        DETECTED ENTITIES (Long-term Memory):
+        ${detectedEntityContexts.join('\n---\n') || "None mentioned in this message."}
 
-        USER'S PERSONA & PSYCHOLOGY:
+        USER'S GLOBAL CONTEXT:
+        ${graphSummary}
+
+        USER'S PERSONA:
         ${personaContext}
         
-        Recent Conversation:
+        Recent Conversation History:
         ${promptHistory}
         
-        Current User Request: ${message}
+        Current User Message: ${message}
+
+        CONVERSATIONAL GUIDELINES:
+        - Be natural, empathetic, and concise. 
+        - DO NOT list your capabilities unless asked.
+        - Use the DETECTED ENTITIES context to show you remember their world (e.g. if they mention "Alice", you know she works at Opstin).
+        - Match the user's energy level.
 
         RESPONSE FORMATTING:
         - Use standard Markdown.
-        - When listing items (reminders, tasks, etc.), ALWAYS use a bulleted list.
-        - ENSURE each bullet point is on a NEW LINE.
         - Bold key information like dates or titles.
-
-        BROAD QUERIES:
-        - If the user asks for a broad summary (e.g., "past year overview"), DO NOT try to fetch ALL data.
-        - Fetch a sample (e.g., search with a limit of 20) or use 'find_similar_entries' for key themes.
-        - explicitly state you are analyzing a sample of the data.
         `;
 
         let currentPrompt = systemPrompt;
@@ -421,6 +468,9 @@ export class AgentService {
                     // Trigger Persona Synthesis (Async / Throttled)
                     personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
 
+                    // Trigger Recursive Memory Flush if history is getting long
+                    this.checkMemoryFlush(userId).catch(err => logger.error("Memory Flush check failed", err));
+
                     return finalAnswer;
                 } else {
                     // Fallback: No text, no tools?
@@ -434,6 +484,20 @@ export class AgentService {
         } catch (error) {
             logger.error('Agent chat loop failed', error);
             return "I'm sorry, I encountered an error while processing your request.";
+        }
+    }
+
+    /**
+     * Checks if short-term memory is full and triggers a Recursive Flush if needed.
+     */
+    private async checkMemoryFlush(userId: string) {
+        const history = await agentMemory.getHistory(userId);
+        const FLUSH_THRESHOLD = 40;
+        const FLUSH_COUNT = 20;
+
+        if (history.length >= FLUSH_THRESHOLD) {
+            logger.info(`Memory threshold reached for user ${userId} (${history.length} msgs). Enqueueing flush.`);
+            await this.createTask(userId, AgentTaskType.MEMORY_FLUSH, { count: FLUSH_COUNT });
         }
     }
 

@@ -70,7 +70,7 @@ export interface IMedia extends BaseEntity {
     }>;
     // Face detection
     faces?: Array<{
-      personId?: Types.ObjectId;
+      entityId?: Types.ObjectId;
       boundingBox?: { x: number; y: number; width: number; height: number };
       confidence?: number;
     }>;

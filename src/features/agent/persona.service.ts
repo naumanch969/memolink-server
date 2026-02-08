@@ -56,6 +56,15 @@ ${persona.rawMarkdown}
 Executive Summary: ${persona.summary}
         `.trim();
     }
+
+    async updatePersona(userId: string, data: Partial<IUserPersonaDocument>): Promise<IUserPersonaDocument> {
+        const persona = await UserPersona.findOneAndUpdate(
+            { userId },
+            { $set: data },
+            { new: true, upsert: true }
+        );
+        return persona;
+    }
 }
 
 export const personaService = new PersonaService();

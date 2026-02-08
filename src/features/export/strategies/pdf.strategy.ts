@@ -95,8 +95,8 @@ export class PdfStrategy implements ExportStrategy {
             }
 
             if (entry.mentions?.length) {
-                const people = entry.mentions.map((p: any) => p.name).join(', ');
-                doc.text(`People: ${people}`);
+                const entities = entry.mentions.map((p: any) => p.name).join(', ');
+                doc.text(`Entity: ${entities}`);
                 doc.moveDown(0.2);
             }
 

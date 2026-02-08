@@ -12,9 +12,9 @@ const mediaSchema = new Schema<IMedia>({
   cloudinaryId: { type: String, required: true, },
   type: { type: String, enum: ['image', 'video', 'document', 'audio', 'archive', 'data', 'code'], required: true, },
   thumbnail: { type: String }, // Thumbnail URL for videos/images
-  metadata: { 
-    width: Number, 
-    height: Number, 
+  metadata: {
+    width: Number,
+    height: Number,
     duration: Number,
     pages: Number,              // For PDFs
     frameRate: Number,          // For videos
@@ -63,7 +63,7 @@ const mediaSchema = new Schema<IMedia>({
     }],
     // Face detection
     faces: [{
-      personId: { type: Schema.Types.ObjectId, ref: 'Person' },
+      entityId: { type: Schema.Types.ObjectId, ref: 'KnowledgeEntity' },
       boundingBox: {
         x: Number,
         y: Number,

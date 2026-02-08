@@ -1,9 +1,9 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { createError } from '../../core/middleware/errorHandler';
+import { KnowledgeEntity } from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Media } from '../media/media.model';
-import { Person } from '../person/person.model';
 import { Tag } from '../tag/tag.model';
 import { AnalyticsRequest } from './analytics.interfaces';
 
@@ -22,13 +22,13 @@ export class AnalyticsService {
       const [
         totalEntries,
         entriesThisMonth,
-        totalPeople,
+        totalEntities,
         totalTags,
         totalMedia,
       ] = await Promise.all([
         Entry.countDocuments({ userId: userObjectId }),
         Entry.countDocuments({ userId: userObjectId, createdAt: { $gte: startOfMonth } }),
-        Person.countDocuments({ userId: userObjectId }),
+        KnowledgeEntity.countDocuments({ userId: userObjectId, isDeleted: false }),
         Tag.countDocuments({ userId: userObjectId }),
         Media.countDocuments({ userId: userObjectId }),
       ]);
@@ -37,8 +37,8 @@ export class AnalyticsService {
       const entryFrequency = await this.getEntryFrequency(userId);
 
       // Get top people and tags
-      const [topPeople, topTags] = await Promise.all([
-        this.getTopPeople(userId),
+      const [topEntities, topTags] = await Promise.all([
+        this.getTopEntities(userId),
         this.getTopTags(userId),
       ]);
 
@@ -73,11 +73,11 @@ export class AnalyticsService {
       const analytics: AnalyticsData = {
         totalEntries,
         entriesThisMonth,
-        totalPeople,
+        totalEntities: totalEntities,
         totalTags,
         totalMedia,
         entryFrequency,
-        topPeople,
+        topEntities: topEntities,
         topTags,
         mediaStats,
         latestReflection: latestReflectionTask?.outputData,
@@ -155,24 +155,16 @@ export class AnalyticsService {
     };
   }
 
-  private static async getTopPeople(userId: string) {
+  private static async getTopEntities(userId: string) {
     const userObjectId = new Types.ObjectId(userId);
 
-    const topPeople = await Person.aggregate([
-      { $match: { userId: userObjectId } },
+    const topEntities = await KnowledgeEntity.aggregate([
+      { $match: { userId: userObjectId, isDeleted: false } },
       { $sort: { interactionCount: -1 } },
       { $limit: 10 },
       {
-        $lookup: {
-          from: 'entries',
-          localField: '_id',
-          foreignField: 'mentions',
-          as: 'entries',
-        },
-      },
-      {
         $project: {
-          person: {
+          entity: {
             _id: '$_id',
             name: '$name',
             avatar: '$avatar',
@@ -183,7 +175,7 @@ export class AnalyticsService {
       },
     ]);
 
-    return topPeople;
+    return topEntities;
   }
 
   private static async getTopTags(userId: string) {
@@ -260,9 +252,9 @@ export class AnalyticsService {
     try {
       const userObjectId = new Types.ObjectId(userId);
 
-      // 1. Fetch people and tags to create base nodes
-      const [people, tags, entries] = await Promise.all([
-        Person.find({ userId: userObjectId }).select('_id name avatar').lean(),
+      // 1. Fetch entities and tags to create base nodes
+      const [entities, tags, entries] = await Promise.all([
+        KnowledgeEntity.find({ userId: userObjectId, isDeleted: false }).select('_id name avatar otype').lean(),
         Tag.find({ userId: userObjectId }).select('_id name color').lean(),
         Entry.find({ userId: userObjectId })
           .select('_id mentions tags')
@@ -275,10 +267,10 @@ export class AnalyticsService {
       const links: any[] = [];
       const nodeIds = new Set<string>();
 
-      // Add People Nodes
-      people.forEach(p => {
-        nodes.push({ id: p._id.toString(), label: p.name, group: 'person', img: p.avatar, val: 1 });
-        nodeIds.add(p._id.toString());
+      // Add Entity Nodes
+      entities.forEach(e => {
+        nodes.push({ id: e._id.toString(), label: e.name, group: 'entity', img: e.avatar, val: 1, otype: e.otype });
+        nodeIds.add(e._id.toString());
       });
 
       // Add Tag Nodes
@@ -462,15 +454,15 @@ export class AnalyticsService {
       return acc + (curr.content ? curr.content.split(/\s+/).length : 0);
     }, 0);
 
-    const topPeople = await Entry.aggregate([
+    const topEntities = await Entry.aggregate([
       { $match: { userId: userObjectId, date: { $gte: start, $lte: end } } },
       { $unwind: "$mentions" },
       { $group: { _id: "$mentions", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 3 },
-      { $lookup: { from: "people", localField: "_id", foreignField: "_id", as: "person" } },
+      { $lookup: { from: "knowledge_entities", localField: "_id", foreignField: "_id", as: "person" } },
       { $unwind: "$person" },
-      { $project: { personId: "$_id", name: "$person.name", count: 1 } }
+      { $project: { entityId: "$_id", name: "$person.name", count: 1 } }
     ]);
 
     const topTags = await Entry.aggregate([
@@ -499,7 +491,7 @@ export class AnalyticsService {
     return {
       totalEntries,
       wordCount,
-      mostMentionedPeople: topPeople,
+      mostMentionedEntity: topEntities,
       mostUsedTags: topTags,
       moodTrend,
       streak: streakData.currentStreak

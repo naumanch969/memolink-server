@@ -119,12 +119,12 @@ export const createReminderValidation = [
         .isMongoId()
         .withMessage('Invalid tag ID format'),
 
-    body('linkedPeople')
+    body('linkedEntities')
         .optional()
         .isArray()
         .withMessage('Linked people must be an array'),
 
-    body('linkedPeople.*')
+    body('linkedEntities.*')
         .optional()
         .isMongoId()
         .withMessage('Invalid person ID format'),
@@ -204,7 +204,7 @@ export const updateReminderValidation = [
         .isArray()
         .withMessage('Linked tags must be an array'),
 
-    body('linkedPeople')
+    body('linkedEntities')
         .optional()
         .isArray()
         .withMessage('Linked people must be an array'),
@@ -259,7 +259,7 @@ export const getRemindersQueryValidation = [
         .isMongoId()
         .withMessage('Invalid tag ID format'),
 
-    query('personId')
+    query('entityId')
         .optional()
         .isMongoId()
         .withMessage('Invalid person ID format'),

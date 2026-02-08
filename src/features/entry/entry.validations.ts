@@ -166,16 +166,16 @@ export const searchEntriesValidation = [
     })
     .withMessage('Tags must be comma-separated valid MongoDB ObjectIds'),
 
-  query('people')
+  query('entities')
     .optional()
     .custom((value) => {
       if (typeof value === 'string') {
-        const people = value.split(',');
-        return people.every(person => /^[0-9a-fA-F]{24}$/.test(person.trim()));
+        const entities = value.split(',');
+        return entities.every(entity => /^[0-9a-fA-F]{24}$/.test(entity.trim()));
       }
       return true;
     })
-    .withMessage('People must be comma-separated valid MongoDB ObjectIds'),
+    .withMessage('Entity must be comma-separated valid MongoDB ObjectIds'),
 
   query('isPrivate')
     .optional()

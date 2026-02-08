@@ -72,7 +72,7 @@ const ReminderSchema = new Schema<IReminderDocument>(
 
         // Integrations
         linkedTags: [{ type: Schema.Types.ObjectId, ref: 'Tag', },],
-        linkedPeople: [{ type: Schema.Types.ObjectId, ref: 'Person', },],
+        linkedEntities: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', },],
         linkedEntries: [{ type: Schema.Types.ObjectId, ref: 'Entry', },],
         metadata: { type: Schema.Types.Mixed },
     },

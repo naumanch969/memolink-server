@@ -1,7 +1,7 @@
 
+import { KnowledgeEntity } from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Media } from '../media/media.model';
-import { Person } from '../person/person.model';
 import { Tag } from '../tag/tag.model';
 import { AnalyticsService } from './analytics.service';
 
@@ -12,8 +12,8 @@ jest.mock('../entry/entry.model', () => ({
         find: jest.fn(),
     }
 }));
-jest.mock('../person/person.model', () => ({
-    Person: {
+jest.mock('../entity/entity.model', () => ({
+    KnowledgeEntity: {
         countDocuments: jest.fn(),
         aggregate: jest.fn(),
         find: jest.fn(),
@@ -50,19 +50,19 @@ describe('AnalyticsService', () => {
             const userId = '507f1f77bcf86cd799439011';
 
             (Entry.countDocuments as jest.Mock).mockResolvedValue(10);
-            (Person.countDocuments as jest.Mock).mockResolvedValue(5);
+            (KnowledgeEntity.countDocuments as jest.Mock).mockResolvedValue(5);
             (Tag.countDocuments as jest.Mock).mockResolvedValue(3);
             (Media.countDocuments as jest.Mock).mockResolvedValue(2);
 
             (Entry.aggregate as jest.Mock).mockResolvedValue([]); // For frequency
-            (Person.aggregate as jest.Mock).mockResolvedValue([]); // For top people
+            (KnowledgeEntity.aggregate as jest.Mock).mockResolvedValue([]); // For top people
             (Tag.aggregate as jest.Mock).mockResolvedValue([]); // For top tags
             (Media.aggregate as jest.Mock).mockResolvedValue([]); // For media stats
 
             const result = await AnalyticsService.getAnalytics(userId);
 
             expect(result.totalEntries).toBe(10);
-            expect(result.totalPeople).toBe(5);
+            expect(result.totalEntities).toBe(5);
         });
     });
 

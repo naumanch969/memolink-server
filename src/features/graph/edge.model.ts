@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import { IGraphEdge } from './graph.interface';
 
 export enum EdgeType {
@@ -7,6 +7,15 @@ export enum EdgeType {
     HAS_TASK = 'HAS_TASK',
     KNOWS = 'KNOWS',
     INTERESTED_IN = 'INTERESTED_IN',
+    MENTIONED_IN = 'MENTIONED_IN',
+
+    // Organizational & World
+    WORKS_AT = 'WORKS_AT',
+    CONTRIBUTES_TO = 'CONTRIBUTES_TO',
+    MEMBER_OF = 'MEMBER_OF',
+    PART_OF = 'PART_OF',
+    OWNED_BY = 'OWNED_BY',
+    ASSOCIATED_WITH = 'ASSOCIATED_WITH',
 
     // Behavioral
     AVOIDS = 'AVOIDS',
@@ -15,10 +24,11 @@ export enum EdgeType {
     CONSISTENT_IN = 'CONSISTENT_IN',
     TRIGGERS = 'TRIGGERS',
 
-    // Dependency
+    // Dependency & Influence
     BLOCKS = 'BLOCKS',
     SUPPORTS = 'SUPPORTS',
-    REQUIRES = 'REQUIRES'
+    REQUIRES = 'REQUIRES',
+    INFLUENCES = 'INFLUENCES'
 }
 
 export enum NodeType {
@@ -27,10 +37,13 @@ export enum NodeType {
     TASK = 'Task',
     ROUTINE = 'Routine',
     PERSON = 'Person',
+    ENTITY = 'Entity', // Universal fallback
+    PROJECT = 'Project',
+    ORGANIZATION = 'Organization',
     TOPIC = 'Topic',
     EMOTION = 'Emotion',
     CONTEXT = 'Context',
-    REMINDER = 'Reminder' // Aliased to Task usually
+    REMINDER = 'Reminder'
 }
 
 const GraphEdgeSchema = new Schema<IGraphEdge>({

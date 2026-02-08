@@ -1,27 +1,35 @@
 
 import { z } from 'zod';
+import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/LLMService';
+import { KnowledgeEntity } from '../../entity/entity.model';
+import { entityService } from '../../entity/entity.service';
 import Entry from '../../entry/entry.model';
-import Person from '../../person/person.model';
-import Relation from '../../person/relation.model';
+import { EdgeType, NodeType } from '../../graph/edge.model';
+import { graphService } from '../../graph/graph.service';
 import { AgentWorkflow } from '../agent.types';
 
-const extractionSchema = z.object({
-    people: z.array(z.object({
-        name: z.string().describe("Full name of the person."),
-        role: z.string().optional().describe("Contextual role inferred (e.g., 'Project Manager', 'Sister')."),
-        sentiment: z.number().min(-1).max(1).describe("Sentiment: -1 to 1. 0 matches neutral.").optional().default(0),
-        summary: z.string().optional().describe("Brief 1-sentence summary of the interaction with this person."),
-        tags: z.array(z.string()).describe("Key attributes/facts.").optional().default([])
-    })).describe("List of people mentioned in the entry."),
-    relations: z.array(z.object({
-        source: z.string(),
-        target: z.string(),
-        type: z.string().describe("Relationship type (e.g., 'Spouse', 'Colleague').")
-    })).optional().describe("Relationships between people mentioned in the text.")
+const entitySchema = z.object({
+    name: z.string().describe("Full name, title, or canonical name of the entity."),
+    type: z.enum(['Person', 'Project', 'Organization', 'Topic', 'Emotion', 'Entity']).describe("The node type."),
+    aliases: z.array(z.string()).optional().describe("Other names used to refer to this entity (e.g. 'The boss', 'Mom')."),
+    role: z.string().optional().describe("Contextual role or nature of the entity."),
+    sentiment: z.number().min(-1).max(1).describe("Sentiment: -1 to 1. 0 is neutral.").optional().default(0),
+    summary: z.string().optional().describe("Brief 1-sentence summary of the interaction or context."),
+    tags: z.array(z.string()).describe("Key attributes/facts.").optional().default([])
 });
 
-export const runPeopleExtraction: AgentWorkflow = async (task) => {
+const extractionSchema = z.object({
+    entities: z.array(entitySchema).describe("List of entities mentioned (Entity, Projects, Organizations, Topics, Emotions)."),
+    relations: z.array(z.object({
+        source: z.string().describe("Name of the source entity."),
+        target: z.string().describe("Name of the target entity."),
+        type: z.string().describe("Relationship type. MUST use: WORKS_AT, CONTRIBUTES_TO, MEMBER_OF, PART_OF, OWNED_BY, ASSOCIATED_WITH, BLOCKS, SUPPORTS, REQUIRES, INFLUENCES, TRIGGERS, KNOWS, INTERESTED_IN."),
+        metadata: z.record(z.string(), z.any()).optional().describe("Additional context for the relationship.")
+    })).optional().describe("Relationships BETWEEN entities mentioned in the text.")
+});
+
+export const runEntityExtraction: AgentWorkflow = async (task) => {
     const { entryId, userId } = task.inputData;
 
     // 1. Fetch Entry
@@ -29,105 +37,141 @@ export const runPeopleExtraction: AgentWorkflow = async (task) => {
     if (!entry) throw new Error('Entry not found');
     if (!entry.content) return { status: 'completed', result: { names: [] } };
 
-    // 2. Call LLM
+    // 2. Fetch Existing Entity Names for Disambiguation (TAO Prompting)
+    const entityRegistry = await entityService.getEntityRegistry(userId);
+    const knownNames = Object.keys(entityRegistry);
+
+    // 3. Call LLM
     const prompt = `
-    Analyze the journal entry and extract "Chief of Staff" level intelligence about people and relationships.
+    Analyze the journal entry and extract "Chief of Staff" level intelligence about entities and their relationships.
     
+    Entities:
+    - Person: Individuals.
+    - Project: Initiatives, apps, specific efforts.
+    - Organization: Companies, schools, groups.
+    - Topic: Abstract concepts (e.g., "AI", "Climate Change").
+    - Emotion: Strong emotional states mentioned as objects of discussion.
+    - Entity: Anything else important.
+
+    KNOWN ENTITIES for this user:
+    ${knownNames.join(', ')}
+
     Rules:
-    1. Extract people mentioned with their roles, sentiment of interaction, key facts (tags), and a brief summary of the interaction.
-    2. Extract relationships between people (e.g., "Bob is Alice's husband").
-    3. Ignore public figures unless personally interacted with.
-    4. Normalize names where possible (e.g., "Mom (Linda)" -> "Linda").
-    5. Sentiment should be a decimal from -1.0 (Hostile/Bad) to 1.0 (Excellent/Loving), 0 is Neutral.
+    1. If an entity matches or is an alias for a KNOWN ENTITY, use the EXACT name from the list above.
+    2. Extract relationships BETWEEN them. Use semantic labels in metadata if the relationship is unique.
+    3. Sentiment: -1.0 (Bad) to 1.0 (Excellent), 0 is Neutral.
+    4. Relationship types MUST follow MUST use: WORKS_AT, CONTRIBUTES_TO, MEMBER_OF, PART_OF, OWNED_BY, ASSOCIATED_WITH, BLOCKS, SUPPORTS, REQUIRES, INFLUENCES, TRIGGERS, KNOWS, INTERESTED_IN.
 
     Entry:
     "${entry.content}"
   `;
 
     const response = await LLMService.generateJSON(prompt, extractionSchema);
-    const peopleData = response.people || [];
+    const entitiesData = response.entities || [];
     const relationsData = response.relations || [];
 
-    if (peopleData.length === 0) {
+    if (entitiesData.length === 0) {
         return { status: 'completed', result: { names: [] } };
     }
 
-    const personIds: string[] = [];
-    const nameToIdMap: Record<string, string> = {};
+    const entityIds: string[] = [];
+    const nameToIdMap: Record<string, { id: string, type: NodeType }> = {};
 
-    // 3. Upsert People
-    for (const p of peopleData) {
-        // Case-insensitive find
-        let person = await Person.findOne({
+    // 4. Upsert Entities
+    for (const e of entitiesData) {
+        const otype = e.type as NodeType;
+
+        // Find or Create (Try name first, then aliases if we have a registry hit)
+        let entity = await KnowledgeEntity.findOne({
             userId,
-            name: { $regex: new RegExp(`^${p.name}$`, 'i') },
+            $or: [
+                { name: { $regex: new RegExp(`^${e.name.trim()}$`, 'i') } },
+                { aliases: { $in: [e.name.trim()] } }
+            ],
             isDeleted: false
         });
 
-        if (!person) {
-            person = await Person.create({
-                userId,
-                name: p.name,
-                role: p.role,
-                isPlaceholder: true,
-                interactionCount: 1,
-                lastInteractionAt: entry.date,
-                lastInteractionSummary: p.summary,
-                sentimentScore: p.sentiment, // Initial score
-                tags: p.tags
-            });
+        if (!entity) {
+            entity = await entityService.createEntity(userId, {
+                name: e.name,
+                otype,
+                aliases: e.aliases,
+                summary: e.summary,
+                tags: e.tags,
+                jobTitle: otype === NodeType.PERSON ? e.role : undefined
+            }) as any;
         } else {
-            // Logic to update sentiment (Rolling Average)
-            const oldScore = person.sentimentScore || 0;
-            const count = person.interactionCount || 0;
-            // Weigh recent interaction slightly more? For now, simple average
-            const newScore = ((oldScore * count) + p.sentiment) / (count + 1);
+            // Update Metrics
+            const oldScore = entity.sentimentScore || 0;
+            const count = entity.interactionCount || 0;
+            const newScore = ((oldScore * count) + (e.sentiment || 0)) / (count + 1);
 
-            await Person.findByIdAndUpdate(person._id, {
+            // Add new aliases if found
+            const newAliases = (e.aliases || []).filter(a => !entity?.aliases?.includes(a));
+
+            await KnowledgeEntity.findByIdAndUpdate(entity._id, {
                 $inc: { interactionCount: 1 },
                 $set: {
                     lastInteractionAt: entry.date,
-                    lastInteractionSummary: p.summary,
+                    lastInteractionSummary: e.summary,
                     sentimentScore: newScore
                 },
-                $addToSet: { tags: { $each: p.tags } },
-                // Only set role if it wasn't set, or overwrite? Let's keep existing role if set, unless new one is specific. 
-                // Simple: if no role, set key.
-                ...(person.role ? {} : { role: p.role })
+                $addToSet: {
+                    tags: { $each: e.tags || [] },
+                    aliases: { $each: newAliases }
+                }
             });
         }
 
-        personIds.push(person._id.toString());
-        nameToIdMap[p.name.toLowerCase()] = person._id.toString();
+        entityIds.push(entity!._id.toString());
+        nameToIdMap[e.name.toLowerCase()] = { id: entity!._id.toString(), type: otype };
+        // Map aliases to same ID for relation mapping
+        (e.aliases || []).forEach(alias => {
+            nameToIdMap[alias.toLowerCase()] = { id: entity!._id.toString(), type: otype };
+        });
+
+        // 5. Create "MENTIONED_IN" Edge (Entity -> Entry)
+        await graphService.createAssociation({
+            fromId: entity!._id.toString(),
+            fromType: otype,
+            toId: entryId,
+            toType: NodeType.CONTEXT,
+            relation: EdgeType.MENTIONED_IN,
+            metadata: { entryDate: entry.date, name: e.name, isExtraction: true }
+        });
     }
 
-    // 4. Upsert Relations
+    // 6. Upsert Relationships (Between Entities)
     for (const rel of relationsData) {
-        const sourceId = nameToIdMap[rel.source.toLowerCase()];
-        const targetId = nameToIdMap[rel.target.toLowerCase()];
+        const source = nameToIdMap[rel.source.toLowerCase()];
+        const target = nameToIdMap[rel.target.toLowerCase()];
 
-        if (sourceId && targetId && sourceId !== targetId) {
-            // Find existing link to avoid duplicates or update type
-            await Relation.updateOne(
-                { userId, sourceId, targetId },
-                {
-                    $set: { type: rel.type, strength: 5 }, // Default strength
-                    $setOnInsert: { userId, sourceId, targetId }
-                },
-                { upsert: true }
-            );
+        if (source && target && source.id !== target.id) {
+            await graphService.createAssociation({
+                fromId: source.id,
+                fromType: source.type,
+                toId: target.id,
+                toType: target.type,
+                relation: rel.type as EdgeType,
+                metadata: {
+                    ...rel.metadata,
+                    sourceName: rel.source,
+                    targetName: rel.target,
+                    originEntryId: entryId
+                }
+            }).catch(err => logger.warn(`[Extraction] Relation ${rel.type} failed: ${err.message}`));
         }
     }
 
-    // 5. Update Entry Mentions
-    if (personIds.length > 0) {
+    // 6. Update Entry Mentions (Forward compatibility)
+    if (entityIds.length > 0) {
         await Entry.findByIdAndUpdate(entryId, {
-            $addToSet: { mentions: { $each: personIds } }
+            $addToSet: { mentions: { $each: entityIds } }
         });
     }
 
     return {
         status: 'completed',
-        result: { names: peopleData.map(p => p.name), count: peopleData.length }
+        result: { names: entitiesData.map(e => e.name), count: entitiesData.length }
     };
 };

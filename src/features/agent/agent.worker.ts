@@ -47,9 +47,9 @@ export const initAgentWorker = () => {
                     break;
                 }
 
-                case AgentTaskType.PEOPLE_EXTRACTION: {
-                    const { runPeopleExtraction } = await import('./workflows/extraction.workflow');
-                    result = await runPeopleExtraction(task);
+                case AgentTaskType.ENTITY_EXTRACTION: {
+                    const { runEntityExtraction } = await import('./workflows/extraction.workflow');
+                    result = await runEntityExtraction(task);
                     break;
                 }
 
@@ -80,6 +80,12 @@ export const initAgentWorker = () => {
                 case AgentTaskType.PERSONA_SYNTHESIS: {
                     const { runPersonaSynthesis } = await import('./workflows/persona.workflow');
                     result = await runPersonaSynthesis(task.userId, task.inputData);
+                    break;
+                }
+
+                case AgentTaskType.MEMORY_FLUSH: {
+                    const { runMemoryFlush } = await import('./workflows/memory.workflow');
+                    result = await runMemoryFlush(task);
                     break;
                 }
 

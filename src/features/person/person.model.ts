@@ -1,7 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
-import { IPerson } from './person.interfaces';
 
-const personSchema = new Schema<IPerson>({
+const personSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },
   name: { type: String, required: true, trim: true, maxlength: [100, 'Name cannot exceed 100 characters'], },
   email: { type: String, trim: true, lowercase: true, },
@@ -53,5 +52,5 @@ personSchema.index({ userId: 1, name: 1 });
 personSchema.index({ userId: 1, interactionCount: -1 });
 personSchema.index({ userId: 1, isDeleted: 1 }); // Index for soft delete queries
 
-export const Person = mongoose.model<IPerson>('Person', personSchema);
+export const Person = mongoose.model('Person', personSchema);
 export default Person;

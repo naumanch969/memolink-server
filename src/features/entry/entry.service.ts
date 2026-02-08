@@ -3,7 +3,10 @@ import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
-import { personService } from '../person/person.service';
+import KnowledgeEntity from '../entity/entity.model';
+import { entityService } from '../entity/entity.service';
+import { EdgeType, NodeType } from '../graph/edge.model';
+import { graphService } from '../graph/graph.service';
 import { tagService } from '../tag/tag.service';
 import { CreateEntryRequest, EntryFeedRequest, EntrySearchRequest, EntryStats, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
 import { Entry } from './entry.model';
@@ -42,11 +45,11 @@ export class EntryService implements IEntryService {
       // Extract mentions from content
       const mentionNames = this.extractMentions(entryData.content || '');
 
-      // Auto-create or find persons for mentions
+      // Auto-create or find entities for mentions
       const mentionIds: Types.ObjectId[] = [];
       for (const name of mentionNames) {
-        const person = await personService.findOrCreatePerson(userId, name);
-        mentionIds.push(person._id as Types.ObjectId);
+        const entity = await entityService.findOrCreateEntity(userId, name, NodeType.PERSON);
+        mentionIds.push(entity._id as Types.ObjectId);
       }
 
       // Use explicit tags provided by client
@@ -80,16 +83,28 @@ export class EntryService implements IEntryService {
         await tagService.incrementUsage(userId, explicitTags);
       }
 
-      // Increment Person Interaction Count
+      // Tracking interaction metrics and creating Graph Edges
       if (mentionIds.length > 0) {
-        const { Person } = await import('../person/person.model');
-        await Person.updateMany(
+        await KnowledgeEntity.updateMany(
           { _id: { $in: mentionIds } },
           {
             $inc: { interactionCount: 1 },
             $set: { lastInteractionAt: new Date() }
           }
         );
+
+        // Create Graph Edges (MENTIONED_IN)
+        for (const mId of mentionIds) {
+          await graphService.createEdge({
+            fromId: mId.toString(),
+            fromType: NodeType.PERSON,
+            toId: entry._id.toString(),
+            toType: NodeType.CONTEXT,
+            relation: EdgeType.MENTIONED_IN,
+            weight: 1.0,
+            metadata: { entryDate: entry.date }
+          }).catch(err => logger.warn(`Failed to create MENTIONED_IN edge`, err));
+        }
       }
 
       logger.info('Entry created successfully', {
@@ -99,7 +114,7 @@ export class EntryService implements IEntryService {
         tagsCount: tagIds.length,
       });
 
-      // TRIGGER AGENT: Auto-Tagging & People Extraction
+      // TRIGGER AGENT: Auto-Tagging & Entity Extraction
       if (entryData.content && entryData.content.length > 20) {
         Promise.all([
           import('../agent/agent.service'),
@@ -110,10 +125,10 @@ export class EntryService implements IEntryService {
             content: entryData.content
           }).catch(err => logger.error('Failed to trigger auto-tagging', err));
 
-          agentService.createTask(userId, AgentTaskType.PEOPLE_EXTRACTION, {
+          agentService.createTask(userId, AgentTaskType.ENTITY_EXTRACTION, {
             entryId: entry._id.toString(),
             userId
-          }).catch(err => logger.error('Failed to trigger people extraction', err));
+          }).catch(err => logger.error('Failed to trigger entity extraction', err));
 
           agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, {
             entryId: entry._id.toString()
@@ -402,8 +417,8 @@ export class EntryService implements IEntryService {
       filter.tags = { $in: searchParams.tags.map(id => new Types.ObjectId(id)) };
     }
 
-    if (searchParams.people && searchParams.people.length > 0) {
-      filter.mentions = { $in: searchParams.people.map(id => new Types.ObjectId(id)) };
+    if (searchParams.entities && searchParams.entities.length > 0) {
+      filter.mentions = { $in: searchParams.entities.map(id => new Types.ObjectId(id)) };
     }
 
     if (searchParams.isPrivate !== undefined) filter.isPrivate = searchParams.isPrivate;
@@ -461,8 +476,8 @@ export class EntryService implements IEntryService {
       if (feedParams.tags && feedParams.tags.length > 0) {
         filter.tags = { $in: feedParams.tags.map((id: string) => new Types.ObjectId(id)) };
       }
-      if (feedParams.people && feedParams.people.length > 0) {
-        filter.mentions = { $in: feedParams.people.map((id: string) => new Types.ObjectId(id)) };
+      if (feedParams.entities && feedParams.entities.length > 0) {
+        filter.mentions = { $in: feedParams.entities.map((id: string) => new Types.ObjectId(id)) };
       }
       if (feedParams.isPrivate !== undefined) filter.isPrivate = feedParams.isPrivate;
       if (feedParams.isImportant !== undefined) filter.isImportant = feedParams.isImportant;

@@ -53,8 +53,8 @@ class ReminderService {
             if (data.linkedTags?.length) {
                 reminderData.linkedTags = data.linkedTags.map((id) => new Types.ObjectId(id));
             }
-            if (data.linkedPeople?.length) {
-                reminderData.linkedPeople = data.linkedPeople.map((id) => new Types.ObjectId(id));
+            if (data.linkedEntities?.length) {
+                reminderData.linkedEntities = data.linkedEntities.map((id) => new Types.ObjectId(id));
             }
             if (data.linkedEntries?.length) {
                 reminderData.linkedEntries = data.linkedEntries.map((id) => new Types.ObjectId(id));
@@ -123,8 +123,8 @@ class ReminderService {
             if (query.tagId) {
                 filter.linkedTags = new Types.ObjectId(query.tagId);
             }
-            if (query.personId) {
-                filter.linkedPeople = new Types.ObjectId(query.personId);
+            if (query.entityId) {
+                filter.linkedEntities = new Types.ObjectId(query.entityId);
             }
             if (query.entryId) {
                 filter.linkedEntries = new Types.ObjectId(query.entryId);
@@ -145,7 +145,7 @@ class ReminderService {
                     .limit(limit)
                     .skip(skip)
                     .populate('linkedTags', 'name color')
-                    .populate('linkedPeople', 'name avatar')
+                    .populate('linkedEntities', 'name avatar')
                     .populate('linkedEntries', 'content date')
 
                     .lean(),
@@ -170,7 +170,7 @@ class ReminderService {
                 userId: new Types.ObjectId(userId),
             })
                 .populate('linkedTags', 'name color')
-                .populate('linkedPeople', 'name avatar')
+                .populate('linkedEntities', 'name avatar')
                 .populate('linkedEntries', 'content date')
 
                 .lean();
@@ -197,7 +197,7 @@ class ReminderService {
                 .sort({ date: 1, startTime: 1 })
                 .limit(limit)
                 .populate('linkedTags', 'name color')
-                .populate('linkedPeople', 'name avatar')
+                .populate('linkedEntities', 'name avatar')
                 .lean();
 
             return reminders.map((r) => this.formatReminderResponse(r as any));
@@ -216,7 +216,7 @@ class ReminderService {
             })
                 .sort({ date: -1 })
                 .populate('linkedTags', 'name color')
-                .populate('linkedPeople', 'name avatar')
+                .populate('linkedEntities', 'name avatar')
                 .lean();
 
             return reminders.map((r) => this.formatReminderResponse(r as any));
@@ -265,8 +265,8 @@ class ReminderService {
             if (data.linkedTags !== undefined) {
                 reminder.linkedTags = data.linkedTags.map((id) => new Types.ObjectId(id));
             }
-            if (data.linkedPeople !== undefined) {
-                reminder.linkedPeople = data.linkedPeople.map((id) => new Types.ObjectId(id));
+            if (data.linkedEntities !== undefined) {
+                reminder.linkedEntities = data.linkedEntities.map((id) => new Types.ObjectId(id));
             }
             if (data.linkedEntries !== undefined) {
                 reminder.linkedEntries = data.linkedEntries.map((id) => new Types.ObjectId(id));
@@ -464,7 +464,7 @@ class ReminderService {
             status: reminder.status,
             completedAt: reminder.completedAt?.toISOString(),
             linkedTags: reminder.linkedTags || [],
-            linkedPeople: reminder.linkedPeople || [],
+            linkedEntities: reminder.linkedEntities || [],
             linkedEntries: reminder.linkedEntries || [],
 
             createdAt: reminder.createdAt.toISOString(),

@@ -11,7 +11,7 @@ const entrySchema = new Schema<IEntry>({
     default: ''
   },
   type: { type: String, enum: Object.values(ENTRY_TYPES), default: ENTRY_TYPES.TEXT, },
-  mentions: [{ type: Schema.Types.ObjectId, ref: 'Person', }],
+  mentions: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', }], // TOOD: we can remove this since graph relation can manage this globally
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
   isPrivate: { type: Boolean, default: false, },
@@ -82,8 +82,8 @@ entrySchema.statics.findByUser = function (userId: string, options: any = {}) {
   return this.find(query).sort({ createdAt: -1 });
 };
 
-entrySchema.statics.findByMention = function (personId: string) {
-  return this.find({ mentions: personId }).sort({ createdAt: -1 });
+entrySchema.statics.findByMention = function (entityId: string) {
+  return this.find({ mentions: entityId }).sort({ createdAt: -1 });
 };
 
 entrySchema.statics.findByTag = function (tagId: string) {

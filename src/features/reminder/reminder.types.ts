@@ -80,7 +80,7 @@ export interface IReminder {
 
     // Integrations
     linkedTags?: Types.ObjectId[];
-    linkedPeople?: Types.ObjectId[];
+    linkedEntities?: Types.ObjectId[];
     linkedEntries?: Types.ObjectId[];
 
 
@@ -94,7 +94,7 @@ export interface IReminderDocument extends IReminder, Document {
     _id: Types.ObjectId;
 }
 
- 
+
 // ============================================
 // REQUEST TYPES
 // ============================================
@@ -110,7 +110,7 @@ export interface CreateReminderRequest {
     notifications?: Partial<INotificationSettings>;
     priority?: ReminderPriority;
     linkedTags?: string[];
-    linkedPeople?: string[];
+    linkedEntities?: string[];
     linkedEntries?: string[];
     metadata?: Record<string, any>;
 }
@@ -127,7 +127,7 @@ export interface UpdateReminderRequest {
     priority?: ReminderPriority;
     status?: ReminderStatus;
     linkedTags?: string[];
-    linkedPeople?: string[];
+    linkedEntities?: string[];
     linkedEntries?: string[];
 
 }
@@ -138,7 +138,7 @@ export interface GetRemindersQuery {
     status?: ReminderStatus | ReminderStatus[];
     priority?: ReminderPriority | ReminderPriority[];
     tagId?: string;
-    personId?: string;
+    entityId?: string;
     entryId?: string;
 
     limit?: number;
@@ -170,7 +170,7 @@ export interface ReminderResponse {
     status: ReminderStatus;
     completedAt?: string;
     linkedTags?: any[]; // Can be populated
-    linkedPeople?: any[];
+    linkedEntities?: any[];
     linkedEntries?: any[];
 
     createdAt: string;

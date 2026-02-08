@@ -1,11 +1,11 @@
-import { IPerson } from '../person/person.interfaces';
+import { IKnowledgeEntity } from '../entity/entity.interfaces';
 import { ITag } from '../tag/tag.interfaces';
 
 // Analytics Types
 export interface AnalyticsData {
   totalEntries: number;
   entriesThisMonth: number;
-  totalPeople: number;
+  totalEntities: number;
   totalTags: number;
   totalMedia: number;
   entryFrequency: {
@@ -13,8 +13,8 @@ export interface AnalyticsData {
     weekly: number[];
     monthly: number[];
   };
-  topPeople: Array<{
-    person: IPerson;
+  topEntities: Array<{
+    entity: IKnowledgeEntity;
     interactionCount: number;
   }>;
   topTags: Array<{

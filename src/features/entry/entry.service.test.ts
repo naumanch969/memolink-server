@@ -19,9 +19,9 @@ jest.mock('./entry.model', () => {
 });
 
 // Mock dependencies
-jest.mock('../person/person.service', () => ({
-    personService: {
-        findOrCreatePerson: jest.fn().mockResolvedValue({ _id: 'person123' }),
+jest.mock('../entity/entity.service', () => ({
+    entityService: {
+        findOrCreateEntity: jest.fn().mockResolvedValue({ _id: 'person123', otype: 'KnowledgeEntity' }),
     },
 }));
 
