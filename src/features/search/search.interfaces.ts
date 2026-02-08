@@ -6,14 +6,14 @@ export interface GlobalSearchRequest {
     q: string;
     mode?: 'instant' | 'deep' | 'hybrid';
     limit?: number;
-    collections?: ('entries' | 'goals' | 'reminders' | 'people' | 'tags')[];
+    collections?: ('entries' | 'goals' | 'reminders' | 'entities' | 'tags')[];
 }
 
 export interface GlobalSearchResponse {
     entries: IEntry[];
     goals: IGoal[];
     reminders: ReminderResponse[];
-    people?: any[];
+    entities?: any[];
     tags?: any[];
     total: number;
 }

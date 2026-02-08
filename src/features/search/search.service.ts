@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
+import { KnowledgeEntity } from '../entity/entity.model';
 import { entryService } from '../entry/entry.service';
 import Goal from '../goal/goal.model';
 import { Reminder } from '../reminder/reminder.model';
@@ -7,7 +8,7 @@ import { GlobalSearchRequest, GlobalSearchResponse } from './search.interfaces';
 
 export class SearchService {
     async globalSearch(userId: string, params: GlobalSearchRequest): Promise<GlobalSearchResponse> {
-        const { q, limit = 10, mode = 'instant', collections = ['entries', 'goals', 'reminders'] } = params;
+        const { q, limit = 10, mode = 'instant', collections = ['entries', 'goals', 'reminders', 'entities'] } = params;
         const userIdObj = new Types.ObjectId(userId);
 
         const results: GlobalSearchResponse = {
@@ -63,6 +64,28 @@ export class SearchService {
                         results.total += res.length;
                     })
                     .catch(err => logger.error('Reminder search failed', err))
+            );
+        }
+
+        if (collections.includes('entities')) {
+            searchPromises.push(
+                KnowledgeEntity.find({
+                    userId: userIdObj,
+                    isDeleted: false,
+                    $or: [
+                        { name: { $regex: q, $options: 'i' } },
+                        { aliases: { $regex: q, $options: 'i' } },
+                        { tags: { $regex: q, $options: 'i' } }
+                    ]
+                })
+                    .sort({ interactionCount: -1 })
+                    .limit(limit)
+                    .lean()
+                    .then(res => {
+                        results.entities = res as any;
+                        results.total += res.length;
+                    })
+                    .catch(err => logger.error('Entity search failed', err))
             );
         }
 

@@ -1,6 +1,7 @@
 import { logger } from '../../config/logger';
 import { User } from '../auth/auth.model';
 import { documentService } from '../document/document.service';
+import { entityService } from '../entity/entity.service';
 import { Entry } from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
@@ -8,7 +9,6 @@ import { folderService } from '../media/folder.service';
 import { Media } from '../media/media.model';
 import { mediaService } from '../media/media.service';
 import { notificationService } from '../notification/notification.service';
-import { personService } from '../person/person.service';
 import { reminderService } from '../reminder/reminder.service';
 import { routineService } from '../routine/routine.service';
 import { tagService } from '../tag/tag.service';
@@ -155,7 +155,7 @@ export class AdminUserService {
         try {
             // Use services to delete user data
             deletedCounts.entries = await entryService.deleteUserData(userId);
-            deletedCounts.people = await personService.deleteUserData(userId);
+            deletedCounts.entities = await entityService.deleteUserData(userId);
             deletedCounts.tags = await tagService.deleteUserData(userId);
             deletedCounts.media = await mediaService.deleteUserData(userId);
             deletedCounts.folders = await folderService.deleteUserData(userId);

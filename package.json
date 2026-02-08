@@ -13,6 +13,10 @@
     "clean": "rm -rf dist",
     "rebuild": "npm run clean && npm run build",
     "typecheck": "tsc --noEmit",
+    "migrate": "ts-node src/scripts/run-migration.ts migrate",
+    "migrate:verify": "ts-node src/scripts/run-migration.ts verify",
+    "migrate:archive": "ts-node src/scripts/run-migration.ts archive",
+    "migrate:cleanup": "ts-node src/scripts/run-migration.ts cleanup",
     "prepare": "husky",
     "lint": "eslint src/**/*.ts"
   },

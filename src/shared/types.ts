@@ -48,6 +48,6 @@ export interface SearchQuery extends PaginationQuery {
   dateFrom?: string;
   dateTo?: string;
   tags?: string[];
-  people?: string[];
+  entity?: string[];
   mediaType?: string;
 }

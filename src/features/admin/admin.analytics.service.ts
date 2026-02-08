@@ -1,9 +1,9 @@
 import { logger } from '../../config/logger';
 import { User } from '../auth/auth.model';
+import KnowledgeEntity from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Goal } from '../goal/goal.model';
 import { Media } from '../media/media.model';
-import { Person } from '../person/person.model';
 import { RoutineTemplate as Routine } from '../routine/routine.model';
 import { Tag } from '../tag/tag.model';
 
@@ -48,7 +48,7 @@ export interface FeatureUsageBreakdown {
     mediaTypes: { type: string; count: number }[];
     mediaStorage: { type: string; size: number }[];
     topTags: { name: string; count: number }[];
-    topPeople: { name: string; count: number }[];
+    topEntities: { name: string; count: number }[];
 }
 
 export interface RetentionStats {
@@ -151,7 +151,7 @@ export class AdminAnalyticsService {
      */
     async getFeatureUsageBreakdown(): Promise<FeatureUsageBreakdown> {
         try {
-            const [entryTypes, mediaTypes, mediaStorage, topTags, topPeople] = await Promise.all([
+            const [entryTypes, mediaTypes, mediaStorage, topTags, topEntities] = await Promise.all([
                 Entry.aggregate([
                     { $group: { _id: '$type', count: { $sum: 1 } } },
                     { $project: { type: '$_id', count: 1, _id: 0 } }
@@ -165,7 +165,7 @@ export class AdminAnalyticsService {
                     { $project: { type: '$_id', size: 1, _id: 0 } }
                 ]),
                 Tag.find().sort({ usageCount: -1 }).limit(10).select('name usageCount -_id'),
-                Person.find().sort({ interactionCount: -1 }).limit(10).select('name interactionCount -_id')
+                KnowledgeEntity.find().sort({ interactionCount: -1 }).limit(10).select('name interactionCount -_id')
             ]);
 
             return {
@@ -173,11 +173,11 @@ export class AdminAnalyticsService {
                 mediaTypes,
                 mediaStorage,
                 topTags: topTags.map(t => ({ name: t.name, count: t.usageCount })),
-                topPeople: topPeople.map(p => ({ name: p.name, count: p.interactionCount }))
+                topEntities: topEntities.map(p => ({ name: p.name, count: p.interactionCount }))
             };
         } catch (error) {
             logger.error('Failed to get feature usage breakdown:', error);
-            return { entryTypes: [], mediaTypes: [], mediaStorage: [], topTags: [], topPeople: [] };
+            return { entryTypes: [], mediaTypes: [], mediaStorage: [], topTags: [], topEntities: [] };
         }
     }
 
