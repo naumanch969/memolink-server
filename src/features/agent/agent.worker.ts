@@ -71,6 +71,12 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.SYNC: {
+                    const { runSyncWorkflow } = await import('./workflows/sync.workflow');
+                    result = await runSyncWorkflow(task.userId, task.inputData);
+                    break;
+                }
+
                 // Synchronous / No-op tasks
                 case AgentTaskType.REMINDER_CREATE:
                 case AgentTaskType.GOAL_CREATE:

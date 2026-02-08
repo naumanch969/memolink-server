@@ -14,6 +14,7 @@ export enum AgentTaskType {
     EMBED_ENTRY = 'EMBED_ENTRY',
     KNOWLEDGE_QUERY = 'KNOWLEDGE_QUERY',
     WEB_ACTIVITY_SUMMARY = 'WEB_ACTIVITY_SUMMARY',
+    SYNC = 'SYNC',
 }
 
 export enum AgentTaskStatus {

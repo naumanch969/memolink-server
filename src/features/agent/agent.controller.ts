@@ -161,5 +161,18 @@ export class AgentController {
             ResponseHelper.error(res, 'Error in goal architect chat', 500, error);
         }
     }
+
+    static async syncEntries(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            const { entryId } = req.body;
+
+            const result = await agentService.syncEntries(userId, entryId);
+            ResponseHelper.success(res, result, 'Library sync tasks enqueued');
+        } catch (error) {
+            logger.error('Error syncing library entries', error);
+            ResponseHelper.error(res, 'Error syncing library entries', 500, error);
+        }
+    }
 }
 

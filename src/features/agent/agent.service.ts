@@ -662,6 +662,23 @@ export class AgentService {
 
         return await LLMService.generateText(prompt);
     }
+
+    /**
+     * Retroactively syncs/refines entries to ensure consistency across the library.
+     * Uses an Orchestrator Task (LIBRARY_SYNC) to handle execution in a throttled, 
+     * background-safe manner.
+     */
+    async syncEntries(userId: string, entryId?: string): Promise<{ taskId: string }> {
+        // We create a SINGLE orchestrator task.
+        // The Worker/Workflow (Sync Worker) will handle the chunking and cost-control.
+        const task = await this.createTask(userId, AgentTaskType.SYNC, {
+            entryId // Optional: if present, Sync Worker will prioritize this ID
+        });
+
+        logger.info(`Library sync request initiated for user ${userId}. TaskId: ${task._id}`);
+
+        return { taskId: task._id.toString() };
+    }
 }
 
 
