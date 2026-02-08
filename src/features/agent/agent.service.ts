@@ -12,6 +12,7 @@ import reminderService from '../reminder/reminder.service';
 import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../reminder/reminder.types';
 import { RoutineTemplate } from '../routine/routine.model';
 import webActivityService from '../web-activity/web-activity.service';
+import { AGENT_CONSTANTS } from './agent.constants';
 import { AgentIntentType, agentIntent } from './agent.intent';
 import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
@@ -327,13 +328,16 @@ export class AgentService {
         // Optimized detection: Build a single combined regex for all entities
         const names = Object.keys(entityRegistry);
         if (names.length > 0) {
-            // Escape names to prevent regex injection and join with boundaries
+
+            // Escape names and handle possessives (e.g. "Bob's")
             const escapedNames = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-            const combinedRegex = new RegExp(`\\b(${escapedNames.join('|')})\\b`, 'gi');
+            const combinedRegex = new RegExp(`\\b(${escapedNames.join('|')})(?:'s)?\\b`, 'gi');
 
             let match;
             while ((match = combinedRegex.exec(message)) !== null) {
-                const matchedName = match[0].toLowerCase();
+                const matchedNameWithPossessive = match[0].toLowerCase();
+                // Strip possessive for lookup
+                const matchedName = matchedNameWithPossessive.replace(/'s$/, '');
                 const id = entityRegistry[matchedName];
                 if (id) detectedEntityIds.add(id);
             }
@@ -360,7 +364,7 @@ export class AgentService {
                 if (gContext) contextBlock += `${gContext}\n`;
 
                 if (entity.rawMarkdown) {
-                    contextBlock += `Notes:\n${entity.rawMarkdown.slice(0, 1000)}\n`;
+                    contextBlock += `Notes:\n${entity.rawMarkdown.slice(0, AGENT_CONSTANTS.ENTITY_NOTES_SLICE)}\n`;
                 }
                 detectedEntityContexts.push(contextBlock);
             });
@@ -374,10 +378,9 @@ export class AgentService {
         ]);
 
         // Filter and limit history (Increasing to 30 as per plan)
-        const MAX_CONTEXT_MESSAGES = 30;
         const previousHistory = history
             .filter(h => h.content !== message || h.timestamp < Date.now() - 1000)
-            .slice(-MAX_CONTEXT_MESSAGES);
+            .slice(-AGENT_CONSTANTS.MAX_CONTEXT_MESSAGES);
 
         const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
 
@@ -413,7 +416,7 @@ export class AgentService {
 
         let currentPrompt = systemPrompt;
         let iteration = 0;
-        const MAX_ITERATIONS = 10;
+        const MAX_ITERATIONS = AGENT_CONSTANTS.MAX_RE_ACT_ITERATIONS;
 
         try {
             // Loop for ReAct / Tool use
@@ -492,12 +495,9 @@ export class AgentService {
      */
     private async checkMemoryFlush(userId: string) {
         const history = await agentMemory.getHistory(userId);
-        const FLUSH_THRESHOLD = 40;
-        const FLUSH_COUNT = 20;
-
-        if (history.length >= FLUSH_THRESHOLD) {
+        if (history.length >= AGENT_CONSTANTS.FLUSH_THRESHOLD) {
             logger.info(`Memory threshold reached for user ${userId} (${history.length} msgs). Enqueueing flush.`);
-            await this.createTask(userId, AgentTaskType.MEMORY_FLUSH, { count: FLUSH_COUNT });
+            await this.createTask(userId, AgentTaskType.MEMORY_FLUSH, { count: AGENT_CONSTANTS.FLUSH_COUNT });
         }
     }
 

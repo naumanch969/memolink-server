@@ -89,6 +89,12 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.ENTITY_CONSOLIDATION: {
+                    const { runEntityConsolidation } = await import('./workflows/consolidation.workflow');
+                    result = await runEntityConsolidation(task);
+                    break;
+                }
+
                 // Synchronous / No-op tasks
                 case AgentTaskType.REMINDER_CREATE:
                 case AgentTaskType.GOAL_CREATE:

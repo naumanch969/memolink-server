@@ -101,25 +101,20 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
                 jobTitle: otype === NodeType.PERSON ? e.role : undefined
             }) as any;
         } else {
-            // Update Metrics
             const oldScore = entity.sentimentScore || 0;
             const count = entity.interactionCount || 0;
             const newScore = ((oldScore * count) + (e.sentiment || 0)) / (count + 1);
 
             // Add new aliases if found
-            const newAliases = (e.aliases || []).filter(a => !entity?.aliases?.includes(a));
+            const newAliases = Array.from(new Set([...(entity.aliases || []), ...(e.aliases || [])]));
 
-            await KnowledgeEntity.findByIdAndUpdate(entity._id, {
-                $inc: { interactionCount: 1 },
-                $set: {
-                    lastInteractionAt: entry.date,
-                    lastInteractionSummary: e.summary,
-                    sentimentScore: newScore
-                },
-                $addToSet: {
-                    tags: { $each: e.tags || [] },
-                    aliases: { $each: newAliases }
-                }
+            await entityService.updateEntity(entity._id.toString(), userId, {
+                lastInteractionAt: entry.date,
+                lastInteractionSummary: e.summary,
+                sentimentScore: newScore,
+                interactionCount: count + 1,
+                aliases: newAliases,
+                tags: Array.from(new Set([...(entity.tags || []), ...(e.tags || [])]))
             });
         }
 

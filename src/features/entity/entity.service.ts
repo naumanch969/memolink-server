@@ -46,29 +46,6 @@ export class EntityService {
         return await redisConnection.hgetall(key);
     }
 
-    /**
-     * Cold-start sync for Redis Registry
-     */
-    async syncRegistry(userId: string) {
-        logger.info(`Syncing entity registry for user ${userId}`);
-        const entities = await KnowledgeEntity.find({ userId, isDeleted: false }).select('name aliases _id');
-        const key = this.getRedisKey(userId);
-
-        await redisConnection.del(key);
-        if (entities.length > 0) {
-            const hash: Record<string, string> = {};
-            entities.forEach(e => {
-                hash[e.name.toLowerCase()] = e._id.toString();
-                if (e.aliases && e.aliases.length > 0) {
-                    e.aliases.forEach(alias => {
-                        hash[alias.toLowerCase()] = e._id.toString();
-                    });
-                }
-            });
-            await redisConnection.hmset(key, hash);
-        }
-    }
-
     async createEntity(userId: string, data: CreateEntityRequest, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
         const existing = await KnowledgeEntity.findOne({
             userId,
@@ -117,12 +94,18 @@ export class EntityService {
         if (!entity) throw createNotFoundError('Entity');
 
         const oldName = entity.name;
+        const oldAliases = [...(entity.aliases || [])];
 
         Object.assign(entity, data);
         await entity.save({ session: options.session });
 
         if (!options.session) {
-            await this.syncRegistry(userId);
+            // Remove old name from Redis if changed
+            if (data.name && data.name.toLowerCase() !== oldName.toLowerCase()) {
+                await this.unregisterInRedis(userId, oldName);
+            }
+            // Update names/aliases in Redis
+            await this.registerInRedis(userId, entity._id.toString(), entity.name, entity.aliases);
         }
 
         return entity;
@@ -203,7 +186,7 @@ export class EntityService {
             entity.deletedAt = undefined;
             await entity.save({ session: options.session });
             if (!options.session) {
-                await this.registerInRedis(userId, entity.name, entity._id.toString());
+                await this.registerInRedis(userId, entity._id.toString(), entity.name, entity.aliases);
             }
             return entity;
         }

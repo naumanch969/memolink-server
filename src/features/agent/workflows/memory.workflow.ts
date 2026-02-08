@@ -3,6 +3,8 @@ import { logger } from '../../../config/logger';
 import { redisConnection } from '../../../config/redis';
 import { LLMService } from '../../../core/llm/LLMService';
 import { entityService } from '../../entity/entity.service';
+import { NodeType } from '../../graph/edge.model';
+import { AGENT_CONSTANTS } from '../agent.constants';
 import { agentMemory } from '../agent.memory';
 import { AgentWorkflow } from '../agent.types';
 import { personaService } from '../persona.service';
@@ -11,13 +13,20 @@ const flushSchema = z.object({
     observations: z.array(z.object({
         target: z.string().describe("Entity name or 'USER' for the user's global profile."),
         content: z.string().describe("The derived fact, preference, or observation in natural language."),
-        importance: z.number().min(1).max(5).describe("How critical this info is.")
-    })).describe("Information extracted from the chat that should be remembered long-term.")
+        importance: z.number().min(1).max(5).describe("How critical this info is."),
+        type: z.enum(['fact', 'preference', 'pattern', 'context']).describe("Nature of the information.")
+    })).describe("Information extracted from the chat that should be remembered long-term."),
+    associations: z.array(z.object({
+        source: z.string().describe("Subject of the relationship."),
+        target: z.string().describe("Object of the relationship."),
+        relation: z.string().describe("Type of relationship (WORKS_AT, KNOWS, ASSOCIATED_WITH, etc.)."),
+        metadata: z.record(z.string(), z.any()).optional()
+    })).optional().describe("Relationships discovered during the conversation.")
 });
 
 export const runMemoryFlush: AgentWorkflow = async (task) => {
     const { userId } = task;
-    const { count = 15 } = task.inputData || {};
+    const { count = AGENT_CONSTANTS.FLUSH_COUNT } = task.inputData || {};
 
     // 1. Get History
     const history = await agentMemory.getHistory(userId);
@@ -46,7 +55,8 @@ export const runMemoryFlush: AgentWorkflow = async (task) => {
     Instructions:
     - Only extract things that are worth remembering for weeks or months.
     - Be concise.
-    - If no new long-term info is found, return an empty observations array.
+    - For Associations: Capture how entities relate (e.g., "User works at Opstin", "Alice is Bob's wife").
+    - If no new long-term info is found, return empty arrays.
     `;
 
     try {
@@ -55,30 +65,80 @@ export const runMemoryFlush: AgentWorkflow = async (task) => {
 
         if (observations.length > 0) {
             for (const obs of observations) {
-                const formattedObs = `\n- [Observation ${new Date().toLocaleDateString()}]: ${obs.content} (Importance: ${obs.importance})`;
+                const formattedObs = `\n- [${obs.type.toUpperCase()} ${new Date().toLocaleDateString()}]: ${obs.content} (Importance: ${obs.importance})`;
 
                 if (obs.target.toUpperCase() === 'USER') {
                     // Update Persona
                     const persona = await personaService.getPersona(userId);
                     if (persona) {
+                        const newMarkdown = (persona.rawMarkdown || '') + formattedObs;
                         await personaService.updatePersona(userId, {
-                            rawMarkdown: (persona.rawMarkdown || '') + formattedObs
+                            rawMarkdown: newMarkdown
                         });
+
+                        if (newMarkdown.length > AGENT_CONSTANTS.CONSOLIDATION_THRESHOLD) {
+                            await personaService.triggerSynthesis(userId);
+                            logger.info(`MemoryFlush: Triggered Synthesis for Persona (Size: ${newMarkdown.length})`);
+                        }
                     }
                 } else {
-                    // Update Entity
-                    const registry = await entityService.getEntityRegistry(userId);
-                    const entityId = registry[obs.target.toLowerCase()];
-                    if (entityId) {
-                        const entity = await entityService.getEntityById(entityId, userId);
-                        await entityService.updateEntity(entityId, userId, {
-                            rawMarkdown: (entity.rawMarkdown || '') + formattedObs
+                    // Update or Create Entity (TAO)
+                    try {
+                        const entity = await entityService.findOrCreateEntity(userId, obs.target, NodeType.ENTITY);
+
+                        const newMarkdown = (entity.rawMarkdown || '') + formattedObs;
+
+                        await entityService.updateEntity(entity._id.toString(), userId, {
+                            rawMarkdown: newMarkdown,
+                            interactionCount: (entity.interactionCount || 0) + 1
                         });
-                    } else {
-                        // Create entity if it's important? 
-                        // For now, only update if it exists to prevent shadow entity explosion.
-                        logger.debug(`MemoryFlush: Could not find entity "${obs.target}" to attach observation.`);
+
+                        // Check for Narrative Consolidation need
+                        if (newMarkdown.length > AGENT_CONSTANTS.CONSOLIDATION_THRESHOLD) {
+                            const { AgentTaskType } = await import('../agent.types');
+                            const { agentService } = await import('../agent.service');
+                            await agentService.createTask(userId, AgentTaskType.ENTITY_CONSOLIDATION, {
+                                entityId: entity._id.toString(),
+                                userId
+                            });
+                            logger.info(`MemoryFlush: Triggered Consolidation for entity "${entity.name}" (Size: ${newMarkdown.length})`);
+                        }
+
+                        logger.info(`MemoryFlush: Attached observation to entity "${entity.name}" (${entity._id})`);
+                    } catch (err) {
+                        logger.error(`MemoryFlush: Failed to process entity observation for "${obs.target}"`, err);
                     }
+                }
+            }
+        }
+
+        // 4. Handle Associations (Graph)
+        const associations = result.associations || [];
+        if (associations.length > 0) {
+            const { graphService } = await import('../../graph/graph.service');
+
+            for (const assoc of associations) {
+                try {
+                    // Normalize Source and Target
+                    const sourceEntity = assoc.source.toUpperCase() === 'USER'
+                        ? { _id: userId, otype: NodeType.USER }
+                        : await entityService.findOrCreateEntity(userId, assoc.source, NodeType.ENTITY);
+
+                    const targetEntity = assoc.target.toUpperCase() === 'USER'
+                        ? { _id: userId, otype: NodeType.USER }
+                        : await entityService.findOrCreateEntity(userId, assoc.target, NodeType.ENTITY);
+
+                    await graphService.createAssociation({
+                        fromId: sourceEntity._id.toString(),
+                        fromType: sourceEntity.otype as NodeType,
+                        toId: targetEntity._id.toString(),
+                        toType: targetEntity.otype as NodeType,
+                        relation: assoc.relation as any,
+                        metadata: { ...assoc.metadata, source: 'memory-flush' }
+                    });
+                    logger.info(`MemoryFlush: Created association ${assoc.relation} between ${assoc.source} and ${assoc.target}`);
+                } catch (err) {
+                    logger.warn(`MemoryFlush: Failed to create association: ${err}`);
                 }
             }
         }

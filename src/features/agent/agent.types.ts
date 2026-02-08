@@ -17,6 +17,7 @@ export enum AgentTaskType {
     SYNC = 'SYNC',
     PERSONA_SYNTHESIS = 'PERSONA_SYNTHESIS',
     MEMORY_FLUSH = 'MEMORY_FLUSH',
+    ENTITY_CONSOLIDATION = 'ENTITY_CONSOLIDATION',
 }
 
 export enum AgentTaskStatus {

@@ -1,15 +1,13 @@
 
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
+import { AGENT_CONSTANTS } from './agent.constants';
 
 export interface ChatMessage {
     role: 'user' | 'agent' | 'system';
     content: string;
     timestamp: number;
 }
-
-const MEMORY_TTL = 60 * 60 * 24; // 24 hours
-const MAX_HISTORY = 100; // Increased to allow buffer for flushing
 
 export class AgentMemory {
 
@@ -29,10 +27,10 @@ export class AgentMemory {
             await redisConnection.rpush(key, JSON.stringify(message));
 
             // Trim to prevent infinite growth (keep last N)
-            await redisConnection.ltrim(key, -MAX_HISTORY, -1);
+            await redisConnection.ltrim(key, -AGENT_CONSTANTS.MAX_HISTORY, -1);
 
             // Refresh TTL
-            await redisConnection.expire(key, MEMORY_TTL);
+            await redisConnection.expire(key, AGENT_CONSTANTS.MEMORY_TTL);
         } catch (error) {
             logger.error(`Failed to add message to memory for user ${userId}`, error);
         }
