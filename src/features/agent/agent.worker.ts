@@ -95,6 +95,18 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.RETROACTIVE_LINKING: {
+                    const { runRetroactiveLinking } = await import('./workflows/linking.workflow');
+                    result = await runRetroactiveLinking(task);
+                    break;
+                }
+
+                case AgentTaskType.COGNITIVE_CONSOLIDATION: {
+                    const { runCognitiveConsolidation } = await import('./workflows/consolidation.workflow');
+                    result = await runCognitiveConsolidation(task);
+                    break;
+                }
+
                 // Synchronous / No-op tasks
                 case AgentTaskType.REMINDER_CREATE:
                 case AgentTaskType.GOAL_CREATE:

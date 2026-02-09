@@ -25,10 +25,7 @@ export async function runSyncWorkflow(userId: string, inputData: { entryId?: str
     const entries = await Entry.find({
         userId: new Types.ObjectId(userId),
         content: { $exists: true, $ne: "" },
-        $or: [
-            { tags: { $size: 0 } },
-            { embeddings: { $exists: false } }
-        ]
+        status: { $nin: ['processed', 'processing'] }
     }).limit(batchSize);
 
     for (const entry of entries) {
@@ -40,10 +37,7 @@ export async function runSyncWorkflow(userId: string, inputData: { entryId?: str
     const remaining = await Entry.countDocuments({
         userId: new Types.ObjectId(userId),
         content: { $exists: true, $ne: "" },
-        $or: [
-            { tags: { $size: 0 } },
-            { embeddings: { $exists: false } }
-        ]
+        status: { $nin: ['processed', 'processing'] }
     });
 
     logger.info(`Sync Worker processed ${processed} legacy entries. ${remaining} still pending.`);

@@ -1,25 +1,18 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/LLMService';
-import DateManager from '../../core/utils/DateManager';
-import { DataType } from '../../shared/types';
-import { entityService } from '../entity/entity.service';
 import Entry from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
-import { goalService } from '../goal/goal.service';
-import { graphService } from '../graph/graph.service';
-import reminderService from '../reminder/reminder.service';
-import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../reminder/reminder.types';
-import { RoutineTemplate } from '../routine/routine.model';
-import webActivityService from '../web-activity/web-activity.service';
+import { briefingService } from './agent.briefing';
 import { AGENT_CONSTANTS } from './agent.constants';
-import { AgentIntentType, agentIntent } from './agent.intent';
+import { AgentIntentType, IntentResult, agentIntent } from './agent.intent';
 import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { getAgentQueue } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
+import { intentDispatcher } from './handlers/intent.dispatcher';
+import { chatOrchestrator } from './orchestrators/chat.orchestrator';
 import { personaService } from './persona.service';
-import { agentToolDefinitions, agentToolHandlers } from './tools';
 
 export class AgentService {
     /**
@@ -69,425 +62,124 @@ export class AgentService {
 
     async processNaturalLanguage(userId: string, text: string, options: { tags?: string[], timezone?: string } = {}): Promise<any> {
         // 1. PERSIST FIRST (The "Capture First" Reliability Pattern)
-        let result: any = null;
+        let entry: any = null;
         try {
-            result = await entryService.createEntry(userId, {
+            entry = await entryService.createEntry(userId, {
                 content: text,
                 date: new Date(),
                 type: 'text',
-                status: 'processing',
+                status: 'captured', // New status for initial capture
                 tags: options.tags || [],
                 metadata: { source: 'capture-mode' }
             });
-            logger.info("Reliability Capture: Entry saved to Mongo before AI processing", { userId, entryId: result._id });
+            logger.info("Reliability Capture: Entry saved to Mongo before AI processing", { userId, entryId: entry._id });
         } catch (saveError) {
             logger.error("Reliability Capture Failed: Could not save initial entry", saveError);
         }
 
-        // 2. Get Context for AI
-        const history = await agentMemory.getHistory(userId);
-
-        // 3. AI Intent Analysis
-        let intentResult;
         try {
-            intentResult = await agentIntent.classify(text, history, options.timezone);
-        } catch (aiError) {
-            logger.error("AI Bottleneck: Intent classification failed, falling back to raw entry", aiError);
-            intentResult = { intent: AgentIntentType.JOURNALING, parsedEntities: { date: new Date() } };
-        }
+            // 2. Get Context for AI
+            const history = await agentMemory.getHistory(userId);
 
-        const { intent, needsClarification } = intentResult;
-
-        if (needsClarification) {
-            return {
-                ...intentResult,
-                originalText: text,
-                result
-            };
-        }
-
-        // 4. Update Memory (User)
-        await agentMemory.addMessage(userId, 'user', text);
-
-        // 5. Route based on Intent
-        const { taskType, commandObject, finalResult, earlyReturn } = await this.executeIntent(userId, text, result, intentResult);
-
-        if (earlyReturn) return earlyReturn;
-
-        // 6. Create Task Record (Logging the action)
-        const task = await this.createTask(userId, taskType, {
-            text,
-            intent,
-            extractedEntities: intentResult.extractedEntities,
-            resultId: (commandObject?._id || finalResult?._id)?.toString()
-        });
-
-        // 7. Update Memory (Agent)
-        const actionLog = commandObject ? `Created ${taskType} (${commandObject._id})` : `Saved Entry (${finalResult?._id})`;
-        await agentMemory.addMessage(userId, 'agent', `Processed ${intent}. ${actionLog}`);
-
-        // 8. Trigger Persona Synthesis (Async / Throttled)
-        personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
-
-        return { task, result: commandObject || finalResult, intent };
-    }
-
-    private async executeIntent(userId: string, text: string, entryResult: any, intentResult: any): Promise<any> {
-        const { intent, extractedEntities, parsedEntities } = intentResult;
-        let taskType = AgentTaskType.BRAIN_DUMP;
-        let commandObject: any = null;
-        let finalResult = entryResult;
-
-        switch (intent) {
-            case AgentIntentType.CMD_REMINDER_CREATE:
-                taskType = AgentTaskType.REMINDER_CREATE;
-                commandObject = await this.handleReminderCreate(userId, text, entryResult, intentResult);
-                if (commandObject) finalResult = null;
-                break;
-
-            case AgentIntentType.CMD_GOAL_CREATE:
-                taskType = AgentTaskType.GOAL_CREATE;
-                commandObject = await this.handleGoalCreate(userId, text, entryResult, intentResult);
-                if (commandObject) finalResult = null;
-                break;
-
-            case AgentIntentType.QUERY_KNOWLEDGE:
-                taskType = AgentTaskType.KNOWLEDGE_QUERY;
-                commandObject = await this.handleKnowledgeQuery(userId, text, entryResult);
-                if (commandObject) finalResult = null;
-                break;
-
-            case AgentIntentType.CMD_REMINDER_UPDATE: {
-                taskType = AgentTaskType.REMINDER_UPDATE;
-                const updateRes = await this.handleReminderUpdate(userId, text, entryResult, intentResult);
-                if (updateRes?.earlyReturn) return updateRes;
-                commandObject = updateRes?.commandObject;
-                if (commandObject) finalResult = null;
-                break;
+            // 3. AI Intent Analysis (Multi-Intent support)
+            let intentResult: IntentResult;
+            try {
+                intentResult = await agentIntent.classify(text, history, options.timezone);
+            } catch (aiError) {
+                logger.error("AI Bottleneck: Intent classification failed, falling back to raw entry", aiError);
+                intentResult = {
+                    intents: [{ intent: AgentIntentType.JOURNALING, parsedEntities: { date: new Date() } }],
+                    summary: "Saved as daily entry"
+                };
             }
 
-            case AgentIntentType.CMD_TASK_CREATE:
-                taskType = AgentTaskType.REMINDER_CREATE;
-                commandObject = await this.handleTaskCreate(userId, text, entryResult, intentResult);
-                if (commandObject) finalResult = null;
-                break;
-
-            case AgentIntentType.JOURNALING:
-                await this.handleJournaling(userId, entryResult, intentResult);
-                break;
-
-            case AgentIntentType.UNKNOWN:
-                if (entryResult?._id) {
-                    await entryService.updateEntry(entryResult._id.toString(), userId, { status: 'ready' });
-                }
-                return { earlyReturn: { task: null, result: entryResult, intent: AgentIntentType.JOURNALING, note: "Saved as general entry (unknown intent)" } };
-        }
-
-        return { taskType, commandObject, finalResult };
-    }
-
-    private async handleReminderCreate(userId: string, text: string, entry: any, intent: any) {
-        const commandObject = await reminderService.createReminder(userId, {
-            title: intent.extractedEntities?.title || text,
-            date: intent.parsedEntities?.date?.toISOString() || new Date().toISOString(),
-            priority: (intent.extractedEntities?.priority as ReminderPriority) || ReminderPriority.MEDIUM,
-            notifications: {
-                enabled: true,
-                times: [{ type: NotificationTimeType.MINUTES, value: 15 }]
-            },
-            metadata: { originEntryId: entry?._id?.toString() }
-        });
-
-        if (entry?._id) await entryService.deleteEntry(entry._id.toString(), userId);
-        return commandObject;
-    }
-
-    private async handleGoalCreate(userId: string, text: string, entry: any, intent: any) {
-        const meta = intent.extractedEntities?.metadata || {};
-        const hasTargetValue = meta.targetValue !== undefined && meta.targetValue !== null;
-
-        const linkedRoutineIds: string[] = [];
-        if (meta.linkedRoutines?.length > 0) {
-            const routines = await RoutineTemplate.find({
-                userId: new Types.ObjectId(userId),
-                name: { $in: meta.linkedRoutines.map((name: string) => new RegExp(`^${name}$`, 'i')) }
-            }).select('_id').lean();
-            routines.forEach(r => linkedRoutineIds.push(r._id.toString()));
-        }
-
-        const commandObject = await goalService.createGoal(userId, {
-            title: intent.extractedEntities?.title || text,
-            description: meta.description,
-            why: meta.why,
-            type: hasTargetValue ? DataType.COUNTER : DataType.CHECKLIST,
-            priority: intent.extractedEntities?.priority || 'medium',
-            reward: meta.reward,
-            config: hasTargetValue ? { targetValue: meta.targetValue, unit: meta.unit || 'units' } : { items: [], allowMultiple: false },
-            deadline: intent.parsedEntities?.date,
-            linkedRoutines: linkedRoutineIds,
-            metadata: { originEntryId: entry?._id?.toString() }
-        } as any);
-
-        if (entry?._id) await entryService.deleteEntry(entry._id.toString(), userId);
-        return commandObject;
-    }
-
-    private async handleKnowledgeQuery(userId: string, text: string, entry: any) {
-        const [contextEntries, graphContext] = await Promise.all([
-            this.findSimilarEntries(userId, text, 5),
-            graphService.getGraphSummary(userId)
-        ]);
-
-        const entriesContextText = contextEntries.map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
-        const answer = await LLMService.generateText(`
-            You are a helpful personal assistant.
-            User Question: "${text}"
-            
-            Relevant Memories (Semantic):
-            ${entriesContextText || "No relevant memories found."}
-
-            Life Graph Context (Patterns & Goals):
-            ${graphContext}
-            
-            Instructions:
-            - Answer the question based on the provided memories and graph context.
-            - If you don't know, say "I couldn't find that in your recent memories."
-            - Be concise and friendly.
-        `);
-
-        if (entry?._id) await entryService.deleteEntry(entry._id.toString(), userId);
-        return { answer };
-    }
-
-    private async handleReminderUpdate(userId: string, text: string, entry: any, intent: any) {
-        let searchTitle = intent.extractedEntities?.title || text;
-        searchTitle = searchTitle.replace(/^(that|the|my|this|a|it|task|reminder)\s+/i, '').trim();
-        searchTitle = searchTitle.replace(/\s+(task|reminder|doc)$/i, '').trim();
-
-        const { reminders } = await reminderService.getReminders(userId, {
-            q: searchTitle,
-            limit: 5,
-            status: [ReminderStatus.PENDING]
-        });
-
-        if (reminders.length > 0) {
-            const reminder = reminders[0];
-            const updateData: any = {};
-            if (intent.parsedEntities?.date) updateData.date = intent.parsedEntities.date.toISOString();
-            if (intent.extractedEntities?.priority) updateData.priority = intent.extractedEntities.priority;
-            const commandObject = await reminderService.updateReminder(userId, reminder._id, updateData);
-
-            if (entry?._id) await entryService.deleteEntry(entry._id.toString(), userId);
-            return { commandObject };
-        } else {
-            return {
-                earlyReturn: {
-                    intent: intent.intent,
-                    needsClarification: true,
-                    missingInfos: [`I couldn't find a task matching "${searchTitle}" to update.`],
+            // check for early returns from specific intentions (e.g. clarification)
+            const clarificationIntention = intentResult.intents.find(i => i.needsClarification);
+            if (clarificationIntention) {
+                if (entry?._id) await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+                return {
+                    ...clarificationIntention,
                     originalText: text,
                     result: entry
-                }
-            };
-        }
-    }
+                };
+            }
 
-    private async handleTaskCreate(userId: string, text: string, entry: any, intent: any) {
-        const commandObject = await reminderService.createReminder(userId, {
-            title: intent.extractedEntities?.title || text,
-            date: new Date().toISOString(),
-            allDay: true,
-            priority: (intent.extractedEntities?.priority as ReminderPriority) || ReminderPriority.MEDIUM
-        });
+            // 4. Update Memory (User)
+            await agentMemory.addMessage(userId, 'user', text);
 
-        if (entry?._id) await entryService.deleteEntry(entry._id.toString(), userId);
-        return commandObject;
-    }
-
-    private async handleJournaling(userId: string, entry: any, intent: any) {
-        if (entry?._id) {
-            await entryService.updateEntry(entry._id.toString(), userId, {
-                date: intent.parsedEntities?.date || entry.date,
-                status: 'ready'
+            // 5. DELEGATED EXECUTION: Route based on Intent
+            const dispatchResult = await intentDispatcher.dispatch({
+                userId,
+                text,
+                entry,
+                intentResult
             });
+
+            if (dispatchResult.earlyReturn) {
+                if (entry?._id) await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+                return dispatchResult.earlyReturn;
+            }
+
+            // 6. Create Task Records (Logging all actions)
+            const tasks = [];
+            for (const action of dispatchResult.actions) {
+                const task = await this.createTask(userId, action.taskType, {
+                    text,
+                    intent: action.taskType, // approximation
+                    resultId: action.commandObject?._id?.toString()
+                });
+                tasks.push(task);
+            }
+
+            // Final check: if no actions were taken (JOURNALING only), ensure status is ready
+            if (dispatchResult.actions.length === 0 && entry?._id) {
+                await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+            }
+
+            // 7. Update Memory (Agent)
+            const summary = dispatchResult.summary || `Processed ${intentResult.intents.length} intentions.`;
+            await agentMemory.addMessage(userId, 'agent', summary);
+
+            // 8. Trigger Persona Synthesis (Async / Throttled)
+            personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
+
+            return {
+                tasks,
+                result: dispatchResult.actions.length > 0 ? dispatchResult.actions[0].commandObject : entry,
+                summary
+            };
+
+        } catch (processError) {
+            logger.error("Fail-Safe: Processing failed, manual recovery to library", processError);
+            if (entry?._id) {
+                await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+            }
+            throw processError;
         }
     }
-
 
     /**
      * Conversational Agent with Tool Access (Enhanced with TAO Context)
      */
     async chat(userId: string, message: string): Promise<string> {
-        // 1. Immediately persist user message
+        // 1. Persist user message in memory
         await agentMemory.addMessage(userId, 'user', message);
 
-        // 2. TAO: Fast Entity Detection (Redis Registry)
-        const entityRegistry = await entityService.getEntityRegistry(userId);
-        const detectedEntityIds = new Set<string>();
+        // 2. Delegate to Chat Orchestrator
+        const response = await chatOrchestrator.chat(userId, message, {
+            onFinish: async (finalAnswer) => {
+                // Update Memory with Agent Response
+                await agentMemory.addMessage(userId, 'agent', finalAnswer);
 
-        // Optimized detection: Build a single combined regex for all entities
-        const names = Object.keys(entityRegistry);
-        if (names.length > 0) {
+                // Trigger Persona Synthesis
+                personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
 
-            // Escape names and handle possessives (e.g. "Bob's")
-            const escapedNames = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-            const combinedRegex = new RegExp(`\\b(${escapedNames.join('|')})(?:'s)?\\b`, 'gi');
-
-            let match;
-            while ((match = combinedRegex.exec(message)) !== null) {
-                const matchedNameWithPossessive = match[0].toLowerCase();
-                // Strip possessive for lookup
-                const matchedName = matchedNameWithPossessive.replace(/'s$/, '');
-                const id = entityRegistry[matchedName];
-                if (id) detectedEntityIds.add(id);
+                // Trigger Recursive Memory Flush
+                this.checkMemoryFlush(userId).catch(err => logger.error("Memory Flush check failed", err));
             }
-        }
+        });
 
-        // 3. TAO: 1-Hop Knowledge Retrieval (Optimized Bulk Fetch)
-        const detectedEntityContexts: string[] = [];
-        if (detectedEntityIds.size > 0) {
-            const entityIds = Array.from(detectedEntityIds);
-            const entities = await entityService.getEntitiesByIds(entityIds, userId);
-
-            // Fetch Graph Context and Notes in parallel
-            const contexts = await graphService.getEntitiesContext(
-                entities.map(e => ({ id: e._id.toString(), name: e.name }))
-            );
-
-            // Construct context blocks
-            entities.forEach((entity, index) => {
-                let contextBlock = `ENTITY: ${entity.name} (${entity.otype})\n`;
-                if (entity.summary) contextBlock += `Summary: ${entity.summary}\n`;
-
-                // Match graph context by name or index (since they were mapped in order)
-                const gContext = contexts.find(c => c.includes(`ENTITY: ${entity.name}`));
-                if (gContext) contextBlock += `${gContext}\n`;
-
-                if (entity.rawMarkdown) {
-                    contextBlock += `Notes:\n${entity.rawMarkdown.slice(0, AGENT_CONSTANTS.ENTITY_NOTES_SLICE)}\n`;
-                }
-                detectedEntityContexts.push(contextBlock);
-            });
-        }
-
-        // 4. Get Full Context
-        const [history, graphSummary, personaContext] = await Promise.all([
-            agentMemory.getHistory(userId),
-            graphService.getGraphSummary(userId),
-            personaService.getPersonaContext(userId)
-        ]);
-
-        // Filter and limit history (Increasing to 30 as per plan)
-        const previousHistory = history
-            .filter(h => h.content !== message || h.timestamp < Date.now() - 1000)
-            .slice(-AGENT_CONSTANTS.MAX_CONTEXT_MESSAGES);
-
-        const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
-
-        const systemPrompt = `You are Memolink, a supportive and intelligent life partner (AI). 
-        Your goal is to be a natural, conversational presence. You are not just a tool; you are a partner in the user's journey.
-
-        Today is ${new Date().toDateString()}.
-
-        DETECTED ENTITIES (Long-term Memory):
-        ${detectedEntityContexts.join('\n---\n') || "None mentioned in this message."}
-
-        USER'S GLOBAL CONTEXT:
-        ${graphSummary}
-
-        USER'S PERSONA:
-        ${personaContext}
-        
-        Recent Conversation History:
-        ${promptHistory}
-        
-        Current User Message: ${message}
-
-        CONVERSATIONAL GUIDELINES:
-        - Be natural, empathetic, and concise. 
-        - DO NOT list your capabilities unless asked.
-        - Use the DETECTED ENTITIES context to show you remember their world (e.g. if they mention "Alice", you know she works at Opstin).
-        - Match the user's energy level.
-
-        RESPONSE FORMATTING:
-        - Use standard Markdown.
-        - Bold key information like dates or titles.
-        `;
-
-        let currentPrompt = systemPrompt;
-        let iteration = 0;
-        const MAX_ITERATIONS = AGENT_CONSTANTS.MAX_RE_ACT_ITERATIONS;
-
-        try {
-            // Loop for ReAct / Tool use
-            while (iteration < MAX_ITERATIONS) {
-                iteration++;
-
-                // Call LLM
-                const response = await LLMService.generateWithTools(currentPrompt, {
-                    tools: agentToolDefinitions
-                });
-
-                // Check for Function Calls
-                if (response.functionCalls && response.functionCalls.length > 0) {
-                    // Execute Tools
-                    const toolOutputs = [];
-                    for (const call of response.functionCalls) {
-                        const fnName = call.name;
-                        const args = call.args;
-
-                        logger.info(`Agent executing tool: ${fnName}`, { userId, args });
-
-                        if (agentToolHandlers[fnName]) {
-                            try {
-                                const output = await agentToolHandlers[fnName](userId, args);
-                                toolOutputs.push({ name: fnName, output: output, status: 'success' });
-                            } catch (err: any) {
-                                toolOutputs.push({ name: fnName, error: err.message, status: 'error' });
-                            }
-                        } else {
-                            toolOutputs.push({ name: fnName, error: 'Tool not found', status: 'error' });
-                        }
-                    }
-
-                    // Append result to prompt and allow LLM to reason on it
-                    currentPrompt += `\n\n[System] Tool Execution Results:\n`;
-                    for (const t of toolOutputs) {
-                        if (t.status === 'success') {
-                            currentPrompt += `Tool '${t.name}' (Success): ${JSON.stringify(t.output)}\n`;
-                        } else {
-                            currentPrompt += `Tool '${t.name}' (Error): ${t.error}\n`;
-                        }
-                    }
-                    currentPrompt += `\nBased on these results, please provide the final answer to the user or call another tool if needed.\n`;
-
-                } else if (response.text) {
-                    // Explicit termination: No valid tool calls, and we have text.
-                    const finalAnswer = response.text;
-
-                    // Update Memory with Agent Response
-                    await agentMemory.addMessage(userId, 'agent', finalAnswer);
-
-                    // Trigger Persona Synthesis (Async / Throttled)
-                    personaService.triggerSynthesis(userId).catch(err => logger.error("Background Persona Synthesis Trigger failed", err));
-
-                    // Trigger Recursive Memory Flush if history is getting long
-                    this.checkMemoryFlush(userId).catch(err => logger.error("Memory Flush check failed", err));
-
-                    return finalAnswer;
-                } else {
-                    // Fallback: No text, no tools?
-                    return "I'm unsure how to proceed. Could you rephrase that?";
-                }
-            }
-
-            // Reached MAX_ITERATIONS
-            return "I've been working on this for a while but couldn't finish. Please check the recent items.";
-
-        } catch (error) {
-            logger.error('Agent chat loop failed', error);
-            return "I'm sorry, I encountered an error while processing your request.";
-        }
+        return response;
     }
 
     /**
@@ -498,6 +190,11 @@ export class AgentService {
         if (history.length >= AGENT_CONSTANTS.FLUSH_THRESHOLD) {
             logger.info(`Memory threshold reached for user ${userId} (${history.length} msgs). Enqueueing flush.`);
             await this.createTask(userId, AgentTaskType.MEMORY_FLUSH, { count: AGENT_CONSTANTS.FLUSH_COUNT });
+
+            // Trigger Cognitive Consolidation to bridge chat memory into Persona KG
+            await this.createTask(userId, AgentTaskType.COGNITIVE_CONSOLIDATION, {
+                messageCount: AGENT_CONSTANTS.FLUSH_COUNT
+            });
         }
     }
 
@@ -513,109 +210,7 @@ export class AgentService {
      * Generates a proactive briefing for the user (Chief of Staff greeting)
      */
     async getDailyBriefing(userId: string): Promise<string> {
-        try {
-            // 1. Fetch Context
-            const now = new Date();
-            const twoDaysAgo = new Date();
-            twoDaysAgo.setDate(now.getDate() - 2);
-
-            const [entriesData, upcomingReminders, overdueReminders, goals, webActivity] = await Promise.all([
-                entryService.searchEntries(userId, { dateFrom: twoDaysAgo.toISOString(), limit: 5 }),
-                reminderService.getUpcomingReminders(userId, 15),
-                reminderService.getOverdueReminders(userId),
-                goalService.getGoals(userId, {}),
-                webActivityService.getTodayStats(userId, DateManager.getYesterdayDateKey())
-            ]);
-
-            const entries = entriesData.entries || [];
-
-            // 2. Process Reminders
-            const todayStr = now.toDateString();
-            const tomorrow = new Date(now);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const tomorrowStr = tomorrow.toDateString();
-
-            const todayReminders: any[] = [];
-            const futureReminders: any[] = [];
-
-            (upcomingReminders || []).forEach((r: any) => {
-                const rDate = new Date(r.date).toDateString();
-                if (rDate === todayStr) {
-                    todayReminders.push(r);
-                } else {
-                    futureReminders.push(r);
-                }
-            });
-
-            // 3. Prepare Context for LLM
-            const entryContext = entries.map(e => `- [${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
-            const goalContext = goals.map(g => `- ${g.title} (${g.status})`).join('\n');
-
-            const overdueContext = (overdueReminders || []).map((r: any) => `- [OVERDUE: ${new Date(r.date).toLocaleDateString()}] ${r.title}`).join('\n');
-            const todayContext = todayReminders.map(r => `- [TODAY] ${r.title} ${r.startTime ? `@ ${r.startTime}` : '(All Day)'}`).join('\n');
-            const futureContext = futureReminders.map(r => `- [${new Date(r.date).toLocaleDateString()}] ${r.title} ${r.startTime ? `@ ${r.startTime}` : ''}`).join('\n');
-
-            // 4. Process Activity Context
-            let activityContext = "No web activity tracked for yesterday.";
-            if (webActivity && webActivity.totalSeconds > 0) {
-                const h = Math.floor(webActivity.totalSeconds / 3600);
-                const m = Math.floor((webActivity.totalSeconds % 3600) / 60);
-                const focus = Math.round((webActivity.productiveSeconds / webActivity.totalSeconds) * 100);
-                activityContext = `Tracked ${h}h ${m}m of web activity yesterday. Focus Score: ${focus}%.`;
-
-                // Top 3 domains
-                const top3 = Object.entries(webActivity.domainMap || {})
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 3)
-                    .map(([d, s]) => `${d.replace(/__dot__/g, '.')}(${Math.round(s / 60)}m)`)
-                    .join(', ');
-                activityContext += ` Top sites: ${top3}.`;
-            }
-
-            const prompt = `
-            You are the "Chief of Staff" for a user in the MemoLink application.
-            It is currently ${now.toDateString()}. 
-            
-            Based on the following data, provide a structured daily briefing.
-            
-            CRITICAL INSTRUCTIONS:
-            1. **Tone**: DIRECT, PROACTIVE, and EFFICIENT. No fluff, no sugarcoating. Focus purely on execution and clarity. Avoid phrases like "Rise and shine" or excessive exclamation marks.
-            2. **Structure**:
-               - **Greeting**: Brief and functional based on the current time (e.g., "Good morning.").
-               - **Today's Mission**: List essential tasks for TODAY. 
-                 *IMPORTANT*: Check "RECENT LOGS" for any section titled "Plan for Tomorrow" or similar from yesterday's entries. These are high-priority tasks the user set for themselves. Merge them with the specific scheduled tasks.
-               - **Goal Pulse**: succinct reminder of active goals and their relevance to today.
-               - **Activity Insight**: Briefly mention yesterday's web activity (Focus vs Distraction) and offer one tactical coaching tip.
-               - **Daily Boost**: A short quote relevant to productivity.
-            
-            DATA:
-            RECENT LOGS (Check here for "Plan for Tomorrow"):
-            ${entryContext || 'No recent logs.'}
-            
-            WEB ACTIVITY YESTERDAY:
-            ${activityContext}
-
-            OVERDUE TASKS:
-            ${overdueContext || 'None.'}
-            
-            SCHEDULE FOR TODAY (${todayStr}):
-            ${todayContext || 'No specific tasks scheduled for today.'}
-            
-            UPCOMING:
-            ${futureContext || 'No upcoming tasks found.'}
-            
-            ACTIVE GOALS:
-            ${goalContext || 'No active goals - Encourage them to set one!'}
-            
-            Briefing:
-            `;
-
-            const briefing = await LLMService.generateText(prompt);
-            return briefing;
-        } catch (error) {
-            logger.error('Failed to generate daily briefing', error);
-            return "Good morning. I was unable to compile your full briefing at this time. Please check your dashboard for details.";
-        }
+        return briefingService.getDailyBriefing(userId);
     }
 
     /**
@@ -623,12 +218,7 @@ export class AgentService {
      */
     async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
         try {
-            // 1. Generate Query Embedding
             const queryVector = await LLMService.generateEmbeddings(text);
-
-            // 2. Perform Vector Search (Atlas)
-            // TODO: This requires a 'vector_index' to be defined in Atlas on the 'entries' collection
-
             try {
                 const results = await Entry.aggregate([
                     {
@@ -656,7 +246,6 @@ export class AgentService {
                 logger.warn('Vector search failed or index missing. Falling back to keyword search.');
             }
 
-            // Fallback to text search
             const { entries } = await entryService.searchEntries(userId, { q: text, limit });
             return entries.map(e => ({
                 content: e.content,

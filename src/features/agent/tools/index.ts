@@ -1,5 +1,6 @@
 import { createEntryTool, findSimilarEntriesTool, getRecentEntriesTool, searchEntriesTool } from './entry.tools';
 import { createGoalTool, listGoalsTool, updateGoalTool } from './goal.tools';
+import { exploreAssociationsTool, searchKnowledgeEntitiesTool } from './graph.tools';
 import { createReminderTool, getRemindersTool } from './reminder.tools';
 import { AgentTool } from './types';
 
@@ -12,7 +13,9 @@ export const agentTools: AgentTool[] = [
     listGoalsTool,
     updateGoalTool,
     createReminderTool,
-    getRemindersTool
+    getRemindersTool,
+    searchKnowledgeEntitiesTool,
+    exploreAssociationsTool
 ];
 
 export const agentToolDefinitions = agentTools.map(t => t.definition);

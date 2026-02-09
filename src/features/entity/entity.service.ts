@@ -64,11 +64,21 @@ export class EntityService {
 
         await entity.save({ session: options.session });
 
-        // Note: Redis registration is outside the DB transaction. 
-        // In a true ACID system, we'd trigger this via a Change Stream or an 'afterCommit' hook.
-        // For migration safety, the caller should handle Redis sync.
         if (!options.session) {
             await this.registerInRedis(userId, entity._id.toString(), entity.name, entity.aliases);
+
+            // Trigger Retroactive Linking (Async)
+            Promise.all([
+                import('../agent/agent.service'),
+                import('../agent/agent.types')
+            ]).then(([{ agentService }, { AgentTaskType }]) => {
+                agentService.createTask(userId, AgentTaskType.RETROACTIVE_LINKING, {
+                    entityId: entity._id.toString(),
+                    userId,
+                    name: entity.name,
+                    aliases: entity.aliases
+                }).catch(err => logger.error('Failed to trigger retroactive linking', err));
+            });
         }
 
         logger.info(`Entity [${entity.otype}] created: ${entity.name}`, { userId, id: entity._id });

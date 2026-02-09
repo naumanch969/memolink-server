@@ -21,7 +21,7 @@ export interface IEntry extends BaseEntity {
   isMultiDay?: boolean; // Flag for collective entries
   isEdited?: boolean;
   isFavorite?: boolean;
-  status?: 'ready' | 'processing' | 'failed';
+  status?: 'ready' | 'processing' | 'failed' | 'processed' | 'captured';
   embeddings?: number[];
   moodMetadata?: {
     category: string;
@@ -29,6 +29,7 @@ export interface IEntry extends BaseEntity {
     color: string;
     icon: string;
   };
+  metadata?: Record<string, any>;
 }
 
 export interface EntryResponse {
@@ -77,7 +78,7 @@ export interface CreateEntryRequest {
   startTime?: string;
   endTime?: string;
   isMultiDay?: boolean;
-  status?: 'ready' | 'processing' | 'failed';
+  status?: 'ready' | 'processing' | 'failed' | 'processed' | 'captured';
   metadata?: Record<string, any>;
 }
 
@@ -92,7 +93,8 @@ export interface UpdateEntryRequest {
   mood?: string;
   location?: string;
   date?: Date;
-  status?: 'ready' | 'processing' | 'failed';
+  status?: 'ready' | 'processing' | 'failed' | 'processed' | 'captured';
+  metadata?: Record<string, any>;
 }
 
 export interface EntrySearchRequest {
