@@ -1,5 +1,5 @@
 import mongoose, { Document } from "mongoose";
-import { EdgeType, NodeType } from "./edge.model";
+import { EdgeStatus, EdgeType, NodeType } from "./edge.model";
 
 export interface IGraphEdge extends Document {
     from: {
@@ -11,7 +11,10 @@ export interface IGraphEdge extends Document {
         type: NodeType;
     };
     relation: EdgeType;
+    status: EdgeStatus;
     weight: number;
+    sourceEntryId?: mongoose.Types.ObjectId;
+    refutedAt?: Date;
     metadata: Record<string, any>;
     createdAt: Date;
     updatedAt: Date;

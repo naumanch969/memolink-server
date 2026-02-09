@@ -46,6 +46,13 @@ export enum NodeType {
     REMINDER = 'Reminder'
 }
 
+export enum EdgeStatus {
+    ACTIVE = 'active',
+    PROPOSED = 'proposed',
+    REFUTED = 'refuted',
+    ARCHIVED = 'archived'
+}
+
 const GraphEdgeSchema = new Schema<IGraphEdge>({
     from: {
         id: { type: Schema.Types.ObjectId, required: true, refPath: 'from.type' },
@@ -56,7 +63,10 @@ const GraphEdgeSchema = new Schema<IGraphEdge>({
         type: { type: String, enum: Object.values(NodeType), required: true }
     },
     relation: { type: String, enum: Object.values(EdgeType), required: true, index: true },
+    status: { type: String, enum: Object.values(EdgeStatus), default: EdgeStatus.ACTIVE, index: true },
     weight: { type: Number, default: 1.0, min: 0, max: 1 },
+    sourceEntryId: { type: Schema.Types.ObjectId, ref: 'Entry', index: true },
+    refutedAt: { type: Date },
     metadata: { type: Map, of: Schema.Types.Mixed, default: {} }
 }, {
     timestamps: true,

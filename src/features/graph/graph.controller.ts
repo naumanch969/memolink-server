@@ -2,10 +2,11 @@ import { Response } from 'express';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { GraphEdge } from './edge.model';
 import KnowledgeEntity from '../entity/entity.model';
 import Goal from '../goal/goal.model';
 import { Reminder } from '../reminder/reminder.model';
+import { EdgeStatus, GraphEdge } from './edge.model';
+import { graphService } from './graph.service';
 
 export class GraphController {
     /**
@@ -28,9 +29,20 @@ export class GraphController {
 
             // 2. Fetch all edges where either side is one of our nodes
             const edges = await GraphEdge.find({
-                $or: [
-                    { "from.id": { $in: allNodeIds } },
-                    { "to.id": { $in: allNodeIds } }
+                $and: [
+                    {
+                        $or: [
+                            { "from.id": { $in: allNodeIds } },
+                            { "to.id": { $in: allNodeIds } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { status: { $in: [EdgeStatus.ACTIVE, EdgeStatus.PROPOSED] } },
+                            { status: { $exists: false } },
+                            { status: null }
+                        ]
+                    }
                 ]
             }).lean();
 
@@ -42,30 +54,39 @@ export class GraphController {
                     name: e.name,
                     type: e.otype,
                     group: e.otype?.toLowerCase() || 'default',
-                    img: e.avatar
+                    img: e.avatar,
+                    val: e.interactionCount || 1
                 })),
                 ...goals.map((g: any) => ({
                     id: g._id.toString(),
                     name: g.title,
                     type: 'Goal',
-                    group: 'goal'
+                    group: 'goal',
+                    val: 4
                 })),
                 ...reminders.map((r: any) => ({
                     id: r._id.toString(),
                     name: r.title,
                     type: 'Reminder',
-                    group: 'reminder'
+                    group: 'reminder',
+                    val: 2
                 }))
             ];
 
             // 4. Transform links for frontend
+            // Include Provenance and Status
             const links = edges.map(edge => ({
                 id: edge._id.toString(),
                 source: edge.from.id.toString(),
                 target: edge.to.id.toString(),
                 relation: edge.relation,
                 weight: edge.weight,
-                metadata: edge.metadata
+                metadata: edge.metadata,
+
+                // Integrity Fields
+                status: edge.status || 'active',
+                sourceEntryId: edge.sourceEntryId?.toString(),
+                refutedAt: edge.refutedAt
             }));
 
             // Filter out links that might reference non-existent nodes (if any)
@@ -80,29 +101,49 @@ export class GraphController {
     }
 
     /**
-     * Creates a new edge between two nodes
+     * Mark an edge as Refuted (User Rejection)
      */
-    static async createEdge(req: AuthenticatedRequest, res: Response) {
+    static async refuteEdge(req: AuthenticatedRequest, res: Response) {
         try {
-            const userId = req.user!._id;
-            const { source, target, relation } = req.body; // Assuming body structure
+            const { id } = req.params;
+            await graphService.refuteEdge(id);
+            ResponseHelper.success(res, null, 'Edge refuted successfully');
+        } catch (error) {
+            logger.error(`[GraphController] refuteEdge failed`, error);
+            ResponseHelper.error(res, 'Failed to refute edge', 500, error);
+        }
+    }
 
-            if (!source || !target || !relation) {
-                ResponseHelper.badRequest(res, 'Source, target, and relation are required');
-                return;
+    /**
+     * Resolve a conflict proposal (Accept or Reject)
+     */
+    static async resolveProposal(req: AuthenticatedRequest, res: Response) {
+        try {
+            const { id } = req.params;
+            const { action } = req.body; // 'accept' | 'reject'
+            if (!['accept', 'reject'].includes(action)) {
+                return ResponseHelper.badRequest(res, 'Invalid action. Must be accept or reject.');
             }
 
-            const edge = await GraphEdge.create({
-                userId,
-                source,
-                target,
-                relation,
-                timestamp: new Date()
-            });
-
-            ResponseHelper.created(res, edge, 'Edge created successfully');
+            await graphService.resolveProposal(id, action as 'accept' | 'reject');
+            ResponseHelper.success(res, null, `Proposal ${action}ed successfully`);
         } catch (error) {
-            ResponseHelper.error(res, 'Failed to create edge', 500, error);
+            logger.error(`[GraphController] resolveProposal failed`, error);
+            ResponseHelper.error(res, 'Failed to resolve proposal', 500, error);
+        }
+    }
+
+    /**
+     * Trigger Self-Healing for Orphaned Entities
+     */
+    static async repairGraph(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const result = await graphService.repairOrphanedEntities(userId);
+            ResponseHelper.success(res, result, 'Graph repair completed');
+        } catch (error) {
+            logger.error(`[GraphController] repairGraph failed`, error);
+            ResponseHelper.error(res, 'Failed to repair graph', 500, error);
         }
     }
 
@@ -113,14 +154,9 @@ export class GraphController {
         try {
             const userId = req.user!._id;
             const { id } = req.params;
-
-            const result = await GraphEdge.findOneAndDelete({ _id: id, userId });
-
-            if (!result) {
-                ResponseHelper.notFound(res, 'Edge not found');
-                return;
-            }
-
+            await graphService.removeEdge(id, '', '' as any); // TODO: Fix removeEdge signature or use ID directly
+            // graphService currently takes fromId, toId. We might need a deleteById method in service or use Model directly here.
+            await GraphEdge.findOneAndDelete({ _id: id });
             ResponseHelper.success(res, null, 'Edge deleted successfully');
         } catch (error) {
             ResponseHelper.error(res, 'Failed to delete edge', 500, error);

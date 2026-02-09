@@ -3,6 +3,7 @@ import { LLMService } from '../../core/llm/LLMService';
 import DateManager from '../../core/utils/DateManager';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
+import { graphService } from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
 import webActivityService from '../web-activity/web-activity.service';
 
@@ -13,12 +14,13 @@ export class BriefingService {
             const twoDaysAgo = new Date();
             twoDaysAgo.setDate(now.getDate() - 2);
 
-            const [entriesData, upcomingReminders, overdueReminders, goals, webActivity] = await Promise.all([
+            const [entriesData, upcomingReminders, overdueReminders, goals, webActivity, pendingProposals] = await Promise.all([
                 entryService.searchEntries(userId, { dateFrom: twoDaysAgo.toISOString(), limit: 5 }),
                 reminderService.getUpcomingReminders(userId, 15),
                 reminderService.getOverdueReminders(userId),
                 goalService.getGoals(userId, {}),
-                webActivityService.getTodayStats(userId, DateManager.getYesterdayDateKey())
+                webActivityService.getTodayStats(userId, DateManager.getYesterdayDateKey()),
+                graphService.getPendingProposals(userId)
             ]);
 
             const entries = entriesData.entries || [];
@@ -57,6 +59,12 @@ export class BriefingService {
                 activityContext += ` Top sites: ${top3}.`;
             }
 
+            const proposalsContext = (pendingProposals || []).map(p => {
+                const source = (p.metadata as any)?.sourceName || p.from?.type || 'Unknown';
+                const target = (p.metadata as any)?.targetName || p.to?.type || 'Unknown';
+                return `- ${source} ${p.relation.toLowerCase().replace(/_/g, ' ')} ${target} (Reason: Conflicted with your previous correction)`;
+            }).join('\n');
+
             const prompt = `
             You are the "Chief of Staff" for a user in the MemoLink application.
             It is currently ${now.toDateString()}. 
@@ -69,6 +77,7 @@ export class BriefingService {
                - **Greeting**: functional (e.g., "Good morning.").
                - **Today's Mission**: List essential tasks for TODAY. Check RECENT LOGS for "Plan for Tomorrow".
                - **Goal Pulse**: succinct reminder of active goals.
+               - **Knowledge Graph Update**: If there are PENDING PROPOSALS, alert the user and ask them to verify these conflicts.
                - **Activity Insight**: Briefly mention yesterday's web activity and offer one tactical coaching tip.
                - **Daily Boost**: A short quote.
             
@@ -85,6 +94,8 @@ export class BriefingService {
             ${futureContext || 'No upcoming tasks found.'}
             ACTIVE GOALS:
             ${goalContext || 'No active goals - Encourage them to set one!'}
+            PENDING GRAPH PROPOSALS (CONFLICTS):
+            ${proposalsContext || 'None.'}
             `;
 
             return await LLMService.generateText(prompt);
@@ -96,3 +107,4 @@ export class BriefingService {
 }
 
 export const briefingService = new BriefingService();
+export default briefingService;

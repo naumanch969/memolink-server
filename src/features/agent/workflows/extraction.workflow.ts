@@ -43,17 +43,25 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
         const entityRegistry = await entityService.getEntityRegistry(userId);
         const knownNames = Object.keys(entityRegistry);
 
+        // 2.5 Fetch Negative Context (Refutations)
+        const refutedRelations = await graphService.getRefutationContext(userId);
+        const negativeContext = refutedRelations.length > 0
+            ? `\nREJECTED RELATIONSHIPS (Do not extract these unless specifically mentioned as a change):\n${refutedRelations.join('\n')}`
+            : '';
+
         // 3. Call LLM
         const prompt = `
         Analyze the journal entry and extract "Chief of Staff" level intelligence about entities and their relationships.
         
         KNOWN ENTITIES for this user:
         ${knownNames.join(', ')}
+        ${negativeContext}
 
         Rules:
         1. If an entity matches or is an alias for a KNOWN ENTITY, use the EXACT name from the list above.
         2. Extract relationships BETWEEN them.
         3. Relationship types MUST use: WORKS_AT, CONTRIBUTES_TO, MEMBER_OF, PART_OF, OWNED_BY, ASSOCIATED_WITH, BLOCKS, SUPPORTS, REQUIRES, INFLUENCES, TRIGGERS, KNOWS, INTERESTED_IN.
+        4. If a relationship matches one in "REJECTED RELATIONSHIPS", ONLY extract it if the entry explicitly mentions a change of state (e.g. "John now works at...").
 
         Entry:
         "${entry.content}"
@@ -69,6 +77,7 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
             const criticPrompt = `
             You are the "Intelligence Critic" for MemoLink. Review the following extraction from a journal entry.
             Source Text: "${entry.content}"
+            ${negativeContext}
             
             Initial Extraction:
             Entities: ${JSON.stringify(entitiesData)}
@@ -78,7 +87,8 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
             1. Verify every entity exists in the source text. Remove hallucinations.
             2. Check if any "KNOWN ENTITIES" (${knownNames.join(', ')}) were missed or misnamed.
             3. Ensure relationship types are strictly from the allowed list: WORKS_AT, CONTRIBUTES_TO, MEMBER_OF, PART_OF, OWNED_BY, ASSOCIATED_WITH, BLOCKS, SUPPORTS, REQUIRES, INFLUENCES, TRIGGERS, KNOWS, INTERESTED_IN.
-            4. Refine the extraction. If it's 100% correct, return it as is.
+            4. If a relationship was previously REJECTED, ensure the source text supports a change in reality before keeping it.
+            5. Refine the extraction. If it's 100% correct, return it as is.
             
             Return the refined JSON in the same format.
             `;
@@ -149,13 +159,14 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
                 nameToIdMap[alias.toLowerCase()] = { id: sid, type: otype };
             });
 
-            // 5. Create "MENTIONED_IN" Edge
+            // 5. Create "MENTIONED_IN" Edge (Provenance Tracking)
             await graphService.createAssociation({
                 fromId: sid,
                 fromType: otype,
                 toId: entryId,
                 toType: NodeType.CONTEXT,
                 relation: EdgeType.MENTIONED_IN,
+                sourceEntryId: entryId,
                 metadata: { entryDate: entry.date, name: e.name, isExtraction: true }
             }, { session });
 
@@ -167,6 +178,7 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
                 toId: sid,
                 toType: otype,
                 relation: egoRelation,
+                sourceEntryId: entryId,
                 metadata: { name: e.name, sentiment: e.sentiment, originEntryId: entryId, isExtraction: true }
             }, { session }).catch(err => logger.debug(`Ego-edge failed for ${e.name}`));
         }
@@ -183,6 +195,7 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
                     toId: target.id,
                     toType: target.type,
                     relation: rel.type as EdgeType,
+                    sourceEntryId: entryId,
                     metadata: { ...rel.metadata, sourceName: rel.source, targetName: rel.target, originEntryId: entryId }
                 }, { session }).catch(err => logger.warn(`Relation ${rel.type} failed: ${err.message}`));
             }

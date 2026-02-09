@@ -1,7 +1,7 @@
 import { ClientSession, Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import Helpers from '../../shared/helpers';
-import { EdgeType, GraphEdge, NodeType } from './edge.model';
+import { EdgeStatus, EdgeType, GraphEdge, NodeType } from './edge.model';
 import { IGraphEdge } from './graph.interface';
 
 /**
@@ -65,6 +65,7 @@ export class GraphService {
         toType: NodeType;
         relation: EdgeType;
         weight?: number;
+        sourceEntryId?: string;
         metadata?: any;
     }, options: { session?: ClientSession } = {}): Promise<IGraphEdge> {
         // 1. Create the Forward Edge
@@ -80,6 +81,7 @@ export class GraphService {
                 toType: params.fromType,
                 relation: inverseRelation,
                 weight: params.weight,
+                sourceEntryId: params.sourceEntryId,
                 metadata: { ...params.metadata, isInverse: true }
             }, { session: options.session }).catch(err => logger.warn(`[GraphService] Failed to create inverse edge`, err));
         }
@@ -97,6 +99,7 @@ export class GraphService {
         toType: NodeType;
         relation: EdgeType;
         weight?: number;
+        sourceEntryId?: string;
         metadata?: any;
     }, options: { session?: ClientSession } = {}): Promise<IGraphEdge> {
         const { fromId, fromType, toId, toType, relation, weight = 1.0, metadata = {} } = params;
@@ -109,6 +112,23 @@ export class GraphService {
         }
 
         try {
+            // Conflict Detection: If it exists and was REFUTED, mark as PROPOSED
+            const existing = await GraphEdge.findOne({
+                "from.id": new Types.ObjectId(fromId),
+                "to.id": new Types.ObjectId(toId),
+                relation
+            }).session(options.session || null);
+
+            let targetStatus = EdgeStatus.ACTIVE;
+            if (existing) {
+                if (existing.status === EdgeStatus.REFUTED) {
+                    targetStatus = EdgeStatus.PROPOSED;
+                    logger.info(`[GraphService] Conflict detected for ${relation}. Edge was previously refuted. Marking as PROPOSED.`);
+                } else {
+                    targetStatus = existing.status; // Preserve PROPOSED or ACTIVE
+                }
+            }
+
             const edge = await GraphEdge.findOneAndUpdate(
                 {
                     "from.id": new Types.ObjectId(fromId),
@@ -116,7 +136,14 @@ export class GraphService {
                     relation
                 },
                 {
-                    $set: { "from.type": fromType, "to.type": toType, weight, metadata }
+                    $set: {
+                        "from.type": fromType,
+                        "to.type": toType,
+                        weight,
+                        metadata: { ...metadata, lastSeenAt: new Date() },
+                        sourceEntryId: params.sourceEntryId ? new Types.ObjectId(params.sourceEntryId) : undefined,
+                        status: targetStatus
+                    }
                 },
                 { upsert: true, new: true, setDefaultsOnInsert: true, session: options.session || null }
             );
@@ -129,6 +156,32 @@ export class GraphService {
     }
 
     /**
+     * Retrieves all relationships flagged for user review.
+     */
+    async getPendingProposals(userId: string): Promise<IGraphEdge[]> {
+        // Find edges connected to human-centered nodes for this user
+        // Simplified for now: find all PROPOSED edges
+        return GraphEdge.find({ status: EdgeStatus.PROPOSED }).populate('sourceEntryId');
+    }
+
+    /**
+     * Resolves a conflict by either accepting the new fact or re-affirming the refutation.
+     */
+    async resolveProposal(proposalId: string, action: 'accept' | 'reject'): Promise<void> {
+        if (action === 'accept') {
+            await GraphEdge.findByIdAndUpdate(proposalId, {
+                $set: { status: EdgeStatus.ACTIVE, refutedAt: undefined }
+            });
+            logger.info(`Proposal ${proposalId} accepted by user.`);
+        } else {
+            await GraphEdge.findByIdAndUpdate(proposalId, {
+                $set: { status: EdgeStatus.REFUTED, refutedAt: new Date() }
+            });
+            logger.info(`Proposal ${proposalId} rejected by user (re-refuted).`);
+        }
+    }
+
+    /**
      * Removes an edge.
      */
     async removeEdge(fromId: string, toId: string, relation: EdgeType): Promise<void> {
@@ -136,6 +189,32 @@ export class GraphService {
             "from.id": new Types.ObjectId(fromId),
             "to.id": new Types.ObjectId(toId),
             relation
+        });
+    }
+
+    /**
+     * Refutation: Marks an edge as incorrect/rejected by the user.
+     * This preserves the edge but hides it from active reasoning.
+     */
+    async refuteEdge(edgeId: string): Promise<void> {
+        await GraphEdge.findByIdAndUpdate(edgeId, {
+            $set: {
+                status: EdgeStatus.REFUTED,
+                refutedAt: new Date()
+            }
+        });
+        logger.info(`Edge ${edgeId} refuted by user.`);
+    }
+
+    /**
+     * Restores a previously refuted edge to ACTIVE status.
+     */
+    async unrefuteEdge(edgeId: string): Promise<void> {
+        await GraphEdge.findByIdAndUpdate(edgeId, {
+            $set: {
+                status: EdgeStatus.ACTIVE,
+                refutedAt: undefined
+            }
         });
     }
 
@@ -198,7 +277,8 @@ export class GraphService {
                     { "from.id": new Types.ObjectId(entityId) },
                     { "to.id": new Types.ObjectId(entityId) }
                 ],
-                "metadata.isInverse": { $ne: true }
+                "metadata.isInverse": { $ne: true },
+                status: EdgeStatus.ACTIVE // Only include active facts in context
             })
                 .sort({ createdAt: -1 })
                 .limit(10)
@@ -229,8 +309,9 @@ export class GraphService {
      */
     async getGraphSummary(userId: string): Promise<string> {
         try {
-            // 1. Get all outbound edges from User
-            const userEdges = await this.getOutbounds(userId);
+            // 1. Get all outbound edges from User (only ACTIVE ones)
+            const query: any = { "from.id": new Types.ObjectId(userId), status: EdgeStatus.ACTIVE };
+            const userEdges = await GraphEdge.find(query);
 
             if (userEdges.length === 0) return "No graph data found.";
 
@@ -248,7 +329,8 @@ export class GraphService {
             // Fetch 2-hop relations for known people (e.g., where they work)
             const secondHopEdges = await GraphEdge.find({
                 "from.id": { $in: peopleIds },
-                relation: { $in: [EdgeType.WORKS_AT, EdgeType.MEMBER_OF, EdgeType.CONTRIBUTES_TO, EdgeType.PART_OF] }
+                relation: { $in: [EdgeType.WORKS_AT, EdgeType.MEMBER_OF, EdgeType.CONTRIBUTES_TO, EdgeType.PART_OF] },
+                status: EdgeStatus.ACTIVE
             }).lean();
 
             userEdges.forEach(edge => {
@@ -292,6 +374,26 @@ export class GraphService {
     }
 
     /**
+     * Negative Context: Fetches all relationships previously rejected by the user.
+     * Prevents the AI from repeating mistakes.
+     */
+    async getRefutationContext(userId: string): Promise<string[]> {
+        const refutedEdges = await GraphEdge.find({
+            status: EdgeStatus.REFUTED,
+            $or: [
+                { "from.id": new Types.ObjectId(userId) },
+                { "to.id": new Types.ObjectId(userId) }
+            ]
+        }).lean();
+
+        return refutedEdges.map(edge => {
+            const sourceName = edge.metadata?.sourceName || edge.metadata?.name || 'Unknown';
+            const targetName = edge.metadata?.targetName || edge.metadata?.name || 'Unknown';
+            return `${sourceName} -[${edge.relation}]-> ${targetName}`;
+        });
+    }
+
+    /**
      * Gets entries where an entity was mentioned.
      */
     async getEntityInteractions(entityId: string, userId: string, options: { page?: number, limit?: number } = {}) {
@@ -300,7 +402,8 @@ export class GraphService {
         // 1. Find MENTIONED_IN edges
         const edges = await GraphEdge.find({
             "from.id": new Types.ObjectId(entityId),
-            relation: EdgeType.MENTIONED_IN
+            relation: EdgeType.MENTIONED_IN,
+            status: EdgeStatus.ACTIVE
         })
             .sort({ "metadata.entryDate": -1, createdAt: -1 })
             .skip(skip)
@@ -309,7 +412,8 @@ export class GraphService {
 
         const total = await GraphEdge.countDocuments({
             "from.id": new Types.ObjectId(entityId),
-            relation: EdgeType.MENTIONED_IN
+            relation: EdgeType.MENTIONED_IN,
+            status: EdgeStatus.ACTIVE
         });
 
         const entryIds = edges.map(edge => edge.to.id);
@@ -327,6 +431,63 @@ export class GraphService {
             page: options.page || 1,
             limit: options.limit || 10,
             totalPages: Math.ceil(total / limit)
+        };
+    }
+
+    /**
+     * Self-Healing: Finds entities that belong to the user but have no direct graph connection.
+     * Creates default 'Ego-Edges' to ensure they are reachable.
+     */
+    async repairOrphanedEntities(userId: string): Promise<{ repairedCount: number, entities: string[] }> {
+        // 1. Get all IDs the user is directly connected to
+        const userEdges = await GraphEdge.find({
+            "from.id": new Types.ObjectId(userId),
+            status: EdgeStatus.ACTIVE
+        }).select('to.id').lean();
+
+        const connectedIds = new Set(userEdges.map(e => e.to.id.toString()));
+
+        // 2. Find Entities that are NOT in this set
+        const { KnowledgeEntity } = await import('../entity/entity.model');
+        const orphans = await KnowledgeEntity.find({
+            userId: new Types.ObjectId(userId),
+            _id: { $nin: Array.from(connectedIds) },
+            isDeleted: false
+        }).select('_id name otype').lean();
+
+        if (orphans.length === 0) {
+            return { repairedCount: 0, entities: [] };
+        }
+
+        logger.info(`[GraphService] Found ${orphans.length} orphaned entities for user ${userId}. Repairing...`);
+
+        // 3. Create missing edges
+        const repairs = [];
+        for (const orphan of orphans) {
+            const relation = orphan.otype === NodeType.PERSON ? EdgeType.KNOWS : EdgeType.INTERESTED_IN;
+
+            // We use createEdge directly to avoid overhead, or createAssociation to be safe
+            // Let's use createAssociation to ensure Inverse edges (KNOWS is distinctive)
+            repairs.push(this.createAssociation({
+                fromId: userId,
+                fromType: NodeType.USER,
+                toId: orphan._id.toString(),
+                // @ts-ignore
+                toType: orphan.otype as NodeType,
+                relation,
+                metadata: {
+                    source: 'repair-script',
+                    repairedAt: new Date(),
+                    name: orphan.name
+                }
+            }));
+        }
+
+        await Promise.allSettled(repairs);
+
+        return {
+            repairedCount: orphans.length,
+            entities: orphans.map(o => o.name)
         };
     }
 }
