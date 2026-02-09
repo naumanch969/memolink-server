@@ -472,7 +472,6 @@ export class GraphService {
                 fromId: userId,
                 fromType: NodeType.USER,
                 toId: orphan._id.toString(),
-                // @ts-ignore
                 toType: orphan.otype as NodeType,
                 relation,
                 metadata: {
