@@ -23,6 +23,8 @@ const userSchema = new Schema<IUser>({
     theme: { type: String, enum: ['light', 'dark', 'auto', 'system'], default: 'system', },
     notifications: { type: Boolean, default: true, },
     privacy: { type: String, enum: ['public', 'private'], default: 'private', },
+    webActivityTrackingEnabled: { type: Boolean, default: true },
+    webActivityAutoClassification: { type: Boolean, default: true },
     communication: {
       newsletter: { type: Boolean, default: true },
       productUpdates: { type: Boolean, default: true },

@@ -17,6 +17,8 @@ export interface IUser extends BaseEntity {
     theme: 'light' | 'dark' | 'auto' | 'system';
     notifications: boolean;
     privacy: 'public' | 'private';
+    webActivityTrackingEnabled: boolean;
+    webActivityAutoClassification: boolean;
     communication?: {
       newsletter: boolean;
       productUpdates: boolean;
