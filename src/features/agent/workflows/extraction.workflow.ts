@@ -1,7 +1,7 @@
 import { default as mongooseNative } from 'mongoose';
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import { KnowledgeEntity } from '../../entity/entity.model';
 import { entityService } from '../../entity/entity.service';
 import Entry from '../../entry/entry.model';

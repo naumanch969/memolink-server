@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import { AgentWorkflow } from '../agent.types';
 

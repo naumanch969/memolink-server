@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { LLMService } from '../../core/llm/LLMService';
+import { LLMService } from '../../core/llm/llm.service';
 import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
 import KnowledgeEntity from '../entity/entity.model';

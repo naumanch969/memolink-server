@@ -1,5 +1,5 @@
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { graphService } from '../../graph/graph.service';
 import { AGENT_CONSTANTS } from '../agent.constants';

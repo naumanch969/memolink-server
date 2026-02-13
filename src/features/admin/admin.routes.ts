@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../../core/middleware/authMiddleware';
 import { USER_ROLES } from '../../shared/constants';
 import { AdminController } from './admin.controller';
+import { llmUsageAdminRouter } from '../llm-usage/llm-usage.routes';
 
 const router = Router();
 
@@ -45,5 +46,8 @@ router.patch('/configuration/:key', AdminController.updateSystemConfig);
 router.get('/backups', AdminController.getBackups);
 router.get('/backups/runs', AdminController.getBackupRuns);
 router.post('/backups/trigger', AdminController.triggerBackup);
+
+// Costs
+router.use('/costs', llmUsageAdminRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import { DataType } from '../../../shared/types';
 import { entryService } from '../../entry/entry.service';
 import { goalService } from '../../goal/goal.service';

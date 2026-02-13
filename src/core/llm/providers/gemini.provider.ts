@@ -1,8 +1,9 @@
-import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
+import { GenerateContentResponse, GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { ZodSchema } from 'zod';
 import { logger } from '../../../config/logger';
+import { llmUsageService } from '../../../features/llm-usage/llm-usage.service';
 import { withRetry } from '../../utils/retry';
-import { LLMGenerativeOptions, LLMProvider } from '../types';
+import { LLMGenerativeOptions, LLMProvider } from '../llm.types';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
@@ -17,6 +18,30 @@ export class GeminiProvider implements LLMProvider {
         }
         this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         this.model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
+    }
+
+    /**
+     * Extracts usageMetadata from a Gemini response and logs it via the usage service.
+     * Fire-and-forget: never blocks or throws.
+     */
+    private logUsage(
+        response: GenerateContentResponse,
+        model: string,
+        startTime: number,
+        options?: LLMGenerativeOptions
+    ): void {
+        const usage = response.usageMetadata;
+        if (!usage) return;
+
+        llmUsageService.log({
+            userId: options?.userId ?? 'system',
+            workflow: options?.workflow ?? 'unknown',
+            modelName: model,
+            promptTokens: usage.promptTokenCount ?? 0,
+            completionTokens: usage.candidatesTokenCount ?? 0,
+            totalTokens: usage.totalTokenCount ?? 0,
+            durationMs: Date.now() - startTime,
+        });
     }
 
     async generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string> {
@@ -35,6 +60,7 @@ export class GeminiProvider implements LLMProvider {
                 responseMimeType: options?.jsonMode ? 'application/json' : 'text/plain',
             };
 
+            const startTime = Date.now();
             const response = await withRetry(async () => {
                 const result = await modelToUse.generateContent({
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -43,6 +69,7 @@ export class GeminiProvider implements LLMProvider {
                 return result.response;
             }, { operationName: 'Gemini.generateText' });
 
+            this.logUsage(response, DEFAULT_MODEL, startTime, options);
             return response.text();
         } catch (error) {
             // Error is already logged by withRetry if it exhausts attempts, 
@@ -141,6 +168,7 @@ export class GeminiProvider implements LLMProvider {
                 maxOutputTokens: options?.maxOutputTokens,
             };
 
+            const startTime = Date.now();
             const response = await withRetry(async () => {
                 const result = await modelToUse.generateContent({
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -148,6 +176,8 @@ export class GeminiProvider implements LLMProvider {
                 });
                 return result.response;
             }, { operationName: 'Gemini.generateWithTools' });
+
+            this.logUsage(response, DEFAULT_MODEL, startTime, options);
 
             // Check for function calls
             const functionCalls = response.functionCalls();
@@ -167,12 +197,27 @@ export class GeminiProvider implements LLMProvider {
         }
     }
 
-    async generateEmbeddings(text: string): Promise<number[]> {
+    async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         try {
+            const startTime = Date.now();
+            const embeddingModelName = 'text-embedding-004';
             const result = await withRetry(async () => {
-                const embeddingModel = this.client.getGenerativeModel({ model: 'text-embedding-004' });
+                const embeddingModel = this.client.getGenerativeModel({ model: embeddingModelName });
                 return await embeddingModel.embedContent(text);
             }, { operationName: 'Gemini.generateEmbeddings' });
+
+            // embedContent doesn't return usageMetadata, so estimate token count
+            const estimatedTokens = Math.ceil(text.length / 4);
+            llmUsageService.log({
+                userId: options?.userId ?? 'system',
+                workflow: options?.workflow ?? 'embedding',
+                modelName: embeddingModelName,
+                promptTokens: estimatedTokens,
+                completionTokens: 0,
+                totalTokens: estimatedTokens,
+                durationMs: Date.now() - startTime,
+            });
+
             return result.embedding.values;
         } catch (error) {
             logger.error('Gemini generateEmbeddings error:', error);

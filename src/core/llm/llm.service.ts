@@ -1,7 +1,7 @@
 import { ZodSchema } from 'zod';
-import { GeminiProvider } from './providers/GeminiProvider';
-import { LLMGenerativeOptions, LLMProvider } from './types';
 import { CacheService } from '../cache/CacheService';
+import { LLMGenerativeOptions, LLMProvider } from './llm.types';
+import { GeminiProvider } from './providers/gemini.provider';
 
 class LLMServiceClass {
     private provider: LLMProvider;
@@ -36,7 +36,7 @@ class LLMServiceClass {
         return this.provider.generateWithTools(prompt, options);
     }
 
-    async generateEmbeddings(text: string): Promise<number[]> {
+    async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         if (!this.provider.generateEmbeddings) {
             throw new Error('Current provider does not support embeddings');
         }
@@ -48,7 +48,7 @@ class LLMServiceClass {
             return cached;
         }
 
-        const embeddings = await this.provider.generateEmbeddings(text);
+        const embeddings = await this.provider.generateEmbeddings(text, options);
 
         // Cache the result
         await CacheService.set(cacheKey, embeddings);

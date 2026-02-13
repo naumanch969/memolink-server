@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { redisConnection } from '../../../config/redis';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { NodeType } from '../../graph/edge.model';
 import { AGENT_CONSTANTS } from '../agent.constants';

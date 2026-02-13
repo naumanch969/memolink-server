@@ -1,5 +1,5 @@
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import { entryService } from '../../entry/entry.service';
 import { WebActivity } from '../../web-activity/web-activity.model';
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '../config/logger';
-import { GeminiProvider } from '../core/llm/providers/GeminiProvider';
+import { GeminiProvider } from '../core/llm/providers/gemini.provider';
 
 // Mock the logger
 jest.mock('../config/logger', () => ({

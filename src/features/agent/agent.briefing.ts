@@ -1,5 +1,5 @@
 import { logger } from '../../config/logger';
-import { LLMService } from '../../core/llm/LLMService';
+import { LLMService } from '../../core/llm/llm.service';
 import DateManager from '../../core/utils/DateManager';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';

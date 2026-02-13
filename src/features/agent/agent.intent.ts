@@ -2,7 +2,7 @@
 import * as chrono from 'chrono-node';
 import { z } from 'zod';
 import { logger } from '../../config/logger';
-import { LLMService } from '../../core/llm/LLMService';
+import { LLMService } from '../../core/llm/llm.service';
 import { ChatMessage } from './agent.memory';
 
 // 1. Define Intention Types

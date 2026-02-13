@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/LLMService';
+import { LLMService } from '../../../core/llm/llm.service';
 import Entry from '../../entry/entry.model';
 import { AgentWorkflowResult } from '../agent.types';
 import { UserPersona } from '../persona.model';
