@@ -31,7 +31,7 @@ export interface UserListResult {
     totalPages: number;
 }
 
-export class AdminUserService {
+export class UsersAdminService {
 
     /**
      * Get all users with pagination and filtering
@@ -159,7 +159,16 @@ export class AdminUserService {
             deletedCounts.tags = await tagService.deleteUserData(userId);
             deletedCounts.media = await mediaService.deleteUserData(userId);
             deletedCounts.folders = await folderService.deleteUserData(userId);
-            deletedCounts.routines = await routineService.deleteUserData(userId);
+
+            const routineDeletion = await routineService.deleteUserData(userId);
+            if (typeof routineDeletion === 'number') {
+                deletedCounts.routines = routineDeletion;
+            } else {
+                deletedCounts.routineTemplates = routineDeletion.templates;
+                deletedCounts.routineLogs = routineDeletion.logs;
+                deletedCounts.routinePreferences = routineDeletion.preferences;
+            }
+
             deletedCounts.goals = await goalService.deleteUserData(userId);
             deletedCounts.reminders = await reminderService.deleteUserData(userId);
             deletedCounts.notifications = await notificationService.deleteUserData(userId);
@@ -218,4 +227,4 @@ export class AdminUserService {
     }
 }
 
-export const adminUserService = new AdminUserService();
+export const usersAdminService = new UsersAdminService();

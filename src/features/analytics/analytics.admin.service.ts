@@ -56,7 +56,7 @@ export interface RetentionStats {
     retention: number;
 }
 
-export class AdminAnalyticsService {
+export class AnalyticsAdminService {
 
     /**
      * Get user signups grouped by date (last 30 days)
@@ -291,4 +291,4 @@ export class AdminAnalyticsService {
     }
 }
 
-export const adminAnalyticsService = new AdminAnalyticsService();
+export const analyticsAdminService = new AnalyticsAdminService();

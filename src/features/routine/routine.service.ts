@@ -1071,15 +1071,20 @@ export class RoutineService {
     }
 
     // Delete all user data (Cascade Delete)
-    async deleteUserData(userId: string): Promise<number> {
+    async deleteUserData(userId: string): Promise<{ templates: number; logs: number; preferences: number }> {
         const [templates, logs, prefs] = await Promise.all([
             RoutineTemplate.deleteMany({ userId }),
             RoutineLog.deleteMany({ userId }),
             UserRoutinePreferences.deleteMany({ userId })
         ]);
-        const total = (templates.deletedCount || 0) + (logs.deletedCount || 0) + (prefs.deletedCount || 0);
-        logger.info(`Deleted ${total} routine items for user ${userId}`);
-        return total;
+
+        logger.info(`Deleted routine items for user ${userId}: ${templates.deletedCount} templates, ${logs.deletedCount} logs`);
+
+        return {
+            templates: templates.deletedCount || 0,
+            logs: logs.deletedCount || 0,
+            preferences: prefs.deletedCount || 0
+        };
     }
 
 }

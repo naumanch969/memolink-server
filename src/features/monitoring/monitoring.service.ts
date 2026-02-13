@@ -44,7 +44,7 @@ export interface JobQueueParams {
     paused?: boolean;
 }
 
-class MonitorService {
+export class MonitoringService {
     /**
      * Get low-level system metrics (CPU, Memory, Uptime)
      */
@@ -166,4 +166,4 @@ class MonitorService {
     }
 }
 
-export const monitorService = new MonitorService();
+export const monitoringService = new MonitoringService();
