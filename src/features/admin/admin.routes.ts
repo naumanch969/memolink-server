@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { USER_ROLES } from '../../shared/constants';
 import { analyticsAdminRouter } from '../analytics/analytics.admin.routes';
 import { llmUsageAdminRouter } from '../llm-usage/llm-usage.routes';
 import monitoringRouter from '../monitoring/monitoring.routes';
 import { usersAdminRouter } from '../users/users.admin.routes';
 import { AdminController } from './admin.controller';
+import { updateConfigValidation } from './admin.validations';
 
 const router = Router();
 
@@ -24,7 +26,7 @@ router.use('/users', usersAdminRouter);
 
 // System Configuration
 router.get('/configuration', AdminController.getSystemConfigs);
-router.patch('/configuration/:key', AdminController.updateSystemConfig);
+router.patch('/configuration/:key', updateConfigValidation, ValidationMiddleware.validate, AdminController.updateSystemConfig);
 
 // Backups
 router.get('/backups', AdminController.getBackups);

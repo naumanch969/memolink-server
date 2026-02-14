@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 import { ErrorMiddleware } from './middleware/error.middleware';
-import { errorTrackingMiddleware, monitoringMiddleware, requestContextMiddleware } from './middleware/monitoring.middleware';
+import { MonitoringMiddleware } from './middleware/monitoring.middleware';
 import routes from './routes/index';
 
 const app = express();
@@ -65,8 +65,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Monitoring middleware - must be after body parsing
-app.use(requestContextMiddleware);
-app.use(monitoringMiddleware);
+app.use(MonitoringMiddleware.addRequestContext);
+app.use(MonitoringMiddleware.monitorHTTP);
 
 // Request logging
 app.use((req, res, next) => {
@@ -104,7 +104,7 @@ if (config.SENTRY_DSN_URL) {
 app.use(ErrorMiddleware.notFound);
 
 // Error tracking middleware
-app.use(errorTrackingMiddleware);
+app.use(MonitoringMiddleware.errorTrackingMiddleware);
 
 // Error handling middleware
 app.use(ErrorMiddleware.handle);

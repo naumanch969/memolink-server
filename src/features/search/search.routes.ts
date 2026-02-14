@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import { SearchController } from './search.controller';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
+import { SearchController } from './search.controller';
+import { globalSearchValidation } from './search.validations';
 
 const router = Router();
 
 router.use(AuthMiddleware.authenticate);
 
-router.get('/global', SearchController.globalSearch);
+// Global Search
+router.get('/global', globalSearchValidation, ValidationMiddleware.validate, SearchController.globalSearch);
 
 export default router;

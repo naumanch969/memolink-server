@@ -1,41 +1,31 @@
 import { Router } from 'express';
-import { validationMiddleware } from '../../core/middleware/validation.middleware';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { RoutineController } from './routine.controller';
 import { createRoutineTemplateValidation, getRoutineAnalyticsValidation, getRoutineStatsValidation, reorderRoutinesValidation, routineIdValidation, updateRoutineTemplateValidation } from './routine.validations';
-import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(AuthMiddleware.authenticate);
 
-// ============================================
-// ROUTINE TEMPLATE ROUTES
-// ============================================
+
 
 // Analytics (must be before /:id routes)
-router.get('/analytics', getRoutineAnalyticsValidation, validationMiddleware, RoutineController.getRoutineAnalytics);
+router.get('/analytics', getRoutineAnalyticsValidation, ValidationMiddleware.validate, RoutineController.getRoutineAnalytics);
 
 // Reorder routines
-router.patch('/reorder', reorderRoutinesValidation, validationMiddleware, RoutineController.reorderRoutineTemplates);
+router.patch('/reorder', reorderRoutinesValidation, ValidationMiddleware.validate, RoutineController.reorderRoutineTemplates);
 
 // CRUD operations
-router.post('/', createRoutineTemplateValidation, validationMiddleware, RoutineController.createRoutineTemplate);
-
+router.post('/', createRoutineTemplateValidation, ValidationMiddleware.validate, RoutineController.createRoutineTemplate);
 router.get('/', RoutineController.getRoutineTemplates);
-
-router.get('/:id/stats', routineIdValidation, getRoutineStatsValidation, validationMiddleware, RoutineController.getRoutineStats);
-
-router.get('/:id', routineIdValidation, validationMiddleware, RoutineController.getRoutineTemplateById);
-
-router.patch('/:id', routineIdValidation, updateRoutineTemplateValidation, validationMiddleware, RoutineController.updateRoutineTemplate);
-
-router.patch('/:id/pause', routineIdValidation, validationMiddleware, RoutineController.pauseRoutineTemplate);
-
-router.patch('/:id/archive', routineIdValidation, validationMiddleware, RoutineController.archiveRoutineTemplate);
-
-router.patch('/:id/unarchive', routineIdValidation, validationMiddleware, RoutineController.unarchiveRoutineTemplate);
-
-router.delete('/:id', routineIdValidation, validationMiddleware, RoutineController.deleteRoutineTemplate);
+router.get('/:id/stats', routineIdValidation, getRoutineStatsValidation, ValidationMiddleware.validate, RoutineController.getRoutineStats);
+router.get('/:id', routineIdValidation, ValidationMiddleware.validate, RoutineController.getRoutineTemplateById);
+router.patch('/:id', routineIdValidation, updateRoutineTemplateValidation, ValidationMiddleware.validate, RoutineController.updateRoutineTemplate);
+router.patch('/:id/pause', routineIdValidation, ValidationMiddleware.validate, RoutineController.pauseRoutineTemplate);
+router.patch('/:id/archive', routineIdValidation, ValidationMiddleware.validate, RoutineController.archiveRoutineTemplate);
+router.patch('/:id/unarchive', routineIdValidation, ValidationMiddleware.validate, RoutineController.unarchiveRoutineTemplate);
+router.delete('/:id', routineIdValidation, ValidationMiddleware.validate, RoutineController.deleteRoutineTemplate);
 
 export default router;

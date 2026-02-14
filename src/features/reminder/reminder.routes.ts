@@ -1,8 +1,7 @@
 import { Router } from 'express';
-import { validationMiddleware } from '../../core/middleware/validation.middleware';
-import { ReminderController } from './reminder.controller';
-import { completeReminderValidation, createReminderValidation, getRemindersQueryValidation, reminderIdValidation, updateReminderValidation, } from './reminder.validation';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ReminderController } from './reminder.controller';
+import { completeReminderValidation, createReminderValidation, getRemindersQueryValidation, reminderIdValidation, updateReminderValidation, } from './reminder.validations';
 
 const router = Router();
 
@@ -10,10 +9,10 @@ const router = Router();
 router.use(AuthMiddleware.authenticate);
 
 // Create reminder
-router.post('/', createReminderValidation, validationMiddleware, ReminderController.createReminder);
+router.post('/', createReminderValidation, ValidationMiddleware.validate, ReminderController.createReminder);
 
 // Get all reminders with filters
-router.get('/', getRemindersQueryValidation, validationMiddleware, ReminderController.getReminders);
+router.get('/', getRemindersQueryValidation, ValidationMiddleware.validate, ReminderController.getReminders);
 
 // Get upcoming reminders
 router.get('/upcoming', ReminderController.getUpcomingReminders);
@@ -22,18 +21,18 @@ router.get('/upcoming', ReminderController.getUpcomingReminders);
 router.get('/overdue', ReminderController.getOverdueReminders);
 
 // Get single reminder
-router.get('/:id', reminderIdValidation, validationMiddleware, ReminderController.getReminderById);
+router.get('/:id', reminderIdValidation, ValidationMiddleware.validate, ReminderController.getReminderById);
 
 // Update reminder
-router.patch('/:id', reminderIdValidation, updateReminderValidation, validationMiddleware, ReminderController.updateReminder);
+router.patch('/:id', reminderIdValidation, updateReminderValidation, ValidationMiddleware.validate, ReminderController.updateReminder);
 
 // Complete reminder
-router.patch('/:id/complete', reminderIdValidation, completeReminderValidation, validationMiddleware, ReminderController.completeReminder);
+router.patch('/:id/complete', reminderIdValidation, completeReminderValidation, ValidationMiddleware.validate, ReminderController.completeReminder);
 
 // Cancel reminder
-router.patch('/:id/cancel', reminderIdValidation, validationMiddleware, ReminderController.cancelReminder);
+router.patch('/:id/cancel', reminderIdValidation, ValidationMiddleware.validate, ReminderController.cancelReminder);
 
 // Delete reminder
-router.delete('/:id', reminderIdValidation, validationMiddleware, ReminderController.deleteReminder);
+router.delete('/:id', reminderIdValidation, ValidationMiddleware.validate, ReminderController.deleteReminder);
 
 export default router;

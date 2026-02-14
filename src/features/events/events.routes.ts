@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import { EventsController } from './events.controller';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
+import { EventsController } from './events.controller';
+import { ingestEventsValidation } from './events.validations';
 
 const router = Router();
 
 router.use(AuthMiddleware.authenticate);
 
-router.post('/', EventsController.ingest);
+router.post('/', ingestEventsValidation, ValidationMiddleware.validate, EventsController.ingest);
 
 export default router;

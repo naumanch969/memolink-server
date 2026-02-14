@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { body, param } from 'express-validator';
-import { validationMiddleware } from '../../core/middleware/validation.middleware';
-import { FolderController } from './folder.controller';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { FolderController } from './folder.controller';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.post(
     body('icon').optional().isString(),
     body('parentId').optional().isMongoId().withMessage('Invalid parent folder ID'),
   ],
-  validationMiddleware,
+  ValidationMiddleware.validate,
   FolderController.createFolder
 );
 
@@ -27,7 +27,7 @@ router.post(
 router.get('/', FolderController.getFolders);
 
 // Get folder by ID
-router.get('/:id', [param('id').isMongoId()], validationMiddleware, FolderController.getFolderById);
+router.get('/:id', [param('id').isMongoId()], ValidationMiddleware.validate, FolderController.getFolderById);
 
 // Update folder
 router.put(
@@ -40,12 +40,12 @@ router.put(
     body('icon').optional().isString(),
     body('parentId').optional().isMongoId(),
   ],
-  validationMiddleware,
+  ValidationMiddleware.validate,
   FolderController.updateFolder
 );
 
 // Delete folder
-router.delete('/:id', [param('id').isMongoId()], validationMiddleware, FolderController.deleteFolder);
+router.delete('/:id', [param('id').isMongoId()], ValidationMiddleware.validate, FolderController.deleteFolder);
 
 // Move folder items to another folder
 router.post(
@@ -54,7 +54,7 @@ router.post(
     param('id').isMongoId(),
     body('targetFolderId').optional().isMongoId().withMessage('Invalid target folder ID'),
   ],
-  validationMiddleware,
+  ValidationMiddleware.validate,
   FolderController.moveFolderItems
 );
 
