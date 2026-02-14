@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { logViewerService } from './log-viewer.service';
 import { monitoringService } from './monitoring.service';

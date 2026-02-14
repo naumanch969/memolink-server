@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { logger } from '../../../config/logger';
-import { EmailProvider } from '../../../core/email/EmailProvider';
+import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
 import { QueueService } from '../../../core/queue/QueueService';
 import { validateEmailOrThrow } from '../../../shared/email-validator';

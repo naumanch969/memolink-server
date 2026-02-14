@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { announcementService } from './announcement.service';
 
 export class AnnouncementController {

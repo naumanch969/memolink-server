@@ -1,6 +1,6 @@
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/llm.service';
-import DateManager from '../../core/utils/DateManager';
+import DateManager from '../../core/utils/date-manager.util';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
 import { graphService } from '../graph/graph.service';

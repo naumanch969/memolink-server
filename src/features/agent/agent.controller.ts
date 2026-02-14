@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
 import { personaService } from './persona.service';

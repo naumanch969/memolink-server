@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import DateManager from '../../core/utils/DateManager';
+import DateManager from '../../core/utils/date-manager.util';
 import { ActivityDefinitions } from './activity-definitions.model';
 import { WebActivitySyncLog } from './web-activity-sync-log.model';
 import { ActivitySyncBatch, IWebActivity } from './web-activity.interfaces';
@@ -260,8 +260,8 @@ export class WebActivityService {
                     // If it's a Map
                     const entries = activity.domainMap instanceof Map ? activity.domainMap.entries() : Object.entries(activity.domainMap);
                     for (const [domain, seconds] of entries) {
-                         const safeDomain = domain.replace(/__dot__/g, '.');
-                         domainAggregates[safeDomain] = (domainAggregates[safeDomain] || 0) + (seconds as number);
+                        const safeDomain = domain.replace(/__dot__/g, '.');
+                        domainAggregates[safeDomain] = (domainAggregates[safeDomain] || 0) + (seconds as number);
                     }
                 }
             });
@@ -309,10 +309,10 @@ export class WebActivityService {
 
             // Format YYYY-MM-DD manually to avoid timezone shifts if using toISOString() on local dates without care
             const formatDate = (d: Date) => {
-                 const y = d.getFullYear();
-                 const m = String(d.getMonth() + 1).padStart(2, '0');
-                 const day = String(d.getDate()).padStart(2, '0');
-                 return `${y}-${m}-${day}`;
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
             };
 
             const fromDate = formatDate(firstDay);
@@ -339,12 +339,12 @@ export class WebActivityService {
                     leastProductiveDay = { date: activity.date, seconds: activity.productiveSeconds };
                 }
 
-               // Merge domain maps
+                // Merge domain maps
                 if (activity.domainMap) {
                     const entries = activity.domainMap instanceof Map ? activity.domainMap.entries() : Object.entries(activity.domainMap);
                     for (const [domain, seconds] of entries) {
-                         const safeDomain = domain.replace(/__dot__/g, '.');
-                         domainAggregates[safeDomain] = (domainAggregates[safeDomain] || 0) + (seconds as number);
+                        const safeDomain = domain.replace(/__dot__/g, '.');
+                        domainAggregates[safeDomain] = (domainAggregates[safeDomain] || 0) + (seconds as number);
                     }
                 }
             });

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreateRoutineLogParams, CreateRoutineTemplateParams, GetRoutineAnalyticsQuery, GetRoutineLogsQuery, GetRoutineStatsQuery, ReorderRoutinesParams, UpdateRoutineLogParams, UpdateRoutineTemplateParams, UpdateUserRoutinePreferencesParams, } from './routine.interfaces';
 import routineService from './routine.service';

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import reminderService from './reminder.service';
 import { CreateReminderRequest, GetRemindersQuery, UpdateReminderRequest } from './reminder.types';

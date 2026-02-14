@@ -1,5 +1,6 @@
 import { logger } from '../../config/logger';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
+import { GeminiCostsSummary, LLMUsageEntry } from './llm-usage.interface';
 import { LLMUsageLog } from './llm-usage.model';
 
 // Gemini 2.5 Flash pricing (USD per token)
@@ -10,45 +11,6 @@ const PRICING_PER_TOKEN = {
 
 type PricedModel = keyof typeof PRICING_PER_TOKEN;
 
-export interface LLMUsageEntry {
-    userId: string;
-    workflow: string;
-    modelName: string;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    durationMs: number;
-}
-
-export interface GeminiCostsSummary {
-    monthly: {
-        totalTokens: number;
-        promptTokens: number;
-        completionTokens: number;
-        estimatedCostUSD: number;
-        totalCalls: number;
-    };
-    dailyTrend: Array<{
-        date: string;
-        totalTokens: number;
-        estimatedCostUSD: number;
-        calls: number;
-    }>;
-    workflowBreakdown: Array<{
-        workflow: string;
-        totalTokens: number;
-        estimatedCostUSD: number;
-        calls: number;
-        percentage: number;
-    }>;
-    averages: {
-        tokensPerCall: number;
-        costPerCall: number;
-        tokensPerUser: number;
-        callsPerDay: number;
-    };
-    projectedMonthEndCostUSD: number;
-}
 
 class LLMUsageService {
 
@@ -73,21 +35,10 @@ class LLMUsageService {
             userId: entry.userId,
         });
 
-        // Optional: Still persist the raw log for granulary/audit, but do it asynchronously
-        // For strict "No Bloat", we might skip this or push it to a low-priority queue.
-        // But for now, let's keep it as a backup but wrap it safely.
-
-        // We can delegate the cost calculation to the bus/buffer manager now, 
-        // but we still need cost for the Log entry below if we keep it.
-        // For consistency, let's recalculate it here just for the raw log document.
         const estimatedCostUSD = this.computeCost(entry.modelName, entry.promptTokens, entry.completionTokens);
 
-        LLMUsageLog.create({
-            ...entry,
-            estimatedCostUSD,
-        }).catch(err => {
-            logger.error('Failed to persist LLM usage log', { error: err.message, entry });
-        });
+        LLMUsageLog.create({ ...entry, estimatedCostUSD, })
+            .catch(err => logger.error('Failed to persist LLM usage log', { error: err.message, entry }));
     }
 
     /**

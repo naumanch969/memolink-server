@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { Helpers } from '../../shared/helpers';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { EdgeType, GraphEdge, NodeType } from '../graph/edge.model';

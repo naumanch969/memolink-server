@@ -1,6 +1,5 @@
 
 import { emailService } from '../../config/email';
-import { CryptoHelper } from '../../core/utils/crypto';
 import { User } from './auth.model';
 import { authService } from './auth.service';
 import { Otp } from './otp.model';
@@ -23,7 +22,7 @@ describe('AuthService', () => {
             const otpCode = '123456';
 
             (User.findByEmail as jest.Mock).mockResolvedValue(null);
-            (CryptoHelper.hashPassword as jest.Mock).mockResolvedValue(hashedPassword);
+            (Crypto.hashPassword as jest.Mock).mockResolvedValue(hashedPassword);
             (Otp.generateOtp as jest.Mock).mockResolvedValue(otpCode);
             (emailService.sendVerificationEmail as jest.Mock).mockResolvedValue(true);
 
@@ -67,9 +66,9 @@ describe('AuthService', () => {
 
             const selectMock = jest.fn().mockResolvedValue(mockUser);
             (User.findOne as jest.Mock).mockReturnValue({ select: selectMock });
-            (CryptoHelper.comparePassword as jest.Mock).mockResolvedValue(true);
-            (CryptoHelper.generateAccessToken as jest.Mock).mockReturnValue('access');
-            (CryptoHelper.generateRefreshToken as jest.Mock).mockReturnValue('refresh');
+            (Crypto.comparePassword as jest.Mock).mockResolvedValue(true);
+            (Crypto.generateAccessToken as jest.Mock).mockReturnValue('access');
+            (Crypto.generateRefreshToken as jest.Mock).mockReturnValue('refresh');
 
             const result = await authService.login(credentials);
 

@@ -1,6 +1,6 @@
 import mongoose, { ClientSession, FilterQuery, Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import DateManager from '../../core/utils/DateManager';
+import DateManager from '../../core/utils/date-manager.util';
 import { ROUTINE_STATUS } from '../../shared/constants';
 import { DataType } from '../../shared/types';
 import { IChecklistConfig, ICounterConfig } from '../../shared/types/dataProperties';

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { webActivityService } from './web-activity.service';
 
@@ -101,7 +101,7 @@ export class WebActivityController {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
         }
     }
-    
+
     /**
      * GET /api/activity/definitions
      */

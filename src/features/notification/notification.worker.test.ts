@@ -1,5 +1,5 @@
 
-import { EventType } from '../../core/events/types';
+import { EventType } from '../../core/events/event.types';
 import notificationDispatcher from './notification.dispatcher';
 import { NotificationType } from './notification.types';
 import notificationWorker from './notification.worker';

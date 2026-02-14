@@ -1,7 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
+import DateManager from '../../core/utils/date-manager.util';
 import { COLLECTIONS, ROUTINE_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
 import { IRoutineLog, IRoutineTemplate, IUserRoutinePreferences } from './routine.interfaces';
-import DateManager from '../../core/utils/DateManager';
 
 // ============================================
 // ROUTINE TEMPLATE SCHEMA

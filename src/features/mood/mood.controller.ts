@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { moodService } from './mood.service';
 
