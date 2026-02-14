@@ -13,7 +13,14 @@ export interface LLMGenerativeOptions {
     workflow?: string;
 }
 
-export interface LLMProvider {
+export interface ILLMService {
+    generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string>
+    generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T>
+    generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any>
+    generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]>
+}
+
+export interface ILLMProvider {
     name: string;
     generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string>;
     generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T>;

@@ -1,23 +1,23 @@
 
 import cron from 'node-cron';
-import { logger } from '../config/logger';
-import { agentAccountability } from '../features/agent/agent.accountability';
-import { agentService } from '../features/agent/agent.service';
-import { AgentTaskType } from '../features/agent/agent.types';
-import { User } from '../features/auth/auth.model';
-import { entryService } from '../features/entry/entry.service';
-import { storageService } from '../features/media/storage.service';
-import { initNotificationProcessor } from '../features/notification/notification.cron';
-import { notificationService } from '../features/notification/notification.service';
-import { WebActivity } from '../features/web-activity/web-activity.model';
-import DateManager from './utils/DateManager';
+import { logger } from '../../config/logger';
+import { agentAccountability } from '../../features/agent/agent.accountability';
+import { agentService } from '../../features/agent/agent.service';
+import { AgentTaskType } from '../../features/agent/agent.types';
+import { User } from '../../features/auth/auth.model';
+import { entryService } from '../../features/entry/entry.service';
+import { storageService } from '../../features/media/storage.service';
+import { initNotificationProcessor } from '../../features/notification/notification.cron';
+import { notificationService } from '../../features/notification/notification.service';
+import { WebActivity } from '../../features/web-activity/web-activity.model';
+import DateManager from '../utils/date-manager.util';
 
 export const initCronJobs = () => {
+
     // Start Notification Processor
     initNotificationProcessor();
 
-    // Self-Healing Tagging: Every 30 minutes
-    // This processes entries that missed AI tagging due to Redis/Network issues
+    // Self-Healing Tagging (processing entries missed by ai): Every 30 minutes
     cron.schedule('*/30 * * * *', async () => {
         logger.info('Running self-healing tagging cron job...');
         await entryService.selfHealEntries(20);

@@ -2,7 +2,7 @@ import { Redis } from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
-import { AccessContext, EventType, MemolinkEvent } from './types';
+import { AccessContext, EventType, MemolinkEvent } from './event.types';
 
 export class EventStream {
     private redis: Redis;

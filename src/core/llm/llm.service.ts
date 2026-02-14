@@ -1,10 +1,10 @@
 import { ZodSchema } from 'zod';
-import { CacheService } from '../cache/CacheService';
-import { LLMGenerativeOptions, LLMProvider } from './llm.types';
+import { CacheService } from '../cache/cache.service';
+import { ILLMProvider, ILLMService, LLMGenerativeOptions } from './llm.types';
 import { GeminiProvider } from './providers/gemini.provider';
 
-class LLMServiceClass {
-    private provider: LLMProvider;
+class LLMServiceClass implements ILLMService {
+    private provider: ILLMProvider;
 
     constructor() {
         // Default to Gemini for now. 
@@ -31,14 +31,14 @@ class LLMServiceClass {
      */
     async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
         if (!this.provider.generateWithTools) {
-            throw new Error('Current provider does not support tools');
+            throw new Error(`Current provider ${this.provider.name} does not support tools`);
         }
         return this.provider.generateWithTools(prompt, options);
     }
 
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         if (!this.provider.generateEmbeddings) {
-            throw new Error('Current provider does not support embeddings');
+            throw new Error(`Current provider ${this.provider.name} does not support embeddings`);
         }
 
         const cacheKey = CacheService.getEmbeddingKey(text);

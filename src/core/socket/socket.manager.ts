@@ -1,7 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Socket, Server as SocketServer } from 'socket.io';
 import { logger } from '../../config/logger';
-import { CryptoHelper } from '../utils/crypto';
 import { socketService } from './socket.service';
 import { SocketEvents } from './socket.types';
 
@@ -43,7 +42,7 @@ export class SocketManager {
             try {
                 // Remove Bearer if present
                 const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
-                const decoded = CryptoHelper.verifyToken(cleanToken);
+                const decoded = Crypto.verifyToken(cleanToken);
 
                 // Attach user data to socket
                 socket.data = {
