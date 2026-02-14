@@ -3,15 +3,11 @@ import { format, parseISO, startOfDay, subDays } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 export class DateManager {
-    /**
-     * Standard format for daily keys (YYYY-MM-DD)
-     */
+
+    // Standard format for daily keys (YYYY-MM-DD)
     private static readonly DAILY_FORMAT = 'yyyy-MM-dd';
 
-    /**
-     * Get the current date key for a specific timezone
-     * Falls back to UTC if no timezone is provided
-     */
+    // Get the current date key for a specific timezone
     static getLocalDateKey(timezone: string = 'UTC', date: Date = new Date()): string {
         try {
             return formatInTimeZone(date, timezone, this.DAILY_FORMAT);
@@ -21,48 +17,36 @@ export class DateManager {
         }
     }
 
-    /**
-     * Get yesterday's date key for a specific timezone
-     */
+    // Get yesterday's date key for a specific timezone
     static getYesterdayDateKey(timezone: string = 'UTC'): string {
         const yesterday = subDays(new Date(), 1);
         return this.getLocalDateKey(timezone, yesterday);
     }
 
-    /**
-     * Parse a date string and return a Date object at the start of that day in the given timezone
-     */
+    // Parse a date string and return a Date object at the start of that day in the given timezone
     static getStartOfDayInTimezone(dateStr: string, timezone: string = 'UTC'): Date {
         const date = parseISO(dateStr);
         const zonedDate = toZonedTime(date, timezone);
         return startOfDay(zonedDate);
     }
 
-    /**
-     * Formats a date for display
-     */
+    // Formats a date for display
     static formatDisplay(date: Date | string, formatStr: string = 'PPP'): string {
         const d = typeof date === 'string' ? parseISO(date) : date;
         return format(d, formatStr);
     }
 
-    /**
-     * Check if a date string is a valid YYYY-MM-DD format
-     */
+    // Check if a date string is a valid YYYY-MM-DD format
     static isValidDateKey(dateStr: string): boolean {
         return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
     }
 
-    /**
-     * Returns the current timestamp in seconds
-     */
+    // Returns the current timestamp in seconds
     static nowInSeconds(): number {
         return Math.floor(Date.now() / 1000);
     }
 
-    /**
-     * Normalizes a date to 00:00:00 UTC
-     */
+    // Normalizes a date to 00:00:00 UTC
     static normalizeToUTC(date: Date | string): Date {
         const d = typeof date === 'string' ? parseISO(date) : new Date(date);
         const normalized = new Date(d);
@@ -70,9 +54,7 @@ export class DateManager {
         return normalized;
     }
 
-    /**
-     * Get a reference date (start of day) based on a timezone offset in minutes
-     */
+    // Get a reference date (start of day) based on a timezone offset in minutes
     static getReferenceNow(timezoneOffset?: number): Date {
         const now = new Date();
         if (timezoneOffset !== undefined) {
@@ -82,9 +64,7 @@ export class DateManager {
         return now;
     }
 
-    /**
-     * Get the difference between two dates in days
-     */
+    // Get the difference between two dates in days
     static getDiffDays(d1: Date, d2: Date): number {
         const msPerDay = 1000 * 60 * 60 * 24;
         const normalized1 = new Date(d1);
@@ -94,9 +74,7 @@ export class DateManager {
         return Math.round((normalized1.getTime() - normalized2.getTime()) / msPerDay);
     }
 
-    /**
-     * Safely parse anything to a Date object at start of day UTC
-     */
+    // Safely parse anything to a Date object at start of day UTC
     static parseToDate(input: any): Date {
         if (!input) return new Date();
         const d = input instanceof Date ? input : parseISO(String(input));

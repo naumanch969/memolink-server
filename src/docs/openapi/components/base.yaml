@@ -1,0 +1,76 @@
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - email
+        - name
+      properties:
+        id:
+          type: string
+          description: Auto-generated ID of the user
+        email:
+          type: string
+          format: email
+          description: User's email address
+        name:
+          type: string
+          description: User's full name
+        avatar:
+          type: string
+          nullable: true
+          description: URL to user's avatar image
+        role:
+          type: string
+          enum: [USER, ADMIN, SUPER_ADMIN]
+          default: USER
+        isEmailVerified:
+          type: boolean
+          default: false
+        isActive:
+          type: boolean
+          default: false
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        preferences:
+          type: object
+          properties:
+            theme:
+              type: string
+              enum: [light, dark, auto, system]
+            notifications:
+              type: boolean
+            privacy:
+              type: string
+              enum: [public, private]
+        storageUsed:
+          type: number
+        storageQuota:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

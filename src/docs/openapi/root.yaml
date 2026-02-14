@@ -1,0 +1,18 @@
+openapi: 3.0.0
+info:
+  title: MemoLink API
+  version: 1.0.0
+  description: API documentation for MemoLink personal journaling and life tracking application
+  contact:
+    name: API Support
+    url: https://github.com/naumanch969/memolink-server
+
+tags:
+  - name: Auth
+    description: User authentication and profile management
+  - name: Utility
+    description: System health and utility endpoints
+  - name: Entries
+    description: Journal and life tracking entries
+  - name: Moods
+    description: Daily mood tracking

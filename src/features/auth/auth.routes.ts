@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { FileUploadMiddleware } from '../../core/middleware/upload.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { AuthController } from './auth.controller';
 import { changePasswordValidation, forgotPasswordValidation, loginValidation, refreshTokenValidation, registerValidation, resendVerificationValidation, resetPasswordValidation, updateProfileValidation, updateSecurityConfigValidation, verifyEmailValidation, verifySecurityAnswerValidation } from './auth.validations';
-import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 
 const router = Router();
 

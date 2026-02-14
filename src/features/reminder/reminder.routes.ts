@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { ReminderController } from './reminder.controller';
 import { completeReminderValidation, createReminderValidation, getRemindersQueryValidation, reminderIdValidation, updateReminderValidation, } from './reminder.validations';
 

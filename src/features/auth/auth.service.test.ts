@@ -1,5 +1,6 @@
 
 import { emailService } from '../../config/email';
+import { cryptoService } from '../../core/crypto/crypto.service';
 import { User } from './auth.model';
 import { authService } from './auth.service';
 import { Otp } from './otp.model';
@@ -7,7 +8,7 @@ import { Otp } from './otp.model';
 jest.mock('./auth.model');
 jest.mock('./otp.model');
 jest.mock('../../config/email');
-jest.mock('../../core/utils/crypto');
+jest.mock('../../core/crypto/crypto.service');
 jest.mock('../../config/logger');
 
 describe('AuthService', () => {
@@ -22,7 +23,7 @@ describe('AuthService', () => {
             const otpCode = '123456';
 
             (User.findByEmail as jest.Mock).mockResolvedValue(null);
-            (Crypto.hashPassword as jest.Mock).mockResolvedValue(hashedPassword);
+            (cryptoService.hashPassword as jest.Mock).mockResolvedValue(hashedPassword);
             (Otp.generateOtp as jest.Mock).mockResolvedValue(otpCode);
             (emailService.sendVerificationEmail as jest.Mock).mockResolvedValue(true);
 
@@ -66,9 +67,9 @@ describe('AuthService', () => {
 
             const selectMock = jest.fn().mockResolvedValue(mockUser);
             (User.findOne as jest.Mock).mockReturnValue({ select: selectMock });
-            (Crypto.comparePassword as jest.Mock).mockResolvedValue(true);
-            (Crypto.generateAccessToken as jest.Mock).mockReturnValue('access');
-            (Crypto.generateRefreshToken as jest.Mock).mockReturnValue('refresh');
+            (cryptoService.comparePassword as jest.Mock).mockResolvedValue(true);
+            (cryptoService.generateAccessToken as jest.Mock).mockReturnValue('access');
+            (cryptoService.generateRefreshToken as jest.Mock).mockReturnValue('refresh');
 
             const result = await authService.login(credentials);
 

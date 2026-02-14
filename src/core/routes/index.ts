@@ -17,6 +17,7 @@ import chunkedUploadRoutes from '../../features/media/chunked-upload.routes';
 import folderRoutes from '../../features/media/folder.routes';
 import mediaRoutes from '../../features/media/media.routes';
 import storageRoutes from '../../features/media/storage.routes';
+import monitoringRoutes from '../../features/monitoring/monitoring.routes';
 import moodRoutes from '../../features/mood/mood.routes';
 import notificationRoutes from '../../features/notification/notification.routes';
 import reminderRoutes from '../../features/reminder/reminder.routes';
@@ -27,12 +28,15 @@ import searchRoutes from '../../features/search/search.routes';
 import tagRoutes from '../../features/tag/tag.routes';
 import webActivityRoutes from '../../features/web-activity/web-activity.routes';
 import widgetRoutes from '../../features/widget/widget.routes';
-import monitoringRoutes from '../../features/monitoring/monitoring.routes';
 
+
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from '../../config/swagger.config';
 
 const router = Router();
 
-// Health check endpoint
+// Health check
+
 router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -42,33 +46,14 @@ router.get('/health', (req, res) => {
   });
 });
 
-// API documentation endpoint
-router.get('/docs', (req, res) => {
-  res.json({
-    name: 'MemoLink API',
-    version: '1.0.0',
-    description: 'Personal journaling and life tracking API',
-    endpoints: {
-      auth: '/api/auth',
-      entries: '/api/entries',
-      tags: '/api/tags',
-      media: '/api/media',
-      folders: '/api/folders',
-      storage: '/api/storage',
-      analytics: '/api/analytics',
-      export: '/api/export',
-      widgets: '/api/widgets',
-      routines: '/api/routines',
-      routineLogs: '/api/routine-logs',
-      routinePreferences: '/api/routine-preferences',
-      reminders: '/api/reminders',
-      goals: '/api/goals',
-      moods: '/api/moods',
-      admin: '/api/admin',
-    },
-    documentation: 'https://github.com/naumanch969/memolink-server',
-  });
-});
+// API documentation
+router.use('/docs', swaggerUi.serve);
+router.get('/docs', swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'MemoLink API Docs',
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+}));
 
 // Feature routes
 router.use('/auth', authRoutes);
