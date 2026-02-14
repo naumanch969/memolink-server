@@ -84,7 +84,7 @@ export class AgentService {
             // 3. AI Intent Analysis (Multi-Intent support)
             let intentResult: IntentResult;
             try {
-                intentResult = await agentIntent.classify(text, history, options.timezone);
+                intentResult = await agentIntent.classify(userId, text, history, options.timezone);
             } catch (aiError) {
                 logger.error("AI Bottleneck: Intent classification failed, falling back to raw entry", aiError);
                 intentResult = {
@@ -218,7 +218,8 @@ export class AgentService {
      */
     async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
         try {
-            const queryVector = await LLMService.generateEmbeddings(text);
+            const queryVector = await LLMService.generateEmbeddings(text, { workflow: 'similarity_search', userId, });
+            
             try {
                 const results = await Entry.aggregate([
                     {
@@ -324,7 +325,7 @@ export class AgentService {
             \`\`\`
         `;
 
-        return await LLMService.generateText(prompt);
+        return await LLMService.generateText(prompt, { workflow: 'goal_architect', userId });
     }
 
     /**

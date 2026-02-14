@@ -98,7 +98,10 @@ export class BriefingService {
             ${proposalsContext || 'None.'}
             `;
 
-            return await LLMService.generateText(prompt);
+            return await LLMService.generateText(prompt, {
+                workflow: 'daily_briefing',
+                userId,
+            });
         } catch (error) {
             logger.error('Failed to generate daily briefing', error);
             return "Good morning. I was unable to compile your full briefing at this time.";

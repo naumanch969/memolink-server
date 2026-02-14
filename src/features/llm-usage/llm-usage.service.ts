@@ -1,6 +1,6 @@
 import { logger } from '../../config/logger';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
-import { GeminiCostsSummary, LLMUsageEntry } from './llm-usage.interface';
+import { GeminiCostsSummary, LLMUsageEntry, LLMUsageLogDetail } from './llm-usage.interface';
 import { LLMUsageLog } from './llm-usage.model';
 
 // Gemini 2.5 Flash pricing (USD per token)
@@ -48,10 +48,11 @@ class LLMUsageService {
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const [monthlyAgg, dailyAgg, workflowAgg] = await Promise.all([
+        const [monthlyAgg, dailyAgg, workflowAgg, recentLogs] = await Promise.all([
             this.aggregateMonthly(monthStart),
             this.aggregateDaily(monthStart),
             this.aggregateByWorkflow(monthStart),
+            this.aggregateRecentLogs(50),
         ]);
 
         const dayOfMonth = now.getDate();
@@ -90,6 +91,7 @@ class LLMUsageService {
             workflowBreakdown,
             averages,
             projectedMonthEndCostUSD,
+            recentLogs,
         };
     }
 
@@ -154,6 +156,26 @@ class LLMUsageService {
             createdAt: { $gte: monthStart },
         });
         return result.length;
+    }
+
+    private async aggregateRecentLogs(limit: number): Promise<LLMUsageLogDetail[]> {
+        const logs = await LLMUsageLog.find({})
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .lean();
+
+        return logs.map((log: any) => ({
+            _id: log._id.toString(),
+            userId: log.userId?.toString() || '',
+            workflow: log.workflow || 'unknown',
+            modelName: log.modelName,
+            promptTokens: log.promptTokens,
+            completionTokens: log.completionTokens,
+            totalTokens: log.totalTokens,
+            estimatedCostUSD: log.estimatedCostUSD,
+            durationMs: log.durationMs,
+            createdAt: new Date(log.createdAt).toISOString(),
+        }));
     }
 }
 

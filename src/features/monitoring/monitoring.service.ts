@@ -158,6 +158,7 @@ export class MonitoringService {
                 httpRequests24h: httpRequests,
                 dbQueries24h: dbQueries,
                 projectedMonthlyCost,
+                actualMonthlyCost: geminiSummary.monthly.estimatedCostUSD,
                 avgLatency,
                 errorRate
             },

@@ -109,7 +109,9 @@ export class ChatOrchestrator {
                 iteration++;
 
                 const response = await LLMService.generateWithTools(currentPrompt, {
-                    tools: agentToolDefinitions
+                    tools: agentToolDefinitions,
+                    workflow: 'chat_orchestrator',
+                    userId,
                 });
 
                 if (response.functionCalls && response.functionCalls.length > 0) {

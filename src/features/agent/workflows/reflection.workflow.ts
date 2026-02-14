@@ -126,6 +126,8 @@ export async function runDailyReflection(userId: string, input: DailyReflectionI
     // 4. Call LLM
     const result = await LLMService.generateJSON(prompt, ReflectionOutputSchema, {
         temperature: 0.4, // Lower temperature for more consistent analysis
+        workflow: 'daily_reflection',
+        userId,
     });
 
     return result;

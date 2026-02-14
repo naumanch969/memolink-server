@@ -40,7 +40,10 @@ Guidelines:
 - Preserve the original voice and tone
 - Don't add information that isn't in the original text`;
 
-    const initialResponse = await LLMService.generateJSON(prompt, splitEntriesSchema);
+    const initialResponse = await LLMService.generateJSON(prompt, splitEntriesSchema, {
+        workflow: 'braindump_initial',
+        userId,
+    });
 
     // --- The Critic Loop (Self-Correction) ---
     const criticPrompt = `
@@ -61,7 +64,10 @@ Guidelines:
     4. Return the CORRECTED list of entries. If the proposal is good, return it as is.
     `;
 
-    const finalResponse = await LLMService.generateJSON(criticPrompt, splitEntriesSchema);
+    const finalResponse = await LLMService.generateJSON(criticPrompt, splitEntriesSchema, {
+        workflow: 'braindump_critic',
+        userId,
+    });
     const splitEntries = finalResponse.entries || [];
     const createdIds = [];
     const baseDate = date ? new Date(date) : new Date();

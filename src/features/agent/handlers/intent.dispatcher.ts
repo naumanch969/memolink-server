@@ -186,7 +186,7 @@ export class IntentDispatcher {
         ]);
 
         const entriesContextText = contextEntries.map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`).join('\n');
-        const answer = await LLMService.generateText(`
+        const prompt = `
             You are a helpful personal assistant.
             User Question: "${text}"
             
@@ -200,7 +200,11 @@ export class IntentDispatcher {
             - Answer the question based on the provided memories and graph context.
             - If you don't know, say "I couldn't find that in your recent memories."
             - Be concise and friendly.
-        `);
+        `;
+        const answer = await LLMService.generateText(prompt, {
+            workflow: 'knowledge_query',
+            userId,
+        });
 
         // Even for queries, we keep the record of the interaction entry
         if (entry?._id) {
@@ -282,7 +286,10 @@ export class IntentDispatcher {
      */
     private async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
         try {
-            const queryVector = await LLMService.generateEmbeddings(text);
+            const queryVector = await LLMService.generateEmbeddings(text, {
+                workflow: 'similarity_search',
+                userId,
+            });
             try {
                 const { default: Entry } = await import('../../entry/entry.model');
                 const results = await Entry.aggregate([

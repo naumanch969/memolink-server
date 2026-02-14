@@ -67,7 +67,10 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
         "${entry.content}"
       `;
 
-        const response: z.infer<typeof extractionSchema> = await LLMService.generateJSON(prompt, extractionSchema);
+        const response: z.infer<typeof extractionSchema> = await LLMService.generateJSON(prompt, extractionSchema, {
+            workflow: 'entity_extraction_initial',
+            userId,
+        });
         let entitiesData = (response as any).entities || [];
         let relationsData = (response as any).relations || [];
 
@@ -94,7 +97,10 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
             `;
 
             try {
-                const refinedResponse: z.infer<typeof extractionSchema> = await LLMService.generateJSON(criticPrompt, extractionSchema);
+                const refinedResponse: z.infer<typeof extractionSchema> = await LLMService.generateJSON(criticPrompt, extractionSchema, {
+                    workflow: 'entity_extraction_critic',
+                    userId,
+                });
                 entitiesData = (refinedResponse as any).entities || entitiesData;
                 relationsData = (refinedResponse as any).relations || relationsData;
                 logger.debug(`Critic pass completed for entry ${entryId}. ${entitiesData.length} entities refined.`);

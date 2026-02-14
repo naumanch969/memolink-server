@@ -60,7 +60,10 @@ export const runMemoryFlush: AgentWorkflow = async (task) => {
     `;
 
     try {
-        const result = await LLMService.generateJSON(prompt, flushSchema);
+        const result = await LLMService.generateJSON(prompt, flushSchema, {
+            workflow: 'memory_flush',
+            userId,
+        });
         const { observations } = result;
 
         if (observations.length > 0) {

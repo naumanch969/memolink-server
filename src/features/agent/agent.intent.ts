@@ -62,7 +62,7 @@ export class AgentIntentClassifier {
      * Unified Classification & Extraction
      * Performs intent classification and entity extraction in a single pass to reduce latency.
      */
-    async classify(text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
+    async classify(userId: string, text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
         // 1. Prepare Context
         const historyText = history.slice(-3).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
@@ -92,9 +92,12 @@ export class AgentIntentClassifier {
         - 'date' should be relative (e.g. "tomorrow", "5pm").
         `;
 
-        let result;
+        var result;
         try {
-            result = await LLMService.generateJSON(prompt, routerSchema);
+            result = await LLMService.generateJSON(prompt, routerSchema, {
+                workflow: 'intent_classification',
+                userId,
+            });
         } catch (e) {
             logger.error("Multi-Intent Classification Failed", e);
             return {

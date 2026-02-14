@@ -8,6 +8,19 @@ export interface LLMUsageEntry {
     durationMs: number;
 }
 
+export interface LLMUsageLogDetail {
+    _id: string;
+    userId: string;
+    workflow: string;
+    modelName: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    estimatedCostUSD: number;
+    durationMs: number;
+    createdAt: string;
+}
+
 export interface GeminiCostsSummary {
     monthly: {
         totalTokens: number;
@@ -36,4 +49,5 @@ export interface GeminiCostsSummary {
         callsPerDay: number;
     };
     projectedMonthEndCostUSD: number;
+    recentLogs: LLMUsageLogDetail[];
 }

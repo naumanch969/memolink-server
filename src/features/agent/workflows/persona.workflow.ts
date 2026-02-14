@@ -58,7 +58,10 @@ export const runPersonaSynthesis = async (userId: string, inputData: any): Promi
             Format the output as JSON matching the schema provided.
         `;
 
-        const synthesis = await LLMService.generateJSON(prompt, PersonaSynthesisSchema);
+        const synthesis = await LLMService.generateJSON(prompt, PersonaSynthesisSchema, {
+            workflow: 'persona_synthesis',
+            userId,
+        });
 
         // 3. Update Database
         if (persona) {

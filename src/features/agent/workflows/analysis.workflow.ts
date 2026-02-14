@@ -111,6 +111,8 @@ export async function runWeeklyAnalysis(userId: string): Promise<WeeklyAnalysisO
 
     const result = await LLMService.generateJSON(prompt, WeeklyAnalysisOutputSchema, {
         temperature: 0.2, // Lower temperature for more stable schema adherence
+        workflow: 'weekly_analysis',
+        userId,
     });
 
     return result;

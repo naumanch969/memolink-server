@@ -24,7 +24,10 @@ export const runEntryEmbedding = async (task: IAgentTask) => {
 
         // 2. Generate Embeddings
         logger.info(`Generating embeddings for entry ${entryId}`);
-        const embeddings = await LLMService.generateEmbeddings(entry.content);
+        const embeddings = await LLMService.generateEmbeddings(entry.content, {
+            workflow: 'entry_embedding',
+            userId: task.userId,
+        });
 
         // 3. Save to Entry
         // We use findOneAndUpdate to avoid issues with versioning if entry was modified

@@ -55,7 +55,10 @@ export const runWebActivitySummary = async (userId: string, inputData: { date: s
     - Use the first person "You".
   `;
 
-    const summary = await LLMService.generateText(prompt);
+    const summary = await LLMService.generateText(prompt, {
+        workflow: 'web_activity_summary',
+        userId,
+    });
 
     // 4. Create Journal Entry
     const entryContent = `### 🌐 Web Activity Summary: ${date}\n\n${summary}\n\n**Quick Stats:**\n- ⚡ **Deep Work:** ${totalFocus}\n- 🍿 **Distractions:** ${totalDistraction}\n- 🕒 **Total Session:** ${totalTime}`;

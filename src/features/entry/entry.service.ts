@@ -336,7 +336,10 @@ export class EntryService implements IEntryService {
     if (!searchParams.q) return { entries: [], total: 0, page, limit, totalPages: 0 };
 
     // 1. Generate Embedding
-    const queryVector = await LLMService.generateEmbeddings(searchParams.q);
+    const queryVector = await LLMService.generateEmbeddings(searchParams.q, {
+      workflow: 'search_embeddings',
+      userId,
+    });
 
     // 2. Aggregate Pipeline
     const pipeline: any[] = [

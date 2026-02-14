@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
-import { TagService } from '../../tag/tag.service';
 import { MOOD_METADATA } from '../../entry/mood.config';
+import { TagService } from '../../tag/tag.service';
 
 // Input Validation Schema
 export const EntryTaggingInputSchema = z.object({
@@ -60,6 +60,8 @@ export async function runEntryTagging(userId: string, input: EntryTaggingInput):
     // 3. Call LLM
     const result = await LLMService.generateJSON(prompt, TaggingOutputSchema, {
         temperature: 0.3, // Low temp for consistency
+        workflow: 'tagging',
+        userId,
     });
 
     // 4. Post-Processing: Apply tags to the entry

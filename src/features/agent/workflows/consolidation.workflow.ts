@@ -50,7 +50,7 @@ export const runEntityConsolidation: AgentWorkflow = async (task) => {
         5. **Distinction**: Keep critical historical facts but summarize fleeting contexts.
         `;
 
-        const synthesis = await LLMService.generateJSON(prompt, consolidationSchema);
+        const synthesis = await LLMService.generateJSON(prompt, consolidationSchema, { workflow: 'entity_consolidation', userId });
 
         // 3. Update Entity
         await entityService.updateEntity(entityId, userId, {
@@ -119,7 +119,10 @@ export const runCognitiveConsolidation: AgentWorkflow = async (task) => {
         4. **Maintain Depth**: Keep the persona nuanced and multi-dimensional.
         `;
 
-        const update = await LLMService.generateJSON(prompt, cognitiveSchema);
+        const update = await LLMService.generateJSON(prompt, cognitiveSchema, {
+            workflow: 'cognitive_consolidation',
+            userId,
+        });
 
         // 3. Update Persona
         await personaService.updatePersona(userId, {
