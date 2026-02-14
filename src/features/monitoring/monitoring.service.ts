@@ -223,14 +223,36 @@ export class MonitoringService {
     }
 
     /**
-     * Get Database stats (Size, Objects, etc)
-     */
+ * Get Database stats (Size, Objects, etc)
+ */
     async getDatabaseStats() {
         try {
             if (mongoose.connection.readyState !== 1) return { connected: false };
             const db = mongoose.connection.db;
             if (!db) return { connected: false };
-            const stats = await db.stats();
+
+            const stats: any = await db.command({ dbStats: 1 });
+
+            // Get collection-level stats
+            const collections = await db.listCollections().toArray();
+            const collectionStats = await Promise.all(collections.map(async (col) => {
+                const colStats: any = await db.command({ collStats: col.name });
+                return {
+                    name: col.name,
+                    count: colStats.count,
+                    size: colStats.size,
+                    storageSize: colStats.storageSize,
+                    avgObjSize: colStats.avgObjSize,
+                    indexes: colStats.nindexes,
+                    totalIndexSize: colStats.totalIndexSize
+                };
+            }));
+
+            // Sort by storageSize descending and take top 10
+            const topCollections = collectionStats
+                .sort((a, b) => b.storageSize - a.storageSize)
+                .slice(0, 10);
+
             return {
                 connected: true,
                 name: db.databaseName,
@@ -238,13 +260,13 @@ export class MonitoringService {
                 objects: stats.objects,
                 dataSize: stats.dataSize,
                 storageSize: stats.storageSize,
+                topCollections // Add this new field
             };
         } catch (error) {
             logger.error('Failed to get DB stats:', error);
             return { connected: false };
         }
     }
-
     /**
      * Get Infrastructure usage tracking
      */
