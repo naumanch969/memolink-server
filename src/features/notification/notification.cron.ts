@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import cron from 'node-cron';
 import { logger } from '../../config/logger';
 import notificationDispatcher from './notification.dispatcher';
@@ -9,6 +10,13 @@ let isRunning = false;
 // Process the specific batch of notifications
 const processNotificationQueue = async () => {
     if (isRunning) return;
+
+    // Safety check: Don't process if database isn't connected
+    // 1 = connected
+    if (mongoose.connection.readyState !== 1) {
+        return;
+    }
+
     isRunning = true;
 
     try {
