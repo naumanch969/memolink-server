@@ -1,4 +1,4 @@
-import { withRetry } from '../core/utils/retry';
+import { withRetry } from '../core/utils/retry.util';
 
 // Mock logger to avoid cluttering test output
 jest.mock('../config/logger', () => ({

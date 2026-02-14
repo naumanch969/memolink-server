@@ -1,7 +1,7 @@
 import os from 'os';
 import { logger } from '../config/logger';
-import { eventStream } from '../core/events/EventStream';
-import { EventType, MemolinkEvent } from '../core/events/types';
+import { eventStream } from '../core/events/event.stream';
+import { EventType, MemolinkEvent } from '../core/events/event.types';
 import { EdgeType, NodeType } from '../features/graph/edge.model';
 import { graphService } from '../features/graph/graph.service';
 
