@@ -5,6 +5,7 @@ import { llmUsageService } from '../../../features/llm-usage/llm-usage.service';
 import { withRetry } from '../../utils/retry.util';
 import { ILLMProvider, LLMGenerativeOptions } from '../llm.types';
 
+// ONLY GEMINI 2.5 IS SUPPOSED TO BE USED.
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const EMBEDDING_MODEL = 'text-embedding-004';
 

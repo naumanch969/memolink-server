@@ -52,7 +52,6 @@ const userSchema = new Schema<IUser>({
 });
 
 // Indexes
-userSchema.index({ email: 1 });
 userSchema.index({ createdAt: -1 });
 
 // Virtual for user's full profile

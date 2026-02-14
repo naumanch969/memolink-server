@@ -70,7 +70,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Monitoring middleware - must be after body parsing
 app.use(MonitoringMiddleware.addRequestContext);
-app.use(MonitoringMiddleware.monitorHTTP);
+app.use(MonitoringMiddleware.monitorHTTP());
 
 // Request logging
 app.use((req, res, next) => {

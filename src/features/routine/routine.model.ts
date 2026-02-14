@@ -178,7 +178,6 @@ const routineLogSchema = new Schema<IRoutineLog>(
 routineLogSchema.index({ userId: 1, date: -1 });
 routineLogSchema.index({ userId: 1, routineId: 1, date: -1 });
 routineLogSchema.index({ routineId: 1, date: -1 });
-routineLogSchema.index({ journalEntryId: 1 });
 
 // Compound unique index to prevent duplicate logs for same routine on same day
 routineLogSchema.index(

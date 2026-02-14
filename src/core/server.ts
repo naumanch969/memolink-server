@@ -2,6 +2,7 @@ import { createServer, Server as HttpServer } from 'http';
 import database from '../config/database';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
+import { verifyMetricsIndexes } from '../features/monitoring/metric.model';
 import { MetricsService } from '../features/monitoring/metrics.service';
 import { startDailyRollupJob } from '../features/monitoring/rollup.job';
 import app from './app';
@@ -20,6 +21,7 @@ class Server {
     try {
       // Connect to database
       await database.connect();
+      await verifyMetricsIndexes();
 
       // Initialize Sockets
       this.socketManager = new SocketManager(this.server);
