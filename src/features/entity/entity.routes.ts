@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { EntityController } from './entity.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.get('/graph', EntityController.getGraph);
 router.post('/relation', validationMiddleware, EntityController.createRelation);

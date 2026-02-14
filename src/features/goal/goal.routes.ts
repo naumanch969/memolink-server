@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { GoalController } from './goal.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.post('/', GoalController.create);
 router.get('/', GoalController.list);

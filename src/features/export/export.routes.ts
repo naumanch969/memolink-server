@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { ExportController } from './export.controller';
 import { exportValidation } from './export.validations';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.post('/', exportValidation, validationMiddleware, ExportController.exportData);
 

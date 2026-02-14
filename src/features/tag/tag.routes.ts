@@ -1,16 +1,12 @@
 import { Router } from 'express';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { TagController } from './tag.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { 
-  createTagValidation,
-  updateTagValidation,
-  tagIdValidation
-} from './tag.validations';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { createTagValidation, tagIdValidation, updateTagValidation } from './tag.validations';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.get('/search', TagController.searchTags);
 router.post('/', createTagValidation, validationMiddleware, TagController.createTag);

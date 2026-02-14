@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { WidgetController } from './widget.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // Protect all routes
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.get('/', WidgetController.getWidgets);
 router.post('/', WidgetController.createWidget);

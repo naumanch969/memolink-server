@@ -1,15 +1,11 @@
-/**
- * Chunked Upload Routes
- */
-
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { ChunkedUploadController } from './chunked-upload.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 // Initialize a new upload session
 router.post('/init', ChunkedUploadController.initSession);

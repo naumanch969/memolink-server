@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../../core/middleware/authMiddleware';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { USER_ROLES } from '../../shared/constants';
 import { analyticsAdminRouter } from '../analytics/analytics.admin.routes';
 import { llmUsageAdminRouter } from '../llm-usage/llm-usage.routes';
@@ -10,8 +10,8 @@ import { AdminController } from './admin.controller';
 const router = Router();
 
 // Protect all admin routes
-router.use(authenticate);
-router.use(authorize(USER_ROLES.ADMIN));
+router.use(AuthMiddleware.authenticate);
+router.use(AuthMiddleware.authorize(USER_ROLES.ADMIN));
 
 // Dashboard & Analytics
 router.use('/analytics', analyticsAdminRouter);

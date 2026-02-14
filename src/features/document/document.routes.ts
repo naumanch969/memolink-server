@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { DocumentController } from './document.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.post('/', DocumentController.createDocument);
 router.get('/', DocumentController.getDocuments);

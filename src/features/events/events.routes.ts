@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { EventsController } from './events.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-// POST /api/events - Ingest specific batch of client events
-router.post('/', authenticate, EventsController.ingest);
+router.use(AuthMiddleware.authenticate);
+
+router.post('/', EventsController.ingest);
 
 export default router;

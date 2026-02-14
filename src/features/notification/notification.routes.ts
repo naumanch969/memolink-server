@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { NotificationController } from './notification.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // Apply auth middleware to all routes
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.get('/', NotificationController.getNotifications);
 router.put('/mark-all-read', NotificationController.markAllAsRead);

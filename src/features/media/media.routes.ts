@@ -1,16 +1,13 @@
 import { Router } from 'express';
+import { uploadSingle, validateFileContent } from '../../core/middleware/upload.middleware';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { MediaController } from './media.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { 
-  createMediaValidation,
-  mediaIdValidation
-} from './media.validations';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
-import { uploadSingle, validateFileContent } from '../../core/middleware/uploadMiddleware';
+import { createMediaValidation, mediaIdValidation } from './media.validations';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 // Upload with magic byte validation
 router.post('/upload', uploadSingle('file'), validateFileContent, MediaController.uploadMedia);

@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { WebActivityController } from './web-activity.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 // Activity routes
 router.post('/sync', WebActivityController.sync);

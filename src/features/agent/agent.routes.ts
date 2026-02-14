@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { AgentController } from './agent.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // Protect all agent routes
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 router.post('/tasks', AgentController.createTask);
 router.get('/tasks', AgentController.listTasks);

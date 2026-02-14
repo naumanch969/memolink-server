@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { StorageController } from './storage.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 // GET /api/storage - Get storage stats
 router.get('/', StorageController.getStorageStats);

@@ -1,17 +1,13 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { ReminderController } from './reminder.controller';
 import { completeReminderValidation, createReminderValidation, getRemindersQueryValidation, reminderIdValidation, updateReminderValidation, } from './reminder.validation';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
-
-// ============================================
-// REMINDER CRUD
-// ============================================
+router.use(AuthMiddleware.authenticate);
 
 // Create reminder
 router.post('/', createReminderValidation, validationMiddleware, ReminderController.createReminder);

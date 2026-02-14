@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { uploadSingle, validateFileContent } from '../../core/middleware/uploadMiddleware';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { uploadSingle, validateFileContent } from '../../core/middleware/upload.middleware';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { AuthController } from './auth.controller';
 import { changePasswordValidation, forgotPasswordValidation, loginValidation, refreshTokenValidation, registerValidation, resendVerificationValidation, resetPasswordValidation, updateProfileValidation, updateSecurityConfigValidation, verifyEmailValidation, verifySecurityAnswerValidation } from './auth.validations';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.post('/verify-email', verifyEmailValidation, validationMiddleware, AuthCo
 router.post('/resend-verification', resendVerificationValidation, validationMiddleware, AuthController.resendVerification);
 
 // Protected routes
-router.use(authenticate); // All routes below require authentication
+router.use(AuthMiddleware.authenticate); // All routes below require authentication
 
 router.get('/profile', AuthController.getProfile);
 router.put('/profile', updateProfileValidation, validationMiddleware, AuthController.updateProfile);

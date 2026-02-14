@@ -1,17 +1,12 @@
 import { Router } from 'express';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { RoutineController } from './routine.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
 import { updateUserRoutinePreferencesValidation } from './routine.validations';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticate);
-
-// ============================================
-// USER ROUTINE PREFERENCES ROUTES
-// ============================================
+router.use(AuthMiddleware.authenticate);
 
 router.get('/', RoutineController.getUserRoutinePreferences);
 

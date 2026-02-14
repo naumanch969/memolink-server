@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { FolderController } from './folder.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
 import { body, param } from 'express-validator';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
+import { FolderController } from './folder.controller';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 // Create folder
 router.post(

@@ -1,25 +1,13 @@
 import { Router } from 'express';
+import { validationMiddleware } from '../../core/middleware/validation.middleware';
 import { RoutineController } from './routine.controller';
-import { authenticate } from '../../core/middleware/authMiddleware';
-import {
-    createRoutineTemplateValidation,
-    updateRoutineTemplateValidation,
-    routineIdValidation,
-    reorderRoutinesValidation,
-    createRoutineLogValidation,
-    updateRoutineLogValidation,
-    logIdValidation,
-    getRoutineLogsValidation,
-    getRoutineStatsValidation,
-    getRoutineAnalyticsValidation,
-    updateUserRoutinePreferencesValidation,
-} from './routine.validations';
-import { validationMiddleware } from '../../core/middleware/validationMiddleware';
+import { createRoutineTemplateValidation, getRoutineAnalyticsValidation, getRoutineStatsValidation, reorderRoutinesValidation, routineIdValidation, updateRoutineTemplateValidation } from './routine.validations';
+import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(AuthMiddleware.authenticate);
 
 // ============================================
 // ROUTINE TEMPLATE ROUTES
