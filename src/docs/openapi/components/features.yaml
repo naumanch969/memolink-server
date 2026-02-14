@@ -1,0 +1,104 @@
+components:
+  schemas:
+    Entry:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string }
+        content: { type: string }
+        type: { type: string, enum: [text, media, mixed] }
+        mentions: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string } }
+        media: { type: array, items: { type: string } }
+        isPrivate: { type: boolean }
+        isImportant: { type: boolean }
+        isFavorite: { type: boolean }
+        mood: { type: string }
+        location: { type: string }
+        date: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Entity:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        otype: { type: string }
+        aliases: { type: array, items: { type: string } }
+        avatar: { type: string }
+        interactionCount: { type: integer }
+        lastInteractionAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Tag:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        color: { type: string }
+        usageCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Goal:
+      type: object
+      properties:
+        _id: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [active, completed, abandoned, paused] }
+        deadline: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Reminder:
+      type: object
+      properties:
+        _id: { type: string }
+        title: { type: string }
+        date: { type: string, format: date-time }
+        status: { type: string, enum: [pending, completed, cancelled] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    RoutineTemplate:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        type: { type: string }
+        status: { type: string, enum: [active, paused, archived] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Mood:
+      type: object
+      properties:
+        _id: { type: string }
+        date: { type: string, format: date }
+        score: { type: integer }
+        note: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Document:
+      type: object
+      properties:
+        _id: { type: string }
+        title: { type: string }
+        content: { type: object }
+        isFavorite: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Media:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        url: { type: string }
+        type: { type: string, enum: [image, video, audio, document] }
+        size: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }

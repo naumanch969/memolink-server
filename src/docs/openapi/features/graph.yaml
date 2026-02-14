@@ -1,0 +1,139 @@
+paths:
+  /graph:
+    get:
+      summary: Fetch the entire personal memory graph
+      tags: [Graph]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Memory graph retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MemoryGraph'
+
+  /graph/edges/{id}/refute:
+    post:
+      summary: Mark an edge as refuted (User rejection)
+      tags: [Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Edge refuted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /graph/edges/{id}/resolve:
+    post:
+      summary: Resolve a conflict proposal (Accept or Reject)
+      tags: [Graph]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [accept, reject]
+      responses:
+        200:
+          description: Proposal resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /graph/repair:
+    post:
+      summary: Trigger self-healing for orphaned entities
+      tags: [Graph]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Graph repair completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  schemas:
+    MemoryGraph:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphNode'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/GraphLink'
+
+    GraphNode:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        group:
+          type: string
+        img:
+          type: string
+        val:
+          type: number
+
+    GraphLink:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        relation:
+          type: string
+        weight:
+          type: number
+        status:
+          type: string
+          enum: [active, proposed, refuted]
+        sourceEntryId:
+          type: string
+        refutedAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object

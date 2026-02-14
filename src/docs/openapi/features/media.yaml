@@ -1,0 +1,357 @@
+paths:
+  /media/upload:
+    post:
+      summary: Upload a single media file
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        201:
+          description: Media uploaded successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Media'
+
+  /media:
+    get:
+      summary: List user media files
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [image, video, document, audio, archive, data, code]
+        - in: query
+          name: folderId
+          schema:
+            type: string
+      responses:
+        200:
+          description: Media list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Media'
+
+    post:
+      summary: Create a media record manually
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMediaRequest'
+      responses:
+        201:
+          description: Media record created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Media'
+
+  /media/bulk-move:
+    post:
+      summary: Move multiple media files to a folder
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mediaIds
+              properties:
+                mediaIds:
+                  type: array
+                  items:
+                    type: string
+                targetFolderId:
+                  type: string
+      responses:
+        200:
+          description: Media files moved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /media/bulk-delete:
+    post:
+      summary: Delete multiple media files
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mediaIds
+              properties:
+                mediaIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        200:
+          description: Media files deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /media/{id}:
+    get:
+      summary: Get media metadata by ID
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Media retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Media'
+    delete:
+      summary: Delete media file
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Media deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /media/{id}/thumbnail:
+    put:
+      summary: Update media thumbnail
+      tags: [Media]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - thumbnail
+              properties:
+                thumbnail:
+                  type: string
+      responses:
+        200:
+          description: Thumbnail updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Media'
+
+components:
+  schemas:
+    Media:
+      type: object
+      properties:
+        _id:
+          type: string
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        url:
+          type: string
+        cloudinaryId:
+          type: string
+        type:
+          type: string
+          enum: [image, video, document, audio, archive, data, code]
+        thumbnail:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        extension:
+          type: string
+        altText:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [uploading, processing, ready, error]
+        metadata:
+          $ref: '#/components/schemas/MediaMetadata'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MediaMetadata:
+      type: object
+      properties:
+        width:
+          type: integer
+        height:
+          type: integer
+        duration:
+          type: number
+        pages:
+          type: integer
+        frameRate:
+          type: number
+        bitrate:
+          type: number
+        codec:
+          type: string
+        resolution:
+          type: string
+        ocrText:
+          type: string
+        ocrConfidence:
+          type: number
+        aiTags:
+          type: array
+          items:
+            type: object
+            properties:
+              tag:
+                type: string
+              confidence:
+                type: number
+        exif:
+          type: object
+          properties:
+            make:
+              type: string
+            model:
+              type: string
+            dateTaken:
+              type: string
+            gps:
+              type: object
+              properties:
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+
+    CreateMediaRequest:
+      type: object
+      required:
+        - filename
+        - originalName
+        - mimeType
+        - size
+        - url
+        - cloudinaryId
+        - type
+      properties:
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        url:
+          type: string
+        cloudinaryId:
+          type: string
+        type:
+          type: string
+        folderId:
+          type: string
+        thumbnail:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string

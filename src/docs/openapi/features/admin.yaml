@@ -1,0 +1,834 @@
+paths:
+  # Admin Dashboard & Analytics
+  /admin/analytics/dashboard:
+    get:
+      summary: Get admin dashboard overview
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Dashboard overview retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          totalUsers:
+                            type: integer
+                          activeUsers:
+                            type: integer
+                          totalEntries:
+                            type: integer
+                          storageUsedBytes:
+                            type: integer
+
+  /admin/analytics/users:
+    get:
+      summary: Get user growth analytics
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User growth data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserGrowthData'
+
+  /admin/analytics/active-users:
+    get:
+      summary: Get active users analytics
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Active users data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          daily:
+                            type: integer
+                          weekly:
+                            type: integer
+                          monthly:
+                            type: integer
+
+  /admin/analytics/accounts:
+    get:
+      summary: Get user accounts types breakdown
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Accounts breakdown retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          roles:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                role:
+                                  type: string
+                                count:
+                                  type: integer
+                          verification:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                status:
+                                  type: string
+                                count:
+                                  type: integer
+
+  /admin/analytics/retention:
+    get:
+      summary: Get user retention analytics
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Retention data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cohort:
+                              type: string
+                            retention:
+                              type: integer
+
+  /admin/analytics/platform:
+    get:
+      summary: Get platform usage analytics
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Platform data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            platform:
+                              type: string
+                            count:
+                              type: integer
+                            percentage:
+                              type: number
+
+  /admin/analytics/features:
+    get:
+      summary: Get feature usage analytics
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Feature usage data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          users:
+                            type: integer
+                          entries:
+                            type: integer
+                          media:
+                            type: integer
+                          routines:
+                            type: integer
+                          goals:
+                            type: integer
+
+  /admin/analytics/feature-breakdown:
+    get:
+      summary: Get detailed feature breakdown
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Feature breakdown retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          entryTypes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                type: string
+                                count:
+                                  type: integer
+                          mediaTypes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                type: string
+                                count:
+                                  type: integer
+                          mediaStorage:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                type: string
+                                size:
+                                  type: number
+                          topTags:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                count:
+                                  type: integer
+                          topEntities:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                count:
+                                  type: integer
+
+  /admin/analytics/content-growth:
+    get:
+      summary: Get content growth analytics
+      tags: [Admin - Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Content growth data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                            entries:
+                              type: integer
+                            media:
+                              type: integer
+
+  # Admin Monitoring (Proxy to Monitoring routes)
+  /admin/monitoring/health:
+    get:
+      summary: Detailed system health (Admin view)
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System health retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SystemHealth'
+
+  /admin/monitoring/dashboard:
+    get:
+      summary: Get monitoring dashboard (Admin view)
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Monitoring dashboard data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          summary:
+                            type: object
+                          usage:
+                            type: object
+                          chart:
+                            type: array
+                            items:
+                              type: object
+
+  /admin/monitoring/database:
+    get:
+      summary: Get database statistics
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Database statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          connected:
+                            type: boolean
+                          name:
+                            type: string
+                          collections:
+                            type: integer
+                          objects:
+                            type: integer
+                          dataSize:
+                            type: number
+                          storageSize:
+                            type: number
+
+  /admin/monitoring/jobs:
+    get:
+      summary: Get job queue status
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Job status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            active:
+                              type: integer
+                            pending:
+                              type: integer
+                            failed:
+                              type: integer
+                            completed:
+                              type: integer
+
+  /admin/monitoring/platform:
+    get:
+      summary: Get platform/infrastructure stats
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Infrastructure stats retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          redis:
+                            type: object
+                            properties:
+                              errors:
+                                type: integer
+                              hits:
+                                type: integer
+                          selfHealing:
+                            type: object
+                            properties:
+                              pendingEntries:
+                                type: integer
+                          cloudinary:
+                            type: object
+                            properties:
+                              usage:
+                                type: number
+                              limit:
+                                type: number
+                              credits_usage:
+                                type: number
+
+  /admin/monitoring/logs:
+    get:
+      summary: Get system logs
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+    delete:
+      summary: Clear system logs
+      tags: [Admin - Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Logs cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /admin/monitoring/metrics:
+    get:
+      summary: Prometheus metrics
+      tags: [Admin - Monitoring]
+      responses:
+        200:
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  # User Management
+  /admin/users:
+    get:
+      summary: List all users
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of users retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+
+  /admin/users/{id}:
+    get:
+      summary: Get user details
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User details retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+    patch:
+      summary: Update user details
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [USER, ADMIN, SUPER_ADMIN]
+                isActive:
+                  type: boolean
+      responses:
+        200:
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+    delete:
+      summary: Delete user
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /admin/users/{id}/deactivate:
+    patch:
+      summary: Deactivate user
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /admin/users/{id}/reactivate:
+    patch:
+      summary: Reactivate user
+      tags: [Admin - User Management]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: User reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # System Configuration
+  /admin/configuration:
+    get:
+      summary: Get all system configurations
+      tags: [Admin - Configuration]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System configurations retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SystemConfig'
+
+  /admin/configuration/{key}:
+    patch:
+      summary: Update a system configuration
+      tags: [Admin - Configuration]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - value
+              properties:
+                value:
+                  type: object
+      responses:
+        200:
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SystemConfig'
+
+  # Backups
+  /admin/backups:
+    get:
+      summary: List all available backups
+      tags: [Admin - Backups]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Backups retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BackupFile'
+
+  /admin/backups/runs:
+    get:
+      summary: Get backup execution history
+      tags: [Admin - Backups]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Backup runs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BackupRun'
+
+  /admin/backups/trigger:
+    post:
+      summary: Trigger a manual backup
+      tags: [Admin - Backups]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Backup triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # Cost Management
+  /admin/costs/gemini:
+    get:
+      summary: Get Gemini AI cost summary
+      tags: [Admin - Costs]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Cost summary retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+
+components:
+  schemas:
+    BackupFile:
+      type: object
+      properties:
+        key:
+          type: string
+        size:
+          type: integer
+        lastModified:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+
+    BackupRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        conclusion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        elapsed:
+          type: string
+        url:
+          type: string
+        actor:
+          type: string
+
+    SystemConfig:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: object
+        description:
+          type: string
+        category:
+          type: string
+          enum: [feature_flags, system, maintenance]
+        updatedBy:
+          type: string
+
+    UserGrowthData:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer

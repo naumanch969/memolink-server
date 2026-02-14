@@ -1,0 +1,289 @@
+paths:
+  /activity/sync:
+    post:
+      summary: Sync web activity batch from client
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivitySyncBatch'
+      responses:
+        200:
+          description: Activity synced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WebActivity'
+
+  /activity/today:
+    get:
+      summary: Get web activity stats for today or specific date
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Stats retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+
+  /activity/range:
+    get:
+      summary: Get web activities for a date range
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Activities retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WebActivity'
+
+  /activity/weekly:
+    get:
+      summary: Get weekly summary of web activity
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Summary retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+
+  /activity/monthly:
+    get:
+      summary: Get monthly summary of web activity
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+        - in: query
+          name: month
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Summary retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+
+  /activity/definitions:
+    get:
+      summary: Get user-defined domain classifications
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Definitions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+    post:
+      summary: Update user-defined domain classifications
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        200:
+          description: Definitions updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /activity/limits:
+    put:
+      summary: Add or update a domain limit
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domain
+                - dailyLimitMinutes
+              properties:
+                domain:
+                  type: string
+                dailyLimitMinutes:
+                  type: integer
+                action:
+                  type: string
+                  enum: [nudge, block]
+                enabled:
+                  type: boolean
+      responses:
+        200:
+          description: Limit saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /activity/limits/{domain}:
+    delete:
+      summary: Remove a domain limit
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: domain
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Limit removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /activity/limits/check:
+    get:
+      summary: Check current usage against domain limits
+      tags: [Web Activity]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Check results retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+
+components:
+  schemas:
+    WebActivity:
+      type: object
+      properties:
+        _id:
+          type: string
+        date:
+          type: string
+          format: date
+        totalSeconds:
+          type: integer
+        productiveSeconds:
+          type: integer
+        distractingSeconds:
+          type: integer
+        domainMap:
+          type: object
+          additionalProperties:
+            type: integer
+        summaryCreated:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ActivitySyncBatch:
+      type: object
+      required:
+        - syncId
+        - date
+        - totalSeconds
+      properties:
+        syncId:
+          type: string
+        date:
+          type: string
+          format: date
+        totalSeconds:
+          type: integer
+        productiveSeconds:
+          type: integer
+        distractingSeconds:
+          type: integer
+        domainMap:
+          type: object
+          additionalProperties:
+            type: integer

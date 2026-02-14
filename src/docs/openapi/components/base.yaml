@@ -59,15 +59,38 @@ components:
     Error:
       type: object
       properties:
-        status:
-          type: string
-          example: error
+        success:
+          type: boolean
+          example: false
         message:
           type: string
-        errors:
-          type: array
-          items:
-            type: object
+        error:
+          type: string
+          nullable: true
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+          nullable: true
 
   securitySchemes:
     bearerAuth:

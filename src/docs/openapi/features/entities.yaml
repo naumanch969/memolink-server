@@ -1,0 +1,463 @@
+paths:
+  /entities:
+    get:
+      summary: List user entities
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: otype
+          schema:
+            type: string
+          description: Filter by object type (e.g., Person, Organization)
+      responses:
+        200:
+          description: List of entities retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Entity'
+
+    post:
+      summary: Create a new entity
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEntityRequest'
+      responses:
+        201:
+          description: Entity created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entity'
+
+  /entities/search:
+    get:
+      summary: Search entities
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: otype
+          schema:
+            type: string
+      responses:
+        200:
+          description: Search results retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Entity'
+
+  /entities/graph:
+    get:
+      summary: Get knowledge graph data
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: otype
+          schema:
+            type: string
+      responses:
+        200:
+          description: Graph data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          nodes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                name:
+                                  type: string
+                                img:
+                                  type: string
+                                group:
+                                  type: string
+                          links:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                source:
+                                  type: string
+                                target:
+                                  type: string
+                                type:
+                                  type: string
+                                strength:
+                                  type: number
+
+  /entities/relation:
+    post:
+      summary: Create a relation between entities
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sourceId
+                - targetId
+                - type
+              properties:
+                sourceId:
+                  type: string
+                targetId:
+                  type: string
+                type:
+                  type: string
+                  description: EdgeType (e.g., KNOWS, WORKS_AT)
+                strength:
+                  type: number
+                  minimum: 0
+                  maximum: 10
+      responses:
+        201:
+          description: Relation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+    delete:
+      summary: Delete a relation
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sourceId
+                - targetId
+                - type
+              properties:
+                sourceId:
+                  type: string
+                targetId:
+                  type: string
+                type:
+                  type: string
+      responses:
+        200:
+          description: Relation deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /entities/{id}:
+    get:
+      summary: Get entity by ID
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Entity retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entity'
+    put:
+      summary: Update entity
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntityRequest'
+      responses:
+        200:
+          description: Entity updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entity'
+    delete:
+      summary: Delete entity
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Entity deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /entities/{id}/interactions:
+    get:
+      summary: Get entity interaction history (mentions in entries)
+      tags: [Entities]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        200:
+          description: Interactions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Entry'
+
+components:
+  schemas:
+    Entity:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        otype:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        email:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        jobTitle:
+          type: string
+        company:
+          type: string
+        role:
+          type: string
+        birthday:
+          type: string
+          format: date-time
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            country:
+              type: string
+            zipCode:
+              type: string
+        rawMarkdown:
+          type: string
+        summary:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        interactionCount:
+          type: integer
+        lastInteractionAt:
+          type: string
+          format: date-time
+        sentimentScore:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateEntityRequest:
+      type: object
+      required:
+        - name
+        - otype
+      properties:
+        name:
+          type: string
+        otype:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        email:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        jobTitle:
+          type: string
+        company:
+          type: string
+        role:
+          type: string
+        birthday:
+          type: string
+          format: date
+        address:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        rawMarkdown:
+          type: string
+        summary:
+          type: string
+
+    UpdateEntityRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        otype:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        email:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        jobTitle:
+          type: string
+        company:
+          type: string
+        role:
+          type: string
+        birthday:
+          type: string
+          format: date
+        address:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        rawMarkdown:
+          type: string
+        summary:
+          type: string

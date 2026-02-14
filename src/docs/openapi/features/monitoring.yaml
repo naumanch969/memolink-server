@@ -1,0 +1,292 @@
+paths:
+  /health:
+    get:
+      summary: Basic API health check
+      description: Returns the status of the API and current environment
+      tags: [Utility]
+      responses:
+        200:
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+                  timestamp:
+                    type: string
+                    format: date-time
+                  environment:
+                    type: string
+                  version:
+                    type: string
+
+  /monitoring/health:
+    get:
+      summary: Detailed system health
+      description: Returns comprehensive health status including database, redis, memory and cpu
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System health status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SystemHealth'
+        503:
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /monitoring/dashboard:
+    get:
+      summary: Get dashboard metrics
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Dashboard metrics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          summary:
+                            type: object
+                          usage:
+                            type: object
+                          chart:
+                            type: array
+                            items:
+                              type: object
+
+  /monitoring/database:
+    get:
+      summary: Get database statistics
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Database statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          connected:
+                            type: boolean
+                          name:
+                            type: string
+                          collections:
+                            type: integer
+                          objects:
+                            type: integer
+                          dataSize:
+                            type: number
+                          storageSize:
+                            type: number
+
+  /monitoring/jobs:
+    get:
+      summary: Get job queue status
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Job queue status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            active:
+                              type: integer
+                            pending:
+                              type: integer
+                            failed:
+                              type: integer
+                            completed:
+                              type: integer
+
+  /monitoring/platform:
+    get:
+      summary: Get infrastructure statistics
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Infrastructure statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          redis:
+                            type: object
+                            properties:
+                              errors:
+                                type: integer
+                              hits:
+                                type: integer
+                          selfHealing:
+                            type: object
+                            properties:
+                              pendingEntries:
+                                type: integer
+                          cloudinary:
+                            type: object
+                            properties:
+                              usage:
+                                type: number
+                              limit:
+                                type: number
+                              credits_usage:
+                                type: number
+
+  /monitoring/logs:
+    get:
+      summary: Get system logs
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System logs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+    delete:
+      summary: Clear system logs
+      tags: [Monitoring]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Logs cleared successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /monitoring/metrics:
+    get:
+      summary: Prometheus metrics
+      description: Returns metrics in Prometheus plain text format
+      tags: [Monitoring]
+      responses:
+        200:
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    SystemHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        uptime:
+          type: object
+          properties:
+            seconds:
+              type: number
+            formatted:
+              type: string
+        timestamp:
+          type: string
+          format: date-time
+        environment:
+          type: string
+        version:
+          type: string
+        memory:
+          type: object
+          properties:
+            total:
+              type: number
+            free:
+              type: number
+            used:
+              type: number
+            usagePercentage:
+              type: number
+            rss:
+              type: string
+            heapTotal:
+              type: string
+            heapUsed:
+              type: string
+        cpu:
+          type: object
+          properties:
+            loadAvg:
+              type: array
+              items:
+                type: number
+            cores:
+              type: number
+        database:
+          type: object
+          properties:
+            connected:
+              type: boolean
+            status:
+              type: string
+        redis:
+          type: object
+          properties:
+            connected:
+              type: boolean
+            status:
+              type: string

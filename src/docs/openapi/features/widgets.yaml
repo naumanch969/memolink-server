@@ -1,0 +1,203 @@
+paths:
+  /widgets:
+    get:
+      summary: List user widgets
+      tags: [Widgets]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of widgets
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Widget'
+    post:
+      summary: Create a new dashboard widget
+      tags: [Widgets]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWidgetRequest'
+      responses:
+        201:
+          description: Widget created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Widget'
+
+  /widgets/reorder:
+    post:
+      summary: Reorder widgets
+      tags: [Widgets]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orders
+              properties:
+                orders:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      widgetId:
+                        type: string
+                      order:
+                        type: integer
+      responses:
+        200:
+          description: Widgets reordered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /widgets/{id}:
+    patch:
+      summary: Update widget configuration or data
+      tags: [Widgets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWidgetRequest'
+      responses:
+        200:
+          description: Widget updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Widget'
+    delete:
+      summary: Delete a widget
+      tags: [Widgets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Widget deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  schemas:
+    Widget:
+      type: object
+      properties:
+        _id:
+          type: string
+        type:
+          type: string
+          enum: [tasks, notes, calendar, custom]
+        title:
+          type: string
+        data:
+          $ref: '#/components/schemas/WidgetData'
+        order:
+          type: integer
+        group:
+          type: string
+        isPinned:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WidgetData:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WidgetItem'
+        content:
+          type: string
+
+    WidgetItem:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        completed:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+
+    CreateWidgetRequest:
+      type: object
+      required:
+        - type
+        - title
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        data:
+          $ref: '#/components/schemas/WidgetData'
+        order:
+          type: integer
+
+    UpdateWidgetRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        data:
+          $ref: '#/components/schemas/WidgetData'
+        order:
+          type: integer
+        group:
+          type: string
+        isPinned:
+          type: boolean

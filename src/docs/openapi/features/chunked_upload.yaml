@@ -1,0 +1,244 @@
+paths:
+  /media/upload/chunked/init:
+    post:
+      summary: Initialize a chunked upload session
+      tags: [Media Upload]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fileName
+                - mimeType
+                - totalSize
+              properties:
+                fileName:
+                  type: string
+                mimeType:
+                  type: string
+                totalSize:
+                  type: integer
+                chunkSize:
+                  type: integer
+                  description: Optional chunk size in bytes (1MB - 20MB)
+                metadata:
+                  type: object
+      responses:
+        201:
+          description: Session created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChunkedUploadSession'
+
+  /media/upload/chunked/:
+    get:
+      summary: Get user's active upload sessions
+      tags: [Media Upload]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of active sessions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ChunkedUploadSessionStatus'
+
+  /media/upload/chunked/{sessionId}/chunk:
+    put:
+      summary: Upload a file chunk
+      tags: [Media Upload]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: chunkIndex
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: checksum
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        200:
+          description: Chunk uploaded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          received:
+                            type: integer
+                          remaining:
+                            type: integer
+                          progress:
+                            type: integer
+                          isComplete:
+                            type: boolean
+
+  /media/upload/chunked/{sessionId}:
+    get:
+      summary: Get status of an upload session
+      tags: [Media Upload]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Session status retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChunkedUploadSessionStatus'
+    delete:
+      summary: Cancel an upload session and delete chunks
+      tags: [Media Upload]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Session cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /media/upload/chunked/{sessionId}/complete:
+    post:
+      summary: Complete the upload and assemble chunks
+      tags: [Media Upload]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folderId:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                altText:
+                  type: string
+                description:
+                  type: string
+                enableOcr:
+                  type: boolean
+                enableAiTagging:
+                  type: boolean
+      responses:
+        201:
+          description: Upload completed and media created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Media'
+
+components:
+  schemas:
+    ChunkedUploadSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        chunkSize:
+          type: integer
+        totalChunks:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    ChunkedUploadSessionStatus:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        fileName:
+          type: string
+        totalSize:
+          type: integer
+        chunkSize:
+          type: integer
+        totalChunks:
+          type: integer
+        uploadedChunks:
+          type: array
+          items:
+            type: integer
+        missingChunks:
+          type: array
+          items:
+            type: integer
+        progress:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time

@@ -1,0 +1,670 @@
+paths:
+  /routines:
+    get:
+      summary: List user routine templates
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of routine templates retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RoutineTemplate'
+
+    post:
+      summary: Create a new routine template
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoutineTemplateRequest'
+      responses:
+        201:
+          description: Routine template created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineTemplate'
+
+  /routines/analytics:
+    get:
+      summary: Get routine analytics
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [week, month, year]
+      responses:
+        200:
+          description: Routine analytics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineAnalytics'
+
+  /routines/reorder:
+    patch:
+      summary: Reorder routine templates
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - routineIds
+              properties:
+                routineIds:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        200:
+          description: Routines reordered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /routines/{id}:
+    get:
+      summary: Get routine template by ID
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine template retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineTemplate'
+    patch:
+      summary: Update routine template
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoutineTemplateRequest'
+      responses:
+        200:
+          description: Routine template updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineTemplate'
+    delete:
+      summary: Delete routine template
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine template deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /routines/{id}/stats:
+    get:
+      summary: Get statistics for a specific routine
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [week, month, year, all]
+      responses:
+        200:
+          description: Routine statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineStats'
+
+  /routines/{id}/pause:
+    patch:
+      summary: Pause routine template
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /routines/{id}/archive:
+    patch:
+      summary: Archive routine template
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /routines/{id}/unarchive:
+    patch:
+      summary: Unarchive routine template
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine unarchived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /routine-logs:
+    get:
+      summary: List routine completion logs
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: routineId
+          schema:
+            type: string
+      responses:
+        200:
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RoutineLog'
+    post:
+      summary: Log/Update routine completion
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoutineLogRequest'
+      responses:
+        200:
+          description: Routine logged
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineLog'
+
+  /routine-logs/{id}:
+    patch:
+      summary: Update a routine log
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoutineLogRequest'
+      responses:
+        200:
+          description: Log updated
+    delete:
+      summary: Delete a routine log
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Log deleted
+
+  /routine-preferences:
+    get:
+      summary: Get user routine preferences
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Preferences retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserRoutinePreferences'
+    patch:
+      summary: Update user routine preferences
+      tags: [Routines]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoutinePreferences'
+      responses:
+        200:
+          description: Preferences updated
+
+components:
+  schemas:
+    RoutineLog:
+      type: object
+      properties:
+        _id:
+          type: string
+        routineId:
+          type: string
+        date:
+          type: string
+          format: date
+        value:
+          type: object
+        note:
+          type: string
+        completed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateRoutineLogRequest:
+      type: object
+      required:
+        - routineId
+        - date
+      properties:
+        routineId:
+          type: string
+        date:
+          type: string
+          format: date
+        value:
+          type: object
+        note:
+          type: string
+        completed:
+          type: boolean
+
+    UpdateRoutineLogRequest:
+      type: object
+      properties:
+        value:
+          type: object
+        note:
+          type: string
+        completed:
+          type: boolean
+
+    UserRoutinePreferences:
+      type: object
+      properties:
+        showCompleted:
+          type: boolean
+        sortOrder:
+          type: string
+          enum: [order, time, name]
+        dailyReminderEnabled:
+          type: boolean
+        dailyReminderTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+    RoutineTemplate:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        type:
+          type: string
+          description: e.g. text, scale, checklist, counter
+        config:
+          $ref: '#/components/schemas/RoutineConfig'
+        schedule:
+          $ref: '#/components/schemas/ScheduleConfig'
+        streakConfig:
+          type: object
+          properties:
+            allowSkips:
+              type: boolean
+            maxBankedSkips:
+              type: integer
+            skipCost:
+              type: integer
+        completionMode:
+          type: string
+          enum: [strict, gradual]
+        gradualThreshold:
+          type: number
+        streakData:
+          type: object
+          properties:
+            currentStreak:
+              type: integer
+            longestStreak:
+              type: integer
+            totalCompletions:
+              type: integer
+            bankedSkips:
+              type: integer
+            lastCompletedDate:
+              type: string
+              format: date-time
+        status:
+          type: string
+          enum: [active, paused, archived]
+        linkedGoals:
+          type: array
+          items:
+            type: string
+        linkedTags:
+          type: array
+          items:
+            type: string
+        order:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RoutineConfig:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: string
+        target:
+          type: number
+        unit:
+          type: string
+        min:
+          type: number
+        max:
+          type: number
+        minLabel:
+          type: string
+        maxLabel:
+          type: string
+        step:
+          type: number
+        maxLength:
+          type: integer
+        placeholder:
+          type: string
+        multiline:
+          type: boolean
+        format:
+          type: string
+          enum: ['12', '24']
+        targetSeconds:
+          type: number
+
+    ScheduleConfig:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [specific_days, frequency, interval]
+        days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        dates:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 31
+        frequencyCount:
+          type: integer
+        frequencyPeriod:
+          type: string
+          enum: [week, month]
+        intervalValue:
+          type: integer
+        intervalUnit:
+          type: string
+          enum: [day, week, month]
+
+    CreateRoutineTemplateRequest:
+      type: object
+      required:
+        - name
+        - type
+        - schedule
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        type:
+          type: string
+        config:
+          $ref: '#/components/schemas/RoutineConfig'
+        schedule:
+          $ref: '#/components/schemas/ScheduleConfig'
+        streakConfig:
+          type: object
+        completionMode:
+          type: string
+          enum: [strict, gradual]
+        linkedGoals:
+          type: array
+          items:
+            type: string
+
+    UpdateRoutineTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        config:
+          $ref: '#/components/schemas/RoutineConfig'
+        schedule:
+          $ref: '#/components/schemas/ScheduleConfig'
+        streakConfig:
+          type: object
+        completionMode:
+          type: string
+          enum: [strict, gradual]
+        linkedGoals:
+          type: array
+          items:
+            type: string
+
+    RoutineStats:
+      type: object
+      properties:
+        completionRate:
+          type: number
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        totalCompletions:
+          type: integer
+        weeklyTrend:
+          type: array
+          items:
+            type: number
+
+    RoutineAnalytics:
+      type: object
+      properties:
+        overallCompletionRate:
+          type: number
+        totalActiveRoutines:
+          type: integer
+        routineBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              routine:
+                $ref: '#/components/schemas/RoutineTemplate'
+              completionRate:
+                type: number
+              streak:
+                type: integer

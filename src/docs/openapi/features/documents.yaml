@@ -1,0 +1,212 @@
+paths:
+  /documents:
+    get:
+      summary: List user documents
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of documents retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+
+    post:
+      summary: Create a new document
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+      responses:
+        201:
+          description: Document created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Document'
+
+  /documents/recent:
+    get:
+      summary: Get recently accessed documents
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Recent documents retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+
+  /documents/{id}:
+    get:
+      summary: Get document by ID
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Document retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Document'
+    put:
+      summary: Update document
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDocumentRequest'
+      responses:
+        200:
+          description: Document updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Document'
+    delete:
+      summary: Delete document
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  schemas:
+    Document:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        title:
+          type: string
+        icon:
+          type: string
+        coverImage:
+          type: string
+        content:
+          type: object
+          description: JSON structure for block editor (Tiptap)
+        isFavorite:
+          type: boolean
+        isArchived:
+          type: boolean
+        parentId:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateDocumentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        icon:
+          type: string
+        coverImage:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        content:
+          type: object
+
+    UpdateDocumentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        icon:
+          type: string
+        coverImage:
+          type: string
+        content:
+          type: object
+        isFavorite:
+          type: boolean
+        isArchived:
+          type: boolean
+        parentId:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string

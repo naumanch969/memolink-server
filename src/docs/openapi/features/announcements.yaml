@@ -1,0 +1,261 @@
+paths:
+  /announcements:
+    get:
+      summary: List announcements (User view)
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of announcements
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Announcement'
+    post:
+      summary: Create an announcement (Admin only)
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnnouncementRequest'
+      responses:
+        201:
+          description: Announcement created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Announcement'
+
+  /announcements/{id}:
+    get:
+      summary: Get announcement by ID
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Announcement retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Announcement'
+    put:
+      summary: Update announcement (Admin only)
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAnnouncementRequest'
+      responses:
+        200:
+          description: Announcement updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Announcement'
+    delete:
+      summary: Delete announcement (Admin only)
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Announcement deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /announcements/{id}/send:
+    post:
+      summary: Send/Publish announcement (Admin only)
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Announcement broadcast initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /announcements/{id}/logs:
+    get:
+      summary: Get delivery logs for an announcement (Admin only)
+      tags: [Announcements]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Delivery logs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AnnouncementDeliveryLog'
+
+components:
+  schemas:
+    Announcement:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+          enum: [announcement, newsletter, security_alert]
+        status:
+          type: string
+          enum: [draft, scheduled, processing, completed, failed]
+        scheduledAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+        stats:
+          type: object
+          properties:
+            totalRecipients:
+              type: integer
+            sentCount:
+              type: integer
+            failedCount:
+              type: integer
+            progress:
+              type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateAnnouncementRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+        target:
+          type: object
+          properties:
+            roles:
+              type: array
+              items:
+                type: string
+        scheduledAt:
+          type: string
+          format: date-time
+
+    UpdateAnnouncementRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+
+    AnnouncementDeliveryLog:
+      type: object
+      properties:
+        _id:
+          type: string
+        announcementId:
+          type: string
+        userId:
+          type: string
+        email:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+        sentAt:
+          type: string
+          format: date-time

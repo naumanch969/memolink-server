@@ -1,0 +1,183 @@
+paths:
+  /routine-logs:
+    get:
+      summary: Get routine logs for the user
+      tags: [Routine Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: routineId
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine logs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RoutineLog'
+
+    post:
+      summary: Create or update a routine log
+      tags: [Routine Logs]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoutineLogRequest'
+      responses:
+        200:
+          description: Routine log saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineLog'
+
+  /routine-logs/{id}:
+    patch:
+      summary: Update a specific routine log
+      tags: [Routine Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoutineLogRequest'
+      responses:
+        200:
+          description: Routine log updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RoutineLog'
+
+    delete:
+      summary: Delete a specific routine log
+      tags: [Routine Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Routine log deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  schemas:
+    RoutineLog:
+      type: object
+      properties:
+        _id:
+          type: string
+        routineId:
+          type: string
+        date:
+          type: string
+          format: date
+        data:
+          type: object
+          properties:
+            value:
+              type: object
+              description: Value can be boolean, number, string, or array depending on routine type
+            notes:
+              type: string
+        completionPercentage:
+          type: number
+        countsForStreak:
+          type: boolean
+        journalEntryId:
+          type: string
+        loggedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateRoutineLogRequest:
+      type: object
+      required:
+        - routineId
+        - date
+        - data
+      properties:
+        routineId:
+          type: string
+        date:
+          type: string
+          format: date
+        data:
+          type: object
+          required:
+            - value
+          properties:
+            value:
+              type: object
+            notes:
+              type: string
+        journalEntryId:
+          type: string
+
+    UpdateRoutineLogRequest:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            value:
+              type: object
+            notes:
+              type: string
+        journalEntryId:
+          type: string

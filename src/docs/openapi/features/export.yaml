@@ -1,0 +1,58 @@
+paths:
+  /export:
+    post:
+      summary: Export user data in various formats
+      tags: [System]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        200:
+          description: Export initiated/retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExportResponse'
+
+components:
+  schemas:
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: [json, csv, pdf, markdown]
+        dateFrom:
+          type: string
+          format: date
+        dateTo:
+          type: string
+          format: date
+        includeMedia:
+          type: boolean
+        includePrivate:
+          type: boolean
+
+    ExportResponse:
+      type: object
+      properties:
+        downloadUrl:
+          type: string
+        filename:
+          type: string
+        format:
+          type: string
+        size:
+          type: integer

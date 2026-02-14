@@ -1,0 +1,79 @@
+paths:
+  /events:
+    post:
+      summary: Ingest a batch of events from an Edge Client
+      tags: [Events]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - events
+              properties:
+                events:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MemolinkEvent'
+      responses:
+        200:
+          description: Events ingested
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          results:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                success:
+                                  type: boolean
+                                id:
+                                  type: string
+                                error:
+                                  type: string
+
+components:
+  schemas:
+    MemolinkEvent:
+      type: object
+      required:
+        - type
+        - payload
+        - timestamp
+      properties:
+        type:
+          type: string
+          description: Event category (e.g., session_start, mood_logged)
+        timestamp:
+          type: integer
+          format: int64
+          description: UTC Epoch
+        payload:
+          type: object
+          description: Event-specific data payload
+        source:
+          type: object
+          properties:
+            deviceId:
+              type: string
+            platform:
+              type: string
+              enum: [web, mobile, ext, server]
+            version:
+              type: string
+        meta:
+          type: object
+          properties:
+            is_offline_capture:
+              type: boolean

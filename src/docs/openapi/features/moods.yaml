@@ -1,0 +1,97 @@
+paths:
+  /moods:
+    get:
+      summary: List user moods
+      tags: [Moods]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: List of moods retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Mood'
+
+    post:
+      summary: Upsert mood for a specific date
+      tags: [Moods]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertMoodRequest'
+      responses:
+        200:
+          description: Mood updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Mood'
+
+components:
+  schemas:
+    Mood:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        date:
+          type: string
+          format: date
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpsertMoodRequest:
+      type: object
+      required:
+        - date
+        - score
+      properties:
+        date:
+          type: string
+          format: date
+        score:
+          type: integer
+          minimum: 1
+          maximum: 5
+        note:
+          type: string

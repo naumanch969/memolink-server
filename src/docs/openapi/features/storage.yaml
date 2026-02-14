@@ -1,0 +1,174 @@
+paths:
+  /storage:
+    get:
+      summary: Get user's storage usage statistics
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Storage stats retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StorageStats'
+
+  /storage/breakdown:
+    get:
+      summary: Get detailed storage breakdown by file type
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Storage breakdown retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/StorageBreakdown'
+
+  /storage/sync:
+    post:
+      summary: Recalculate and sync storage usage from actual media files
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Storage usage synced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          actualUsage:
+                            type: integer
+
+  /storage/orphans:
+    get:
+      summary: Find orphaned media files (not linked to entries or folders)
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Orphaned media list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrphanMedia'
+
+  /storage/suggestions:
+    get:
+      summary: Get suggestions for cleaning up storage space
+      tags: [Storage]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Cleanup suggestions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CleanupSuggestion'
+
+components:
+  schemas:
+    StorageStats:
+      type: object
+      properties:
+        used:
+          type: integer
+        quota:
+          type: integer
+        available:
+          type: integer
+        usagePercent:
+          type: number
+        isWarning:
+          type: boolean
+        isCritical:
+          type: boolean
+        breakdown:
+          $ref: '#/components/schemas/StorageBreakdown'
+
+    StorageBreakdown:
+      type: object
+      properties:
+        images:
+          type: integer
+        videos:
+          type: integer
+        documents:
+          type: integer
+        audio:
+          type: integer
+        archives:
+          type: integer
+        data:
+          type: integer
+        code:
+          type: integer
+        other:
+          type: integer
+
+    OrphanMedia:
+      type: object
+      properties:
+        _id:
+          type: string
+        filename:
+          type: string
+        size:
+          type: integer
+        type:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+
+    CleanupSuggestion:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [large, old, duplicate, orphan]
+        mediaIds:
+          type: array
+          items:
+            type: string
+        potentialSavings:
+          type: integer
+        description:
+          type: string

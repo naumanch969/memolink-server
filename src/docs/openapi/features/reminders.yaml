@@ -1,0 +1,385 @@
+paths:
+  /reminders:
+    get:
+      summary: List user reminders with filtering
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, completed, cancelled]
+        - in: query
+          name: priority
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Text search in title and description
+      responses:
+        200:
+          description: List of reminders retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Reminder'
+
+    post:
+      summary: Create a new reminder
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReminderRequest'
+      responses:
+        201:
+          description: Reminder created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Reminder'
+
+  /reminders/upcoming:
+    get:
+      summary: Get upcoming reminders
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Upcoming reminders retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Reminder'
+
+  /reminders/overdue:
+    get:
+      summary: Get overdue reminders
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Overdue reminders retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Reminder'
+
+  /reminders/{id}:
+    get:
+      summary: Get reminder by ID
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Reminder retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Reminder'
+    patch:
+      summary: Update reminder
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReminderRequest'
+      responses:
+        200:
+          description: Reminder updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Reminder'
+    delete:
+      summary: Delete reminder
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Reminder deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /reminders/{id}/complete:
+    patch:
+      summary: Mark reminder as completed
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completedAt:
+                  type: string
+                  format: date-time
+      responses:
+        200:
+          description: Reminder completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /reminders/{id}/cancel:
+    patch:
+      summary: Cancel reminder
+      tags: [Reminders]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Reminder cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  schemas:
+    Reminder:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+        allDay:
+          type: boolean
+        recurring:
+          $ref: '#/components/schemas/Recurrence'
+        parentReminderId:
+          type: string
+        notifications:
+          $ref: '#/components/schemas/NotificationSettings'
+        priority:
+          type: string
+          enum: [low, medium, high]
+        status:
+          type: string
+          enum: [pending, completed, cancelled]
+        completedAt:
+          type: string
+          format: date-time
+        linkedTags:
+          type: array
+          items:
+            type: string
+        linkedEntities:
+          type: array
+          items:
+            type: string
+        linkedEntries:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Recurrence:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly, yearly, custom]
+        interval:
+          type: integer
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        endDate:
+          type: string
+          format: date-time
+        endAfterOccurrences:
+          type: integer
+
+    NotificationSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        times:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [minutes, hours, days]
+              value:
+                type: integer
+
+    CreateReminderRequest:
+      type: object
+      required:
+        - title
+        - date
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+        endTime:
+          type: string
+        allDay:
+          type: boolean
+        recurring:
+          $ref: '#/components/schemas/Recurrence'
+        notifications:
+          $ref: '#/components/schemas/NotificationSettings'
+        priority:
+          type: string
+          enum: [low, medium, high]
+        linkedTags:
+          type: array
+          items:
+            type: string
+
+    UpdateReminderRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        allDay:
+          type: boolean
+        recurring:
+          $ref: '#/components/schemas/Recurrence'
+        notifications:
+          $ref: '#/components/schemas/NotificationSettings'
+        priority:
+          type: string
+        status:
+          type: string
+        linkedTags:
+          type: array
+          items:
+            type: string

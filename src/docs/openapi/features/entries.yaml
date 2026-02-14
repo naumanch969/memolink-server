@@ -1,0 +1,411 @@
+paths:
+  /entries:
+    get:
+      summary: List user entries
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        200:
+          description: List of entries retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Entry'
+
+    post:
+      summary: Create a new entry
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEntryRequest'
+      responses:
+        201:
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entry'
+
+  /entries/search:
+    get:
+      summary: Search entries
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search keywords
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [text, media, mixed]
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: tags
+          schema:
+            type: string
+          description: Comma-separated tag IDs
+        - in: query
+          name: entities
+          schema:
+            type: string
+          description: Comma-separated entity IDs
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        200:
+          description: Search results retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Entry'
+
+  /entries/stats:
+    get:
+      summary: Get entry statistics
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Entry statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EntryStats'
+
+  /entries/feed:
+    get:
+      summary: Get user feed (infinite scroll)
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: ID of the last entry for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        200:
+          description: Feed data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          entries:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Entry'
+                          nextCursor:
+                            type: string
+                          hasMore:
+                            type: boolean
+
+  /entries/{id}:
+    get:
+      summary: Get entry by ID
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Entry retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entry'
+    put:
+      summary: Update entry
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntryRequest'
+      responses:
+        200:
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entry'
+    delete:
+      summary: Delete entry
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Entry deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /entries/{id}/favorite:
+    patch:
+      summary: Toggle favorite status
+      tags: [Entries]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Favorite status toggled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Entry'
+
+components:
+  schemas:
+    Entry:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, media, mixed]
+        mentions:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        media:
+          type: array
+          items:
+            type: string
+        isPrivate:
+          type: boolean
+        isImportant:
+          type: boolean
+        isFavorite:
+          type: boolean
+        mood:
+          type: string
+        location:
+          type: string
+        date:
+          type: string
+          format: date-time
+        moodMetadata:
+          type: object
+          properties:
+            category:
+              type: string
+            score:
+              type: integer
+            color:
+              type: string
+            icon:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateEntryRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, media, mixed]
+        mentions:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        media:
+          type: array
+          items:
+            type: string
+        isPrivate:
+          type: boolean
+        mood:
+          type: string
+        location:
+          type: string
+
+    UpdateEntryRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, media, mixed]
+        mentions:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        media:
+          type: array
+          items:
+            type: string
+        isPrivate:
+          type: boolean
+        mood:
+          type: string
+        location:
+          type: string
+
+    EntryStats:
+      type: object
+      properties:
+        totalEntries:
+          type: integer
+        entriesThisMonth:
+          type: integer
+        entriesThisWeek:
+          type: integer
+        entriesToday:
+          type: integer
+        averageWordsPerEntry:
+          type: number
+        mostActiveDay:
+          type: string
+        entryTypes:
+          type: object
+          properties:
+            text:
+              type: integer
+            media:
+              type: integer
+            mixed:
+              type: integer

@@ -1,0 +1,307 @@
+paths:
+  /goals:
+    get:
+      summary: List user goals
+      tags: [Goals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, completed, abandoned, paused]
+      responses:
+        200:
+          description: List of goals retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Goal'
+
+    post:
+      summary: Create a new goal
+      tags: [Goals]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequest'
+      responses:
+        201:
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Goal'
+
+  /goals/{id}:
+    get:
+      summary: Get goal by ID
+      tags: [Goals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Goal retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Goal'
+    patch:
+      summary: Update goal
+      tags: [Goals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGoalRequest'
+      responses:
+        200:
+          description: Goal updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Goal'
+    delete:
+      summary: Delete goal
+      tags: [Goals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Goal deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /goals/{id}/progress:
+    post:
+      summary: Update goal progress
+      tags: [Goals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - value
+              properties:
+                value:
+                  type: object
+                  description: New progress value (number or mapped data)
+                notes:
+                  type: string
+                completedMilestones:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of milestone IDs
+      responses:
+        200:
+          description: Progress updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Goal'
+
+components:
+  schemas:
+    Goal:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        why:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [active, completed, abandoned, paused]
+        config:
+          $ref: '#/components/schemas/GoalConfig'
+        progress:
+          $ref: '#/components/schemas/GoalProgress'
+        startDate:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        priority:
+          type: string
+          enum: [low, medium, high]
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    GoalConfig:
+      type: object
+      properties:
+        targetValue:
+          type: number
+        targetItems:
+          type: array
+          items:
+            type: string
+        targetTime:
+          type: string
+        unit:
+          type: string
+
+    GoalProgress:
+      type: object
+      properties:
+        currentValue:
+          type: object
+        completedItems:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        lastUpdate:
+          type: string
+          format: date-time
+
+    CreateGoalRequest:
+      type: object
+      required:
+        - title
+        - type
+        - config
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        why:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        type:
+          type: string
+        config:
+          $ref: '#/components/schemas/GoalConfig'
+        startDate:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        priority:
+          type: string
+          enum: [low, medium, high]
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateGoalRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        why:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        status:
+          type: string
+          enum: [active, completed, abandoned, paused]
+        deadline:
+          type: string
+          format: date-time
+        priority:
+          type: string
+          enum: [low, medium, high]
+        tags:
+          type: array
+          items:
+            type: string

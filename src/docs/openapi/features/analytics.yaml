@@ -1,0 +1,163 @@
+paths:
+  /analytics:
+    get:
+      summary: Get comprehensive user analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [week, month, year]
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+      responses:
+        200:
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AnalyticsData'
+
+  /analytics/entries:
+    get:
+      summary: Get detailed entry-specific analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [week, month, year]
+      responses:
+        200:
+          description: Entry analytics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+
+  /analytics/media:
+    get:
+      summary: Get detailed media-specific analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [week, month, year]
+      responses:
+        200:
+          description: Media analytics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+
+  /analytics/graph:
+    get:
+      summary: Get summarized graph data for analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Graph data retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+
+components:
+  schemas:
+    AnalyticsData:
+      type: object
+      properties:
+        totalEntries:
+          type: integer
+        entriesThisMonth:
+          type: integer
+        totalEntities:
+          type: integer
+        totalTags:
+          type: integer
+        totalMedia:
+          type: integer
+        entryFrequency:
+          type: object
+          properties:
+            daily:
+              type: array
+              items:
+                type: integer
+            weekly:
+              type: array
+              items:
+                type: integer
+            monthly:
+              type: array
+              items:
+                type: integer
+        topEntities:
+          type: array
+          items:
+            type: object
+            properties:
+              entity:
+                $ref: '#/components/schemas/Entity'
+              interactionCount:
+                type: integer
+        topTags:
+          type: array
+          items:
+            type: object
+            properties:
+              tag:
+                $ref: '#/components/schemas/Tag'
+              usageCount:
+                type: integer
+        mediaStats:
+          type: object
+          properties:
+            totalImages:
+              type: integer
+            totalVideos:
+              type: integer
+            totalDocuments:
+              type: integer
+        patterns:
+          type: object
+        weeklySummary:
+          type: object
