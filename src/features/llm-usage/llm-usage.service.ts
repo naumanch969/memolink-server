@@ -1,4 +1,5 @@
 import { logger } from '../../config/logger';
+import { telemetryBus } from '../../core/telemetry/telemetry.bus';
 import { LLMUsageLog } from './llm-usage.model';
 
 // Gemini 2.5 Flash pricing (USD per token)
@@ -61,9 +62,24 @@ class LLMUsageService {
     }
 
     /**
-     * Fire-and-forget: persists a usage log entry without blocking the caller.
+     * Fire-and-forget: emits a usage event to the telemetry bus.
      */
     log(entry: LLMUsageEntry): void {
+        telemetryBus.emitAI({
+            model: entry.modelName,
+            promptTokens: entry.promptTokens,
+            completionTokens: entry.completionTokens,
+            feature: entry.workflow,
+            userId: entry.userId,
+        });
+
+        // Optional: Still persist the raw log for granulary/audit, but do it asynchronously
+        // For strict "No Bloat", we might skip this or push it to a low-priority queue.
+        // But for now, let's keep it as a backup but wrap it safely.
+
+        // We can delegate the cost calculation to the bus/buffer manager now, 
+        // but we still need cost for the Log entry below if we keep it.
+        // For consistency, let's recalculate it here just for the raw log document.
         const estimatedCostUSD = this.computeCost(entry.modelName, entry.promptTokens, entry.completionTokens);
 
         LLMUsageLog.create({

@@ -2,8 +2,11 @@ import { createServer, Server as HttpServer } from 'http';
 import database from '../config/database';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
+import { MetricsService } from '../features/monitoring/metrics.service';
+import { startDailyRollupJob } from '../features/monitoring/rollup.job';
 import app from './app';
 import { SocketManager } from './socket/socket.manager';
+import { bufferManager } from './telemetry/buffer.manager';
 
 class Server {
   private server: HttpServer;
@@ -21,9 +24,13 @@ class Server {
       // Initialize Sockets
       this.socketManager = new SocketManager(this.server);
 
+      // Start Telemetry
+      MetricsService.startSystemMetricsCollection();
+      startDailyRollupJob();
+
       // Start server
       this.server.listen(Number(config.PORT), '0.0.0.0', () => {
-        logger.info(`Server running on port ${config.PORT}`, {
+        logger.info(`Server running on port ${config.PORT} `, {
           environment: config.NODE_ENV,
           port: config.PORT,
           timestamp: new Date().toISOString(),
@@ -70,6 +77,9 @@ class Server {
         logger.info('HTTP server closed');
 
         try {
+          await bufferManager.flush();
+          logger.info('Telemetry buffer flushed');
+
           await database.disconnect();
           logger.info('Database connection closed');
           process.exit(0);

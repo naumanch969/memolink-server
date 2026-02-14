@@ -109,15 +109,5 @@ app.use(errorTrackingMiddleware);
 // Error handling middleware
 app.use(errorHandler);
 
-// Graceful shutdown handling
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
 
 export default app;

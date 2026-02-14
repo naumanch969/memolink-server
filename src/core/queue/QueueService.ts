@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/node';
 import { Job, Processor, Queue, QueueOptions, Worker, WorkerOptions } from 'bullmq';
 import { logger } from '../../config/logger';
 import redisConnection from '../../config/redis';
-import { MetricService } from '../../features/monitoring/metrics.service';
+import { MetricsService } from '../../features/monitoring/metrics.service';
 
 export interface IQueueDefinition<T = any> {
     name: string;
@@ -42,7 +42,7 @@ export class QueueService {
         logger.info(`Queue [${name}] initialized`);
 
         // Track usage
-        MetricService.increment('redis:queues_initialized');
+        MetricsService.increment('redis:queues_initialized');
 
         return queue;
     }

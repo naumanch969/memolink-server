@@ -17,6 +17,7 @@ monitoringRouter.get('/metrics', async (req, res) => {
 });
 
 // 2. System Health & Infrastructure
+monitoringRouter.get('/dashboard', MonitoringController.getDashboard);
 monitoringRouter.get('/health', MonitoringController.getSystemHealth);
 monitoringRouter.get('/database', MonitoringController.getDatabaseStats);
 monitoringRouter.get('/jobs', MonitoringController.getJobQueueStats);

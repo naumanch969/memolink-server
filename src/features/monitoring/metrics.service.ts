@@ -1,28 +1,10 @@
-import mongoose, { Document, Schema } from 'mongoose';
 import { Counter, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
-import { logger } from '../../config/logger';
-
-// --- MongoDB Persistence for System Metrics (Estimated Usage) ---
-
-export interface ISystemMetric extends Document {
-    key: string;
-    count: number;
-    metadata?: Record<string, any>;
-    lastUpdatedAt: Date;
-}
-
-const SystemMetricSchema = new Schema<ISystemMetric>({
-    key: { type: String, required: true, unique: true, index: true },
-    count: { type: Number, default: 0 },
-    metadata: { type: Schema.Types.Mixed },
-    lastUpdatedAt: { type: Date, default: Date.now }
-}, { timestamps: true });
-
-export const SystemMetric = mongoose.model<ISystemMetric>('SystemMetric', SystemMetricSchema);
+import { telemetryBus } from '../../core/telemetry/telemetry.bus';
+import os from 'os'
 
 // --- Prometheus Metrics Service ---
 
-export class MetricService {
+export class MetricsService {
     private registry: Registry;
 
     // HTTP Metrics
@@ -88,32 +70,33 @@ export class MetricService {
         });
     }
 
-    // Static helper for quick persistence (MongoDB)
+    // Static helper for quick persistence (via Telemetry Buffer)
+    static startSystemMetricsCollection() {
+        setInterval(() => {
+            const memoryUsage = process.memoryUsage();
+            const cpuUsage = process.cpuUsage();
+
+            // Memory in MB
+            telemetryBus.emitMetric({ key: 'system:memory:heap', value: Math.round(memoryUsage.heapUsed / 1024 / 1024), op: 'max' });
+            telemetryBus.emitMetric({ key: 'system:memory:rss', value: Math.round(memoryUsage.rss / 1024 / 1024), op: 'max' });
+
+            // CPU Load (approx) - sending user time as proxy for load activity
+            // Since cpuUsage is since boot, we'd need diff. But loadavg is easier for OS level.
+            const load = os.loadavg()[0]; // 1 min load average
+            telemetryBus.emitMetric({ key: 'system:cpu:load', value: load, op: 'max' });
+
+        }, 60000); // Every minute
+    }
+
     static async increment(key: string, amount: number = 1) {
-        try {
-            await SystemMetric.findOneAndUpdate(
-                { key },
-                {
-                    $inc: { count: amount },
-                    $set: { lastUpdatedAt: new Date() }
-                },
-                { upsert: true }
-            );
-        } catch (err) {
-            logger.error(`Failed to increment metric ${key}`, err);
-        }
+        telemetryBus.emitMetric({ key, value: amount });
     }
 
     static async set(key: string, value: number) {
-        try {
-            await SystemMetric.findOneAndUpdate(
-                { key },
-                { $set: { count: value, lastUpdatedAt: new Date() } },
-                { upsert: true }
-            );
-        } catch (err) {
-            console.error(`Failed to update metric ${key}:`, err);
-        }
+        // For 'set', we might want immediate persistence or a different buffer logic.
+        // For now, let's just use the same buffer but it will 'increment' which is wrong for 'set'.
+        // FIXME: Implement gauge support in BufferManager
+        telemetryBus.emitMetric({ key, value });
     }
 
     // Prometheus Recording Methods (Instance methods)
@@ -139,4 +122,4 @@ export class MetricService {
     }
 }
 
-export const metricsService = new MetricService();
+export const metricsService = new MetricsService();

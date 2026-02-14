@@ -16,6 +16,15 @@ export class MonitoringController {
         }
     }
 
+    static async getDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = await monitoringService.getDashboardMetrics();
+            ResponseHelper.success(res, data, 'Dashboard metrics retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
+        }
+    }
+
     static async getDatabaseStats(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const stats = await monitoringService.getDatabaseStats();

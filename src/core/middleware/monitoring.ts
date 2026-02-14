@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import responseTime from 'response-time';
 import { logger } from '../../config/logger';
 import { metricsService } from '../../features/monitoring/metrics.service';
+import { telemetryBus } from '../telemetry/telemetry.bus';
 
 /**
  * Monitoring Middleware - Tracks HTTP request metrics
@@ -26,6 +27,16 @@ export const monitoringMiddleware = responseTime((req: Request, res: Response, t
         statusCode,
         duration
     );
+
+    // Emit Telemetry Event
+    telemetryBus.emitHTTP({
+        method,
+        route,
+        statusCode,
+        duration: time,       // ms
+        responseTime: time,   // ms
+        egressBytes: responseSize
+    });
 
     // Log slow requests (> 1 second)
     if (duration > 1) {

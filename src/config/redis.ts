@@ -1,7 +1,7 @@
 import IORedis from 'ioredis';
+import { MetricsService } from '../features/monitoring/metrics.service';
 import { config } from './env';
 import { logger } from './logger';
-import { MetricService } from '../features/monitoring/metrics.service';
 
 export const redisConnection = new IORedis(config.REDIS_URL, {
     maxRetriesPerRequest: null, // Required by BullMQ
@@ -19,9 +19,9 @@ redisConnection.on('connect', () => {
 redisConnection.on('error', (err) => {
     logger.error('Redis connection error:', err);
     // Track errors as a metric
-    MetricService.increment('redis:errors');
+    MetricsService.increment('redis:errors');
     if (err.message?.includes('max requests limit exceeded')) {
-        MetricService.increment('redis:limit_hits');
+        MetricsService.increment('redis:limit_hits');
     }
 });
 

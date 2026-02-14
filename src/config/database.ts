@@ -1,11 +1,15 @@
 import mongoose from 'mongoose';
+import { telemetryPlugin } from '../core/telemetry/mongoose.plugin';
 import { config } from './env';
+
+// Telemetry Plugin for Mongo, Register global plugins before any models are compiled
+mongoose.plugin(telemetryPlugin);
 
 class Database {
   private static instance: Database;
   private isConnected = false;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): Database {
     if (!Database.instance) {
@@ -28,7 +32,7 @@ class Database {
       };
 
       await mongoose.connect(config.MONGODB_URI, options);
-      
+
       this.isConnected = true;
       console.log('✅ Database connected successfully');
 

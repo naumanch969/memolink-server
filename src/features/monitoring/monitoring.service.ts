@@ -1,50 +1,179 @@
 import mongoose from 'mongoose';
 import os from 'os';
 import { logger } from '../../config/logger';
+import { bufferManager } from '../../core/telemetry/buffer.manager';
 import { getEmailQueue } from '../email/queue/email.queue';
 import Entry from '../entry/entry.model';
-import { SystemMetric } from './metrics.service';
+import { llmUsageService } from '../llm-usage/llm-usage.service';
+import { SystemMetric } from './metric.model';
 
-export interface SystemHealth {
-    status: 'healthy' | 'unhealthy';
-    uptime: {
-        seconds: number;
-        formatted: string;
-    };
-    timestamp: Date;
-    environment: string;
-    version: string;
-    memory: {
-        total: number;
-        free: number;
-        used: number;
-        usagePercentage: number;
-        rss: string;
-        heapTotal: string;
-        heapUsed: string;
-    };
-    cpu: {
-        loadAvg: number[];
-        cores: number;
-    };
-    database: {
-        connected: boolean;
-        status: string;
-    };
-    redis: {
-        connected: boolean;
-        status: string;
-    };
-}
+import { SystemHealth } from './monitoring.types';
 
 export class MonitoringService {
+    /**
+     * Get Aggregated Dashboard Metrics for the last 24 hours
+     */
+    async getDashboardMetrics() {
+        // Calculate the last 24 hours periods
+        const periods = [];
+        const now = new Date();
+        for (let i = 0; i < 24; i++) {
+            const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hour = String(d.getHours()).padStart(2, '0');
+            periods.push(`${year}-${month}-${day}:${hour}`);
+        }
+
+        // Fetch all metrics for these periods
+        const metrics: any[] = await SystemMetric.find({
+            period: { $in: periods }
+        }).lean();
+
+        // MERGE PENDING METRICS (Real-time view)
+        const pending = bufferManager.getPendingMetrics();
+        const currentPeriod = periods[0]; // The most recent hour (or based on getPeriodKey)
+
+        // 1. Merge Counters (additive) - Buffer counters accumulate since last flush
+        // If the DB already has data for this hour, we add the buffer to it implicitly by pushing a new entry
+        // The reduce() logic later sums all entries for the same key, so duplicates are fine.
+        Object.entries(pending.counters).forEach(([key, value]) => {
+            metrics.push({ key, value, period: currentPeriod });
+        });
+
+        // 2. Merge Gauges (max) - Buffer gauges track max since last flush
+        Object.entries(pending.gauges).forEach(([key, value]) => {
+            // We need to check if there is an existing metric to compare against
+            const existingIndex = metrics.findIndex(m => m.key === key && m.period === currentPeriod);
+
+            if (existingIndex >= 0) {
+                metrics[existingIndex].value = Math.max(metrics[existingIndex].value, value as number);
+            } else {
+                metrics.push({ key, value, period: currentPeriod });
+            }
+        });
+
+        // Aggregate by Key Type
+        let aiCost = metrics.filter(m => m.key === 'ai:cost:usd').reduce((sum, m) => sum + m.value, 0);
+        const totalTokens = metrics.filter(m => m.key.startsWith('ai:tokens:')).reduce((sum, m) => sum + m.value, 0);
+        const httpRequests = metrics.filter(m => m.key.startsWith('http:status:')).reduce((sum, m) => sum + m.value, 0);
+        const dbQueries = metrics.filter(m => m.key === 'db:queries:total').reduce((sum, m) => sum + m.value, 0);
+
+        // Fetch accurate cost from Audit Logs as well (to prevent "missing data" issues)
+        // This ensures the dashboard matches the Gemini Cost Report
+        const geminiSummary = await llmUsageService.getGeminiCostsSummary();
+        const accurateMonthlyCost = geminiSummary.projectedMonthEndCostUSD;
+
+        // If Audit Log has cost data this month but SystemMetric (fast path) is showing 0, 
+        // it means SystemMetric missed the data (or we are in a transition period).
+        // Since getDashboardMetrics() is focused on 24h, let's grab the last day from summary trend.
+        if (geminiSummary.dailyTrend.length > 0) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayLog = geminiSummary.dailyTrend.find(d => d.date === todayStr);
+            if (todayLog && todayLog.estimatedCostUSD > aiCost) {
+                aiCost = todayLog.estimatedCostUSD;
+            }
+        }
+
+        // Latency
+        const httpLatencySum = metrics.filter(m => m.key === 'http:latency:sum').reduce((sum, m) => sum + m.value, 0);
+        const httpLatencyCount = metrics.filter(m => m.key === 'http:requests:total').reduce((sum, m) => sum + m.value, 0);
+        const avgLatency = httpLatencyCount > 0 ? Math.round(httpLatencySum / httpLatencyCount) : 0;
+
+        // Errors
+        const httpErrors = metrics.filter(m => m.key === 'http:errors').reduce((sum, m) => sum + m.value, 0);
+        const errorRate = httpRequests > 0 ? Number(((httpErrors / httpRequests) * 100).toFixed(2)) : 0;
+
+        // Detailed Costs Breakdown
+        // Group by model
+        const modelCosts: Record<string, number> = {};
+        metrics.filter(m => m.key.startsWith('ai:cost:usd')).forEach(m => {
+            // If we tracked model specific cost (e.g. ai:cost:usd:gemini-1.5), we could split here.
+        });
+
+        const modelUsage: Record<string, number> = {};
+        metrics.filter(m => m.key.startsWith('ai:requests:')).forEach(m => {
+            const model = m.key.split(':')[2];
+            modelUsage[model] = (modelUsage[model] || 0) + m.value;
+        });
+
+        // Group by period for charts
+        const chartData = periods.reverse().map(period => ({
+            period,
+            aiCost: metrics.find(m => m.key === 'ai:cost:usd' && m.period === period)?.value || 0,
+            requests: metrics.filter(m => m.key.startsWith('http:status:') && m.period === period)
+                .reduce((sum, m) => sum + m.value, 0),
+            dbQueries: metrics.find(m => m.key === 'db:queries:total' && m.period === period)?.value || 0,
+            cpuLoad: metrics.find(m => m.key === 'system:cpu:load' && m.period === period)?.value || 0,
+            memory: metrics.find(m => m.key === 'system:memory:rss' && m.period === period)?.value || 0,
+        }));
+
+        // Advanced Forecasting (Historical + Current Trend)
+        // 1. Fetch last 15 days of daily rollups for context
+        const pastDays = [];
+        for (let i = 1; i <= 15; i++) {
+            const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            pastDays.push(`${y}-${m}-${day}`);
+        }
+
+        const historicalMetrics = await SystemMetric.find({
+            key: 'ai:cost:usd',
+            period: { $in: pastDays }
+        }).lean();
+
+        // 2. Calculate daily average from history
+        let historicalAvgDaily = 0;
+        if (historicalMetrics.length > 0) {
+            const totalHistorical = historicalMetrics.reduce((sum, m) => sum + m.value, 0);
+            historicalAvgDaily = totalHistorical / historicalMetrics.length;
+        }
+
+        // 3. Weighted Projection: 50% History, 50% Current Trend (Last 24h)
+        const currentTrendDaily = aiCost;
+
+        let weightedDailyCost = currentTrendDaily;
+        if (historicalAvgDaily > 0) {
+            // If we have history, blend it. 
+            // If current 24h is abnormally high/low, history dampens the volatility.
+            weightedDailyCost = (historicalAvgDaily * 0.5) + (currentTrendDaily * 0.5);
+        }
+
+        // 4. Project for 30 days
+        let projectedMonthlyCost = weightedDailyCost * 30;
+
+        // CORRECTION: Since we have the *actual* month-to-date cost in Audit Logs, 
+        // we should base our projection on capable data if SystemMetric is lagging/empty.
+        if (accurateMonthlyCost > projectedMonthlyCost) {
+            projectedMonthlyCost = accurateMonthlyCost;
+        }
+
+        return {
+            summary: {
+                aiCost24h: aiCost,
+                totalTokens24h: totalTokens,
+                httpRequests24h: httpRequests,
+                dbQueries24h: dbQueries,
+                projectedMonthlyCost,
+                avgLatency,
+                errorRate
+            },
+            usage: {
+                byModel: modelUsage
+            },
+            chart: chartData
+        };
+    }
+
     /**
      * Get comprehensive system health
      */
     async getFullHealth(): Promise<SystemHealth> {
         const totalMem = os.totalmem();
         const freeMem = os.freemem();
-        const usedMem = totalMem - freeMem;
         const uptime = process.uptime();
         const memUsage = process.memoryUsage();
 
@@ -55,6 +184,9 @@ export class MonitoringService {
         const redisConnection = (await import('../../config/redis')).default;
         const redisStatus = redisConnection.status;
         const redisConnected = redisStatus === 'ready' || redisStatus === 'connect';
+
+        // Use Process Memory for "Used" to reflect App footprint, not System total (which includes OS cache)
+        const usedMem = memUsage.rss;
 
         return {
             status: (dbConnected && redisConnected) ? 'healthy' : 'unhealthy',
@@ -69,7 +201,7 @@ export class MonitoringService {
                 total: totalMem,
                 free: freeMem,
                 used: usedMem,
-                usagePercentage: Math.round((usedMem / totalMem) * 100),
+                usagePercentage: Number(((usedMem / totalMem) * 100).toFixed(2)),
                 rss: this.formatBytes(memUsage.rss),
                 heapTotal: this.formatBytes(memUsage.heapTotal),
                 heapUsed: this.formatBytes(memUsage.heapUsed),
@@ -103,8 +235,8 @@ export class MonitoringService {
                 name: db.databaseName,
                 collections: stats.collections,
                 objects: stats.objects,
-                dataSize: this.formatBytes(stats.dataSize),
-                storageSize: this.formatBytes(stats.storageSize),
+                dataSize: stats.dataSize,
+                storageSize: stats.storageSize,
             };
         } catch (error) {
             logger.error('Failed to get DB stats:', error);
@@ -128,14 +260,38 @@ export class MonitoringService {
 
         return {
             redis: {
-                errors: metrics.find(m => m.key === 'redis:errors')?.count || 0,
-                hits: metrics.find(m => m.key === 'redis:limit_hits')?.count || 0,
+                errors: metrics.find(m => m.key === 'redis:errors')?.value || 0,
+                hits: metrics.find(m => m.key === 'redis:limit_hits')?.value || 0,
             },
             selfHealing: {
                 pendingEntries: untaggedCount
-            }
+            },
+            cloudinary: await this.getCloudinaryUsage()
         };
     }
+
+    private async getCloudinaryUsage() {
+        try {
+            // Lazy load to avoid startup issues if not configured
+            const { v2: cloudinary } = await import('cloudinary');
+            cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET
+            });
+
+            const usage = await cloudinary.api.usage();
+            return {
+                usage: usage.storage?.usage || 0,
+                limit: usage.storage?.limit || 0,
+                credits_usage: usage.credits?.usage || 0
+            };
+        } catch (error) {
+            // logger.warn('Failed to fetch Cloudinary usage', error);
+            return { usage: 0, limit: 0, credits_usage: 0 };
+        }
+    }
+
 
     async getJobQueues() {
         try {
