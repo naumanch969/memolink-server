@@ -1,10 +1,10 @@
-import { logger } from '../../config/logger';
-import { createError } from '../../core/middleware/errorHandler';
-import { ExportRequest, ExportResponse, IExportService } from './export.interfaces';
 import { Response } from 'express';
+import { logger } from '../../config/logger';
+import { ApiError } from '../../core/errors/api.error';
+import { ExportRequest, IExportService } from './export.interfaces';
+import { CsvStrategy } from './strategies/csv.strategy';
 import { ExportStrategy } from './strategies/export.strategy';
 import { JsonStrategy } from './strategies/json.strategy';
-import { CsvStrategy } from './strategies/csv.strategy';
 import { MarkdownStrategy } from './strategies/markdown.strategy';
 
 
@@ -24,7 +24,7 @@ export class ExportService implements IExportService {
       const strategy = this.strategies[options.format];
 
       if (!strategy) {
-        throw createError(`Unsupported export format: ${options.format}`, 400);
+        throw ApiError.badRequest(`Unsupported export format: ${options.format}`);
       }
 
       logger.info('Starting export stream', {
@@ -36,7 +36,7 @@ export class ExportService implements IExportService {
 
       logger.info('Export stream completed', {
         userId,
-        
+
         format: options.format
       });
 

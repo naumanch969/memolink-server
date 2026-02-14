@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { createNotFoundError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { CreateFolderRequest, IFolder, IFolderService, UpdateFolderRequest } from './folder.interfaces';
 import { Folder } from './folder.model';
 import { Media } from './media.model';
@@ -13,7 +13,7 @@ export class FolderService implements IFolderService {
       if (folderData.parentId) {
         const parentFolder = await Folder.findOne({ _id: folderData.parentId, userId });
         if (!parentFolder) {
-          throw createNotFoundError('Parent folder');
+          throw ApiError.notFound('Parent folder');
         }
         path = `${parentFolder.path}${parentFolder.name}/`;
       }
@@ -40,14 +40,14 @@ export class FolderService implements IFolderService {
       if (updateData.parentId !== undefined) {
         const folder = await Folder.findOne({ _id: folderId, userId });
         if (!folder) {
-          throw createNotFoundError('Folder');
+          throw ApiError.notFound('Folder');
         }
 
         let newPath = '/';
         if (updateData.parentId) {
           const parentFolder = await Folder.findOne({ _id: updateData.parentId, userId });
           if (!parentFolder) {
-            throw createNotFoundError('Parent folder');
+            throw ApiError.notFound('Parent folder');
           }
           // Prevent circular reference
           if (parentFolder.path.includes(folder._id.toString())) {
@@ -65,7 +65,7 @@ export class FolderService implements IFolderService {
       );
 
       if (!folder) {
-        throw createNotFoundError('Folder');
+        throw ApiError.notFound('Folder');
       }
 
       return folder;
@@ -79,7 +79,7 @@ export class FolderService implements IFolderService {
     try {
       const folder = await Folder.findOne({ _id: folderId, userId });
       if (!folder) {
-        throw createNotFoundError('Folder');
+        throw ApiError.notFound('Folder');
       }
       return folder;
     } catch (error) {
@@ -121,7 +121,7 @@ export class FolderService implements IFolderService {
     try {
       const folder = await Folder.findOne({ _id: folderId, userId });
       if (!folder) {
-        throw createNotFoundError('Folder');
+        throw ApiError.notFound('Folder');
       }
 
       // Check if folder has subfolders
@@ -148,13 +148,13 @@ export class FolderService implements IFolderService {
     try {
       const folder = await Folder.findOne({ _id: folderId, userId });
       if (!folder) {
-        throw createNotFoundError('Folder');
+        throw ApiError.notFound('Folder');
       }
 
       if (targetFolderId) {
         const targetFolder = await Folder.findOne({ _id: targetFolderId, userId });
         if (!targetFolder) {
-          throw createNotFoundError('Target folder');
+          throw ApiError.notFound('Target folder');
         }
       }
 

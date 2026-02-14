@@ -1,7 +1,7 @@
 import { ClientSession, Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
-import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
 import { NodeType } from '../graph/edge.model';
 import { CreateEntityRequest, IKnowledgeEntity, UpdateEntityRequest } from './entity.interfaces';
@@ -54,7 +54,7 @@ export class EntityService {
         }).session(options.session || null);
 
         if (existing) {
-            throw createConflictError(`Entity with name "${data.name}" already exists.`);
+            throw ApiError.conflict(`Entity with name "${data.name}" already exists.`);
         }
 
         const entity = new KnowledgeEntity({
@@ -87,7 +87,7 @@ export class EntityService {
 
     async getEntityById(entityId: string, userId: string): Promise<IKnowledgeEntity> {
         const entity = await KnowledgeEntity.findOne({ _id: entityId, userId, isDeleted: false });
-        if (!entity) throw createNotFoundError('Entity');
+        if (!entity) throw ApiError.notFound('Entity');
         return entity;
     }
 
@@ -101,7 +101,7 @@ export class EntityService {
 
     async updateEntity(entityId: string, userId: string, data: UpdateEntityRequest, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
         const entity = await KnowledgeEntity.findOne({ _id: entityId, userId, isDeleted: false }).session(options.session || null);
-        if (!entity) throw createNotFoundError('Entity');
+        if (!entity) throw ApiError.notFound('Entity');
 
         const oldName = entity.name;
         const oldAliases = [...(entity.aliases || [])];
@@ -123,7 +123,7 @@ export class EntityService {
 
     async deleteEntity(entityId: string, userId: string, options: { session?: ClientSession } = {}): Promise<void> {
         const entity = await KnowledgeEntity.findOne({ _id: entityId, userId, isDeleted: false }).session(options.session || null);
-        if (!entity) throw createNotFoundError('Entity');
+        if (!entity) throw ApiError.notFound('Entity');
 
         entity.isDeleted = true;
         entity.deletedAt = new Date();

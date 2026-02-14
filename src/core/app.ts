@@ -6,9 +6,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { errorTrackingMiddleware, monitoringMiddleware, requestContextMiddleware } from './middleware/monitoring';
-import routes from './routes';
+import { ErrorMiddleware } from './middleware/error.middleware';
+import { errorTrackingMiddleware, monitoringMiddleware, requestContextMiddleware } from './middleware/monitoring.middleware';
+import routes from './routes/index';
 
 const app = express();
 
@@ -101,13 +101,13 @@ if (config.SENTRY_DSN_URL) {
 }
 
 // 404 handler
-app.use(notFoundHandler);
+app.use(ErrorMiddleware.notFound);
 
 // Error tracking middleware
 app.use(errorTrackingMiddleware);
 
 // Error handling middleware
-app.use(errorHandler);
+app.use(ErrorMiddleware.handle);
 
 
 export default app;

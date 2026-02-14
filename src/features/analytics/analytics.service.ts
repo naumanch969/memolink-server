@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { createError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { KnowledgeEntity } from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Media } from '../media/media.model';
@@ -95,7 +95,7 @@ export class AnalyticsService {
   static async getEntryAnalytics(userId: string, options: AnalyticsRequest = {}): Promise<any> {
     try {
       // TODO: Implement entry analytics
-      throw createError('Entry analytics not implemented yet', 501);
+      throw ApiError.badRequest('Entry analytics not implemented yet');
     } catch (error) {
       logger.error('Get entry analytics failed:', error);
       throw error;
@@ -237,12 +237,10 @@ export class AnalyticsService {
     return stats;
   }
 
-
-
   static async getMediaAnalytics(userId: string, options: AnalyticsRequest = {}): Promise<any> {
     try {
       // TODO: Implement media analytics
-      throw createError('Media analytics not implemented yet', 501);
+      throw ApiError.badRequest('Media analytics not implemented yet');
     } catch (error) {
       logger.error('Get media analytics failed:', error);
       throw error;

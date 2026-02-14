@@ -1,9 +1,9 @@
 import { startOfDay } from 'date-fns';
 import { Types } from 'mongoose';
 import logger from '../../config/logger';
-import { eventStream } from '../../core/events/EventStream';
-import { EventType } from '../../core/events/types';
-import { CustomError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
+import { eventStream } from '../../core/events/event.stream';
+import { EventType } from '../../core/events/event.types';
 import { EdgeType, NodeType } from '../graph/edge.model';
 import { graphService } from '../graph/graph.service';
 import { NotificationQueue } from '../notification/notification.model';
@@ -96,9 +96,9 @@ class ReminderService {
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
             if (error.code === 11000) {
-                throw new CustomError('A similar pending reminder already exists for this time.', 409);
+                throw ApiError.conflict('A similar pending reminder already exists for this time.');
             }
-            throw new CustomError(error.message || 'Failed to create reminder', 500);
+            throw ApiError.internal(error.message || 'Failed to create reminder');
         }
     }
 
@@ -171,7 +171,7 @@ class ReminderService {
                 limit,
             };
         } catch (error: any) {
-            throw new CustomError(error.message || 'Failed to fetch reminders', 500);
+            throw ApiError.internal(error.message || 'Failed to fetch reminders');
         }
     }
 
@@ -188,13 +188,13 @@ class ReminderService {
                 .lean();
 
             if (!reminder) {
-                throw new CustomError('Reminder not found', 404);
+                throw ApiError.notFound('Reminder');
             }
 
             return this.formatReminderResponse(reminder as any);
         } catch (error: any) {
-            if (error instanceof CustomError) throw error;
-            throw new CustomError(error.message || 'Failed to fetch reminder', 500);
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal(error.message || 'Failed to fetch reminder');
         }
     }
 
@@ -214,7 +214,7 @@ class ReminderService {
 
             return reminders.map((r) => this.formatReminderResponse(r as any));
         } catch (error: any) {
-            throw new CustomError(error.message || 'Failed to fetch upcoming reminders', 500);
+            throw ApiError.internal(error.message || 'Failed to fetch upcoming reminders');
         }
     }
 
@@ -233,7 +233,7 @@ class ReminderService {
 
             return reminders.map((r) => this.formatReminderResponse(r as any));
         } catch (error: any) {
-            throw new CustomError(error.message || 'Failed to fetch overdue reminders', 500);
+            throw ApiError.internal(error.message || 'Failed to fetch overdue reminders');
         }
     }
 
@@ -253,7 +253,7 @@ class ReminderService {
             });
 
             if (!reminder) {
-                throw new CustomError('Reminder not found', 404);
+                throw ApiError.notFound('Reminder');
             }
 
             const oldDate = reminder.date ? new Date(reminder.date).toISOString() : null;
@@ -311,8 +311,8 @@ class ReminderService {
 
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
-            if (error instanceof CustomError) throw error;
-            throw new CustomError(error.message || 'Failed to update reminder', 500);
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal(error.message || 'Failed to update reminder');
         }
     }
 
@@ -324,7 +324,7 @@ class ReminderService {
             });
 
             if (!reminder) {
-                throw new CustomError('Reminder not found', 404);
+                throw ApiError.notFound('Reminder');
             }
 
             reminder.status = ReminderStatus.COMPLETED;
@@ -336,8 +336,8 @@ class ReminderService {
 
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
-            if (error instanceof CustomError) throw error;
-            throw new CustomError(error.message || 'Failed to complete reminder', 500);
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal(error.message || 'Failed to complete reminder');
         }
     }
 
@@ -349,7 +349,7 @@ class ReminderService {
             });
 
             if (!reminder) {
-                throw new CustomError('Reminder not found', 404);
+                throw ApiError.notFound('Reminder');
             }
 
             reminder.status = ReminderStatus.CANCELLED;
@@ -360,8 +360,8 @@ class ReminderService {
 
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
-            if (error instanceof CustomError) throw error;
-            throw new CustomError(error.message || 'Failed to cancel reminder', 500);
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal(error.message || 'Failed to cancel reminder');
         }
     }
 
@@ -377,7 +377,7 @@ class ReminderService {
             });
 
             if (!reminder) {
-                throw new CustomError('Reminder not found', 404);
+                throw ApiError.notFound('Reminder');
             }
 
             // Cancel pending notifications
@@ -387,8 +387,8 @@ class ReminderService {
             const { graphService } = await import('../graph/graph.service');
             await graphService.removeNodeEdges(reminderId).catch(err => logger.error(`[ReminderService] Graph cleanup failed`, err));
         } catch (error: any) {
-            if (error instanceof CustomError) throw error;
-            throw new CustomError(error.message || 'Failed to delete reminder', 500);
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal(error.message || 'Failed to delete reminder');
         }
     }
 

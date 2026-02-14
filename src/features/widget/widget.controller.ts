@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { createError } from '../../core/middleware/errorHandler';
-import { ResponseHelper } from '../../core/utils/response';
+import { ApiError } from '../../core/errors/api.error';
+import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { WidgetService } from './widget.service';
 
@@ -9,7 +9,7 @@ const widgetService = new WidgetService();
 export class WidgetController {
     static async createWidget(req: AuthenticatedRequest, res: Response) {
         try {
-            if (!req.user) throw createError('Not authenticated', 401);
+            if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
             const widget = await widgetService.createWidget(req.user._id.toString(), req.body);
 
@@ -21,7 +21,7 @@ export class WidgetController {
 
     static async getWidgets(req: AuthenticatedRequest, res: Response) {
         try {
-            if (!req.user) throw createError('Not authenticated', 401);
+            if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
             const widgets = await widgetService.getWidgets(req.user._id.toString());
 
@@ -33,7 +33,7 @@ export class WidgetController {
 
     static async updateWidget(req: AuthenticatedRequest, res: Response) {
         try {
-            if (!req.user) throw createError('Not authenticated', 401);
+            if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
             const widget = await widgetService.updateWidget(req.user._id.toString(), req.params.id, req.body);
 
@@ -45,7 +45,7 @@ export class WidgetController {
 
     static async deleteWidget(req: AuthenticatedRequest, res: Response) {
         try {
-            if (!req.user) throw createError('Not authenticated', 401);
+            if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
             await widgetService.deleteWidget(req.user._id.toString(), req.params.id);
 
@@ -57,11 +57,11 @@ export class WidgetController {
 
     static async reorderWidgets(req: AuthenticatedRequest, res: Response) {
         try {
-            if (!req.user) throw createError('Not authenticated', 401);
+            if (!req.user) throw ApiError.unauthorized('Not authenticated');
 
             const { widgetIds } = req.body;
             if (!Array.isArray(widgetIds)) {
-                throw createError('widgetIds must be an array of strings', 400);
+                throw ApiError.badRequest('widgetIds must be an array of strings');
             }
 
             await widgetService.reorderWidgets(req.user._id.toString(), widgetIds);

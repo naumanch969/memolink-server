@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { CustomError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { Notification } from './notification.model';
 import { CreateNotificationDTO, INotificationDocument } from './notification.types';
 
@@ -27,7 +27,7 @@ export class NotificationService {
             if (error.code === 11000 && error.keyPattern?.eventId) {
                 return (await Notification.findOne({ eventId: data.eventId })) as INotificationDocument;
             }
-            throw new CustomError('Failed to create notification', 500);
+            throw ApiError.internal('Failed to create notification');
         }
     }
 
@@ -55,7 +55,7 @@ export class NotificationService {
 
             return { notifications, total, unreadCount };
         } catch (error: any) {
-            throw new CustomError('Failed to fetch notifications', 500);
+            throw ApiError.internal('Failed to fetch notifications');
         }
     }
 
@@ -67,7 +67,7 @@ export class NotificationService {
                 { $set: { isRead: true } }
             );
         } catch (error) {
-            throw new CustomError('Failed to mark notification as read', 500);
+            throw ApiError.internal('Failed to mark notification as read');
         }
     }
 
@@ -79,7 +79,7 @@ export class NotificationService {
                 { $set: { isRead: true } }
             );
         } catch (error) {
-            throw new CustomError('Failed to mark all as read', 500);
+            throw ApiError.internal('Failed to mark all as read');
         }
     }
 
@@ -91,7 +91,7 @@ export class NotificationService {
                 userId: new Types.ObjectId(userId)
             });
         } catch (error) {
-            throw new CustomError('Failed to delete notification', 500);
+            throw ApiError.internal('Failed to delete notification');
         }
     }
 

@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { createConflictError, createNotFoundError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
 import { CreateTagRequest, ITag, ITagService, UpdateTagRequest } from './tag.interfaces';
 import { Tag } from './tag.model';
@@ -13,7 +13,7 @@ export class TagService implements ITagService {
       }
       const existingTag = await Tag.findOne({ userId, name: tagData.name });
       if (existingTag) {
-        throw createConflictError('Tag with this name already exists');
+        throw ApiError.conflict('Tag with this name already exists');
       }
 
       const tag = new Tag({
@@ -35,7 +35,7 @@ export class TagService implements ITagService {
     try {
       const tag = await Tag.findOne({ _id: tagId, userId });
       if (!tag) {
-        throw createNotFoundError('Tag');
+        throw ApiError.notFound('Tag');
       }
       return tag;
     } catch (error) {
@@ -74,7 +74,7 @@ export class TagService implements ITagService {
       );
 
       if (!tag) {
-        throw createNotFoundError('Tag');
+        throw ApiError.notFound('Tag');
       }
 
       logger.info('Tag updated successfully', { tagId: tag._id, userId });
@@ -89,7 +89,7 @@ export class TagService implements ITagService {
     try {
       const tag = await Tag.findOneAndDelete({ _id: tagId, userId });
       if (!tag) {
-        throw createNotFoundError('Tag');
+        throw ApiError.notFound('Tag');
       }
       logger.info('Tag deleted successfully', { tagId: tag._id, userId });
     } catch (error) {

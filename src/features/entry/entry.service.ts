@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
+import { ApiError } from '../../core/errors/api.error';
 import { LLMService } from '../../core/llm/llm.service';
-import { createNotFoundError } from '../../core/middleware/errorHandler';
 import { Helpers } from '../../shared/helpers';
 import KnowledgeEntity from '../entity/entity.model';
 import { entityService } from '../entity/entity.service';
@@ -208,7 +208,7 @@ export class EntryService implements IEntryService {
     try {
       const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media']);
       if (!entry) {
-        throw createNotFoundError('Entry');
+        throw ApiError.notFound('Entry');
       }
 
       return entry;
@@ -507,7 +507,7 @@ export class EntryService implements IEntryService {
   async updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry> {
     try {
       const existingEntry = await Entry.findOne({ _id: entryId, userId });
-      if (!existingEntry) throw createNotFoundError('Entry');
+      if (!existingEntry) throw ApiError.notFound('Entry');
 
       const oldTags = (existingEntry.tags || []).map(t => t.toString());
 
@@ -536,7 +536,7 @@ export class EntryService implements IEntryService {
         { new: true, runValidators: true }
       ).populate(['mentions', 'tags', 'media']);
 
-      if (!entry) throw createNotFoundError('Entry');
+      if (!entry) throw ApiError.notFound('Entry');
 
       if (updateData.tags) {
         const newTags = updateData.tags;
@@ -563,7 +563,7 @@ export class EntryService implements IEntryService {
   async deleteEntry(entryId: string, userId: string): Promise<void> {
     try {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
-      if (!entry) throw createNotFoundError('Entry');
+      if (!entry) throw ApiError.notFound('Entry');
 
       if (entry.tags && entry.tags.length > 0) {
         const tagIds = entry.tags.map(t => t.toString());
@@ -620,7 +620,7 @@ export class EntryService implements IEntryService {
   async toggleFavorite(entryId: string, userId: string): Promise<IEntry> {
     try {
       const entry = await Entry.findOne({ _id: entryId, userId });
-      if (!entry) throw createNotFoundError('Entry');
+      if (!entry) throw ApiError.notFound('Entry');
       entry.isFavorite = !entry.isFavorite;
       await entry.save();
       return entry;

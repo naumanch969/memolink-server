@@ -1,10 +1,10 @@
+import { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
-import { Request, Response, NextFunction } from 'express';
 import { config } from '../../config/env';
-import { FILE_UPLOAD } from '../../shared/constants';
-import { createError } from './errorHandler';
-import { validateFileMagicBytes, getExtensionFromMimeType } from '../utils/fileValidator';
 import { logger } from '../../config/logger';
+import { FILE_UPLOAD } from '../../shared/constants';
+import { ApiError } from '../errors/api.error';
+import { getExtensionFromMimeType, validateFileMagicBytes } from '../utils/file-validator.util';
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -23,7 +23,7 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
   if (allowedTypes.includes(file.mimetype as any)) {
     cb(null, true);
   } else {
-    cb(createError(`File type ${file.mimetype} is not allowed`, 400));
+    cb(ApiError.badRequest(`File type ${file.mimetype} is not allowed`));
   }
 };
 
@@ -58,20 +58,20 @@ export const uploadFields = (fields: multer.Field[]) => {
  */
 export const validateFileContent = (req: Request, res: Response, next: NextFunction) => {
   const file = req.file;
-  
+
   if (!file) {
     return next(); // No file to validate
   }
 
   const validation = validateFileMagicBytes(file.buffer, file.mimetype);
-  
+
   if (!validation.valid) {
     logger.warn('File content validation failed', {
       originalName: file.originalname,
       declaredType: file.mimetype,
       detectedType: validation.detectedType,
     });
-    
+
     return res.status(400).json({
       success: false,
       error: validation.error || 'File content does not match declared type',
@@ -80,7 +80,7 @@ export const validateFileContent = (req: Request, res: Response, next: NextFunct
 
   // Attach extension to file object for later use
   (file as any).extension = getExtensionFromMimeType(file.mimetype);
-  
+
   next();
 };
 

@@ -3,8 +3,8 @@ import { CloudinaryService } from '../../config/cloudinary';
 import { emailService } from '../../config/email';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
-import { createConflictError, createError, createNotFoundError, createUnauthorizedError } from '../../core/middleware/errorHandler';
-import { CryptoHelper } from '../../core/utils/crypto';
+import { cryptoService } from '../../core/crypto/crypto.service';
+import { ApiError } from '../../core/errors/api.error';
 import { AuthResponse, ChangePasswordRequest, IAuthService, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
 import { User } from './auth.model';
 import { Otp } from './otp.model';
@@ -20,11 +20,11 @@ export class AuthService implements IAuthService {
       // Check if user already exists
       const existingUser = await User.findByEmail(email);
       if (existingUser) {
-        throw createConflictError('User with this email already exists');
+        throw ApiError.conflict('User with this email already exists');
       }
 
       // Hash password
-      const hashedPassword = await CryptoHelper.hashPassword(password);
+      const hashedPassword = await cryptoService.hashPassword(password);
 
       // Create user
       const user = new User({ email: email.toLowerCase().trim(), password: hashedPassword, name: name.trim(), });
@@ -64,13 +64,13 @@ export class AuthService implements IAuthService {
       // Find user with password
       const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
       if (!user) {
-        throw createUnauthorizedError('Invalid email or password');
+        throw ApiError.unauthorized('Invalid email or password');
       }
 
       // Check password
-      const isPasswordValid = await CryptoHelper.comparePassword(password, user.password);
+      const isPasswordValid = await cryptoService.comparePassword(password, user.password);
       if (!isPasswordValid) {
-        throw createUnauthorizedError('Invalid email or password');
+        throw ApiError.unauthorized('Invalid email or password');
       }
 
       // Update last login
@@ -80,9 +80,9 @@ export class AuthService implements IAuthService {
       logger.info('User logged in successfully', { userId: user._id, email: user.email, });
 
       // Generate tokens
-      const accessToken = CryptoHelper.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+      const accessToken = cryptoService.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
-      const refreshToken = CryptoHelper.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+      const refreshToken = cryptoService.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
       return { user: user.toJSON(), accessToken, refreshToken, };
     } catch (error) {
@@ -101,13 +101,13 @@ export class AuthService implements IAuthService {
       const payload = ticket.getPayload();
 
       if (!payload) {
-        throw createUnauthorizedError('Invalid Google Token');
+        throw ApiError.unauthorized('Invalid Google Token');
       }
 
       const { email, name, sub: googleId, picture } = payload;
 
       if (!email) {
-        throw createUnauthorizedError('Email not found in Google Token');
+        throw ApiError.unauthorized('Email not found in Google Token');
       }
 
       let user = await User.findOne({ email: email.toLowerCase().trim() });
@@ -139,8 +139,8 @@ export class AuthService implements IAuthService {
       }
 
       // Generate tokens
-      const accessToken = CryptoHelper.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
-      const refreshToken = CryptoHelper.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+      const accessToken = cryptoService.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+      const refreshToken = cryptoService.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
       // Update last login
       user.lastLoginAt = new Date();
@@ -149,26 +149,26 @@ export class AuthService implements IAuthService {
       return { user: user.toJSON(), accessToken, refreshToken };
     } catch (error) {
       logger.error('Google login failed:', error);
-      throw createUnauthorizedError('Google authentication failed');
+      throw ApiError.unauthorized('Google authentication failed');
     }
   }
 
   // Refresh access token
   async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
     try {
-      const decoded = CryptoHelper.verifyRefreshToken(refreshToken);
+      const decoded = cryptoService.verifyRefreshToken(refreshToken);
 
       const user = await User.findById(decoded.userId);
       if (!user) {
-        throw createUnauthorizedError('Invalid refresh token');
+        throw ApiError.unauthorized('Invalid refresh token');
       }
 
-      const accessToken = CryptoHelper.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
+      const accessToken = cryptoService.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role, });
 
       return { accessToken };
     } catch (error) {
       logger.error('Token refresh failed:', error);
-      throw createUnauthorizedError('Invalid refresh token');
+      throw ApiError.unauthorized('Invalid refresh token');
     }
   }
 
@@ -179,17 +179,17 @@ export class AuthService implements IAuthService {
 
       const user = await User.findById(userId).select('+password');
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       // Verify current password
-      const isCurrentPasswordValid = await CryptoHelper.comparePassword(currentPassword, user.password);
+      const isCurrentPasswordValid = await cryptoService.comparePassword(currentPassword, user.password);
       if (!isCurrentPasswordValid) {
-        throw createUnauthorizedError('Current password is incorrect');
+        throw ApiError.unauthorized('Current password is incorrect');
       }
 
       // Hash new password
-      const hashedNewPassword = await CryptoHelper.hashPassword(newPassword);
+      const hashedNewPassword = await cryptoService.hashPassword(newPassword);
       user.password = hashedNewPassword;
       await user.save();
 
@@ -205,7 +205,7 @@ export class AuthService implements IAuthService {
     try {
       const user = await User.findById(userId);
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       return user;
@@ -220,7 +220,7 @@ export class AuthService implements IAuthService {
     try {
       const user = await User.findByIdAndUpdate(userId, { $set: updateData }, { new: true, runValidators: true });
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       logger.info('Profile updated successfully', { userId: user._id, email: user.email, });
@@ -237,7 +237,7 @@ export class AuthService implements IAuthService {
     try {
       const user = await User.findById(userId);
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       // Delete old avatar from Cloudinary if it exists
@@ -289,7 +289,7 @@ export class AuthService implements IAuthService {
     try {
       const user = await User.findById(userId);
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       // Delete avatar from Cloudinary if it exists
@@ -322,7 +322,7 @@ export class AuthService implements IAuthService {
     try {
       const user = await User.findByIdAndDelete(userId);
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       logger.info('User account deleted', { userId: user._id, email: user.email, });
@@ -344,23 +344,23 @@ export class AuthService implements IAuthService {
       });
 
       if (!otpRecord) {
-        throw createUnauthorizedError('Invalid or expired OTP');
+        throw ApiError.unauthorized('Invalid or expired OTP');
       }
 
       // Find user by email
       const user = await User.findByEmail(otpRecord.email);
       if (!user) {
-        throw createNotFoundError('User not found');
+        throw ApiError.notFound('User not found');
       }
 
       if (user.isEmailVerified) {
-        throw createConflictError('Email is already verified');
+        throw ApiError.conflict('Email is already verified');
       }
 
       // Verify the OTP
       const isValid = await Otp.verifyOtp(otpRecord.email, otp, 'verification');
       if (!isValid) {
-        throw createUnauthorizedError('Invalid OTP');
+        throw ApiError.unauthorized('Invalid OTP');
       }
 
       // Mark email as verified
@@ -399,7 +399,7 @@ export class AuthService implements IAuthService {
       const emailSent = await emailService.sendPasswordResetEmail(email, user.name, otp);
       if (!emailSent) {
         logger.warn('Failed to send password reset email', { email });
-        throw createError('Failed to send password reset email', 500);
+        throw ApiError.badRequest('Failed to send password reset email');
       }
 
       logger.info('Password reset email sent', { email });
@@ -416,23 +416,23 @@ export class AuthService implements IAuthService {
       const otpRecord = await Otp.findOne({ otp, type: 'password_reset', isUsed: false, expiresAt: { $gt: new Date() } });
 
       if (!otpRecord) {
-        throw createUnauthorizedError('Invalid or expired OTP');
+        throw ApiError.unauthorized('Invalid or expired OTP');
       }
 
       // Find user by email
       const user = await User.findByEmail(otpRecord.email);
       if (!user) {
-        throw createNotFoundError('User not found');
+        throw ApiError.notFound('User not found');
       }
 
       // Verify the OTP
       const isValid = await Otp.verifyOtp(otpRecord.email, otp, 'password_reset');
       if (!isValid) {
-        throw createUnauthorizedError('Invalid OTP');
+        throw ApiError.unauthorized('Invalid OTP');
       }
 
       // Hash new password
-      const hashedPassword = await CryptoHelper.hashPassword(newPassword);
+      const hashedPassword = await cryptoService.hashPassword(newPassword);
 
       // Update user password
       user.password = hashedPassword;
@@ -452,11 +452,11 @@ export class AuthService implements IAuthService {
       // Check if user exists
       const user = await User.findByEmail(email);
       if (!user) {
-        throw createNotFoundError('User not found');
+        throw ApiError.notFound('User not found');
       }
 
       if (user.isEmailVerified) {
-        throw createConflictError('Email is already verified');
+        throw ApiError.conflict('Email is already verified');
       }
 
       // Generate new OTP
@@ -466,7 +466,7 @@ export class AuthService implements IAuthService {
       const emailSent = await emailService.sendVerificationEmail(email, user.name, otp);
       if (!emailSent) {
         logger.warn('Failed to send verification email', { email });
-        throw createError('Failed to send verification email', 500);
+        throw ApiError.badRequest('Failed to send verification email');
       }
 
       logger.info('Verification email resent', { email });
@@ -482,7 +482,7 @@ export class AuthService implements IAuthService {
       // Select with answerHash to ensure we can retain it if not changing
       const user = await User.findById(userId).select('+securityConfig.answerHash');
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       const securityConfig: any = {
@@ -494,7 +494,7 @@ export class AuthService implements IAuthService {
 
       // Only update hash if a new answer is provided
       if (answer && answer.trim()) {
-        securityConfig.answerHash = await CryptoHelper.hashPassword(answer.trim().toLowerCase());
+        securityConfig.answerHash = await cryptoService.hashPassword(answer.trim().toLowerCase());
       } else if (user.securityConfig?.answerHash) {
         // Retain existing hash if no new answer provided
         securityConfig.answerHash = user.securityConfig.answerHash;
@@ -516,7 +516,7 @@ export class AuthService implements IAuthService {
       // Find user and explicitly select securityConfig including answerHash
       const user = await User.findById(userId).select('+securityConfig.answerHash');
       if (!user) {
-        throw createNotFoundError('User');
+        throw ApiError.notFound('User');
       }
 
       if (!user.securityConfig || !user.securityConfig.answerHash || !user.securityConfig.isEnabled) {
@@ -524,7 +524,7 @@ export class AuthService implements IAuthService {
         return { valid: false };
       }
 
-      const isValid = await CryptoHelper.comparePassword(answer.trim().toLowerCase(), user.securityConfig.answerHash);
+      const isValid = await cryptoService.comparePassword(answer.trim().toLowerCase(), user.securityConfig.answerHash);
 
       if (!isValid) {
         // TRAP: Send email alert about failed attempt

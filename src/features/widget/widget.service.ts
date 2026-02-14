@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { CustomError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { CreateWidgetParams, UpdateWidgetParams } from './widget.interfaces';
 import { Widget } from './widget.model';
 
@@ -32,7 +32,7 @@ export class WidgetService {
         });
 
         if (!widget) {
-            throw new CustomError('Widget not found', 404);
+            throw ApiError.notFound('Widget');
         }
 
         if (params.title !== undefined) widget.title = params.title;
@@ -57,7 +57,7 @@ export class WidgetService {
         });
 
         if (result.deletedCount === 0) {
-            throw new CustomError('Widget not found', 404);
+            throw ApiError.notFound('Widget');
         }
     }
 

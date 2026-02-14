@@ -1,6 +1,6 @@
 import { ClientSession, Types } from 'mongoose';
 import logger from '../../config/logger';
-import { CustomError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { GOAL_STATUS } from '../../shared/constants';
 import { EdgeType, NodeType } from '../graph/edge.model';
 import graphService from '../graph/graph.service';
@@ -40,7 +40,7 @@ export class GoalService {
             return (await Goal.findById(goal._id).lean()) as IGoal;
         } catch (error: any) {
             if (error.code === 11000) {
-                throw new CustomError('An active goal with this title already exists.', 409);
+                throw ApiError.conflict('An active goal with this title already exists.');
             }
             throw error;
         }

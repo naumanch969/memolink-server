@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { CloudinaryService } from '../../config/cloudinary';
 import { logger } from '../../config/logger';
-import { createNotFoundError } from '../../core/middleware/errorHandler';
+import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
 import { mediaEvents, MediaEventType } from './media.events';
 import { CreateMediaRequest, IMedia, IMediaService, UpdateMediaRequest } from './media.interfaces';
@@ -11,10 +11,7 @@ import { storageService } from './storage.service';
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
     try {
-      const media = new Media({
-        userId: new Types.ObjectId(userId),
-        ...mediaData,
-      });
+      const media = new Media({ userId: new Types.ObjectId(userId), ...mediaData });
 
       await media.save();
       logger.info('Media created successfully', { mediaId: media._id, userId });
@@ -38,7 +35,7 @@ export class MediaService implements IMediaService {
         { new: true, runValidators: true }
       );
       if (!media) {
-        throw createNotFoundError('Media');
+        throw ApiError.notFound('Media');
       }
       return media;
     } catch (error) {
@@ -51,7 +48,7 @@ export class MediaService implements IMediaService {
     try {
       const media = await Media.findOne({ _id: mediaId, userId });
       if (!media) {
-        throw createNotFoundError('Media');
+        throw ApiError.notFound('Media');
       }
       return media;
     } catch (error) {
@@ -114,7 +111,7 @@ export class MediaService implements IMediaService {
     try {
       const media = await Media.findOneAndDelete({ _id: mediaId, userId });
       if (!media) {
-        throw createNotFoundError('Media');
+        throw ApiError.notFound('Media');
       }
 
       // Delete from Cloudinary to prevent orphaned files
