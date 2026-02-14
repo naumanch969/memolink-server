@@ -648,6 +648,44 @@ export class EntryService implements IEntryService {
     const result = await Entry.deleteMany({ userId });
     logger.info(`Deleted ${result.deletedCount} entries for user ${userId}`);
     return result.deletedCount || 0;
+
+  }
+
+  // Self-Healing: Process entries that missed AI tagging/processing
+  async selfHealEntries(limit: number = 10): Promise<number> {
+    try {
+      const untaggedEntries = await Entry.find({
+        aiProcessed: { $ne: true },
+        content: { $exists: true, $ne: '' },
+        $expr: { $gt: [{ $strLenCP: "$content" }, 20] } // only meaningful entries
+      })
+        .sort({ createdAt: -1 })
+        .limit(limit);
+
+      if (untaggedEntries.length === 0) return 0;
+
+      logger.info(`Self-Healing: Found ${untaggedEntries.length} untagged entries. Processing...`);
+
+      const { runEntryTagging } = await import('../agent/workflows/tagging.workflow');
+
+      let successCount = 0;
+      for (const entry of untaggedEntries) {
+        try {
+          await runEntryTagging(entry.userId.toString(), {
+            entryId: entry._id.toString(),
+            content: entry.content
+          });
+          successCount++;
+        } catch (err) {
+          logger.error(`Self-Healing failed for entry ${entry._id}:`, err);
+        }
+      }
+
+      return successCount;
+    } catch (error) {
+      logger.error('Self-healing entries failed:', error);
+      return 0;
+    }
   }
 }
 

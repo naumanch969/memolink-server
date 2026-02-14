@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import responseTime from 'response-time';
-import { metricsService } from './metrics.service';
 import { logger } from '../../config/logger';
+import { metricsService } from '../../features/monitoring/metrics.service';
 
 /**
  * Monitoring Middleware - Tracks HTTP request metrics
@@ -24,9 +24,7 @@ export const monitoringMiddleware = responseTime((req: Request, res: Response, t
         method,
         route,
         statusCode,
-        duration,
-        requestSize,
-        responseSize
+        duration
     );
 
     // Log slow requests (> 1 second)
@@ -62,11 +60,7 @@ function normalizeRoute(path: string): string {
  * Database Query Monitoring Wrapper
  * Wraps database operations to track performance
  */
-export function monitorDbQuery<T>(
-    operation: string,
-    collection: string,
-    queryFn: () => Promise<T>
-): Promise<T> {
+export function monitorDbQuery<T>(operation: string, collection: string, queryFn: () => Promise<T>): Promise<T> {
     const startTime = Date.now();
 
     return queryFn()
@@ -87,7 +81,7 @@ export function monitorDbQuery<T>(
         })
         .catch((error) => {
             const duration = (Date.now() - startTime) / 1000;
-            metricsService.recordDbQuery(operation, collection, duration, error);
+            metricsService.recordDbQuery(operation, collection, duration);
             throw error;
         });
 }
@@ -131,62 +125,3 @@ export const errorTrackingMiddleware = (err: Error, req: Request, res: Response,
 
     next(err);
 };
-
-/**
- * Health Check Data Provider
- */
-export async function getHealthCheckData() {
-    const memUsage = process.memoryUsage();
-    const uptime = process.uptime();
-
-    return {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: {
-            seconds: uptime,
-            formatted: formatUptime(uptime),
-        },
-        memory: {
-            rss: formatBytes(memUsage.rss),
-            heapTotal: formatBytes(memUsage.heapTotal),
-            heapUsed: formatBytes(memUsage.heapUsed),
-            external: formatBytes(memUsage.external),
-            heapUsedPercentage: ((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(2) + '%',
-        },
-        cpu: {
-            user: process.cpuUsage().user,
-            system: process.cpuUsage().system,
-        },
-        nodeVersion: process.version,
-        platform: process.platform,
-        pid: process.pid,
-    };
-}
-
-/**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number): string {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-}
-
-/**
- * Format uptime to human-readable format
- */
-function formatUptime(seconds: number): string {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    const parts = [];
-    if (days > 0) parts.push(`${days}d`);
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0) parts.push(`${minutes}m`);
-    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-
-    return parts.join(' ');
-}

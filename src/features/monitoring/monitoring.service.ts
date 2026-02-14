@@ -2,10 +2,15 @@ import mongoose from 'mongoose';
 import os from 'os';
 import { logger } from '../../config/logger';
 import { getEmailQueue } from '../email/queue/email.queue';
-import { mediaProcessingQueue } from '../media/media-processing.queue';
+import Entry from '../entry/entry.model';
+import { SystemMetric } from './metrics.service';
 
 export interface SystemHealth {
-    uptime: number;
+    status: 'healthy' | 'unhealthy';
+    uptime: {
+        seconds: number;
+        formatted: string;
+    };
     timestamp: Date;
     environment: string;
     version: string;
@@ -14,47 +19,49 @@ export interface SystemHealth {
         free: number;
         used: number;
         usagePercentage: number;
+        rss: string;
+        heapTotal: string;
+        heapUsed: string;
     };
     cpu: {
-        loadAvg: number[]; // 1, 5, 15 min
+        loadAvg: number[];
         cores: number;
     };
-}
-
-export interface DatabaseStats {
-    connected: boolean;
-    name: string;
-    collections: number;
-    objects: number;
-    avgObjSize: number;
-    dataSize: number;
-    storageSize: number;
-    indexes: number;
-    indexSize: number;
-    ok: number;
-}
-
-export interface JobQueueParams {
-    name: string;
-    active: number;
-    pending: number; // waiting
-    completed: number;
-    failed: number;
-    delayed?: number;
-    paused?: boolean;
+    database: {
+        connected: boolean;
+        status: string;
+    };
+    redis: {
+        connected: boolean;
+        status: string;
+    };
 }
 
 export class MonitoringService {
     /**
-     * Get low-level system metrics (CPU, Memory, Uptime)
+     * Get comprehensive system health
      */
-    async getSystemMetrics(): Promise<SystemHealth> {
+    async getFullHealth(): Promise<SystemHealth> {
         const totalMem = os.totalmem();
         const freeMem = os.freemem();
         const usedMem = totalMem - freeMem;
+        const uptime = process.uptime();
+        const memUsage = process.memoryUsage();
+
+        const dbStatus = mongoose.connection.readyState;
+        const dbConnected = dbStatus === 1;
+
+        // Dynamic import to avoid circular dependency if needed
+        const redisConnection = (await import('../../config/redis')).default;
+        const redisStatus = redisConnection.status;
+        const redisConnected = redisStatus === 'ready' || redisStatus === 'connect';
 
         return {
-            uptime: os.uptime(),
+            status: (dbConnected && redisConnected) ? 'healthy' : 'unhealthy',
+            uptime: {
+                seconds: uptime,
+                formatted: this.formatUptime(uptime),
+            },
             timestamp: new Date(),
             environment: process.env.NODE_ENV || 'development',
             version: process.env.npm_package_version || '1.0.0',
@@ -63,106 +70,106 @@ export class MonitoringService {
                 free: freeMem,
                 used: usedMem,
                 usagePercentage: Math.round((usedMem / totalMem) * 100),
+                rss: this.formatBytes(memUsage.rss),
+                heapTotal: this.formatBytes(memUsage.heapTotal),
+                heapUsed: this.formatBytes(memUsage.heapUsed),
             },
             cpu: {
                 loadAvg: os.loadavg(),
                 cores: os.cpus().length,
             },
+            database: {
+                connected: dbConnected,
+                status: this.getDbStatusLabel(dbStatus),
+            },
+            redis: {
+                connected: redisConnected,
+                status: redisStatus,
+            }
         };
     }
 
     /**
-     * Get MongoDB connection stats
+     * Get Database stats (Size, Objects, etc)
      */
-    async getDatabaseStats(): Promise<DatabaseStats> {
+    async getDatabaseStats() {
         try {
-            if (mongoose.connection.readyState !== 1) {
-                throw new Error('Database not connected');
-            }
-
+            if (mongoose.connection.readyState !== 1) return { connected: false };
             const db = mongoose.connection.db;
-            if (!db) {
-                throw new Error('Database handle not available');
-            }
+            if (!db) return { connected: false };
             const stats = await db.stats();
-
             return {
                 connected: true,
                 name: db.databaseName,
                 collections: stats.collections,
                 objects: stats.objects,
-                avgObjSize: stats.avgObjSize,
-                dataSize: stats.dataSize,
-                storageSize: stats.storageSize,
-                indexes: stats.indexes,
-                indexSize: stats.indexSize,
-                ok: stats.ok,
+                dataSize: this.formatBytes(stats.dataSize),
+                storageSize: this.formatBytes(stats.storageSize),
             };
         } catch (error) {
             logger.error('Failed to get DB stats:', error);
-            // Return a "safe" error state object
-            return {
-                connected: false,
-                name: 'unknown',
-                collections: 0,
-                objects: 0,
-                avgObjSize: 0,
-                dataSize: 0,
-                storageSize: 0,
-                indexes: 0,
-                indexSize: 0,
-                ok: 0,
-            };
+            return { connected: false };
         }
     }
 
     /**
-     * Get stats for all background job queues
+     * Get Infrastructure usage tracking
      */
-    async getJobQueues(): Promise<JobQueueParams[]> {
-        const queues: JobQueueParams[] = [];
+    async getInfrastructureMetrics() {
+        const metrics = await SystemMetric.find({
+            key: { $in: ['redis:errors', 'redis:limit_hits', 'redis:queues_initialized'] }
+        });
 
-        // 1. Email Queue (BullMQ)
+        const untaggedCount = await Entry.countDocuments({
+            aiProcessed: { $ne: true },
+            content: { $exists: true, $ne: '' },
+            $expr: { $gt: [{ $strLenCP: "$content" }, 20] }
+        });
+
+        return {
+            redis: {
+                errors: metrics.find(m => m.key === 'redis:errors')?.count || 0,
+                hits: metrics.find(m => m.key === 'redis:limit_hits')?.count || 0,
+            },
+            selfHealing: {
+                pendingEntries: untaggedCount
+            }
+        };
+    }
+
+    async getJobQueues() {
         try {
             const emailQ = getEmailQueue();
-            const counts = await emailQ.getJobCounts(
-                'active',
-                'waiting',
-                'completed',
-                'failed',
-                'delayed',
-                'paused'
-            );
-
-            queues.push({
+            const counts = await emailQ.getJobCounts();
+            return [{
                 name: 'Email Delivery',
                 active: counts.active,
                 pending: counts.waiting,
-                completed: counts.completed,
                 failed: counts.failed,
-                delayed: counts.delayed,
-                paused: counts.paused > 0, // BullMQ counts returns number of paused jobs? Or implies queue is paused? Usually queue.isPaused() is better but counts works for summary.
-            });
-        } catch (error) {
-            logger.error('Failed to get email queue stats:', error);
+                completed: counts.completed
+            }];
+        } catch (err) {
+            return [];
         }
+    }
 
-        // 2. Media Processing Queue (In-Memory Custom)
-        try {
-            const mediaStats = mediaProcessingQueue.getStats();
-            queues.push({
-                name: 'Media Processing',
-                active: mediaStats.processing,
-                pending: mediaStats.pending,
-                completed: mediaStats.completed,
-                failed: mediaStats.failed,
-                paused: false,
-            });
-        } catch (error) {
-            logger.error('Failed to get media queue stats:', error);
-        }
+    // Helper methods
+    private formatBytes(bytes: number): string {
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        if (bytes === 0) return '0 Bytes';
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    }
 
-        return queues;
+    private formatUptime(seconds: number): string {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${h}h ${m}m ${s}s`;
+    }
+
+    private getDbStatusLabel(status: number): string {
+        return { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' }[status] || 'unknown';
     }
 }
 

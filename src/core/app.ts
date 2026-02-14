@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { errorTrackingMiddleware, monitoringMiddleware, monitoringRoutes, requestContextMiddleware } from './monitoring';
+import { errorTrackingMiddleware, monitoringMiddleware, requestContextMiddleware } from './middleware/monitoring';
 import routes from './routes';
 
 const app = express();
@@ -82,9 +82,6 @@ app.use((req, res, next) => {
 // API routes
 app.use('/api', routes);
 
-// Monitoring routes (accessible without /api prefix for standard monitoring tools)
-app.use('/monitoring', monitoringRoutes);
-
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -93,8 +90,8 @@ app.get('/', (req, res) => {
     status: 'running',
     timestamp: new Date().toISOString(),
     documentation: '/api/docs',
-    health: '/monitoring/health',
-    metrics: '/monitoring/metrics',
+    health: '/api/monitoring/health',
+    metrics: '/api/monitoring/metrics',
   });
 });
 

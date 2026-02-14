@@ -27,6 +27,7 @@ import searchRoutes from '../features/search/search.routes';
 import tagRoutes from '../features/tag/tag.routes';
 import webActivityRoutes from '../features/web-activity/web-activity.routes';
 import widgetRoutes from '../features/widget/widget.routes';
+import monitoringRoutes from '../features/monitoring/monitoring.routes';
 
 
 const router = Router();
@@ -96,10 +97,9 @@ router.use('/agents', agentRoutes);
 router.use('/activity', webActivityRoutes);
 router.use('/search', searchRoutes);
 
-// ... existing routes
-
 router.use('/events', eventsRoutes);
 router.use('/announcements', announcementRoutes);
+router.use('/monitoring', monitoringRoutes);
 
 
 export default router;

@@ -60,7 +60,7 @@ export class EventStream {
      */
     async read(lastId: string = '$', count: number = 100): Promise<{ streamId: string, event: MemolinkEvent }[]> {
         try {
-            const result = await (this.redis as any).xread('BLOCK', '5000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, lastId);
+            const result = await (this.redis as any).xread('BLOCK', '30000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, lastId);
 
             if (!result || result.length === 0) return [];
 
@@ -76,7 +76,7 @@ export class EventStream {
             });
         } catch (error) {
             logger.error('[EventStream] Read failed', error);
-            return [];
+            throw error;
         }
     }
 
@@ -101,7 +101,7 @@ export class EventStream {
     async readGroup(groupName: string, consumerName: string, count: number = 10): Promise<{ streamId: string, event: MemolinkEvent }[]> {
         try {
             // '>' means only new messages that haven't been delivered to other consumers in the group
-            const result = await (this.redis as any).xreadgroup('GROUP', groupName, consumerName, 'BLOCK', '5000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, '>');
+            const result = await (this.redis as any).xreadgroup('GROUP', groupName, consumerName, 'BLOCK', '30000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, '>');
 
             if (!result || result.length === 0) return [];
 
@@ -117,7 +117,7 @@ export class EventStream {
             });
         } catch (error) {
             logger.error(`[EventStream] readGroup failed for ${groupName}`, error);
-            return [];
+            throw error;
         }
     }
 

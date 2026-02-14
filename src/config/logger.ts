@@ -1,4 +1,4 @@
-import { logViewerService } from '../core/monitoring/log-viewer.service';
+import { logViewerService } from '../features/monitoring/log-viewer.service';
 import { config } from './env';
 
 

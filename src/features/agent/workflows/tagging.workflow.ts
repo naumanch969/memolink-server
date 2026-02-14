@@ -3,6 +3,7 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import { TagService } from '../../tag/tag.service';
+import { MOOD_METADATA } from '../../entry/mood.config';
 
 // Input Validation Schema
 export const EntryTaggingInputSchema = z.object({
@@ -94,10 +95,10 @@ export async function runEntryTagging(userId: string, input: EntryTaggingInput):
 
     // Apply AI category if provided
     if (result.category) {
-        const { MOOD_METADATA } = await import('../../entry/mood.config');
         entry.moodMetadata = MOOD_METADATA[result.category as any];
     }
 
+    entry.aiProcessed = true;
     await entry.save();
     logger.info(`Auto-tagged entry ${input.entryId} with: ${result.suggestedTags.join(', ')}`);
 

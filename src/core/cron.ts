@@ -5,6 +5,7 @@ import { agentAccountability } from '../features/agent/agent.accountability';
 import { agentService } from '../features/agent/agent.service';
 import { AgentTaskType } from '../features/agent/agent.types';
 import { User } from '../features/auth/auth.model';
+import { entryService } from '../features/entry/entry.service';
 import { storageService } from '../features/media/storage.service';
 import { initNotificationProcessor } from '../features/notification/notification.cron';
 import { notificationService } from '../features/notification/notification.service';
@@ -14,6 +15,13 @@ import DateManager from './utils/DateManager';
 export const initCronJobs = () => {
     // Start Notification Processor
     initNotificationProcessor();
+
+    // Self-Healing Tagging: Every 30 minutes
+    // This processes entries that missed AI tagging due to Redis/Network issues
+    cron.schedule('*/30 * * * *', async () => {
+        logger.info('Running self-healing tagging cron job...');
+        await entryService.selfHealEntries(20);
+    });
 
     // Notification Cleanup: Daily at 4 AM
     cron.schedule('0 4 * * *', async () => {

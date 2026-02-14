@@ -1,15 +1,16 @@
 import { Response } from 'express';
-import { logViewerService } from '../../core/monitoring/log-viewer.service';
 import { ResponseHelper } from '../../core/utils/response';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { logViewerService } from './log-viewer.service';
 import { monitoringService } from './monitoring.service';
 
 export class MonitoringController {
 
     static async getSystemHealth(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
-            const health = await monitoringService.getSystemMetrics();
-            ResponseHelper.success(res, health, 'System health retrieved successfully');
+            const health = await monitoringService.getFullHealth();
+            const status = health.status === 'healthy' ? 200 : 503;
+            ResponseHelper.success(res, health, 'System health retrieved successfully', status);
         } catch (error) {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
@@ -28,6 +29,15 @@ export class MonitoringController {
         try {
             const queues = await monitoringService.getJobQueues();
             ResponseHelper.success(res, queues, 'Job queue stats retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
+        }
+    }
+
+    static async getInfrastructureStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const stats = await monitoringService.getInfrastructureMetrics();
+            ResponseHelper.success(res, stats, 'Infrastructure stats retrieved successfully');
         } catch (error) {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }

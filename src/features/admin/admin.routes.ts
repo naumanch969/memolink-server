@@ -3,9 +3,9 @@ import { authenticate, authorize } from '../../core/middleware/authMiddleware';
 import { USER_ROLES } from '../../shared/constants';
 import { analyticsAdminRouter } from '../analytics/analytics.admin.routes';
 import { llmUsageAdminRouter } from '../llm-usage/llm-usage.routes';
+import monitoringRouter from '../monitoring/monitoring.routes';
 import { usersAdminRouter } from '../users/users.admin.routes';
 import { AdminController } from './admin.controller';
-import { monitoringRouter } from '../monitoring/monitoring.routes';
 
 const router = Router();
 
@@ -35,4 +35,3 @@ router.post('/backups/trigger', AdminController.triggerBackup);
 router.use('/costs', llmUsageAdminRouter);
 
 export default router;
- 

@@ -26,6 +26,7 @@ const entrySchema = new Schema<IEntry>({
   endTime: { type: String, trim: true, },
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
+  aiProcessed: { type: Boolean, default: false },
   status: { type: String, enum: ['ready', 'processing', 'failed', 'processed', 'captured'], default: 'ready', index: true },
   embeddings: { type: [Number], select: false }, // Exclude by default due to size
   moodMetadata: {
@@ -61,7 +62,7 @@ entrySchema.virtual('wordCount').get(function () {
 });
 
 // Pre-save middleware
-entrySchema.pre('save', function (next) {
+entrySchema.pre('save', function (this: any, next) {
   // Auto-detect entry type based on content
   if (this.media && this.media.length > 0) {
     this.type = this.content.trim() ? ENTRY_TYPES.MIXED : ENTRY_TYPES.MEDIA;
