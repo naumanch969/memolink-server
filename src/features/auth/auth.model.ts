@@ -25,6 +25,7 @@ const userSchema = new Schema<IUser>({
     privacy: { type: String, enum: ['public', 'private'], default: 'private', },
     webActivityTrackingEnabled: { type: Boolean, default: true },
     webActivityAutoClassification: { type: Boolean, default: true },
+    accentColor: { type: String, enum: ['zinc', 'red', 'rose', 'orange', 'green', 'blue', 'yellow', 'violet'], default: 'violet' },
     communication: {
       newsletter: { type: Boolean, default: true },
       productUpdates: { type: Boolean, default: true },

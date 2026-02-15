@@ -19,6 +19,7 @@ export interface IUser extends BaseEntity {
     privacy: 'public' | 'private';
     webActivityTrackingEnabled: boolean;
     webActivityAutoClassification: boolean;
+    accentColor?: 'zinc' | 'red' | 'rose' | 'orange' | 'green' | 'blue' | 'yellow' | 'violet';
     communication?: {
       newsletter: boolean;
       productUpdates: boolean;
