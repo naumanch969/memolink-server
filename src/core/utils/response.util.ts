@@ -110,6 +110,14 @@ export class ResponseHelper {
   ): Response {
     return this.success(res, data, message, HTTP_STATUS.OK, meta);
   }
+
+  static tooManyRequests(
+    res: Response,
+    message: string = 'Too many requests',
+    error?: any
+  ): Response {
+    return this.error(res, message, HTTP_STATUS.TOO_MANY_REQUESTS, error);
+  }
 }
 
 export default ResponseHelper;

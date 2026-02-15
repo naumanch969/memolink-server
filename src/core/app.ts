@@ -9,6 +9,7 @@ import { logger } from '../config/logger';
 import { ErrorMiddleware } from './middleware/error.middleware';
 import { MonitoringMiddleware } from './middleware/monitoring.middleware';
 import routes from './routes/index';
+import { RateLimitMiddleware } from './middleware/rate-limit.middleware';
 
 const app = express();
 
@@ -82,6 +83,9 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// Rate limiting - apply to all API routes
+app.use('/api', RateLimitMiddleware.limit());
 
 // API routes
 app.use('/api', routes);
