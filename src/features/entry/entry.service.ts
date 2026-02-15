@@ -11,6 +11,8 @@ import { tagService } from '../tag/tag.service';
 import { CreateEntryRequest, EntryFeedRequest, EntrySearchRequest, EntryStats, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
 import { Entry } from './entry.model';
 import { classifyMood } from './mood.config';
+import agentService from '../agent/agent.service';
+import { AgentTaskType } from '../agent/agent.types';
 
 export class EntryService implements IEntryService {
   // Helper method to extract mentions from content
@@ -116,24 +118,19 @@ export class EntryService implements IEntryService {
 
       // TRIGGER AGENT: Auto-Tagging & Entity Extraction
       if (entryData.content && entryData.content.length > 20) {
-        Promise.all([
-          import('../agent/agent.service'),
-          import('../agent/agent.types')
-        ]).then(([{ agentService }, { AgentTaskType }]) => {
-          agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
-            entryId: entry._id.toString(),
-            content: entryData.content
-          }).catch(err => logger.error('Failed to trigger auto-tagging', err));
+        agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
+          entryId: entry._id.toString(),
+          content: entryData.content
+        }).catch(err => logger.error('Failed to trigger auto-tagging', err));
 
-          agentService.createTask(userId, AgentTaskType.ENTITY_EXTRACTION, {
-            entryId: entry._id.toString(),
-            userId
-          }).catch(err => logger.error('Failed to trigger entity extraction', err));
+        agentService.createTask(userId, AgentTaskType.ENTITY_EXTRACTION, {
+          entryId: entry._id.toString(),
+          userId
+        }).catch(err => logger.error('Failed to trigger entity extraction', err));
 
-          agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, {
-            entryId: entry._id.toString()
-          }).catch(err => logger.error('Failed to trigger entry embedding', err));
-        });
+        agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, {
+          entryId: entry._id.toString()
+        }).catch(err => logger.error('Failed to trigger entry embedding', err));
       }
 
       // Background Task: Update Daily Mood based on entries

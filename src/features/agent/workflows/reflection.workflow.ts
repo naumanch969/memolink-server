@@ -4,7 +4,7 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import Goal from '../../goal/goal.model';
 import { AgentTask } from '../agent.model';
-import { AgentTaskType } from '../agent.types';
+import { AgentTaskStatus, AgentTaskType } from '../agent.types';
 
 // Input Validation Schema
 export const DailyReflectionInputSchema = z.object({
@@ -29,6 +29,25 @@ export type ReflectionOutput = z.infer<typeof ReflectionOutputSchema>;
 
 export async function runDailyReflection(userId: string, input: DailyReflectionInput): Promise<ReflectionOutput> {
     logger.info(`Running Daily Reflection for user ${userId}`);
+
+    // Idempotency: Check if reflection was already generated for the target date
+    const targetDate = input.date ? new Date(input.date) : new Date();
+    const startOfTargetDay = new Date(targetDate);
+    startOfTargetDay.setHours(0, 0, 0, 0);
+    const endOfTargetDay = new Date(targetDate);
+    endOfTargetDay.setHours(23, 59, 59, 999);
+
+    const existingTask = await AgentTask.findOne({
+        userId,
+        type: AgentTaskType.DAILY_REFLECTION, // Using the enum directly
+        status: AgentTaskStatus.COMPLETED,
+        createdAt: { $gte: startOfTargetDay, $lte: endOfTargetDay }
+    });
+
+    if (existingTask && existingTask.outputData) {
+        logger.info(`Returning cached daily reflection for user ${userId}`);
+        return existingTask.outputData as ReflectionOutput;
+    }
 
     // 1. Determine Time Range
     const query: Record<string, unknown> = { userId };

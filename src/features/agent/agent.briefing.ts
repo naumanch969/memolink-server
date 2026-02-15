@@ -6,11 +6,30 @@ import { goalService } from '../goal/goal.service';
 import { graphService } from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
 import webActivityService from '../web-activity/web-activity.service';
+import { AgentTask } from './agent.model';
+import { AgentTaskStatus, AgentTaskType } from './agent.types';
 
 export class BriefingService {
     async getDailyBriefing(userId: string): Promise<string> {
         try {
             const now = new Date();
+
+            // Idempotency: Check if briefing already generated for today
+            const startOfDay = new Date(now);
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const existingTask = await AgentTask.findOne({
+                userId,
+                type: AgentTaskType.DAILY_BRIEFING,
+                createdAt: { $gte: startOfDay },
+                status: AgentTaskStatus.COMPLETED
+            });
+
+            if (existingTask && existingTask.outputData?.text) {
+                logger.info(`Returning cached daily briefing for user ${userId}`);
+                return existingTask.outputData.text;
+            }
+
             const twoDaysAgo = new Date();
             twoDaysAgo.setDate(now.getDate() - 2);
 
@@ -98,10 +117,21 @@ export class BriefingService {
             ${proposalsContext || 'None.'}
             `;
 
-            return await LLMService.generateText(prompt, {
+            const briefingText = await LLMService.generateText(prompt, {
                 workflow: 'daily_briefing',
                 userId,
             });
+
+            // Save the result as a completed task for idempotency
+            await AgentTask.create({
+                userId,
+                type: AgentTaskType.DAILY_BRIEFING,
+                status: AgentTaskStatus.COMPLETED,
+                completedAt: new Date(),
+                outputData: { text: briefingText }
+            });
+
+            return briefingText;
         } catch (error) {
             logger.error('Failed to generate daily briefing', error);
             return "Good morning. I was unable to compile your full briefing at this time.";

@@ -4,7 +4,7 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import Goal from '../../goal/goal.model';
 import { AgentTask } from '../agent.model';
-import { AgentTaskType } from '../agent.types';
+import { AgentTaskStatus, AgentTaskType } from '../agent.types';
 
 // Output Schema for Weekly Analysis
 const WeeklyAnalysisOutputSchema = z.object({
@@ -21,6 +21,22 @@ export type WeeklyAnalysisOutput = z.infer<typeof WeeklyAnalysisOutputSchema>;
 
 export async function runWeeklyAnalysis(userId: string): Promise<WeeklyAnalysisOutput> {
     logger.info(`Running Weekly Analysis for user ${userId}`);
+
+    // Idempotency: Check if analysis was already generated TODAY
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const existingTask = await AgentTask.findOne({
+        userId,
+        type: AgentTaskType.WEEKLY_ANALYSIS,
+        status: AgentTaskStatus.COMPLETED,
+        createdAt: { $gte: startOfDay }
+    });
+
+    if (existingTask && existingTask.outputData) {
+        logger.info(`Returning cached weekly analysis for user ${userId}`);
+        return existingTask.outputData as WeeklyAnalysisOutput;
+    }
 
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
