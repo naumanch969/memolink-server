@@ -14,5 +14,5 @@ export const getActivityRangeValidation = [
 
 export const upsertLimitValidation = [
     body('domain').notEmpty().withMessage('Domain is required').isString(),
-    body('limitMinutes').isInt({ min: 1 }).withMessage('limitMinutes must be at least 1'),
+    body('dailyLimitMinutes').isInt({ min: 1 }).withMessage('dailyLimitMinutes must be at least 1'),
 ];
