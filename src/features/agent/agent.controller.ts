@@ -3,6 +3,7 @@ import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.util';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
+import { audioTranscriptionService } from './audio-transcription.service';
 import { personaService } from './persona.service';
 
 export class AgentController {
@@ -75,6 +76,62 @@ export class AgentController {
         } catch (error) {
             logger.error('Error processing natural language', error);
             ResponseHelper.error(res, 'Error processing natural language', 500, error);
+        }
+    }
+
+    /**
+     * POST /agents/intent/audio
+     * Accepts audio file upload, transcribes it, then runs through intent processing
+     */
+    static async processAudioIntent(req: Request, res: Response): Promise<void> {
+        try {
+            const userId = (req as any).user._id;
+            const file = req.file;
+
+            if (!file) {
+                ResponseHelper.badRequest(res, 'Audio file is required');
+                return;
+            }
+
+            const tags = req.body.tags ? (typeof req.body.tags === 'string' ? JSON.parse(req.body.tags) : req.body.tags) : [];
+            const timezone = req.body.timezone || undefined;
+
+            // 1. Transcribe the audio
+            logger.info('Starting audio transcription', { userId, mimeType: file.mimetype, size: file.size });
+            const transcription = await audioTranscriptionService.transcribe(file.buffer, file.mimetype, { userId });
+
+            if (!transcription.text) {
+                ResponseHelper.success(res, {
+                    transcription: '',
+                    confidence: 'low',
+                    intent: null,
+                    task: null,
+                    data: null,
+                }, 'Audio was empty or inaudible');
+                return;
+            }
+
+            // 2. Process through the normal NL intent pipeline
+            const processingResult = await agentService.processNaturalLanguage(
+                userId,
+                transcription.text,
+                {
+                    tags,
+                    timezone,
+                    source: 'audio',
+                }
+            );
+
+            ResponseHelper.success(res, {
+                transcription: transcription.text,
+                confidence: transcription.confidence,
+                intent: processingResult.intent,
+                task: processingResult.task,
+                data: processingResult.result,
+            }, 'Audio processed');
+        } catch (error) {
+            logger.error('Error processing audio intent', error);
+            ResponseHelper.error(res, 'Error processing audio intent', 500, error);
         }
     }
 

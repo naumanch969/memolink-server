@@ -138,6 +138,19 @@ export const FILE_UPLOAD = {
     'text/x-yaml',
     'application/x-yaml',
   ],
+  ALLOWED_AUDIO_TYPES: [
+    'audio/mpeg',
+    'audio/mp4',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/webm',
+    'audio/ogg',
+    'audio/aac',
+    'audio/x-m4a',
+    'audio/m4a',
+    'audio/x-caf',      // iOS Core Audio Format
+  ],
 } as const;
 
 // Pagination Constants

@@ -23,6 +23,7 @@ export class FileUploadMiddleware {
       ...FILE_UPLOAD.ALLOWED_ARCHIVE_TYPES,
       ...FILE_UPLOAD.ALLOWED_DATA_TYPES,
       ...FILE_UPLOAD.ALLOWED_CODE_TYPES,
+      ...FILE_UPLOAD.ALLOWED_AUDIO_TYPES,
     ];
 
     if (allowedTypes.includes(file.mimetype as any)) {

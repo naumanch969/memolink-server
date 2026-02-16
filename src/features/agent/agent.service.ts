@@ -60,7 +60,7 @@ export class AgentService {
             .limit(limit);
     }
 
-    async processNaturalLanguage(userId: string, text: string, options: { tags?: string[], timezone?: string } = {}): Promise<any> {
+    async processNaturalLanguage(userId: string, text: string, options: { tags?: string[], timezone?: string, source?: string } = {}): Promise<any> {
         // 1. PERSIST FIRST (The "Capture First" Reliability Pattern)
         let entry: any = null;
         try {
@@ -70,7 +70,7 @@ export class AgentService {
                 type: 'text',
                 status: 'captured', // New status for initial capture
                 tags: options.tags || [],
-                metadata: { source: 'capture-mode' }
+                metadata: { source: options.source || 'capture-mode' }
             });
             logger.info("Reliability Capture: Entry saved to Mongo before AI processing", { userId, entryId: entry._id });
         } catch (saveError) {
