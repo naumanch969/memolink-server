@@ -43,6 +43,7 @@ Rules:
 - Use proper punctuation and capitalization
 - If the audio is unclear or silent, output exactly: [inaudible]
 - If there are multiple speakers, prefix with "Speaker 1:", "Speaker 2:", etc.
+- If the speech is in a non-English language (e.g. Hindi, Urdu, Spanish), transcribe it phonetically into Roman English (using the English alphabet). Do NOT translate the content into English. Do NOT use the native script.
 - ${languageHint}
 
 Output strictly valid JSON:
