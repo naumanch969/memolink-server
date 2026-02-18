@@ -85,7 +85,7 @@ app.use((req, res, next) => {
 });
 
 // Rate limiting - apply to all API routes
-app.use('/api', RateLimitMiddleware.limit());
+// app.use('/api', RateLimitMiddleware.limit());
 
 // API routes
 app.use('/api', routes);

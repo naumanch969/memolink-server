@@ -9,13 +9,15 @@ import { entryService } from '../../features/entry/entry.service';
 import { storageService } from '../../features/media/storage.service';
 import { initNotificationProcessor } from '../../features/notification/notification.cron';
 import { notificationService } from '../../features/notification/notification.service';
+import { initScheduleProcessor } from '../../features/schedule/schedule.processor';
 import { WebActivity } from '../../features/web-activity/web-activity.model';
 import DateManager from '../utils/date-manager.util';
 
 export const initCronJobs = () => {
 
-    // Start Notification Processor
+    // Start Notification Processors
     initNotificationProcessor();
+    initScheduleProcessor();
 
     // Self-Healing Tagging (processing entries missed by ai): Every 30 minutes
     cron.schedule('*/30 * * * *', async () => {
