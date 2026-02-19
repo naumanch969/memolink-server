@@ -48,6 +48,14 @@ const goalProgressSchema = new Schema(
     { _id: false }
 );
 
+const progressLogSchema = new Schema(
+    {
+        date: { type: Date, required: true },
+        value: { type: Number, required: true },
+    },
+    { _id: false }
+);
+
 const goalMilestoneSchema = new Schema(
     {
         title: { type: String, required: true },
@@ -135,6 +143,12 @@ const goalSchema = new Schema<IGoal>(
             type: goalProgressSchema,
             required: true,
             default: {},
+        },
+
+        // Per-day log history powering the streak calendar UI
+        progressLogs: {
+            type: [progressLogSchema],
+            default: [],
         },
 
         startDate: {

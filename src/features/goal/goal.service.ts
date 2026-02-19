@@ -193,15 +193,11 @@ export class GoalService {
 
         if (!goal) return null;
 
-        // Logic for updating progress based on type
+        // ── 1. Update currentValue ─────────────────────────────────
         if (params.value !== undefined) {
-            // Here, we have to assume a bit about the structure if it's 'add'
-            // For now, simpler to just set the value if it's generic DataValue
-            // But if we want to "add", we need to know it's a number
             if (params.mode === 'add' && typeof params.value === 'number') {
                 const current = (goal.progress.currentValue as number) || 0;
                 goal.progress.currentValue = current + params.value;
-
             } else if (typeof params.value === 'number') {
                 goal.progress.currentValue = params.value;
             }
@@ -211,6 +207,53 @@ export class GoalService {
             goal.progress.notes = params.notes;
         }
 
+        // ── 2. Record dated progress log (one per calendar day) ────
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const logValue = typeof params.value === 'number' ? params.value : 1;
+
+        const existingTodayIdx = goal.progressLogs.findIndex(
+            l => new Date(l.date).toDateString() === today.toDateString()
+        );
+
+        if (existingTodayIdx >= 0) {
+            // Accumulate within the same day
+            if (params.mode === 'add') {
+                goal.progressLogs[existingTodayIdx].value += logValue;
+            } else {
+                goal.progressLogs[existingTodayIdx].value = logValue;
+            }
+        } else {
+            goal.progressLogs.push({ date: today, value: logValue });
+            goal.progress.totalCompletions = (goal.progress.totalCompletions ?? 0) + 1;
+        }
+
+        // ── 3. Recompute current streak ────────────────────────────
+        // Sort logs descending
+        const sortedLogs = [...goal.progressLogs].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        let streak = 0;
+        const cursor = new Date(today);
+
+        for (const log of sortedLogs) {
+            const logDay = new Date(log.date);
+            logDay.setHours(0, 0, 0, 0);
+            if (logDay.toDateString() === cursor.toDateString()) {
+                streak++;
+                cursor.setDate(cursor.getDate() - 1);
+            } else if (logDay < cursor) {
+                break; // Gap found — streak is broken
+            }
+        }
+
+        goal.progress.streakCurrent = streak;
+        goal.progress.streakLongest = Math.max(
+            goal.progress.streakLongest ?? 0,
+            streak
+        );
+        goal.progress.lastLogDate = today;
         goal.progress.lastUpdate = new Date();
 
         await goal.save();

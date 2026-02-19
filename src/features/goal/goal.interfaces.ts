@@ -33,6 +33,11 @@ export interface IGoalTrackingConfig {
     unit?: string;
 }
 
+export interface IGoalProgressLog {
+    date: Date;
+    value: number; // 1 for boolean check-ins, numeric delta for value type
+}
+
 export interface IGoalProgress {
     currentValue?: number; // For value type
     completedItems?: string[]; // For checklist type
@@ -72,6 +77,7 @@ export interface IGoal extends BaseEntity {
 
     // config: IGoalConfig; // Deprecated
     progress: IGoalProgress;
+    progressLogs: IGoalProgressLog[]; // Per-day completion history for calendar
 
     startDate: Date;
     deadline?: Date;
