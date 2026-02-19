@@ -65,6 +65,23 @@ export class NotificationDispatcher {
             }
         }
 
+        // 5. Mobile Push Notifications via Expo
+        if (user.preferences?.notifications && user.pushTokens?.length) {
+            const tokens = user.pushTokens.map(pt => pt.token);
+            const { expoPushService } = await import('./push/expo-push.service');
+            await expoPushService.sendNotification(
+                tokens,
+                data.title,
+                data.message,
+                {
+                    id: data.referenceId?.toString(),
+                    type: data.type,
+                    actionUrl: data.actionUrl,
+                    ...(data.referenceId ? { [data.referenceModel?.toLowerCase() + 'Id' as string]: data.referenceId.toString() } : {})
+                }
+            ).catch(err => logger.error('[NotificationDispatcher] Push notification failed', err));
+        }
+
         return notification;
     }
 

@@ -42,6 +42,13 @@ const userSchema = new Schema<IUser>({
   // Storage quota
   storageUsed: { type: Number, default: 0 },
   storageQuota: { type: Number, default: STORAGE_LIMITS.FREE_QUOTA },
+
+  // Mobile Push Notifications
+  pushTokens: [{
+    token: { type: String, required: true },
+    platform: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
 }, {
   timestamps: true,
   toJSON: {

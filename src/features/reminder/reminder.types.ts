@@ -175,6 +175,7 @@ export interface ReminderResponse {
 
     createdAt: string;
     updatedAt: string;
+    nextOccurrence?: ReminderResponse;
 }
 
 export interface GetRemindersResponse {

@@ -67,4 +67,21 @@ export class NotificationController {
             ResponseHelper.error(res, 'Failed to delete notification', 500, error);
         }
     }
+
+    // Register Push Token
+    static async registerPushToken(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { token, platform } = req.body;
+
+            if (!token || !platform) {
+                return ResponseHelper.error(res, 'Token and platform are required', 400);
+            }
+
+            await notificationService.registerPushToken(userId, token, platform);
+            ResponseHelper.success(res, null, 'Push token registered successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to register push token', 500, error);
+        }
+    }
 }

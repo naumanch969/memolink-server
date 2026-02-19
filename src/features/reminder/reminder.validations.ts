@@ -99,8 +99,8 @@ export const createReminderValidation = [
 
     body('notifications.times.*.value')
         .optional()
-        .isInt({ min: 1 })
-        .withMessage('Notification value must be a positive integer'),
+        .isInt({ min: 0 })
+        .withMessage('Notification value must be a non-negative integer'),
 
     // Priority
     body('priority')

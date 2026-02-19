@@ -10,6 +10,7 @@ const router = Router();
 router.use(AuthMiddleware.authenticate);
 
 router.get('/', getNotificationsValidation, ValidationMiddleware.validate, NotificationController.getNotifications);
+router.post('/token', NotificationController.registerPushToken);
 router.put('/mark-all-read', NotificationController.markAllAsRead);
 router.put('/:id/read', notificationIdValidation, ValidationMiddleware.validate, NotificationController.markAsRead);
 router.delete('/:id', notificationIdValidation, ValidationMiddleware.validate, NotificationController.deleteNotification);

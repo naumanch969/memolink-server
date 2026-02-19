@@ -128,6 +128,41 @@ export class NotificationService {
             return 0;
         }
     }
+
+    // Register push token
+    async registerPushToken(userId: string, token: string, platform: string): Promise<void> {
+        try {
+            const { User } = await import('../auth/auth.model');
+
+            // Find user and check if token already exists to avoid duplicates
+            const user = await User.findById(userId);
+            if (!user) throw ApiError.notFound('User');
+
+            // Initialize pushTokens if it doesn't exist (should be handled by schema default but being safe)
+            if (!user.pushTokens) user.pushTokens = [];
+
+            // Check if token exists
+            const tokenExists = user.pushTokens.some(pt => pt.token === token);
+            if (!tokenExists) {
+                user.pushTokens.push({
+                    token,
+                    platform,
+                    createdAt: new Date()
+                });
+
+                // Keep only last 5 devices to avoid bloat
+                if (user.pushTokens.length > 5) {
+                    user.pushTokens.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+                    user.pushTokens = user.pushTokens.slice(0, 5);
+                }
+
+                await user.save();
+            }
+        } catch (error: any) {
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal('Failed to register push token');
+        }
+    }
 }
 
 export const notificationService = new NotificationService();

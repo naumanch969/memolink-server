@@ -30,7 +30,7 @@ class ReminderService {
                 recurring: data.recurring || { enabled: false },
                 notifications: data.notifications || {
                     enabled: true,
-                    times: [{ type: 'minutes', value: 10 }],
+                    times: [{ type: 'minutes', value: 0 }], // At time of event
                 },
                 priority: data.priority || 'medium',
                 status: ReminderStatus.PENDING,
@@ -331,8 +331,54 @@ class ReminderService {
             reminder.completedAt = completedAt || new Date();
             await reminder.save();
 
-            // Cancel pending notifications
+            // Cancel any pending notifications for THIS specific instance
             await this.cancelNotifications(reminderId);
+
+            // HANDLE RECURRENCE
+            if (reminder.recurring?.enabled) {
+                const { calculateNextOccurrence } = await import('./reminder.utils');
+                const nextDate = calculateNextOccurrence(
+                    reminder.date,
+                    reminder.recurring.frequency,
+                    reminder.recurring.interval || 1,
+                    reminder.recurring.daysOfWeek,
+                    reminder.recurring.endDate
+                );
+
+                if (nextDate) {
+                    // Create the next occurrence
+                    const nextReminderData = {
+                        userId: reminder.userId,
+                        title: reminder.title,
+                        description: reminder.description,
+                        date: nextDate,
+                        startTime: reminder.startTime,
+                        endTime: reminder.endTime,
+                        allDay: reminder.allDay,
+                        recurring: reminder.recurring,
+                        parentReminderId: reminder.parentReminderId || reminder._id,
+                        notifications: reminder.notifications,
+                        priority: reminder.priority,
+                        status: ReminderStatus.PENDING,
+                        linkedTags: reminder.linkedTags,
+                        linkedEntities: reminder.linkedEntities,
+                        linkedEntries: reminder.linkedEntries,
+                    };
+
+                    const nextReminder = await Reminder.create(nextReminderData);
+
+                    // Schedule notifications for the NEW one
+                    if (nextReminder.notifications.enabled) {
+                        await this.scheduleNotifications(nextReminder);
+                    }
+
+                    logger.info(`[ReminderService] Scheduled next occurrence for recurring reminder ${reminderId} -> ${nextReminder._id} for ${nextDate.toISOString()}`);
+
+                    const res = this.formatReminderResponse(reminder);
+                    res.nextOccurrence = this.formatReminderResponse(nextReminder);
+                    return res;
+                }
+            }
 
             return this.formatReminderResponse(reminder);
         } catch (error: any) {
@@ -404,12 +450,16 @@ class ReminderService {
 
             // Calculate the reminder datetime
             const reminderDateTime = new Date(reminder.date);
-            if (reminder.startTime && !reminder.allDay) {
+
+            if (reminder.allDay) {
+                // For all-day reminders, default to 9 AM
+                reminderDateTime.setHours(9, 0, 0, 0);
+            } else if (reminder.startTime) {
+                // If startTime is provided, ensure reminderDateTime uses it
                 const [hours, minutes] = reminder.startTime.split(':').map(Number);
                 reminderDateTime.setHours(hours, minutes, 0, 0);
-            } else {
-                reminderDateTime.setHours(9, 0, 0, 0); // Default to 9 AM for all-day reminders
             }
+            // Otherwise, use reminderDateTime as is (from the date string)
 
             // Create notification queue entries
             const notifications = reminder.notifications.times.map((notifTime) => {

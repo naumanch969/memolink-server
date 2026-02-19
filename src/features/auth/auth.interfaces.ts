@@ -36,6 +36,13 @@ export interface IUser extends BaseEntity {
   // Storage quota tracking
   storageUsed: number; // bytes
   storageQuota: number; // bytes (default from STORAGE_LIMITS)
+
+  // Notifications
+  pushTokens?: {
+    token: string;
+    platform: string;
+    createdAt: Date;
+  }[];
 }
 
 // Request Types

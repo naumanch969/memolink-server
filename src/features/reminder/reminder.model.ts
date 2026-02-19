@@ -28,7 +28,7 @@ const NotificationTimeSchema = new Schema(
             enum: Object.values(NotificationTimeType),
             required: true,
         },
-        value: { type: Number, required: true, min: 1 },
+        value: { type: Number, required: true, min: 0 },
     },
     { _id: false }
 );
