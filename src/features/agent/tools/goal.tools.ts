@@ -1,4 +1,4 @@
-import { DataType } from '../../../shared/types';
+import { GoalPeriod, GoalTrackingType } from '../../goal/goal.interfaces';
 import { goalService } from '../../goal/goal.service';
 import { AgentTool } from './types';
 
@@ -30,13 +30,13 @@ export const createGoalTool: AgentTool = {
             title: args.title,
             description: args.description,
             deadline: args.deadline ? new Date(args.deadline) : undefined,
-            type: DataType.CHECKLIST, // Default for now
+            period: GoalPeriod.INDEFINITE, // Default for now
             priority: 'medium',
-            config: {
-                items: [],
-                allowMultiple: false
+            trackingConfig: {
+                type: GoalTrackingType.BOOLEAN, // Simple done/not done default
+                targetValue: 1
             }
-        });
+        } as any); // Cast as any for tool strictness mismatch handling if needed
     }
 };
 

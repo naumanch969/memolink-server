@@ -71,6 +71,7 @@ const ReminderSchema = new Schema<IReminderDocument>(
         completedAt: { type: Date, },
 
         // Integrations
+        linkedGoalId: { type: Schema.Types.ObjectId, ref: 'Goal' },
         linkedTags: [{ type: Schema.Types.ObjectId, ref: 'Tag', },],
         linkedEntities: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', },],
         linkedEntries: [{ type: Schema.Types.ObjectId, ref: 'Entry', },],

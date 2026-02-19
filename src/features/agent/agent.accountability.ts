@@ -64,7 +64,7 @@ export class AgentAccountability {
             if (await this.wasNudgedToday(userId, goal._id.toString())) continue;
 
             const progress = (goal.progress as any).currentValue || 0;
-            const target = (goal.config as any).targetValue || 100;
+            const target = (goal.trackingConfig as any)?.targetValue || 100;
 
             if ((progress / target) < 0.5) {
                 await notificationService.create({

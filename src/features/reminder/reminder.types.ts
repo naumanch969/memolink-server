@@ -79,6 +79,7 @@ export interface IReminder {
     completedAt?: Date;
 
     // Integrations
+    linkedGoalId?: Types.ObjectId;
     linkedTags?: Types.ObjectId[];
     linkedEntities?: Types.ObjectId[];
     linkedEntries?: Types.ObjectId[];
@@ -109,6 +110,7 @@ export interface CreateReminderRequest {
     recurring?: Partial<IRecurrence>;
     notifications?: Partial<INotificationSettings>;
     priority?: ReminderPriority;
+    linkedGoalId?: string;
     linkedTags?: string[];
     linkedEntities?: string[];
     linkedEntries?: string[];
@@ -126,6 +128,7 @@ export interface UpdateReminderRequest {
     notifications?: Partial<INotificationSettings>;
     priority?: ReminderPriority;
     status?: ReminderStatus;
+    linkedGoalId?: string;
     linkedTags?: string[];
     linkedEntities?: string[];
     linkedEntries?: string[];
@@ -169,6 +172,7 @@ export interface ReminderResponse {
     priority: ReminderPriority;
     status: ReminderStatus;
     completedAt?: string;
+    linkedGoalId?: string;
     linkedTags?: any[]; // Can be populated
     linkedEntities?: any[];
     linkedEntries?: any[];

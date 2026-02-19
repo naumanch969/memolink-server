@@ -1,15 +1,45 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
-import { DataConfig, DataValue } from '../../shared/types/dataProperties';
+import { DataValue } from '../../shared/types/dataProperties';
 import { RoutineType } from '../routine/routine.interfaces'; // Import RoutineType
 
 // Goal Types
+export enum GoalPeriod {
+    WEEKLY = 'weekly',       // 7 days
+    MONTHLY = 'monthly',     // 30 days
+    YEARLY = 'yearly',       // 365 days
+    INDEFINITE = 'indefinite' // Perpetual / Habit
+}
+
+export enum GoalTrackingType {
+    BOOLEAN = 'boolean',     // Done/Not Done
+    VALUE = 'value',         // Numerical target (e.g. 10000 steps)
+    CHECKLIST = 'checklist', // List of items
+}
+
 export type GoalStatus = 'active' | 'completed' | 'failed' | 'archived';
 
-export type IGoalConfig = DataConfig;
+export interface IGoalTrackingSchedule {
+    frequency: 'daily' | 'weekdays' | 'specific_days' | 'interval';
+    specificDays?: number[]; // 0-6 (Sun-Sat)
+    intervalValue?: number;  // e.g. every 3 days
+    timesPerPeriod?: number; // e.g. 3 times per week
+}
+
+export interface IGoalTrackingConfig {
+    type: GoalTrackingType;
+    targetValue?: number;
+    targetItems?: string[]; // For checklists
+    unit?: string;
+}
 
 export interface IGoalProgress {
-    currentValue?: DataValue;
+    currentValue?: number; // For value type
+    completedItems?: string[]; // For checklist type
+    streakCurrent?: number;
+    streakLongest?: number;
+    totalCompletions?: number;
+    lastLogDate?: Date;
     notes?: string;
     lastUpdate?: Date;
 }
@@ -31,10 +61,16 @@ export interface IGoal extends BaseEntity {
     icon?: string;
     color?: string;
 
-    type: RoutineType; // reusing RoutineType which is now DataType
+    parentId?: Types.ObjectId; // Hierarchy: Year > Month > Week
+
+    period: GoalPeriod;
+    trackingSchedule?: IGoalTrackingSchedule; // For Indefinite/Habit goals
+    trackingConfig?: IGoalTrackingConfig;
+
+    type: RoutineType; // Keeping for backward compatibility or categorize as 'habit' vs 'project'
     status: GoalStatus;
 
-    config: IGoalConfig;
+    // config: IGoalConfig; // Deprecated
     progress: IGoalProgress;
 
     startDate: Date;
@@ -60,7 +96,12 @@ export interface CreateGoalParams {
     status?: GoalStatus;
     type: RoutineType;
 
-    config: IGoalConfig;
+    parentId?: string;
+    period?: GoalPeriod;
+    trackingSchedule?: IGoalTrackingSchedule;
+    trackingConfig?: IGoalTrackingConfig;
+
+    // config: IGoalConfig;
 
     startDate?: string | Date;
     deadline?: string | Date;
@@ -87,7 +128,12 @@ export interface UpdateGoalParams {
     color?: string;
     status?: GoalStatus;
 
-    config?: IGoalConfig;
+    parentId?: string;
+    period?: GoalPeriod;
+    trackingSchedule?: IGoalTrackingSchedule;
+    trackingConfig?: IGoalTrackingConfig;
+
+    // config?: IGoalConfig;
 
     deadline?: string | Date;
 

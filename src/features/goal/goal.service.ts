@@ -1,25 +1,41 @@
+import { addDays, addYears } from 'date-fns';
 import { ClientSession, Types } from 'mongoose';
 import logger from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { GOAL_STATUS } from '../../shared/constants';
 import { EdgeType, NodeType } from '../graph/edge.model';
 import graphService from '../graph/graph.service';
+import reminderService from '../reminder/reminder.service';
+import { RecurrenceFrequency, ReminderPriority } from '../reminder/reminder.types';
 import { RoutineType } from '../routine/routine.interfaces';
-import { CreateGoalParams, GetGoalsQuery, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
+import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 
 export class GoalService {
 
     async createGoal(userId: string, params: CreateGoalParams): Promise<IGoal> {
         try {
+            // 1. Enforce Deadline based on Period
+            const startDate = params.startDate ? new Date(params.startDate) : new Date();
+            let deadline = params.deadline ? new Date(params.deadline) : undefined;
+
+            if (!deadline && params.period && params.period !== GoalPeriod.INDEFINITE) {
+                deadline = this._calculateDeadline(startDate, params.period);
+            }
+
             const goal = await Goal.create({
                 userId: new Types.ObjectId(userId),
                 ...params,
+                deadline, // Set calculated deadline
+                startDate,
                 // Ensure specific fields are correctly parsed or set
                 linkedRoutines: params.linkedRoutines?.map(id => new Types.ObjectId(id)),
                 tags: params.tags?.map(id => new Types.ObjectId(id)),
                 metadata: params.metadata,
             });
+
+            // 2. Auto-Create Reminders
+            await this._manageReminders(userId, goal);
 
             // Handle retroactive syncing
             if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
@@ -98,9 +114,19 @@ export class GoalService {
             { new: true, runValidators: true }
         );
 
-        if (goal && params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
-            await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
-            return (await Goal.findById(goal._id).lean()) as IGoal;
+        if (goal) {
+            // If period or schedule changed, update reminders
+            if (params.period || params.trackingSchedule) {
+                const updatedGoalDoc = await Goal.findById(goal._id);
+                if (updatedGoalDoc) {
+                    await this._manageReminders(userId, updatedGoalDoc);
+                }
+            }
+
+            if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
+                await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
+                return (await Goal.findById(goal._id).lean()) as IGoal;
+            }
         }
 
         return goal ? goal.toObject() : null;
@@ -175,7 +201,8 @@ export class GoalService {
             if (params.mode === 'add' && typeof params.value === 'number') {
                 const current = (goal.progress.currentValue as number) || 0;
                 goal.progress.currentValue = current + params.value;
-            } else {
+
+            } else if (typeof params.value === 'number') {
                 goal.progress.currentValue = params.value;
             }
         }
@@ -248,6 +275,97 @@ export class GoalService {
         const result = await Goal.deleteMany({ userId });
         logger.info(`Deleted ${result.deletedCount} goals for user ${userId}`);
         return result.deletedCount || 0;
+    }
+
+    // ==========================================
+    // PRIVATE HELPERS
+    // ==========================================
+
+    private _calculateDeadline(startDate: Date, period: GoalPeriod): Date {
+        switch (period) {
+            case GoalPeriod.WEEKLY:
+                return addDays(startDate, 7);
+            case GoalPeriod.MONTHLY:
+                return addDays(startDate, 30); // Or addMonths(startDate, 1)? User said 30 days. Let's use 30 as hardcoded request.
+            // Re-reading: "only allowing 7 day goal, 30 day goal and yearly goal"
+            case GoalPeriod.YEARLY:
+                return addDays(startDate, 365); // User said yearly.
+            default:
+                return addYears(startDate, 1);
+        }
+    }
+
+    private async _manageReminders(userId: string, goal: any) {
+        // 1. Delete existing linked reminders
+        const Reminder = (await import('../reminder/reminder.model')).Reminder;
+        await Reminder.deleteMany({ linkedGoalId: goal._id });
+
+        if (goal.status === GOAL_STATUS.ARCHIVED || goal.status === GOAL_STATUS.COMPLETED || goal.status === GOAL_STATUS.FAILED) {
+            return;
+        }
+
+        // 2. Define Reminder Config based on Period
+        let recurrence: any = { enabled: false };
+        const title = `Goal Check-in: ${goal.title}`;
+
+        switch (goal.period) {
+            case GoalPeriod.WEEKLY:
+                // Daily reminders for 7 days
+                recurrence = {
+                    enabled: true,
+                    frequency: RecurrenceFrequency.DAILY,
+                    interval: 1,
+                    endDate: goal.deadline
+                };
+                break;
+
+            case GoalPeriod.MONTHLY:
+                // Twice a week (Mon, Thu)
+                recurrence = {
+                    enabled: true,
+                    frequency: RecurrenceFrequency.WEEKLY,
+                    daysOfWeek: [1, 4], // Mon, Thu
+                    endDate: goal.deadline
+                };
+                break;
+
+            case GoalPeriod.YEARLY:
+                // Weekly (Sunday)
+                recurrence = {
+                    enabled: true,
+                    frequency: RecurrenceFrequency.WEEKLY,
+                    daysOfWeek: [0], // Sun
+                    endDate: goal.deadline
+                };
+                break;
+
+            case GoalPeriod.INDEFINITE:
+                // Based on trackingSchedule
+                if (goal.trackingSchedule) {
+                    const ts = goal.trackingSchedule;
+                    if (ts.frequency === 'daily') {
+                        recurrence = { enabled: true, frequency: RecurrenceFrequency.DAILY, interval: 1 };
+                    } else if (ts.frequency === 'weekdays') {
+                        recurrence = { enabled: true, frequency: RecurrenceFrequency.WEEKLY, daysOfWeek: [1, 2, 3, 4, 5] };
+                    } else if (ts.frequency === 'specific_days' && ts.specificDays) {
+                        recurrence = { enabled: true, frequency: RecurrenceFrequency.WEEKLY, daysOfWeek: ts.specificDays };
+                    } else if (ts.frequency === 'interval' && ts.intervalValue) {
+                        recurrence = { enabled: true, frequency: RecurrenceFrequency.DAILY, interval: ts.intervalValue };
+                    }
+                }
+                break;
+        }
+
+        if (recurrence.enabled) {
+            await reminderService.createReminder(userId, {
+                title,
+                date: new Date().toISOString(), // Start today
+                allDay: true,
+                recurring: recurrence,
+                priority: ReminderPriority.HIGH,
+                linkedGoalId: goal._id.toString()
+            });
+        }
     }
 }
 

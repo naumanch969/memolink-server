@@ -1,16 +1,34 @@
 import mongoose, { Schema } from 'mongoose';
 import { COLLECTIONS, GOAL_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
-import { IGoal } from './goal.interfaces';
+import { GoalPeriod, GoalTrackingType, IGoal } from './goal.interfaces';
 
 // ============================================
 // SUB-SCHEMAS
 // ============================================
 
-const goalConfigSchema = new Schema(
+const trackingScheduleSchema = new Schema(
     {
+        frequency: {
+            type: String,
+            enum: ['daily', 'weekdays', 'specific_days', 'interval'],
+            required: true
+        },
+        specificDays: [{ type: Number }], // 0-6
+        intervalValue: { type: Number },
+        timesPerPeriod: { type: Number }
+    },
+    { _id: false }
+);
+
+const trackingConfigSchema = new Schema(
+    {
+        type: {
+            type: String,
+            enum: Object.values(GoalTrackingType),
+            required: true
+        },
         targetValue: { type: Number },
         targetItems: [{ type: String }],
-        targetTime: { type: String },
         unit: { type: String, trim: true },
     },
     { _id: false }
@@ -18,8 +36,12 @@ const goalConfigSchema = new Schema(
 
 const goalProgressSchema = new Schema(
     {
-        currentValue: { type: Schema.Types.Mixed }, // Can be number, checkbox array, etc
+        currentValue: { type: Number },
         completedItems: [{ type: String }],
+        streakCurrent: { type: Number, default: 0 },
+        streakLongest: { type: Number, default: 0 },
+        totalCompletions: { type: Number, default: 0 },
+        lastLogDate: { type: Date },
         notes: { type: String },
         lastUpdate: { type: Date },
     },
@@ -68,9 +90,30 @@ const goalSchema = new Schema<IGoal>(
         icon: { type: String, trim: true },
         color: { type: String, trim: true },
 
+        period: {
+            type: String,
+            enum: Object.values(GoalPeriod),
+            required: true,
+            default: GoalPeriod.INDEFINITE
+        },
+
+        parentId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Goal',
+            index: true
+        },
+
+        trackingSchedule: {
+            type: trackingScheduleSchema
+        },
+        trackingConfig: {
+            type: trackingConfigSchema
+        },
+
+        // Legacy RoutineType - keeping?
         type: {
             type: String,
-            required: [true, 'Goal type is required'],
+            // required: [true, 'Goal type is required'], // Relax requirement if moving to period
             enum: Object.values(ROUTINE_TYPES),
         },
 
@@ -82,11 +125,11 @@ const goalSchema = new Schema<IGoal>(
             index: true,
         },
 
-        config: {
-            type: goalConfigSchema,
-            required: true,
-            default: {},
-        },
+        // config: {
+        //     type: goalConfigSchema,
+        //     required: true,
+        //     default: {},
+        // },
 
         progress: {
             type: goalProgressSchema,
