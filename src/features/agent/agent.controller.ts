@@ -186,22 +186,6 @@ export class AgentController {
         }
     }
 
-    static async getSimilarEntries(req: Request, res: Response): Promise<void> {
-        try {
-            const userId = (req as any).user._id;
-            const text = req.query.text as string;
-            if (!text) {
-                ResponseHelper.error(res, 'Text query is required', 400);
-                return;
-            }
-            const results = await agentService.findSimilarEntries(userId, text, 3);
-            ResponseHelper.success(res, results, 'Similar entries found');
-        } catch (error) {
-            logger.error('Error finding similar entries', error);
-            ResponseHelper.error(res, 'Error finding similar entries', 500, error);
-        }
-    }
-
     static async goalArchitectChat(req: Request, res: Response): Promise<void> {
         try {
             const { message, history } = req.body;

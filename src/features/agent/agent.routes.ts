@@ -24,7 +24,6 @@ router.post('/intent/audio', aiLimiter, FileUploadMiddleware.uploadSingle('audio
 router.post('/chat', aiLimiter, chatValidation, ValidationMiddleware.validate, AgentController.chat);
 router.get('/chat', AgentController.getHistory);
 router.get('/briefing', AgentController.getBriefing);
-router.get('/similar', findSimilarValidation, ValidationMiddleware.validate, AgentController.getSimilarEntries);
 router.post('/goal-architect', aiLimiter, goalArchitectValidation, ValidationMiddleware.validate, AgentController.goalArchitectChat);
 router.post('/sync', RateLimitMiddleware.limit({ zone: 'sync', maxRequests: 5, windowMs: 5 * 60 * 1000 }), AgentController.syncLibrary);
 
