@@ -6,7 +6,7 @@ import { entryService } from '../../entry/entry.service';
 import { goalService } from '../../goal/goal.service';
 import { graphService } from '../../graph/graph.service';
 import reminderService from '../../reminder/reminder.service';
-import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../../reminder/reminder.types';
+import { NotificationTimeType, ReminderStatus } from '../../reminder/reminder.types';
 import { AgentIntentType, Intention, IntentResult } from '../agent.intent';
 import { AgentTaskType } from '../agent.types';
 
@@ -123,7 +123,6 @@ export class IntentDispatcher {
         const commandObject = await reminderService.createReminder(userId, {
             title: intention.extractedEntities?.title || text,
             date: intention.parsedEntities?.date?.toISOString() || new Date().toISOString(),
-            priority: (intention.extractedEntities?.priority as ReminderPriority) || ReminderPriority.MEDIUM,
             notifications: {
                 enabled: true,
                 times: [{ type: NotificationTimeType.MINUTES, value: 15 }]
@@ -248,7 +247,6 @@ export class IntentDispatcher {
             title: intention.extractedEntities?.title || text,
             date: new Date().toISOString(),
             allDay: true,
-            priority: (intention.extractedEntities?.priority as ReminderPriority) || ReminderPriority.MEDIUM
         });
 
         if (entry?._id) {

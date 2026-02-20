@@ -6,7 +6,7 @@ import { GOAL_STATUS } from '../../shared/constants';
 import { EdgeType, NodeType } from '../graph/edge.model';
 import graphService from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
-import { RecurrenceFrequency, ReminderPriority } from '../reminder/reminder.types';
+import { RecurrenceFrequency } from '../reminder/reminder.types';
 import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 
@@ -307,7 +307,6 @@ export class GoalService {
                 date: new Date().toISOString(), // Start today
                 allDay: true,
                 recurring: recurrence,
-                priority: ReminderPriority.HIGH,
                 linkedGoalId: goal._id.toString()
             });
         }

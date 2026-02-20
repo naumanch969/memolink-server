@@ -34,7 +34,6 @@ export const createReminderTool: AgentTool = {
             title: args.title,
             date: args.date,
             startTime: args.time,
-            priority: args.priority as any || 'medium',
             notifications: {
                 enabled: true,
                 times: [{ type: NotificationTimeType.MINUTES, value: 15 }]

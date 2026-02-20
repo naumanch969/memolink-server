@@ -3,18 +3,17 @@ import { Document, Types } from 'mongoose';
 // ============================================
 // ENUMS & CONSTANTS
 // ============================================
-
-export enum ReminderPriority {
-    LOW = 'low',
-    MEDIUM = 'medium',
-    HIGH = 'high',
-}
-
 export enum ReminderStatus {
     PENDING = 'pending',
     COMPLETED = 'completed',
     CANCELLED = 'cancelled',
 }
+
+export enum ReminderType {
+    EVENT = 'event', // A one-off task with a hard deadline
+    NUDGE = 'nudge', // A recurring behavior or gentler push
+}
+
 
 export enum RecurrenceFrequency {
     DAILY = 'daily',
@@ -59,6 +58,7 @@ export interface IReminder {
     // Basic Info
     title: string;
     description?: string;
+    type: ReminderType; // EVENT or NUDGE
 
     // Scheduling
     date: Date; // The main date of the reminder
@@ -73,8 +73,6 @@ export interface IReminder {
     // Notifications
     notifications: INotificationSettings;
 
-    // Priority & Status
-    priority: ReminderPriority;
     status: ReminderStatus;
     completedAt?: Date;
 
@@ -103,13 +101,13 @@ export interface IReminderDocument extends IReminder, Document {
 export interface CreateReminderRequest {
     title: string;
     description?: string;
+    type?: ReminderType;
     date: string; // ISO date string
     startTime?: string; // HH:mm
     endTime?: string; // HH:mm
     allDay?: boolean;
     recurring?: Partial<IRecurrence>;
     notifications?: Partial<INotificationSettings>;
-    priority?: ReminderPriority;
     linkedGoalId?: string;
     linkedTags?: string[];
     linkedEntities?: string[];
@@ -120,13 +118,13 @@ export interface CreateReminderRequest {
 export interface UpdateReminderRequest {
     title?: string;
     description?: string;
+    type?: ReminderType;
     date?: string;
     startTime?: string;
     endTime?: string;
     allDay?: boolean;
     recurring?: Partial<IRecurrence>;
     notifications?: Partial<INotificationSettings>;
-    priority?: ReminderPriority;
     status?: ReminderStatus;
     linkedGoalId?: string;
     linkedTags?: string[];
@@ -138,8 +136,8 @@ export interface UpdateReminderRequest {
 export interface GetRemindersQuery {
     startDate?: string; // ISO date
     endDate?: string; // ISO date
+    type?: ReminderType | ReminderType[];
     status?: ReminderStatus | ReminderStatus[];
-    priority?: ReminderPriority | ReminderPriority[];
     tagId?: string;
     entityId?: string;
     entryId?: string;
@@ -162,6 +160,7 @@ export interface ReminderResponse {
     userId: string;
     title: string;
     description?: string;
+    type: ReminderType;
     date: string;
     startTime?: string;
     endTime?: string;
@@ -169,7 +168,6 @@ export interface ReminderResponse {
     recurring: IRecurrence;
     parentReminderId?: string;
     notifications: INotificationSettings;
-    priority: ReminderPriority;
     status: ReminderStatus;
     completedAt?: string;
     linkedGoalId?: string;

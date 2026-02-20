@@ -16,6 +16,11 @@ export const createReminderValidation = [
         .isLength({ max: 2000 })
         .withMessage('Description cannot exceed 2000 characters'),
 
+    body('type')
+        .optional()
+        .isIn(['event', 'nudge'])
+        .withMessage('Type must be either event or nudge'),
+
     body('date')
         .isISO8601()
         .withMessage('Date must be a valid ISO 8601 date'),
@@ -159,6 +164,11 @@ export const updateReminderValidation = [
         .isLength({ max: 2000 })
         .withMessage('Description cannot exceed 2000 characters'),
 
+    body('type')
+        .optional()
+        .isIn(['event', 'nudge'])
+        .withMessage('Type must be either event or nudge'),
+
     body('date')
         .optional()
         .isISO8601()
@@ -231,6 +241,17 @@ export const getRemindersQueryValidation = [
         .optional()
         .isISO8601()
         .withMessage('End date must be a valid ISO 8601 date'),
+
+    query('type')
+        .optional()
+        .custom((value) => {
+            const validTypes = ['event', 'nudge'];
+            if (Array.isArray(value)) {
+                return value.every(t => validTypes.includes(t));
+            }
+            return validTypes.includes(value);
+        })
+        .withMessage('Type must be one of: event, nudge'),
 
     query('status')
         .optional()

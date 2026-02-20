@@ -1,9 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IReminderDocument, NotificationTimeType, RecurrenceFrequency, ReminderPriority, ReminderStatus, } from './reminder.types';
-
-// ============================================
-// REMINDER SCHEMA
-// ============================================
+import { IReminderDocument, NotificationTimeType, RecurrenceFrequency, ReminderStatus, ReminderType } from './reminder.types';
 
 const RecurrenceSchema = new Schema(
     {
@@ -48,6 +44,7 @@ const ReminderSchema = new Schema<IReminderDocument>(
         // Basic Info
         title: { type: String, required: true, trim: true, maxlength: 200, },
         description: { type: String, trim: true, maxlength: 2000, },
+        type: { type: String, enum: Object.values(ReminderType), default: ReminderType.EVENT, index: true },
 
         // Scheduling
         date: { type: Date, required: true, index: true, },
@@ -66,7 +63,6 @@ const ReminderSchema = new Schema<IReminderDocument>(
         },
 
         // Priority & Status
-        priority: { type: String, enum: Object.values(ReminderPriority), default: ReminderPriority.MEDIUM, index: true, },
         status: { type: String, enum: Object.values(ReminderStatus), default: ReminderStatus.PENDING, index: true, },
         completedAt: { type: Date, },
 

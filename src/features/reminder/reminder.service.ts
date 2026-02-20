@@ -23,6 +23,7 @@ class ReminderService {
                 userId: new Types.ObjectId(userId),
                 title: data.title,
                 description: data.description,
+                type: data.type || 'event',
                 date: new Date(data.date),
                 startTime: data.startTime,
                 endTime: data.endTime,
@@ -32,7 +33,6 @@ class ReminderService {
                     enabled: true,
                     times: [{ type: 'minutes', value: 0 }], // At time of event
                 },
-                priority: data.priority || 'medium',
                 status: ReminderStatus.PENDING,
             };
 
@@ -121,14 +121,14 @@ class ReminderService {
                 }
             }
 
+            // Type filter
+            if (query.type) {
+                filter.type = Array.isArray(query.type) ? { $in: query.type } : query.type;
+            }
+
             // Status filter
             if (query.status) {
                 filter.status = Array.isArray(query.status) ? { $in: query.status } : query.status;
-            }
-
-            // Priority filter
-            if (query.priority) {
-                filter.priority = Array.isArray(query.priority) ? { $in: query.priority } : query.priority;
             }
 
             // Linked items filters
@@ -262,6 +262,7 @@ class ReminderService {
             // Update fields
             if (data.title !== undefined) reminder.title = data.title;
             if (data.description !== undefined) reminder.description = data.description;
+            if (data.type !== undefined) reminder.type = data.type;
             if (data.date !== undefined) reminder.date = new Date(data.date);
             if (data.startTime !== undefined) reminder.startTime = data.startTime;
             if (data.endTime !== undefined) reminder.endTime = data.endTime;
@@ -270,7 +271,6 @@ class ReminderService {
             if (data.notifications !== undefined) {
                 reminder.notifications = { ...reminder.notifications, ...data.notifications };
             }
-            if (data.priority !== undefined) reminder.priority = data.priority;
             if (data.status !== undefined) reminder.status = data.status;
 
             // Update linked items
@@ -351,6 +351,7 @@ class ReminderService {
                         userId: reminder.userId,
                         title: reminder.title,
                         description: reminder.description,
+                        type: reminder.type,
                         date: nextDate,
                         startTime: reminder.startTime,
                         endTime: reminder.endTime,
@@ -358,7 +359,6 @@ class ReminderService {
                         recurring: reminder.recurring,
                         parentReminderId: reminder.parentReminderId || reminder._id,
                         notifications: reminder.notifications,
-                        priority: reminder.priority,
                         status: ReminderStatus.PENDING,
                         linkedTags: reminder.linkedTags,
                         linkedEntities: reminder.linkedEntities,
@@ -519,6 +519,7 @@ class ReminderService {
             userId: reminder.userId.toString(),
             title: reminder.title,
             description: reminder.description,
+            type: reminder.type,
             date: reminder.date.toISOString(),
             startTime: reminder.startTime,
             endTime: reminder.endTime,
@@ -526,7 +527,6 @@ class ReminderService {
             recurring: reminder.recurring,
             parentReminderId: reminder.parentReminderId?.toString(),
             notifications: reminder.notifications,
-            priority: reminder.priority,
             status: reminder.status,
             completedAt: reminder.completedAt?.toISOString(),
             linkedTags: reminder.linkedTags || [],
