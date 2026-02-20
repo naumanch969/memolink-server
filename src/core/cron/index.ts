@@ -107,8 +107,31 @@ export const initCronJobs = () => {
         }
     });
 
-    // Note: Weekly and monthly insights are now computed on-demand via analytics endpoint
-    // No need for pre-computation cron jobs
+    // Weekly Analysis Trigger: Every Sunday at 11 PM
+    cron.schedule('0 23 * * 0', async () => {
+        logger.info('Running weekly analysis cron job...');
+        try {
+            const users = await User.find({}).select('_id');
+            for (const user of users) {
+                await agentService.createTask(user._id.toString(), AgentTaskType.WEEKLY_ANALYSIS, {});
+            }
+        } catch (error) {
+            logger.error('Weekly analysis cron job failed:', error);
+        }
+    });
+
+    // Monthly Analysis Trigger: 1st of every month at 1 AM
+    cron.schedule('0 1 1 * *', async () => {
+        logger.info('Running monthly analysis cron job...');
+        try {
+            const users = await User.find({}).select('_id');
+            for (const user of users) {
+                await agentService.createTask(user._id.toString(), AgentTaskType.MONTHLY_ANALYSIS, {});
+            }
+        } catch (error) {
+            logger.error('Monthly analysis cron job failed:', error);
+        }
+    });
 
     logger.info('Cron jobs initialized');
 };

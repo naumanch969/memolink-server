@@ -9,7 +9,6 @@ import { logger } from '../config/logger';
 import { ErrorMiddleware } from './middleware/error.middleware';
 import { MonitoringMiddleware } from './middleware/monitoring.middleware';
 import routes from './routes/index';
-import { RateLimitMiddleware } from './middleware/rate-limit.middleware';
 
 const app = express();
 

@@ -24,6 +24,7 @@ import searchRoutes from '../../features/search/search.routes';
 import tagRoutes from '../../features/tag/tag.routes';
 import webActivityRoutes from '../../features/web-activity/web-activity.routes';
 import widgetRoutes from '../../features/widget/widget.routes';
+import reportRoutes from '../../features/report/report.routes';
 
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
@@ -70,6 +71,7 @@ router.use('/graph', graphRoutes);
 router.use('/admin', adminRoutes);
 
 router.use('/agents', agentRoutes);
+router.use('/reports', reportRoutes);
 router.use('/activity', webActivityRoutes);
 router.use('/search', searchRoutes);
 

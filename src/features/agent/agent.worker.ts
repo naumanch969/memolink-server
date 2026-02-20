@@ -107,6 +107,12 @@ export const initAgentWorker = () => {
                     break;
                 }
 
+                case AgentTaskType.MONTHLY_ANALYSIS: {
+                    const { runMonthlyAnalysis } = await import('./workflows/monthly-analysis.workflow');
+                    result = await runMonthlyAnalysis(task.userId);
+                    break;
+                }
+
                 // Synchronous / No-op tasks
                 case AgentTaskType.REMINDER_CREATE:
                 case AgentTaskType.GOAL_CREATE:
@@ -125,6 +131,17 @@ export const initAgentWorker = () => {
             task.completedAt = new Date();
             await task.save();
             logger.info(`Agent Task Completed: ${taskId}`);
+
+            // Trigger Report Creation for Analysis Tasks
+            if (task.type === AgentTaskType.WEEKLY_ANALYSIS || task.type === AgentTaskType.MONTHLY_ANALYSIS) {
+                try {
+                    const { reportService } = await import('../report/report.service');
+                    await reportService.createFromTask(task.userId, task._id.toString());
+                } catch (reportError) {
+                    logger.error(`Failed to create report from task ${taskId}`, reportError);
+                    // We don't fail the task itself, but we log the error
+                }
+            }
 
         } catch (error: any) {
             logger.error(`Agent Task Failed: ${taskId}`, error);
