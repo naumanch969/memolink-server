@@ -8,7 +8,7 @@ import { GlobalSearchRequest, GlobalSearchResponse } from './search.interfaces';
 
 export class SearchService {
     async globalSearch(userId: string, params: GlobalSearchRequest): Promise<GlobalSearchResponse> {
-        const { q, limit = 10, mode = 'instant', collections = ['entries', 'goals', 'reminders', 'entities'] } = params;
+        const { q, limit = 10, mode = 'instant', collections = ['entries', 'goals', 'reminders', 'entities'], filters } = params;
         const userIdObj = new Types.ObjectId(userId);
 
         const results: GlobalSearchResponse = {
@@ -22,7 +22,7 @@ export class SearchService {
 
         if (collections.includes('entries')) {
             searchPromises.push(
-                entryService.searchEntries(userId, { q, limit, mode })
+                entryService.searchEntries(userId, { q, limit, mode, ...filters })
                     .then(res => {
                         results.entries = res.entries;
                         results.total += res.total;
@@ -32,13 +32,25 @@ export class SearchService {
         }
 
         if (collections.includes('goals')) {
+            const goalFilter: any = { userId: userIdObj };
+            const goalProjection: any = {};
+            let goalSort: any = { createdAt: -1 };
+
+            if (mode === 'instant' || mode === 'hybrid') {
+                goalFilter.$or = [
+                    { title: { $regex: q, $options: 'i' } },
+                    { description: { $regex: q, $options: 'i' } },
+                    { why: { $regex: q, $options: 'i' } }
+                ];
+            } else {
+                goalFilter.$text = { $search: q };
+                goalProjection.score = { $meta: 'textScore' };
+                goalSort = { score: { $meta: 'textScore' } };
+            }
+
             searchPromises.push(
-                Goal.find({
-                    userId: userIdObj,
-                    $text: { $search: q }
-                })
-                    .select({ score: { $meta: 'textScore' } })
-                    .sort({ score: { $meta: 'textScore' } })
+                Goal.find(goalFilter, goalProjection)
+                    .sort(goalSort)
                     .limit(limit)
                     .lean()
                     .then(res => {
@@ -50,13 +62,24 @@ export class SearchService {
         }
 
         if (collections.includes('reminders')) {
+            const reminderFilter: any = { userId: userIdObj };
+            const reminderProjection: any = {};
+            let reminderSort: any = { createdAt: -1 };
+
+            if (mode === 'instant' || mode === 'hybrid') {
+                reminderFilter.$or = [
+                    { title: { $regex: q, $options: 'i' } },
+                    { description: { $regex: q, $options: 'i' } }
+                ];
+            } else {
+                reminderFilter.$text = { $search: q };
+                reminderProjection.score = { $meta: 'textScore' };
+                reminderSort = { score: { $meta: 'textScore' } };
+            }
+
             searchPromises.push(
-                Reminder.find({
-                    userId: userIdObj,
-                    $text: { $search: q }
-                })
-                    .select({ score: { $meta: 'textScore' } })
-                    .sort({ score: { $meta: 'textScore' } })
+                Reminder.find(reminderFilter, reminderProjection)
+                    .sort(reminderSort)
                     .limit(limit)
                     .lean()
                     .then(res => {

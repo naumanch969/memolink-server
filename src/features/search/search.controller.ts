@@ -8,7 +8,7 @@ export class SearchController {
     static async globalSearch(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();
-            const { q, mode, limit, collections } = req.query as any;
+            const { q, mode, limit, collections, ...filters } = req.query as any;
 
             if (!q) {
                 return ResponseHelper.badRequest(res, 'Search query is required');
@@ -18,7 +18,8 @@ export class SearchController {
                 q,
                 mode,
                 limit: limit ? parseInt(limit) : 10,
-                collections: collections ? (collections as string).split(',') as any : undefined
+                collections: collections ? (collections as string).split(',') as any : undefined,
+                filters
             };
 
             const results = await searchService.globalSearch(userId, params);

@@ -7,6 +7,7 @@ export interface GlobalSearchRequest {
     mode?: 'instant' | 'deep' | 'hybrid';
     limit?: number;
     collections?: ('entries' | 'goals' | 'reminders' | 'entities' | 'tags')[];
+    filters?: any;
 }
 
 export interface GlobalSearchResponse {

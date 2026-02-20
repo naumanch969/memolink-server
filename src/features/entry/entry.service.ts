@@ -3,6 +3,8 @@ import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { LLMService } from '../../core/llm/llm.service';
 import { Helpers } from '../../shared/helpers';
+import agentService from '../agent/agent.service';
+import { AgentTaskType } from '../agent/agent.types';
 import KnowledgeEntity from '../entity/entity.model';
 import { entityService } from '../entity/entity.service';
 import { EdgeType, NodeType } from '../graph/edge.model';
@@ -11,8 +13,6 @@ import { tagService } from '../tag/tag.service';
 import { CreateEntryRequest, EntryFeedRequest, EntrySearchRequest, EntryStats, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
 import { Entry } from './entry.model';
 import { classifyMood } from './mood.config';
-import agentService from '../agent/agent.service';
-import { AgentTaskType } from '../agent/agent.types';
 
 export class EntryService implements IEntryService {
   // Helper method to extract mentions from content
@@ -250,7 +250,8 @@ export class EntryService implements IEntryService {
           ])
           .sort(sort as any)
           .skip(skip)
-          .limit(limit),
+          .limit(limit)
+          .lean(),
         Entry.countDocuments(filter),
       ]);
 
@@ -306,9 +307,17 @@ export class EntryService implements IEntryService {
     if (searchParams.q) {
       const sanitizedQuery = Helpers.sanitizeSearchQuery(searchParams.q);
       if (sanitizedQuery) {
-        filter.$text = { $search: sanitizedQuery };
-        projection.score = { $meta: 'textScore' };
-        sort = { score: { $meta: 'textScore' }, ...sort };
+        if (searchParams.mode === 'instant') {
+          filter.$or = [
+            { content: { $regex: sanitizedQuery, $options: 'i' } },
+            { mood: { $regex: sanitizedQuery, $options: 'i' } },
+            { location: { $regex: sanitizedQuery, $options: 'i' } }
+          ];
+        } else {
+          filter.$text = { $search: sanitizedQuery };
+          projection.score = { $meta: 'textScore' };
+          sort = { score: { $meta: 'textScore' }, ...sort };
+        }
       }
     }
 
@@ -319,7 +328,8 @@ export class EntryService implements IEntryService {
         .populate(['mentions', 'tags', 'media'])
         .sort(sort)
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       Entry.countDocuments(filter),
     ]);
 
@@ -386,17 +396,25 @@ export class EntryService implements IEntryService {
   private async performHybridSearch(userId: string, searchParams: EntrySearchRequest): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
     const { page, limit } = Helpers.getPaginationParams(searchParams);
 
-    // Run both in parallel
-    const [keywordRes, vectorRes] = await Promise.all([
-      this.performKeywordSearch(userId, { ...searchParams, limit: 50, page: 1, mode: 'instant' }),
-      this.performVectorSearch(userId, { ...searchParams, limit: 50, page: 1, mode: 'deep' })
-    ]);
+    // Run both in parallel, with vector search falling back gracefully
+    const keywordPromise = this.performKeywordSearch(userId, { ...searchParams, limit: 50, page: 1, mode: 'instant' });
+    const vectorPromise = this.performVectorSearch(userId, { ...searchParams, limit: 50, page: 1, mode: 'deep' }).catch(err => {
+      logger.warn('Vector search failed in hybrid mode, falling back to keyword only', { error: err.message });
+      return { entries: [], total: 0, page: 1, limit: 50, totalPages: 0 };
+    });
+
+    const [keywordRes, vectorRes] = await Promise.all([keywordPromise, vectorPromise]);
+
+    // If both are empty, return early
+    if (keywordRes.entries.length === 0 && vectorRes.entries.length === 0) {
+      return { entries: [], total: 0, page, limit, totalPages: 0 };
+    }
 
     const mixedEntries = this.applyRRF(keywordRes.entries, vectorRes.entries, limit);
 
     return {
       entries: mixedEntries,
-      total: mixedEntries.length,
+      total: Math.max(keywordRes.total, mixedEntries.length),
       page,
       limit,
       totalPages: 1
@@ -486,7 +504,8 @@ export class EntryService implements IEntryService {
       const entries = await Entry.find(filter)
         .populate(['mentions', 'tags', 'media'])
         .sort({ createdAt: -1, _id: -1 })
-        .limit(limit + 1);
+        .limit(limit + 1)
+        .lean();
 
       const hasMore = entries.length > limit;
       let nextCursor = undefined;
