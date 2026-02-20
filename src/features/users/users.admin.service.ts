@@ -1,6 +1,5 @@
 import { logger } from '../../config/logger';
 import { User } from '../auth/auth.model';
-import { documentService } from '../document/document.service';
 import { entityService } from '../entity/entity.service';
 import { Entry } from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
@@ -162,7 +161,6 @@ export class UsersAdminService {
             deletedCounts.goals = await goalService.deleteUserData(userId);
             deletedCounts.reminders = await reminderService.deleteUserData(userId);
             deletedCounts.notifications = await notificationService.deleteUserData(userId);
-            deletedCounts.documents = await documentService.deleteUserData(userId);
             deletedCounts.webActivity = await webActivityService.deleteUserData(userId);
 
             // Finally, delete the user

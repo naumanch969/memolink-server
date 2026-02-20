@@ -11,6 +11,7 @@ export interface IEntry extends BaseEntity {
   media: Types.ObjectId[]; // Media IDs
   isPrivate: boolean;
   isImportant?: boolean; // Mark special/memorable days
+  kind?: 'entry' | 'document' | 'note';
   mood?: string;
   location?: string;
   date: Date;
@@ -71,6 +72,7 @@ export interface CreateEntryRequest {
   media?: string[];
   isPrivate?: boolean;
   isImportant?: boolean;
+  kind?: 'entry' | 'document' | 'note';
   mood?: string;
   location?: string;
   date?: Date;
@@ -91,6 +93,7 @@ export interface UpdateEntryRequest {
   media?: string[];
   isPrivate?: boolean;
   isImportant?: boolean;
+  kind?: 'entry' | 'document' | 'note';
   mood?: string;
   location?: string;
   date?: Date;
@@ -108,6 +111,7 @@ export interface EntrySearchRequest {
   mediaType?: string;
   isPrivate?: boolean;
   isImportant?: boolean;
+  kind?: 'entry' | 'document' | 'note';
   mood?: string;
   location?: string;
   isFavorite?: boolean;
@@ -126,6 +130,7 @@ export interface EntryFeedRequest {
   entities?: string[];
   isPrivate?: boolean;
   isImportant?: boolean;
+  kind?: 'entry' | 'document' | 'note';
   mood?: string;
 }
 

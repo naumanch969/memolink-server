@@ -6,7 +6,6 @@ import agentRoutes from '../../features/agent/agent.routes';
 import analyticsRoutes from '../../features/analytics/analytics.routes';
 import authRoutes from '../../features/auth/auth.routes';
 import announcementRoutes from '../../features/communication/announcement.routes';
-import documentRoutes from '../../features/document/document.routes';
 import entityRoutes from '../../features/entity/entity.routes';
 import entryRoutes from '../../features/entry/entry.routes';
 import eventsRoutes from '../../features/events/events.routes';
@@ -25,7 +24,6 @@ import searchRoutes from '../../features/search/search.routes';
 import tagRoutes from '../../features/tag/tag.routes';
 import webActivityRoutes from '../../features/web-activity/web-activity.routes';
 import widgetRoutes from '../../features/widget/widget.routes';
-
 
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
@@ -71,7 +69,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/graph', graphRoutes);
 router.use('/admin', adminRoutes);
 
-router.use('/documents', documentRoutes);
 router.use('/agents', agentRoutes);
 router.use('/activity', webActivityRoutes);
 router.use('/search', searchRoutes);

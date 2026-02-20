@@ -17,6 +17,7 @@ const entrySchema = new Schema<IEntry>({
   isPrivate: { type: Boolean, default: false, },
   isImportant: { type: Boolean, default: false, },
   isFavorite: { type: Boolean, default: false, },
+  kind: { type: String, enum: ['entry', 'document', 'note'], default: 'entry' },
   mood: { type: String, trim: true, maxlength: [50, 'Mood cannot exceed 50 characters'], },
   location: { type: String, trim: true, maxlength: [200, 'Location cannot exceed 200 characters'], },
   date: { type: Date, default: Date.now, index: true, },
