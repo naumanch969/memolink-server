@@ -7,7 +7,6 @@ import { goalService } from '../../goal/goal.service';
 import { graphService } from '../../graph/graph.service';
 import reminderService from '../../reminder/reminder.service';
 import { NotificationTimeType, ReminderPriority, ReminderStatus } from '../../reminder/reminder.types';
-import { RoutineTemplate } from '../../routine/routine.model';
 import { AgentIntentType, Intention, IntentResult } from '../agent.intent';
 import { AgentTaskType } from '../agent.types';
 
@@ -147,15 +146,6 @@ export class IntentDispatcher {
         const meta = intention.extractedEntities?.metadata || {};
         const hasTargetValue = meta.targetValue !== undefined && meta.targetValue !== null;
 
-        const linkedRoutineIds: string[] = [];
-        if (meta.linkedRoutines?.length > 0) {
-            const routines = await RoutineTemplate.find({
-                userId: new Types.ObjectId(userId),
-                name: { $in: meta.linkedRoutines.map((name: string) => new RegExp(`^${name}$`, 'i')) }
-            }).select('_id').lean();
-            routines.forEach(r => linkedRoutineIds.push(r._id.toString()));
-        }
-
         const commandObject = await goalService.createGoal(userId, {
             title: intention.extractedEntities?.title || text,
             description: meta.description,
@@ -165,7 +155,6 @@ export class IntentDispatcher {
             reward: meta.reward,
             config: hasTargetValue ? { targetValue: meta.targetValue, unit: meta.unit || 'units' } : { items: [], allowMultiple: false },
             deadline: intention.parsedEntities?.date,
-            linkedRoutines: linkedRoutineIds,
             metadata: { originEntryId: entry?._id?.toString() }
         } as any);
 

@@ -69,36 +69,6 @@ describe('GoalService', () => {
                 status: { $ne: GOAL_STATUS.ARCHIVED }
             }));
         });
-        describe('updateProgressFromRoutineLog', () => {
-            it('should update progress for all linked goals atomically', async () => {
-                const userId = '507f1f77bcf86cd799439011';
-                const routineId = '507f1f77bcf86cd799439015';
-                const delta = 5;
-                const mockSession = {} as any;
-
-                await goalService.updateProgressFromRoutineLog(
-                    userId,
-                    routineId,
-                    'counter' as any,
-                    delta,
-                    [],
-                    mockSession
-                );
-
-                expect((Goal as any).updateMany).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        userId: expect.anything(),
-                        $or: expect.arrayContaining([
-                            { linkedRoutines: expect.anything() }
-                        ])
-                    }),
-                    expect.objectContaining({
-                        $inc: { 'progress.currentValue': 5 }
-                    }),
-                    expect.objectContaining({ session: mockSession })
-                );
-            });
-        });
     });
 
 });

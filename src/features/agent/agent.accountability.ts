@@ -7,7 +7,6 @@ import { Entry } from '../entry/entry.model';
 import Goal from '../goal/goal.model';
 import notificationService from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
-import { RoutineLog, RoutineTemplate } from '../routine/routine.model';
 
 export class AgentAccountability {
     /**
@@ -33,11 +32,7 @@ export class AgentAccountability {
             // 1. Check for Slipping Goals
             await this.checkSlippingGoals(userId);
 
-            // 2. Check for Missed Routines (only if it's evening)
-            const currentHour = new Date().getHours();
-            if (currentHour >= 18) { // 6 PM onwards
-                await this.checkMissedRoutines(userId);
-            }
+
 
             // 3. Check for Radio Silence
             await this.checkInactivity(userId);
@@ -80,41 +75,6 @@ export class AgentAccountability {
         }
     }
 
-    private async checkMissedRoutines(userId: string) {
-        const today = startOfDay(new Date());
-        const dayOfWeek = today.getDay(); // 0-6
-
-        // Find active routines for today
-        const activeRoutines = await RoutineTemplate.find({
-            userId,
-            status: 'active',
-            'schedule.days': dayOfWeek
-        });
-
-        for (const routine of activeRoutines) {
-            // Check if already nudged today for THIS routine
-            if (await this.wasNudgedToday(userId, routine._id.toString())) continue;
-
-            // Check if logged today
-            const log = await RoutineLog.findOne({
-                userId,
-                routineId: routine._id,
-                date: today
-            });
-
-            if (!log) {
-                await notificationService.create({
-                    userId,
-                    type: NotificationType.NUDGE,
-                    title: `Routine Check: ${routine.name}`,
-                    message: `Don't let the streak break! You haven't checked in on "${routine.name}" today.`,
-                    referenceId: routine._id.toString(),
-                    referenceModel: 'RoutineTemplate', // Match naming convention in other models
-                    actionUrl: `/routines`
-                });
-            }
-        }
-    }
 
     private async checkInactivity(userId: string) {
         // Check if already nudged today for inactivity

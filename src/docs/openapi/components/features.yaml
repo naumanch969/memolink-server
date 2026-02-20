@@ -62,16 +62,6 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
-    RoutineTemplate:
-      type: object
-      properties:
-        _id: { type: string }
-        name: { type: string }
-        type: { type: string }
-        status: { type: string, enum: [active, paused, archived] }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
     Mood:
       type: object
       properties:

@@ -65,7 +65,7 @@ export async function runWeeklyAnalysis(userId: string): Promise<WeeklyAnalysisO
             moodTrend: "Not enough data to determine a trend.",
             keyAchievements: ["Started using Memolink"],
             areasForImprovement: ["Consistency in daily logging"],
-            patternDiscovery: "Once you log more entries, I'll be able to identify patterns between your routines, mood, and goals.",
+            patternDiscovery: "Once you log more entries, I'll be able to identify patterns between your mood, and goals.",
             score: 5,
             nextWeekFocus: "Daily Journaling"
         };

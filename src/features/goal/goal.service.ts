@@ -1,5 +1,5 @@
 import { addDays, addYears } from 'date-fns';
-import { ClientSession, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import logger from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { GOAL_STATUS } from '../../shared/constants';
@@ -7,7 +7,6 @@ import { EdgeType, NodeType } from '../graph/edge.model';
 import graphService from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
 import { RecurrenceFrequency, ReminderPriority } from '../reminder/reminder.types';
-import { RoutineType } from '../routine/routine.interfaces';
 import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 
@@ -29,18 +28,12 @@ export class GoalService {
                 deadline, // Set calculated deadline
                 startDate,
                 // Ensure specific fields are correctly parsed or set
-                linkedRoutines: params.linkedRoutines?.map(id => new Types.ObjectId(id)),
                 tags: params.tags?.map(id => new Types.ObjectId(id)),
                 metadata: params.metadata,
             });
 
             // 2. Auto-Create Reminders
             await this._manageReminders(userId, goal);
-
-            // Handle retroactive syncing
-            if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
-                await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
-            }
 
             // Create Graph Association
             await graphService.createAssociation({
@@ -72,12 +65,20 @@ export class GoalService {
             filter.status = { $ne: GOAL_STATUS.ARCHIVED };
         }
 
-        if (query.type) {
-            filter.type = query.type;
+
+
+        if (query.period) {
+            filter.period = query.period;
         }
 
         if (query.priority) {
             filter.priority = query.priority;
+        }
+
+        if (query.hasDeadline === true) {
+            filter.deadline = { $exists: true, $ne: null };
+        } else if (query.hasDeadline === false) {
+            filter.deadline = { $exists: false };
         }
 
         const goals = await Goal.find(filter)
@@ -98,9 +99,6 @@ export class GoalService {
     async updateGoal(userId: string, goalId: string, params: UpdateGoalParams): Promise<IGoal | null> {
         const updateData: any = { ...params };
 
-        if (params.linkedRoutines) {
-            updateData.linkedRoutines = params.linkedRoutines.map(id => new Types.ObjectId(id));
-        }
         if (params.tags) {
             updateData.tags = params.tags.map(id => new Types.ObjectId(id));
         }
@@ -123,69 +121,12 @@ export class GoalService {
                 }
             }
 
-            if (params.retroactiveRoutines && params.retroactiveRoutines.length > 0) {
-                await this.syncRetroactiveRoutines(userId, goal._id.toString(), params.retroactiveRoutines);
-                return (await Goal.findById(goal._id).lean()) as IGoal;
-            }
         }
 
         return goal ? goal.toObject() : null;
     }
 
-    // Helper to calculate total progress from past logs of specified routines
-    private async syncRetroactiveRoutines(userId: string, goalId: string, routineIds: string[]) {
-        const { RoutineLog } = await import('../routine/routine.model'); // Dynamic import to avoid circular dependency if any
-
-        const goal = await Goal.findById(goalId);
-        if (!goal) return;
-
-        let totalIncrement = 0;
-
-        for (const routineId of routineIds) {
-            // Fetch all logs for this routine
-            const logs = await RoutineLog.find({
-                userId: new Types.ObjectId(userId),
-                routineId: new Types.ObjectId(routineId),
-
-            });
-
-            // Calculate contribution based on goal type logic (simplified)
-            // Ideally should match the logic in updateProgressFromRoutineLog but aggregated
-            for (const log of logs) {
-                // If log counts for streak or has progress
-                // Simple logic: add log value if present, else 1 if completed
-                if (log.data.value !== undefined && log.data.value !== null) {
-                    // For numeric values, add them
-                    if (typeof log.data.value === 'number') {
-                        totalIncrement += log.data.value;
-                    }
-                    // For boolean true, count as 1
-                    else if (log.data.value === true) {
-                        totalIncrement += 1;
-                    }
-                    // For checklist, count checked items
-                    else if (Array.isArray(log.data.value)) {
-                        totalIncrement += log.data.value.filter(Boolean).length;
-                    }
-                } else if (log.countsForStreak) {
-                    totalIncrement += 1;
-                }
-            }
-        }
-
-        if (totalIncrement > 0) {
-            const current = typeof goal.progress.currentValue === 'number' ? goal.progress.currentValue : 0;
-            goal.progress.currentValue = current + totalIncrement;
-            goal.progress.lastUpdate = new Date();
-            await goal.save();
-        }
-    }
-
-    async updateProgress(
-        userId: string,
-        goalId: string,
-        params: UpdateGoalProgressParams
-    ): Promise<IGoal | null> {
+    async updateProgress(userId: string, goalId: string, params: UpdateGoalProgressParams): Promise<IGoal | null> {
         const goal = await Goal.findOne({
             _id: new Types.ObjectId(goalId),
             userId: new Types.ObjectId(userId)
@@ -258,45 +199,6 @@ export class GoalService {
 
         await goal.save();
         return goal.toObject();
-    }
-
-    // New method for routine integration
-    async updateProgressFromRoutineLog(
-        userId: string,
-        routineId: string,
-        routineType: RoutineType,
-        delta: number | any,
-        linkedGoalIds: string[] = [],
-        session?: ClientSession
-    ): Promise<void> {
-        const goalIds = linkedGoalIds.map(id => new Types.ObjectId(id));
-        const increment = Number(delta) || 0;
-
-        if (increment === 0) return;
-
-        // Atomic update to all linked goals using MongoDB $inc
-        await Goal.updateMany(
-            {
-                userId: new Types.ObjectId(userId),
-                status: GOAL_STATUS.ACTIVE,
-                $or: [
-                    { linkedRoutines: new Types.ObjectId(routineId) },
-                    { _id: { $in: goalIds } }
-                ]
-            },
-            {
-                $inc: { 'progress.currentValue': increment },
-                $set: { 'progress.lastUpdate': new Date() }
-            },
-            { session }
-        );
-    }
-
-    async removeLinkedRoutine(routineId: string): Promise<void> {
-        await Goal.updateMany(
-            { linkedRoutines: new Types.ObjectId(routineId) },
-            { $pull: { linkedRoutines: new Types.ObjectId(routineId) } }
-        );
     }
 
     async deleteGoal(userId: string, goalId: string): Promise<boolean> {

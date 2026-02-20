@@ -4,7 +4,6 @@ import KnowledgeEntity from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Goal } from '../goal/goal.model';
 import { Media } from '../media/media.model';
-import { RoutineTemplate as Routine } from '../routine/routine.model';
 import { Tag } from '../tag/tag.model';
 
 export interface UserGrowthData {
@@ -28,7 +27,6 @@ export interface FeatureStats {
     users: number;
     entries: number;
     media: number;
-    routines: number;
     goals: number;
 }
 
@@ -131,18 +129,17 @@ export class AnalyticsAdminService {
      */
     async getFeatureStats(): Promise<FeatureStats> {
         try {
-            const [users, entries, media, routines, goals] = await Promise.all([
+            const [users, entries, media, goals] = await Promise.all([
                 User.countDocuments(),
                 Entry.countDocuments(),
                 Media.countDocuments(),
-                Routine ? Routine.countDocuments() : 0,
                 Goal ? Goal.countDocuments() : 0
             ]);
 
-            return { users, entries, media, routines, goals };
+            return { users, entries, media, goals };
         } catch (error) {
             logger.error('Failed to get feature stats:', error);
-            return { users: 0, entries: 0, media: 0, routines: 0, goals: 0 };
+            return { users: 0, entries: 0, media: 0, goals: 0 };
         }
     }
 

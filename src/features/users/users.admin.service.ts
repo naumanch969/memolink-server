@@ -10,7 +10,6 @@ import { Media } from '../media/media.model';
 import { mediaService } from '../media/media.service';
 import { notificationService } from '../notification/notification.service';
 import { reminderService } from '../reminder/reminder.service';
-import { routineService } from '../routine/routine.service';
 import { tagService } from '../tag/tag.service';
 import { webActivityService } from '../web-activity/web-activity.service';
 
@@ -159,15 +158,6 @@ export class UsersAdminService {
             deletedCounts.tags = await tagService.deleteUserData(userId);
             deletedCounts.media = await mediaService.deleteUserData(userId);
             deletedCounts.folders = await folderService.deleteUserData(userId);
-
-            const routineDeletion = await routineService.deleteUserData(userId);
-            if (typeof routineDeletion === 'number') {
-                deletedCounts.routines = routineDeletion;
-            } else {
-                deletedCounts.routineTemplates = routineDeletion.templates;
-                deletedCounts.routineLogs = routineDeletion.logs;
-                deletedCounts.routinePreferences = routineDeletion.preferences;
-            }
 
             deletedCounts.goals = await goalService.deleteUserData(userId);
             deletedCounts.reminders = await reminderService.deleteUserData(userId);

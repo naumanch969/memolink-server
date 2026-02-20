@@ -266,7 +266,7 @@ export class AgentService {
 
         const prompt = `
             SYSTEM INSTRUCTION:
-            You are an expert Goal Architect and Coaching AI. Your role is to help users operationalize their ambitions into concrete Goals and Routines.
+            You are an expert Goal Architect and Coaching AI. Your role is to help users operationalize their ambitions into concrete Goals.
 
             CONVERSATION HISTORY:
             ${historyText}
@@ -294,15 +294,6 @@ export class AgentService {
             Once you have enough context, propose a "System" consisting of:
             - A High-Level Goal (The Outcome)
             - A Strategy (The Description/Approach)
-            - Linked Routines (The Daily/Weekly input metrics)
-
-            VALID TYPES for Routines (Strict):
-            - boolean (Simple checkbox, e.g. "Wake up on time")
-            - warning: 'checklist' is NOT supported for routines yet, use boolean or text.
-            - counter (Numeric, e.g. "Drink 5 glasses", requires target)
-            - duration (Time-based, e.g. "Read for 30 mins", requires target)
-            - scale (1-10 rating, e.g. "Energy level")
-            - text (Journaling/logging inputs)
 
             OUTPUT FORMAT:
             - If asking questions, just output the plain text question.
@@ -316,11 +307,6 @@ export class AgentService {
               "targetValue": 42.2, 
               "unit": "km",
               "deadline": "2024-12-31",
-              "routines": [
-                 { "name": "Zone 2 Training", "frequency": "daily", "type": "duration", "description": "45 min low heart rate run" },
-                 { "name": "Long Run", "frequency": "weekly", "type": "duration", "description": "90+ min endurance run" },
-                 { "name": "Recovery Sleep", "frequency": "daily", "type": "scale", "description": "Rate sleep quality 1-10" }
-              ]
             }
             \`\`\`
         `;

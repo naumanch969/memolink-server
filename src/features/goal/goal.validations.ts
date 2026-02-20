@@ -1,5 +1,6 @@
 import { body, param } from 'express-validator';
-import { GOAL_STATUS, ROUTINE_TYPES } from '../../shared/constants';
+import { GOAL_STATUS } from '../../shared/constants';
+import { GoalPeriod, GoalTrackingType } from './goal.interfaces';
 
 export const createGoalValidation = [
     body('title')
@@ -7,9 +8,24 @@ export const createGoalValidation = [
         .isString().withMessage('Goal title must be a string')
         .trim()
         .isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
-    body('type')
-        .notEmpty().withMessage('Goal type is required')
-        .isIn(Object.values(ROUTINE_TYPES)).withMessage('Invalid goal type'),
+
+    body('period')
+        .optional()
+        .isIn(Object.values(GoalPeriod)).withMessage('Invalid goal period'),
+
+    body('trackingConfig').optional().isObject(),
+    body('trackingConfig.type')
+        .optional()
+        .isIn(Object.values(GoalTrackingType)).withMessage('Invalid tracking type'),
+    body('trackingConfig.targetValue').optional().isNumeric(),
+    body('trackingConfig.targetItems').optional().isArray(),
+    body('trackingConfig.unit').optional().isString().trim(),
+
+    body('trackingSchedule').optional().isObject(),
+    body('trackingSchedule.frequency')
+        .optional()
+        .isIn(['daily', 'weekdays', 'specific_days', 'interval']),
+
     body('description')
         .optional()
         .isString().withMessage('Description must be a string')
@@ -26,13 +42,13 @@ export const createGoalValidation = [
     body('startDate').optional().isISO8601().toDate(),
     body('deadline').optional().isISO8601().toDate(),
     body('priority').optional().isIn(['low', 'medium', 'high']),
-    body('linkedRoutines').optional().isArray(),
-    body('linkedRoutines.*').isMongoId(),
-    body('tags').optional().isArray(),
-    body('tags.*').isMongoId(),
     body('reward').optional().isString().trim(),
     body('milestones').optional().isArray(),
     body('milestones.*.title').notEmpty().withMessage('Milestone title is required'),
+
+    // Tags: accept MongoIds (linked Tag entities) or plain strings (free-form)
+    body('tags').optional().isArray(),
+    body('tags.*').optional().isString(),
 ];
 
 export const updateGoalValidation = [
@@ -46,7 +62,21 @@ export const updateGoalValidation = [
     body('priority').optional().isIn(['low', 'medium', 'high']),
     body('description').optional().isString().trim(),
     body('why').optional().isString().trim(),
+    body('icon').optional().isString().trim(),
+    body('color').optional().isString().trim(),
     body('deadline').optional().isISO8601().toDate(),
+    body('period').optional().isIn(Object.values(GoalPeriod)),
+    body('trackingConfig').optional().isObject(),
+    body('trackingConfig.type').optional().isIn(Object.values(GoalTrackingType)),
+    body('trackingConfig.targetValue').optional().isNumeric(),
+    body('trackingConfig.targetItems').optional().isArray(),
+    body('trackingConfig.unit').optional().isString().trim(),
+    body('trackingSchedule').optional().isObject(),
+    body('tags').optional().isArray(),
+    body('tags.*').optional().isString(),
+    body('reward').optional().isString().trim(),
+    body('milestones').optional().isArray(),
+    body('milestones.*.title').optional().notEmpty(),
 ];
 
 export const goalIdValidation = [

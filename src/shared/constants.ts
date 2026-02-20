@@ -21,9 +21,6 @@ export const COLLECTIONS = {
   TAGS: 'tags',
   MEDIA: 'media',
 
-  ROUTINE_TEMPLATES: 'routine_templates',
-  ROUTINE_LOGS: 'routine_logs',
-  ROUTINE_PREFERENCES: 'routine_preferences',
   GOALS: 'goals',
 } as const;
 
@@ -166,24 +163,6 @@ export const SEARCH = {
   MAX_QUERY_LENGTH: 100,
 } as const;
 
-// Routine Types
-export const ROUTINE_TYPES = {
-  BOOLEAN: 'boolean',
-  CHECKLIST: 'checklist',
-  COUNTER: 'counter',
-  DURATION: 'duration',
-  TEXT: 'text',
-  SCALE: 'scale',
-  TIME: 'time',
-} as const;
-
-// Routine Status
-export const ROUTINE_STATUS = {
-  ACTIVE: 'active',
-  PAUSED: 'paused',
-  ARCHIVED: 'archived',
-} as const;
-
 // Goal Status
 export const GOAL_STATUS = {
   ACTIVE: 'active',
@@ -192,21 +171,3 @@ export const GOAL_STATUS = {
   ARCHIVED: 'archived',
 } as const;
 
-// Routine Validation Constants
-export const ROUTINE_VALIDATION = {
-  NAME_MIN_LENGTH: 1,
-  NAME_MAX_LENGTH: 100,
-  DESCRIPTION_MAX_LENGTH: 500,
-  CHECKLIST_MAX_ITEMS: 20,
-  CHECKLIST_ITEM_MAX_LENGTH: 100,
-  COUNTER_MAX_TARGET: 1000000,
-  DURATION_MAX_MINUTES: 1440, // 24 hours
-  SCALE_MIN: 2,
-  SCALE_MAX: 10,
-  TEXT_PROMPT_MAX_LENGTH: 200,
-  TEXT_RESPONSE_MAX_LENGTH: 1000,
-  UNIT_MAX_LENGTH: 20,
-  GRADUAL_THRESHOLD_MIN: 1,
-  GRADUAL_THRESHOLD_MAX: 100,
-  MAX_ACTIVE_DAYS: 7,
-} as const;

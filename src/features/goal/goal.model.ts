@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { COLLECTIONS, GOAL_STATUS, ROUTINE_TYPES, } from '../../shared/constants';
+import { COLLECTIONS, GOAL_STATUS } from '../../shared/constants';
 import { GoalPeriod, GoalTrackingType, IGoal } from './goal.interfaces';
 
 // ============================================
@@ -73,118 +73,35 @@ const goalMilestoneSchema = new Schema(
 
 const goalSchema = new Schema<IGoal>(
     {
-        userId: {
-            type: Schema.Types.ObjectId,
-            ref: 'User',
-            required: [true, 'User ID is required'],
-            index: true,
-        },
-        title: {
-            type: String,
-            required: [true, 'Goal title is required'],
-            trim: true,
-            maxlength: [200, 'Title cannot exceed 200 characters'],
-        },
-        description: {
-            type: String,
-            trim: true,
-            maxlength: [2000, 'Description cannot exceed 2000 characters'],
-        },
-        why: {
-            type: String,
-            trim: true,
-            maxlength: [1000, 'Motivation (Why) cannot exceed 1000 characters'],
-        },
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
+        title: { type: String, required: [true, 'Goal title is required'], trim: true, maxlength: [200, 'Title cannot exceed 200 characters'], },
+        description: { type: String, trim: true, maxlength: [2000, 'Description cannot exceed 2000 characters'], },
+        why: { type: String, trim: true, maxlength: [1000, 'Motivation (Why) cannot exceed 1000 characters'], },
         icon: { type: String, trim: true },
         color: { type: String, trim: true },
 
-        period: {
-            type: String,
-            enum: Object.values(GoalPeriod),
-            required: true,
-            default: GoalPeriod.INDEFINITE
-        },
+        period: { type: String, enum: Object.values(GoalPeriod), required: true, default: GoalPeriod.INDEFINITE },
 
-        parentId: {
-            type: Schema.Types.ObjectId,
-            ref: 'Goal',
-            index: true
-        },
+        parentId: { type: Schema.Types.ObjectId, ref: 'Goal', index: true },
 
-        trackingSchedule: {
-            type: trackingScheduleSchema
-        },
-        trackingConfig: {
-            type: trackingConfigSchema
-        },
+        trackingSchedule: { type: trackingScheduleSchema },
+        trackingConfig: { type: trackingConfigSchema },
 
-        // Legacy RoutineType - keeping?
-        type: {
-            type: String,
-            // required: [true, 'Goal type is required'], // Relax requirement if moving to period
-            enum: Object.values(ROUTINE_TYPES),
-        },
+        status: { type: String, required: true, enum: Object.values(GOAL_STATUS), default: GOAL_STATUS.ACTIVE, index: true, },
 
-        status: {
-            type: String,
-            required: true,
-            enum: Object.values(GOAL_STATUS),
-            default: GOAL_STATUS.ACTIVE,
-            index: true,
-        },
-
-        // config: {
-        //     type: goalConfigSchema,
-        //     required: true,
-        //     default: {},
-        // },
-
-        progress: {
-            type: goalProgressSchema,
-            required: true,
-            default: {},
-        },
+        progress: { type: goalProgressSchema, required: true, default: {}, },
 
         // Per-day log history powering the streak calendar UI
-        progressLogs: {
-            type: [progressLogSchema],
-            default: [],
-        },
+        progressLogs: { type: [progressLogSchema], default: [], },
 
-        startDate: {
-            type: Date,
-            required: true,
-            default: Date.now,
-        },
-        deadline: {
-            type: Date,
-            index: true,
-        },
-        completedAt: {
-            type: Date,
-        },
-
-        linkedRoutines: [
-            {
-                type: Schema.Types.ObjectId,
-                ref: 'RoutineTemplate',
-            },
-        ],
+        startDate: { type: Date, required: true, default: Date.now, },
+        deadline: { type: Date, index: true, },
+        completedAt: { type: Date, },
 
         milestones: [goalMilestoneSchema],
 
-        priority: {
-            type: String,
-            enum: ['low', 'medium', 'high'],
-            default: 'medium',
-        },
-
-        tags: [
-            {
-                type: Schema.Types.ObjectId,
-                ref: 'Tag',
-            },
-        ],
+        priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium', },
+        tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
 
         reward: { type: String, trim: true },
         metadata: { type: Schema.Types.Mixed },

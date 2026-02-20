@@ -23,7 +23,7 @@ const entitySchema = z.object({
     title: z.string().optional().nullable().describe('Concise title'),
     priority: z.preprocess((val) => typeof val === 'string' ? val.toLowerCase() : val, z.enum(['low', 'medium', 'high']).optional().nullable()),
     person: z.string().optional().nullable(),
-    metadata: z.record(z.string(), z.any()).optional().describe('Any additional intent-specific metadata (e.g. why, reward, targetValue, unit, linkedRoutines for goals)'),
+    metadata: z.record(z.string(), z.any()).optional().describe('Any additional intent-specific metadata (e.g. why, reward, targetValue, unit, for goals)'),
 });
 
 // 3. Define Output Schema for the Router
@@ -88,11 +88,11 @@ export class AgentIntentClassifier {
         
         EXTRACTION RULES:
         - For CMD intents, extract: 'title', 'date', 'priority'.
-        - For goals, extract: 'why', 'targetValue', 'unit', 'reward', 'linkedRoutines' into 'metadata'.
+        - For goals, extract: 'why', 'targetValue', 'unit', 'reward' into 'metadata'.
         - 'date' should be relative (e.g. "tomorrow", "5pm").
         `;
 
-        var result;
+        let result;
         try {
             result = await LLMService.generateJSON(prompt, routerSchema, {
                 workflow: 'intent_classification',

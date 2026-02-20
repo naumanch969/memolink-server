@@ -35,7 +35,6 @@ export enum NodeType {
     USER = 'User',
     GOAL = 'Goal',
     TASK = 'Task',
-    ROUTINE = 'Routine',
     PERSON = 'Person',
     ENTITY = 'Entity', // Universal fallback
     PROJECT = 'Project',

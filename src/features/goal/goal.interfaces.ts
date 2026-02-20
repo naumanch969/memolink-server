@@ -1,7 +1,6 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
 import { DataValue } from '../../shared/types/dataProperties';
-import { RoutineType } from '../routine/routine.interfaces'; // Import RoutineType
 
 // Goal Types
 export enum GoalPeriod {
@@ -72,7 +71,6 @@ export interface IGoal extends BaseEntity {
     trackingSchedule?: IGoalTrackingSchedule; // For Indefinite/Habit goals
     trackingConfig?: IGoalTrackingConfig;
 
-    type: RoutineType; // Keeping for backward compatibility or categorize as 'habit' vs 'project'
     status: GoalStatus;
 
     // config: IGoalConfig; // Deprecated
@@ -83,7 +81,6 @@ export interface IGoal extends BaseEntity {
     deadline?: Date;
     completedAt?: Date;
 
-    linkedRoutines?: Types.ObjectId[]; // Routines that contribute to this goal
     milestones?: IGoalMilestone[];
 
     priority: 'low' | 'medium' | 'high';
@@ -100,7 +97,6 @@ export interface CreateGoalParams {
     icon?: string;
     color?: string;
     status?: GoalStatus;
-    type: RoutineType;
 
     parentId?: string;
     period?: GoalPeriod;
@@ -113,7 +109,6 @@ export interface CreateGoalParams {
     deadline?: string | Date;
 
     priority?: 'low' | 'medium' | 'high';
-    linkedRoutines?: string[];
     tags?: string[];
     reward?: string;
 
@@ -122,7 +117,6 @@ export interface CreateGoalParams {
         targetValue?: number;
         deadline?: string | Date;
     }>;
-    retroactiveRoutines?: string[];
     metadata?: Record<string, any>;
 }
 
@@ -144,7 +138,6 @@ export interface UpdateGoalParams {
     deadline?: string | Date;
 
     priority?: 'low' | 'medium' | 'high';
-    linkedRoutines?: string[];
     tags?: string[];
     reward?: string;
 
@@ -156,7 +149,6 @@ export interface UpdateGoalParams {
         deadline?: string | Date;
         completed?: boolean;
     }>;
-    retroactiveRoutines?: string[];
 }
 
 export interface UpdateGoalProgressParams {
@@ -167,8 +159,8 @@ export interface UpdateGoalProgressParams {
 }
 
 export interface GetGoalsQuery {
-    status?: GoalStatus | 'all'; // 'all' might mean everything except archived
-    type?: RoutineType;
+    status?: GoalStatus | 'all';
+    period?: GoalPeriod;
     priority?: string;
     hasDeadline?: boolean;
 }

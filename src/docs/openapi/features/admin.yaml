@@ -192,8 +192,6 @@ paths:
                             type: integer
                           media:
                             type: integer
-                          routines:
-                            type: integer
                           goals:
                             type: integer
 

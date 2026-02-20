@@ -26,15 +26,15 @@ const VALID_RELATIONS: Record<EdgeType, { from: NodeType[]; to: NodeType[] }> = 
 
     // Behavioral & Psychological (User Memory)
     [EdgeType.AVOIDS]: { from: [NodeType.USER], to: [NodeType.TASK, NodeType.GOAL, NodeType.PERSON, NodeType.PROJECT, NodeType.ENTITY] },
-    [EdgeType.NEGLECTS]: { from: [NodeType.USER], to: [NodeType.GOAL, NodeType.ROUTINE] },
+    [EdgeType.NEGLECTS]: { from: [NodeType.USER], to: [NodeType.GOAL] },
     [EdgeType.STRUGGLES_WITH]: { from: [NodeType.USER, NodeType.PERSON], to: [NodeType.TOPIC, NodeType.TASK, NodeType.EMOTION, NodeType.PROJECT, NodeType.ENTITY] },
-    [EdgeType.CONSISTENT_IN]: { from: [NodeType.USER], to: [NodeType.ROUTINE, NodeType.TASK] },
+    [EdgeType.CONSISTENT_IN]: { from: [NodeType.USER], to: [NodeType.TASK] },
     [EdgeType.TRIGGERS]: { from: [NodeType.TOPIC, NodeType.PERSON, NodeType.TASK, NodeType.CONTEXT, NodeType.PROJECT, NodeType.REMINDER, NodeType.ENTITY], to: [NodeType.EMOTION, NodeType.GOAL] },
     [EdgeType.INFLUENCES]: { from: [NodeType.PERSON, NodeType.PROJECT, NodeType.ORGANIZATION, NodeType.ENTITY, NodeType.TOPIC], to: [NodeType.USER, NodeType.PERSON, NodeType.EMOTION] },
 
     // Dependency
     [EdgeType.BLOCKS]: { from: [NodeType.TASK, NodeType.GOAL, NodeType.ENTITY], to: [NodeType.TASK, NodeType.GOAL, NodeType.ENTITY] },
-    [EdgeType.SUPPORTS]: { from: [NodeType.ROUTINE, NodeType.TASK, NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY], to: [NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY] },
+    [EdgeType.SUPPORTS]: { from: [NodeType.TASK, NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY], to: [NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY] },
     [EdgeType.REQUIRES]: { from: [NodeType.TASK, NodeType.GOAL, NodeType.PROJECT, NodeType.ENTITY], to: [NodeType.TASK, NodeType.CONTEXT, NodeType.PROJECT, NodeType.ENTITY] },
 };
 
