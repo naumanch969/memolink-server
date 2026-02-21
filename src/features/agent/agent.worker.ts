@@ -1,9 +1,12 @@
 import { Job } from 'bullmq';
 import { logger } from '../../config/logger';
 import { QueueService } from '../../core/queue/QueueService';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from './agent.model';
 import { AGENT_QUEUE_NAME } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
+
 
 interface AgentJobData {
     taskId: string;
@@ -25,6 +28,9 @@ export const initAgentWorker = () => {
             task.status = AgentTaskStatus.RUNNING;
             task.startedAt = new Date();
             await task.save();
+
+            // Broadcast status update
+            socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
 
             let result;
 
@@ -132,6 +138,9 @@ export const initAgentWorker = () => {
             await task.save();
             logger.info(`Agent Task Completed: ${taskId}`);
 
+            // Broadcast status update
+            socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
+
             // Trigger Report Creation for Analysis Tasks
             if (task.type === AgentTaskType.WEEKLY_ANALYSIS || task.type === AgentTaskType.MONTHLY_ANALYSIS) {
                 try {
@@ -148,6 +157,10 @@ export const initAgentWorker = () => {
             task.status = AgentTaskStatus.FAILED;
             task.error = error.message || 'Unknown error';
             await task.save();
+
+            // Broadcast status update
+            socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
+
             throw error; // Rethrow to let BullMQ handle retries if configured
         }
     });

@@ -1,4 +1,6 @@
 import { Response } from 'express';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
 import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { webActivityService } from './web-activity.service';
@@ -18,6 +20,10 @@ export class WebActivityController {
             }
 
             const activity = await webActivityService.syncActivity(userId, batch);
+
+            // Broadcast update
+            socketService.emitToUser(userId, SocketEvents.WEB_ACTIVITY_UPDATED, activity);
+
             ResponseHelper.success(res, activity, 'Activity synced successfully');
         } catch (error) {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');

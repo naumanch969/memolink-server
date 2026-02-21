@@ -2,6 +2,8 @@ import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from 'date-fns';
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from '../agent/agent.model';
 import { agentService } from '../agent/agent.service';
 import { AgentTaskType } from '../agent/agent.types';
@@ -64,6 +66,10 @@ export class ReportService {
             );
 
             logger.info(`Report [${type}] ${report.isNew ? 'created' : 'updated'} for user ${userId} for period ${startDate.toISOString()}`);
+
+            // Broadcast update
+            socketService.emitToUser(userId, SocketEvents.REPORT_UPDATED, report);
+
             return report;
         } catch (error: any) {
             // Handle race condition where two tasks try to upsert at the exact same time

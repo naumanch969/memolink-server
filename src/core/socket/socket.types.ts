@@ -21,6 +21,15 @@ export enum SocketEvents {
     JOB_COMPLETED = 'job:completed',
     JOB_FAILED = 'job:failed',
 
+    // Agent Tasks
+    AGENT_TASK_UPDATED = 'agent_task:updated',
+
+    // Web Activity
+    WEB_ACTIVITY_UPDATED = 'web_activity:updated',
+
+    // Reports
+    REPORT_UPDATED = 'report:updated',
+
     // System
     SYSTEM_HEALTH_UPDATE = 'system:health_update'
 }
