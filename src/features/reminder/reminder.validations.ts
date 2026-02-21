@@ -1,9 +1,5 @@
 import { body, param, query } from 'express-validator';
 
-// ============================================
-// CREATE REMINDER VALIDATION
-// ============================================
-
 export const createReminderValidation = [
     body('title')
         .trim()
@@ -147,10 +143,6 @@ export const createReminderValidation = [
 
 ];
 
-// ============================================
-// UPDATE REMINDER VALIDATION
-// ============================================
-
 export const updateReminderValidation = [
     body('title')
         .optional()
@@ -227,10 +219,6 @@ export const updateReminderValidation = [
 
 ];
 
-// ============================================
-// QUERY VALIDATION
-// ============================================
-
 export const getRemindersQueryValidation = [
     query('startDate')
         .optional()
@@ -303,20 +291,12 @@ export const getRemindersQueryValidation = [
         .withMessage('Skip must be a non-negative integer'),
 ];
 
-// ============================================
-// COMPLETE REMINDER VALIDATION
-// ============================================
-
 export const completeReminderValidation = [
     body('completedAt')
         .optional()
         .isISO8601()
         .withMessage('Completed at must be a valid ISO 8601 date'),
 ];
-
-// ============================================
-// ID PARAM VALIDATION
-// ============================================
 
 export const reminderIdValidation = [
     param('id')

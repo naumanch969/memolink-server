@@ -1,8 +1,6 @@
 import { Document, Types } from 'mongoose';
 
-// ============================================
 // ENUMS & CONSTANTS
-// ============================================
 export enum ReminderStatus {
     PENDING = 'pending',
     COMPLETED = 'completed',
@@ -29,9 +27,6 @@ export enum NotificationTimeType {
     DAYS = 'days',
 }
 
-// ============================================
-// INTERFACES
-// ============================================
 
 export interface IRecurrence {
     enabled: boolean;
@@ -94,9 +89,7 @@ export interface IReminderDocument extends IReminder, Document {
 }
 
 
-// ============================================
 // REQUEST TYPES
-// ============================================
 
 export interface CreateReminderRequest {
     title: string;
@@ -151,9 +144,7 @@ export interface CompleteReminderRequest {
     completedAt?: string; // ISO date string
 }
 
-// ============================================
 // RESPONSE TYPES
-// ============================================
 
 export interface ReminderResponse {
     _id: string;

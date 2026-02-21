@@ -93,8 +93,5 @@ ReminderSchema.index(
     }
 );
 
-// ============================================
-// MODELS
-// ============================================
 
 export const Reminder = mongoose.model<IReminderDocument>('Reminder', ReminderSchema);

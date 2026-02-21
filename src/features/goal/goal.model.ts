@@ -2,9 +2,6 @@ import mongoose, { Schema } from 'mongoose';
 import { COLLECTIONS, GOAL_STATUS } from '../../shared/constants';
 import { GoalPeriod, GoalTrackingType, IGoal } from './goal.interfaces';
 
-// ============================================
-// SUB-SCHEMAS
-// ============================================
 
 const trackingScheduleSchema = new Schema(
     {
@@ -67,10 +64,6 @@ const goalMilestoneSchema = new Schema(
     { _id: true } // Subdocuments get IDs
 );
 
-// ============================================
-// MAIN GOAL SCHEMA
-// ============================================
-
 const goalSchema = new Schema<IGoal>(
     {
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
@@ -111,10 +104,6 @@ const goalSchema = new Schema<IGoal>(
         collection: COLLECTIONS.GOALS,
     }
 );
-
-// ============================================
-// INDEXES & MIDDLEWARE
-// ============================================
 
 // Unique active goal per user (Case-insensitive)
 goalSchema.index(

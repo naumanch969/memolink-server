@@ -38,10 +38,6 @@ export interface CreateNotificationDTO {
     eventId?: string;
 }
 
-// ============================================
-// NOTIFICATION QUEUE (Moved from Reminder)
-// ============================================
-
 export enum NotificationStatus {
     PENDING = 'pending',
     PROCESSING = 'processing',

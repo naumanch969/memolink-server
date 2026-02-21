@@ -7,10 +7,6 @@ import { adminService } from './admin.service';
 
 export class AdminController {
 
-    // ==========================================
-    // BACKUPS
-    // ==========================================
-
     static async getBackups(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const backups = await adminService.listBackups();
@@ -37,10 +33,6 @@ export class AdminController {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
-
-    // ==========================================
-    // SYSTEM CONFIGURATION
-    // ==========================================
 
     static async getSystemConfigs(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
