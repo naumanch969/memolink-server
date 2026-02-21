@@ -74,6 +74,10 @@ export class AgentService {
     async syncPersona(userId: string, force: boolean = false): Promise<{ taskId: string }> {
         return agentSyncService.syncPersona(userId, force);
     }
+
+    async cleanText(userId: string, text: string): Promise<string> {
+        return agentNLPService.cleanText(userId, text);
+    }
 }
 
 export const agentService = new AgentService();

@@ -238,5 +238,23 @@ export class AgentController {
             ResponseHelper.error(res, 'Error fetching user persona', 500, error);
         }
     }
+
+    static async cleanText(req: Request, res: Response): Promise<void> {
+        try {
+            const { text } = req.body;
+            const userId = (req as any).user._id;
+
+            if (!text) {
+                ResponseHelper.badRequest(res, 'Text is required');
+                return;
+            }
+
+            const cleanedText = await agentService.cleanText(userId, text);
+            ResponseHelper.success(res, { cleanedText }, 'Text cleaned successfully');
+        } catch (error) {
+            logger.error('Error cleaning text', error);
+            ResponseHelper.error(res, 'Error cleaning text', 500, error);
+        }
+    }
 }
 

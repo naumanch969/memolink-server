@@ -4,7 +4,7 @@ import { RateLimitMiddleware } from '../../core/middleware/rate-limit.middleware
 import { FileUploadMiddleware } from '../../core/middleware/upload.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { AgentController } from './agent.controller';
-import { chatValidation, createTaskValidation, findSimilarValidation, goalArchitectValidation, processNLValidation, taskIdValidation } from './agent.validations';
+import { chatValidation, cleanTextValidation, createTaskValidation, goalArchitectValidation, processNLValidation, taskIdValidation } from './agent.validations';
 
 const router = Router();
 
@@ -22,6 +22,7 @@ const aiLimiter = RateLimitMiddleware.limit({ zone: 'ai', maxRequests: 10, windo
 router.post('/intent', aiLimiter, processNLValidation, ValidationMiddleware.validate, AgentController.processNaturalLanguage);
 router.post('/intent/audio', aiLimiter, FileUploadMiddleware.uploadSingle('audio'), AgentController.processAudioIntent);
 router.post('/chat', aiLimiter, chatValidation, ValidationMiddleware.validate, AgentController.chat);
+router.post('/clean', aiLimiter, cleanTextValidation, ValidationMiddleware.validate, AgentController.cleanText);
 router.get('/chat', AgentController.getHistory);
 router.get('/briefing', AgentController.getBriefing);
 router.post('/goal-architect', aiLimiter, goalArchitectValidation, ValidationMiddleware.validate, AgentController.goalArchitectChat);

@@ -28,3 +28,7 @@ export const goalArchitectValidation = [
 export const findSimilarValidation = [
     query('text').notEmpty().withMessage('Text query is required').isString().trim(),
 ];
+
+export const cleanTextValidation = [
+    body('text').notEmpty().withMessage('Text is required').isString().trim(),
+];

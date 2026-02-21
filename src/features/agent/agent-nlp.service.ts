@@ -156,6 +156,41 @@ export class AgentNLPService {
             return [];
         }
     }
+    /**
+     * Cleans raw text into a grammatically correct and polished format
+     * while preserving original meaning and tone.
+     */
+    async cleanText(userId: string, text: string): Promise<string> {
+        try {
+            const { LLMService } = await import('../../core/llm/llm.service');
+
+            const prompt = `
+            You are a helpful behavioral journaling assistant. Your task is to clean up raw, fragmented, or messy text entries while preserving the original meaning, tone, and key facts. 
+            
+            Guidelines:
+            - Fix grammar, spelling, and sentence structure.
+            - Ensure the text flows naturally.
+            - Preserve any tags (starting with #) and mentions (starting with @).
+            - Keep the tone personal and reflective as it's a journal.
+            - Do not add any new information that wasn't implied.
+            - If the input is already clean, return it as is.
+            - Output ONLY the cleaned text.
+
+            Input: "${text}"
+            Cleaned Text:`;
+
+            const cleaned = await LLMService.generateText(prompt, {
+                workflow: 'text_cleaning',
+                userId,
+                temperature: 0.3 // Lower temperature for more deterministic cleaning
+            });
+
+            return cleaned.trim();
+        } catch (error) {
+            logger.error('Text cleaning failed', error);
+            return text; // Fallback to original text
+        }
+    }
 }
 
 export const agentNLPService = new AgentNLPService();
