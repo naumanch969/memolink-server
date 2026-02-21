@@ -21,17 +21,20 @@ SystemMetricSchema.index({ key: 1, period: 1 }, { unique: true });
 
 export const SystemMetric = mongoose.model<ISystemMetric>('SystemMetric', SystemMetricSchema);
 
+import { logger } from '../../config/logger';
+
 export const verifyMetricsIndexes = async () => {
     try {
         const indexes = await SystemMetric.collection.indexes();
         const badIndex = indexes.find(idx => idx.name === 'key_1' && idx.unique);
 
         if (badIndex) {
-            console.log('[Telemetry] Found incorrect unique index "key_1". Dropping...');
+            logger.info('[Telemetry] Found incorrect unique index "key_1". Dropping...');
             await SystemMetric.collection.dropIndex('key_1');
-            console.log('[Telemetry] Index "key_1" dropped. Mongoose will recreate it as non-unique if needed.');
+            logger.info('[Telemetry] Index "key_1" dropped. Mongoose will recreate it as non-unique if needed.');
         }
     } catch (error) {
-        console.warn('[Telemetry] Index check skipped or failed:', error);
+        logger.warn('[Telemetry] Index check skipped or failed:', error);
     }
 };
+ 

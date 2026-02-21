@@ -5,9 +5,7 @@ import reminderService from './reminder.service';
 import { CreateReminderRequest, GetRemindersQuery, UpdateReminderRequest } from './reminder.types';
 
 export class ReminderController {
-    // ============================================
-    // CREATE
-    // ============================================
+
 
     static async createReminder(req: AuthenticatedRequest, res: Response) {
         try {
@@ -22,9 +20,7 @@ export class ReminderController {
         }
     }
 
-    // ============================================
-    // READ
-    // ============================================
+
 
     static async getReminders(req: AuthenticatedRequest, res: Response) {
         try {
@@ -82,9 +78,7 @@ export class ReminderController {
         }
     }
 
-    // ============================================
-    // UPDATE
-    // ============================================
+
 
     static async updateReminder(req: AuthenticatedRequest, res: Response) {
         try {
@@ -131,9 +125,7 @@ export class ReminderController {
         }
     }
 
-    // ============================================
-    // DELETE
-    // ============================================
+
 
     static async deleteReminder(req: AuthenticatedRequest, res: Response) {
         try {

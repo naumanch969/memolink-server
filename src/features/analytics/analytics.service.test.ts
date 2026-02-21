@@ -3,7 +3,7 @@ import { KnowledgeEntity } from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Media } from '../media/media.model';
 import { Tag } from '../tag/tag.model';
-import { AnalyticsService } from './analytics.service';
+import { analyticsService } from './analytics.service';
 
 jest.mock('../entry/entry.model', () => ({
     Entry: {
@@ -30,6 +30,21 @@ jest.mock('../media/media.model', () => ({
     Media: {
         countDocuments: jest.fn(),
         aggregate: jest.fn(),
+    }
+}));
+jest.mock('../agent/agent.model', () => ({
+    AgentTask: {
+        findOne: jest.fn().mockReturnValue({
+            sort: jest.fn().mockReturnValue({
+                lean: jest.fn()
+            })
+        })
+    }
+}));
+
+jest.mock('../agent/agent.service', () => ({
+    agentService: {
+        createTask: jest.fn().mockResolvedValue({}),
     }
 }));
 
@@ -59,7 +74,7 @@ describe('AnalyticsService', () => {
             (Tag.aggregate as jest.Mock).mockResolvedValue([]); // For top tags
             (Media.aggregate as jest.Mock).mockResolvedValue([]); // For media stats
 
-            const result = await AnalyticsService.getAnalytics(userId);
+            const result = await analyticsService.getAnalytics(userId);
 
             expect(result.totalEntries).toBe(10);
             expect(result.totalEntities).toBe(5);
@@ -83,10 +98,8 @@ describe('AnalyticsService', () => {
             const sortMock = jest.fn().mockReturnValue({ lean: leanMock });
             (Entry.find as jest.Mock).mockReturnValue({ sort: sortMock });
 
-            const result = await AnalyticsService.getStreak(userId);
+            const result = await analyticsService.getStreak(userId);
 
-            // Streak should be 2 ideally if logic passes
-            // Logic is complex but basic flow test ensures no crash
             expect(result).toHaveProperty('currentStreak');
         });
     });

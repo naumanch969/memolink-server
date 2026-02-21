@@ -2,19 +2,18 @@ import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.util';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { AnalyticsRequest } from './analytics.interfaces';
-import { AnalyticsService } from './analytics.service';
+import { analyticsService } from './analytics.service';
 
 export class AnalyticsController {
   static async getAnalytics(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
       const options: AnalyticsRequest = req.query;
-      const analytics = await AnalyticsService.getAnalytics(userId, options);
+      const analytics = await analyticsService.getAnalytics(userId, options);
 
-      // Include patterns and weekly summary (merged from insights)
       const [patterns, weeklySummary] = await Promise.all([
-        AnalyticsService.getPatterns(userId),
-        AnalyticsService.getWeeklySummary(userId)
+        analyticsService.getPatterns(userId),
+        analyticsService.getWeeklySummary(userId)
       ]);
 
       const enrichedAnalytics = { ...analytics, patterns, weeklySummary };
@@ -29,7 +28,7 @@ export class AnalyticsController {
     try {
       const userId = req.user!._id.toString();
       const options: AnalyticsRequest = req.query;
-      const analytics = await AnalyticsService.getEntryAnalytics(userId, options);
+      const analytics = await analyticsService.getEntryAnalytics(userId, options);
 
       ResponseHelper.success(res, analytics, 'Entry analytics retrieved successfully');
     } catch (error) {
@@ -41,7 +40,7 @@ export class AnalyticsController {
     try {
       const userId = req.user!._id.toString();
       const options: AnalyticsRequest = req.query;
-      const analytics = await AnalyticsService.getMediaAnalytics(userId, options);
+      const analytics = await analyticsService.getMediaAnalytics(userId, options);
 
       ResponseHelper.success(res, analytics, 'Media analytics retrieved successfully');
     } catch (error) {
@@ -52,7 +51,7 @@ export class AnalyticsController {
   static async getGraphData(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
-      const graphData = await AnalyticsService.getGraphData(userId);
+      const graphData = await analyticsService.getGraphData(userId);
 
       ResponseHelper.success(res, graphData, 'Graph data retrieved successfully');
     } catch (error) {

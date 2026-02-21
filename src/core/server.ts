@@ -40,7 +40,7 @@ class Server {
       });
 
       // Handle server errors
-      this.server.on('error', (error: any) => {
+      this.server.on('error', (error: NodeJS.ErrnoException) => {
         if (error.syscall !== 'listen') {
           throw error;
         }

@@ -24,6 +24,19 @@ jest.mock('../notification/notification.model', () => {
     };
 });
 
+jest.mock('../../core/events/event.stream', () => ({
+    eventStream: {
+        publish: jest.fn().mockResolvedValue(true),
+    },
+}));
+
+jest.mock('../graph/graph.service', () => ({
+    graphService: {
+        createAssociation: jest.fn().mockResolvedValue({}),
+        removeNodeEdges: jest.fn().mockResolvedValue({}),
+    },
+}));
+
 describe('ReminderService', () => {
     const userId = '507f1f77bcf86cd799439011';
     const reminderId = '507f1f77bcf86cd799439017';
@@ -36,7 +49,7 @@ describe('ReminderService', () => {
         it('should create a reminder and schedule notifications', async () => {
             const data = {
                 title: 'Test Reminder',
-                date: new Date().toISOString(),
+                date: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour in the future
                 notifications: { enabled: true, times: [{ type: 'minutes', value: 10 }] }
             };
 

@@ -1,9 +1,9 @@
+import os from 'os';
 import { Counter, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
-import os from 'os'
 
 // --- Prometheus Metrics Service ---
-
+ 
 export class MetricsService {
     private registry: Registry;
 
@@ -93,10 +93,7 @@ export class MetricsService {
     }
 
     static async set(key: string, value: number) {
-        // For 'set', we might want immediate persistence or a different buffer logic.
-        // For now, let's just use the same buffer but it will 'increment' which is wrong for 'set'.
-        // FIXME: Implement gauge support in BufferManager
-        telemetryBus.emitMetric({ key, value });
+        telemetryBus.emitMetric({ key, value, op: 'set' });
     }
 
     // Prometheus Recording Methods (Instance methods)
@@ -121,5 +118,5 @@ export class MetricsService {
         return this.registry.getMetricsAsJSON();
     }
 }
-
+ 
 export const metricsService = new MetricsService();

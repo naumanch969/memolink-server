@@ -182,7 +182,14 @@ export class GraphService {
     }
 
     /**
-     * Removes an edge.
+     * Removes an edge by its MongoDB ID.
+     */
+    async removeEdgeById(edgeId: string): Promise<void> {
+        await GraphEdge.findByIdAndDelete(edgeId);
+    }
+
+    /**
+     * Removes an edge by semantic lookup.
      */
     async removeEdge(fromId: string, toId: string, relation: EdgeType): Promise<void> {
         await GraphEdge.deleteMany({

@@ -6,6 +6,7 @@ import { AIUsagePayload, DBUsagePayload, HTTPUsagePayload, MetricPayload, Teleme
 class BufferManager {
     private counters: Map<string, number> = new Map();
     private maxGauges: Map<string, number> = new Map();
+    private setGauges: Map<string, number> = new Map();
     private flushInterval: NodeJS.Timeout | null = null;
     private readonly FLUSH_PERIOD_MS = 60000; // 1 minute
     private readonly MAX_BUFFER_SIZE = 5000;
@@ -53,6 +54,8 @@ class BufferManager {
         telemetryBus.on(TelemetryEvent.SYSTEM_METRIC_UPDATE, (p: MetricPayload) => {
             if (p.op === 'max') {
                 this.record(p.key, p.value, 'max');
+            } else if (p.op === 'set') {
+                this.record(p.key, p.value, 'set');
             } else {
                 this.record(p.key, p.value, 'sum');
             }
@@ -71,13 +74,15 @@ class BufferManager {
             if (value > current) {
                 this.maxGauges.set(finalKey, value);
             }
+        } else if (op === 'set') {
+            this.setGauges.set(finalKey, value);
         } else {
             // Default sum
             const current = this.counters.get(finalKey) || 0;
             this.counters.set(finalKey, current + value);
         }
 
-        if (this.counters.size + this.maxGauges.size >= this.MAX_BUFFER_SIZE) {
+        if (this.counters.size + this.maxGauges.size + this.setGauges.size >= this.MAX_BUFFER_SIZE) {
             this.flush();
         }
     }
@@ -102,13 +107,15 @@ class BufferManager {
     }
 
     public async flush() {
-        if (this.counters.size === 0 && this.maxGauges.size === 0) return;
+        if (this.counters.size === 0 && this.maxGauges.size === 0 && this.setGauges.size === 0) return;
 
         const sumSnapshots = Array.from(this.counters.entries());
         const maxSnapshots = Array.from(this.maxGauges.entries());
+        const setSnapshots = Array.from(this.setGauges.entries());
 
         this.counters.clear();
         this.maxGauges.clear();
+        this.setGauges.clear();
 
         const period = this.getPeriodKey();
         const operations = [];
@@ -140,6 +147,23 @@ class BufferManager {
                         $set: {
                             lastUpdatedAt: new Date(),
                             'metadata.op': 'max'
+                        }
+                    },
+                    upsert: true
+                }
+            });
+        });
+
+        // Set updates use $set
+        setSnapshots.forEach(([key, value]) => {
+            operations.push({
+                updateOne: {
+                    filter: { key, period },
+                    update: {
+                        $set: {
+                            value,
+                            lastUpdatedAt: new Date(),
+                            'metadata.op': 'set'
                         }
                     },
                     upsert: true

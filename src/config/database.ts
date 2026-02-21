@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { telemetryPlugin } from '../core/telemetry/mongoose.plugin';
 import { config } from './env';
+import { logger } from './logger';
 
 // Telemetry Plugin for Mongo, Register global plugins before any models are compiled
 mongoose.plugin(telemetryPlugin);
@@ -20,7 +21,7 @@ class Database {
 
   public async connect(): Promise<void> {
     if (this.isConnected) {
-      console.log('Database already connected');
+      logger.info('Database already connected');
       return;
     }
 
@@ -34,26 +35,26 @@ class Database {
       await mongoose.connect(config.MONGODB_URI, options);
 
       this.isConnected = true;
-      console.log('✅ Database connected successfully');
+      logger.info('Database connected successfully');
 
       // Handle connection events
       mongoose.connection.on('error', (error) => {
-        console.error('❌ Database connection error:', error);
+        logger.error('Database connection error:', error);
         this.isConnected = false;
       });
 
       mongoose.connection.on('disconnected', () => {
-        console.log('⚠️ Database disconnected');
+        logger.warn('Database disconnected');
         this.isConnected = false;
       });
 
       mongoose.connection.on('reconnected', () => {
-        console.log('✅ Database reconnected');
+        logger.info('Database reconnected');
         this.isConnected = true;
       });
 
     } catch (error) {
-      console.error('❌ Database connection failed:', error);
+      logger.error('Database connection failed:', error as Error);
       this.isConnected = false;
       throw error;
     }
@@ -67,9 +68,9 @@ class Database {
     try {
       await mongoose.disconnect();
       this.isConnected = false;
-      console.log('✅ Database disconnected successfully');
+      logger.info('Database disconnected successfully');
     } catch (error) {
-      console.error('❌ Error disconnecting from database:', error);
+      logger.error('Error disconnecting from database:', error as Error);
       throw error;
     }
   }

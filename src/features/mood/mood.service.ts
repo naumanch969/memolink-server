@@ -75,6 +75,57 @@ export class MoodService {
             throw error;
         }
     }
+
+    /**
+     * Recalculates the daily average mood score based on all entries for a specific day.
+     * This ensures the daily mood reflects the cumulative state of journal entries.
+     */
+    async recalculateDailyMoodFromEntries(userId: string, date: Date): Promise<void> {
+        try {
+            // We use dynamic import for the model if needed, but since it's a model it's usually fine
+            const { Entry } = await import('../entry/entry.model');
+            const { classifyMood } = await import('../entry/mood.config');
+
+            const startOfDay = new Date(date);
+            startOfDay.setUTCHours(0, 0, 0, 0);
+            const endOfDay = new Date(date);
+            endOfDay.setUTCHours(23, 59, 59, 999);
+
+            const entries = await Entry.find({
+                userId: new Types.ObjectId(userId),
+                date: { $gte: startOfDay, $lte: endOfDay },
+                mood: { $exists: true, $ne: '' }
+            }).select('mood');
+
+            if (entries.length === 0) return;
+
+            let totalScore = 0;
+            let count = 0;
+
+            for (const entry of entries) {
+                if (!entry.mood) continue;
+                const config = classifyMood(entry.mood);
+                if (config && config.score > 0) {
+                    totalScore += config.score;
+                    count++;
+                }
+            }
+
+            if (count === 0) return;
+
+            const avgScore = Math.round(totalScore / count);
+            const clampedScore = Math.min(5, Math.max(1, avgScore));
+
+            await this.upsertMood(userId, {
+                date: startOfDay,
+                score: clampedScore,
+                note: `Auto-calculated from ${count} journal entries`
+            });
+
+        } catch (error) {
+            logger.error(`Failed to recalculate daily mood for user ${userId}:`, error);
+        }
+    }
 }
 
 export const moodService = new MoodService();

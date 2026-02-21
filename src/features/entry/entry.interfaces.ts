@@ -41,7 +41,7 @@ export interface EntryResponse {
 export interface IEntryService {
   createEntry(userId: string, entryData: CreateEntryRequest): Promise<IEntry>;
   getEntryById(entryId: string, userId: string): Promise<IEntry>;
-  getUserEntries(userId: string, options?: any): Promise<{
+  getUserEntries(userId: string, options?: EntrySearchRequest): Promise<{
     entries: IEntry[];
     total: number;
     page: number;

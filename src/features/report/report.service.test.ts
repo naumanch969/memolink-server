@@ -38,16 +38,23 @@ describe('ReportService', () => {
             };
 
             (AgentTask.findById as jest.Mock).mockResolvedValue(mockTask);
-            (Report.findOne as jest.Mock).mockResolvedValue(null);
-            (Report.create as jest.Mock).mockResolvedValue({ _id: 'report123' });
+            (AgentTask.findById as jest.Mock).mockResolvedValue(mockTask);
+            (Report.findOneAndUpdate as jest.Mock).mockResolvedValue({ _id: 'report123', isNew: true });
 
             const result = await reportService.createFromTask(userId, taskId);
 
-            expect(Report.create).toHaveBeenCalledWith(expect.objectContaining({
-                userId: new Types.ObjectId(userId),
-                type: ReportType.WEEKLY,
-                content: mockTask.outputData
-            }));
+            expect(Report.findOneAndUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: new Types.ObjectId(userId),
+                    type: ReportType.WEEKLY,
+                }),
+                expect.objectContaining({
+                    $set: expect.objectContaining({
+                        content: mockTask.outputData
+                    })
+                }),
+                expect.any(Object)
+            );
             expect(result).toBeDefined();
         });
 
@@ -64,16 +71,22 @@ describe('ReportService', () => {
             };
 
             (AgentTask.findById as jest.Mock).mockResolvedValue(mockTask);
-            (Report.findOne as jest.Mock).mockResolvedValue(null);
-            (Report.create as jest.Mock).mockResolvedValue({ _id: 'report456' });
+            (Report.findOneAndUpdate as jest.Mock).mockResolvedValue({ _id: 'report456', isNew: true });
 
             const result = await reportService.createFromTask(userId, taskId);
 
-            expect(Report.create).toHaveBeenCalledWith(expect.objectContaining({
-                userId: new Types.ObjectId(userId),
-                type: ReportType.MONTHLY,
-                content: mockTask.outputData
-            }));
+            expect(Report.findOneAndUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: new Types.ObjectId(userId),
+                    type: ReportType.MONTHLY,
+                }),
+                expect.objectContaining({
+                    $set: expect.objectContaining({
+                        content: mockTask.outputData
+                    })
+                }),
+                expect.any(Object)
+            );
         });
 
         it('should throw error if task is not found', async () => {

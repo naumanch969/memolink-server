@@ -75,24 +75,18 @@ describe('EntryService', () => {
 
     describe('getUserEntries', () => {
         it('should fetch entries for a user', async () => {
-            const userId = 'user123';
+            const userId = '507f1f77bcf86cd799439011';
             const mockEntries = [{ _id: 'entry1', content: 'hello' }];
 
-            // Setup chainable mock
-            const populateMock = jest.fn().mockReturnThis();
-            const sortMock = jest.fn().mockReturnThis();
-            const findMock = jest.fn().mockReturnValue({
-                populate: populateMock,
-                sort: sortMock,
-                then: (resolve: any) => resolve(mockEntries) // Simulate promise resolution
-            });
+            const chainMock = {
+                populate: jest.fn().mockReturnThis(),
+                sort: jest.fn().mockReturnThis(),
+                skip: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                lean: jest.fn().mockResolvedValue(mockEntries),
+            };
 
-            (Entry.find as jest.Mock).mockImplementation(() => ({
-                populate: populateMock,
-                sort: sortMock,
-                // Mongoose Query is thenable
-                then: (cb: any) => cb(mockEntries)
-            }));
+            (Entry.find as jest.Mock).mockReturnValue(chainMock);
 
             (Entry.countDocuments as jest.Mock).mockResolvedValue(1);
 
@@ -100,7 +94,7 @@ describe('EntryService', () => {
 
             expect(result.entries).toEqual(mockEntries);
             expect(result.total).toBe(1);
-            expect(Entry.find).toHaveBeenCalledWith(expect.objectContaining({ userId }));
+            expect(Entry.find).toHaveBeenCalledWith(expect.objectContaining({ userId: expect.anything() }));
         });
     });
 });

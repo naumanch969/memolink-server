@@ -24,7 +24,7 @@ class Logger {
     return messageLevelIndex <= currentLevelIndex;
   }
 
-  private formatMessage(level: LogLevel, message: string, meta?: any): string {
+  private formatMessage(level: LogLevel, message: string, meta?: unknown): string {
     const timestamp = new Date().toISOString();
     let metaString = '';
 
@@ -34,7 +34,7 @@ class Logger {
       } else {
         try {
           metaString = ` ${JSON.stringify(meta)}`;
-        } catch (e) {
+        } catch {
           metaString = ' [Circular or Complex Metadata]';
         }
       }
@@ -43,28 +43,28 @@ class Logger {
     return `[${timestamp}] ${level.toUpperCase()}: ${message}${metaString}`;
   }
 
-  public error(message: string, meta?: any): void {
+  public error(message: string, meta?: unknown): void {
     if (this.shouldLog(LogLevel.ERROR)) {
       console.error(this.formatMessage(LogLevel.ERROR, message, meta));
       logViewerService.addLog(LogLevel.ERROR, message, meta);
     }
   }
 
-  public warn(message: string, meta?: any): void {
+  public warn(message: string, meta?: unknown): void {
     if (this.shouldLog(LogLevel.WARN)) {
       console.warn(this.formatMessage(LogLevel.WARN, message, meta));
       logViewerService.addLog(LogLevel.WARN, message, meta);
     }
   }
 
-  public info(message: string, meta?: any): void {
+  public info(message: string, meta?: unknown): void {
     if (this.shouldLog(LogLevel.INFO)) {
       console.info(this.formatMessage(LogLevel.INFO, message, meta));
       logViewerService.addLog(LogLevel.INFO, message, meta);
     }
   }
 
-  public debug(message: string, meta?: any): void {
+  public debug(message: string, meta?: unknown): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
       console.debug(this.formatMessage(LogLevel.DEBUG, message, meta));
       logViewerService.addLog(LogLevel.DEBUG, message, meta);

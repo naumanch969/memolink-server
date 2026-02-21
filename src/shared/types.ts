@@ -5,7 +5,7 @@ import { DataConfig, DataType, DataValue } from './types/dataProperties';
 export { DataConfig, DataType, DataValue };
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
@@ -30,7 +30,7 @@ export interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Pagination Types

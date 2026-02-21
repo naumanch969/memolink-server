@@ -95,13 +95,8 @@ export class TagController {
   static async getTagStats(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
-      // const { id } = req.params; // Uncomment if needed
-      // const body = req.body; // Uncomment if needed
-
-      // TODO: Implement getTagStats logic here
-      // const result = await tagService.getTagStats(userId, ...);
-
-      ResponseHelper.success(res, {}, 'Get usage statistics for tags successful');
+      const result = await tagService.getTagStats(userId);
+      ResponseHelper.success(res, result, 'Tag statistics retrieved successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to get tag statistics', 500, error);
     }

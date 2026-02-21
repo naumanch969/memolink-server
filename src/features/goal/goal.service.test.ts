@@ -19,6 +19,19 @@ jest.mock('./goal.model', () => {
     };
 });
 
+jest.mock('./goal-reminder.service', () => ({
+    goalReminderService: {
+        manageReminders: jest.fn()
+    }
+}));
+
+jest.mock('../graph/graph.service', () => ({
+    graphService: {
+        createAssociation: jest.fn().mockResolvedValue({}),
+        removeNodeEdges: jest.fn().mockResolvedValue({})
+    }
+}));
+
 // We strictly test logic, not the mongoose internals
 describe('GoalService', () => {
     beforeEach(() => {

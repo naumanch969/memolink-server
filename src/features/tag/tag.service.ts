@@ -171,9 +171,47 @@ export class TagService implements ITagService {
     }
   }
 
-  async getTagStats(userId: string, data?: any) {
-    // TODO: Implement business logic
-    return {};
+  async getTagStats(userId: string) {
+    try {
+      const stats = await Tag.aggregate([
+        { $match: { userId: new Types.ObjectId(userId) } },
+        {
+          $group: {
+            _id: null,
+            totalTags: { $sum: 1 },
+            totalUsage: { $sum: '$usageCount' },
+            avgUsage: { $avg: '$usageCount' },
+            mostUsed: { $max: '$usageCount' },
+          }
+        }
+      ]);
+
+      const usageDistribution = await Tag.aggregate([
+        { $match: { userId: new Types.ObjectId(userId) } },
+        {
+          $bucket: {
+            groupBy: '$usageCount',
+            boundaries: [0, 5, 20, 100],
+            default: 'High',
+            output: {
+              count: { $sum: 1 },
+              tags: { $push: '$name' }
+            }
+          }
+        }
+      ]);
+
+      return {
+        summary: stats[0] || { totalTags: 0, totalUsage: 0, avgUsage: 0, mostUsed: 0 },
+        distribution: usageDistribution.map(d => ({
+          level: d._id === 0 ? 'Low (0-5)' : (d._id === 5 ? 'Medium (5-20)' : (d._id === 20 ? 'Active (20-100)' : 'High (100+)')),
+          count: d.count
+        }))
+      };
+    } catch (error) {
+      logger.error('Get tag stats failed:', error);
+      return { summary: {}, distribution: [] };
+    }
   }
 
   // Delete all user data (Cascade Delete)

@@ -152,11 +152,8 @@ export class GraphController {
      */
     static async deleteEdge(req: AuthenticatedRequest, res: Response) {
         try {
-            const userId = req.user!._id;
             const { id } = req.params;
-            await graphService.removeEdge(id, '', '' as any); // TODO: Fix removeEdge signature or use ID directly
-            // graphService currently takes fromId, toId. We might need a deleteById method in service or use Model directly here.
-            await GraphEdge.findOneAndDelete({ _id: id });
+            await graphService.removeEdgeById(id);
             ResponseHelper.success(res, null, 'Edge deleted successfully');
         } catch (error) {
             ResponseHelper.error(res, 'Failed to delete edge', 500, error);

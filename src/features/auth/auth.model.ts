@@ -1,11 +1,11 @@
-import mongoose, { Model, Schema } from 'mongoose';
+import mongoose, { HydratedDocument, Model, Schema } from 'mongoose';
 import { STORAGE_LIMITS, USER_ROLES } from '../../shared/constants';
 import { IUser } from './auth.interfaces';
 
 // Interface for User model with static methods
 interface IUserModel extends Model<IUser> {
-  findByEmail(email: string): Promise<IUser | null>;
-  findActiveUsers(): Promise<IUser[]>;
+  findByEmail(email: string): Promise<HydratedDocument<IUser> | null>;
+  findActiveUsers(): Promise<HydratedDocument<IUser>[]>;
 }
 
 const userSchema = new Schema<IUser>({

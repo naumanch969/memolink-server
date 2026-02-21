@@ -1,0 +1,128 @@
+PASS src/features/widget/widget.service.test.ts (14.118 s)
+PASS src/features/analytics/analytics.service.test.ts (14.158 s)
+PASS src/features/notification/notification.service.test.ts (14.326 s)
+PASS src/features/goal/goal.service.test.ts (14.634 s)
+PASS src/features/reminder/reminder.service.test.ts (14.691 s)
+PASS src/tests/smoke.test.ts
+PASS src/features/tag/tag.service.test.ts
+PASS src/tests/retry.test.ts
+FAIL src/features/notification/notification.worker.test.ts (15.316 s)
+  ● NotificationWorker › processEvent › should dispatch notification for TASK_CREATED event
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      "u1",
+      "system",
+      "TASK_CREATED",
+      {"id": "t1", "title": "New Task"},
+      Object {
+    +   "eventId": "e1",
+        "referenceId": "t1",
+        "referenceModel": "Reminder",
+      },
+
+    Number of calls: 1
+
+      26 |             await (notificationWorker as any).processEvent(mockEvent);
+      27 |
+    > 28 |             expect(notificationDispatcher.dispatchFromTemplate).toHaveBeenCalledWith(
+         |                                                                 ^
+      29 |                 'u1',
+      30 |                 NotificationType.SYSTEM,
+      31 |                 'TASK_CREATED',
+
+      at Object.<anonymous> (src/features/notification/notification.worker.test.ts:28:65)
+
+  ● NotificationWorker › processEvent › should dispatch notification for GOAL_PROGRESS event
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    - Expected
+    + Received
+
+      "u1",
+      "goal",
+      "GOAL_PROGRESS",
+      {"id": "g1", "title": "Goal 1"},
+      Object {
+    +   "eventId": "e2",
+        "referenceId": "g1",
+        "referenceModel": "Goal",
+      },
+
+    Number of calls: 1
+
+      46 |             await (notificationWorker as any).processEvent(mockEvent);
+      47 |
+    > 48 |             expect(notificationDispatcher.dispatchFromTemplate).toHaveBeenCalledWith(
+         |                                                                 ^
+      49 |                 'u1',
+      50 |                 NotificationType.GOAL,
+      51 |                 'GOAL_PROGRESS',
+
+      at Object.<anonymous> (src/features/notification/notification.worker.test.ts:48:65)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[2026-02-21T11:28:29.399Z] INFO: Redis connection established".
+
+      53 |   public warn(message: string, meta?: unknown): void {
+      54 |     if (this.shouldLog(LogLevel.WARN)) {
+    > 55 |       console.warn(this.formatMessage(LogLevel.WARN, message, meta));
+         |                     ^
+      56 |       logViewerService.addLog(LogLevel.WARN, message, meta);
+      57 |     }
+      58 |   }
+
+      at console.info (node_modules/@jest/console/build/index.js:144:10)
+      at Logger.info (src/config/logger.ts:55:21)
+      at EventEmitter.<anonymous> (src/config/redis.ts:20:21)
+
+
+  ●  Cannot log after tests are done. Did you forget to wait for something async in your test?
+    Attempted to log "[2026-02-21T11:28:29.443Z] INFO: Redis connection established".
+
+      53 |   public warn(message: string, meta?: unknown): void {
+      54 |     if (this.shouldLog(LogLevel.WARN)) {
+    > 55 |       console.warn(this.formatMessage(LogLevel.WARN, message, meta));
+         |                     ^
+      56 |       logViewerService.addLog(LogLevel.WARN, message, meta);
+      57 |     }
+      58 |   }
+
+      at console.info (node_modules/@jest/console/build/index.js:144:10)
+      at Logger.info (src/config/logger.ts:55:21)
+      at EventEmitter.<anonymous> (src/config/redis.ts:20:21)
+
+PASS src/features/notification/notification.dispatcher.test.ts (15.505 s)
+  ● Console
+
+    console.warn
+      [2026-02-21T11:28:29.521Z] WARN: [NotificationDispatcher] Invalid actionUrl detected: http://malicious.com
+
+      53 |   public warn(message: string, meta?: unknown): void {
+      54 |     if (this.shouldLog(LogLevel.WARN)) {
+    > 55 |       console.warn(this.formatMessage(LogLevel.WARN, message, meta));
+         |               ^
+      56 |       logViewerService.addLog(LogLevel.WARN, message, meta);
+      57 |     }
+      58 |   }
+
+      at Logger.warn (src/config/logger.ts:55:15)
+      at NotificationDispatcher.dispatch (src/features/notification/notification.dispatcher.ts:40:20)
+      at Object.<anonymous> (src/features/notification/notification.dispatcher.test.ts:107:42)
+
+PASS src/tests/gemini.retry.test.ts (15.677 s)
+PASS src/features/entry/entry.service.test.ts (15.951 s)
+PASS src/features/auth/auth.service.test.ts (15.958 s)
+PASS src/features/report/report.service.test.ts (16.393 s)
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+
+Test Suites: 1 failed, 13 passed, 14 total
+Tests:       2 failed, 40 passed, 42 total
+Snapshots:   0 total
+Time:        18.066 s
+Ran all test suites.

@@ -7,11 +7,11 @@ const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
   content: {
     type: String, required: false, trim: true,
-    maxlength: [10000000, 'Content cannot exceed 10000000 characters'], // TODO: DECREASE this limit for free user
+    maxlength: [10000000, 'Content cannot exceed 10000000 characters'],
     default: ''
   },
   type: { type: String, enum: Object.values(ENTRY_TYPES), default: ENTRY_TYPES.TEXT, },
-  mentions: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', }], // TOOD: we can remove this since graph relation can manage this globally
+  mentions: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', }],
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
   isPrivate: { type: Boolean, default: false, },

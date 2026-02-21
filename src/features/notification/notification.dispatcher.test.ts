@@ -39,6 +39,7 @@ describe('NotificationDispatcher', () => {
             })
         });
         (notificationService.create as jest.Mock).mockResolvedValue(mockNotification);
+        (getEmailQueue as jest.Mock).mockReturnValue({ add: jest.fn() });
     });
 
     describe('dispatch', () => {

@@ -5,7 +5,7 @@ import { NotificationType } from './notification.types';
 import notificationWorker from './notification.worker';
 
 jest.mock('./notification.dispatcher');
-jest.mock('../../core/events/EventStream');
+jest.mock('../../core/events/event.stream');
 
 describe('NotificationWorker', () => {
     beforeEach(() => {
@@ -30,7 +30,7 @@ describe('NotificationWorker', () => {
                 NotificationType.SYSTEM,
                 'TASK_CREATED',
                 { title: 'New Task', id: 't1' },
-                { referenceId: 't1', referenceModel: 'Reminder' }
+                { referenceId: 't1', referenceModel: 'Reminder', eventId: 'e1' }
             );
         });
 
@@ -50,7 +50,7 @@ describe('NotificationWorker', () => {
                 NotificationType.GOAL,
                 'GOAL_PROGRESS',
                 { title: 'Goal 1', id: 'g1' },
-                { referenceId: 'g1', referenceModel: 'Goal' }
+                { referenceId: 'g1', referenceModel: 'Goal', eventId: 'e2' }
             );
         });
     });

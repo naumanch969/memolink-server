@@ -12,9 +12,7 @@ import { Reminder } from './reminder.model';
 import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
 
 class ReminderService {
-    // ============================================
-    // CREATE
-    // ============================================
+
 
     async createReminder(userId: string, data: CreateReminderRequest): Promise<ReminderResponse> {
         try {
@@ -102,9 +100,7 @@ class ReminderService {
         }
     }
 
-    // ============================================
-    // READ
-    // ============================================
+
 
     async getReminders(userId: string, query: GetRemindersQuery): Promise<GetRemindersResponse> {
         try {
@@ -237,9 +233,7 @@ class ReminderService {
         }
     }
 
-    // ============================================
-    // UPDATE
-    // ============================================
+
 
     async updateReminder(
         userId: string,
@@ -411,9 +405,7 @@ class ReminderService {
         }
     }
 
-    // ============================================
-    // DELETE
-    // ============================================
+
 
     async deleteReminder(userId: string, reminderId: string): Promise<void> {
         try {
@@ -438,9 +430,7 @@ class ReminderService {
         }
     }
 
-    // ============================================
-    // NOTIFICATION MANAGEMENT
-    // ============================================
+
 
     async scheduleNotifications(reminder: IReminderDocument): Promise<void> {
         try {
@@ -509,9 +499,7 @@ class ReminderService {
         }
     }
 
-    // ============================================
-    // HELPERS
-    // ============================================
+
 
     private formatReminderResponse(reminder: any): ReminderResponse {
         return {

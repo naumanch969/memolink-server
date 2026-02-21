@@ -365,7 +365,6 @@ export class AuthService implements IAuthService {
 
       // Mark email as verified
       user.isEmailVerified = true;
-      // @ts-expect-error User type mismatch
       await user.save();
 
       // Send welcome email
@@ -436,7 +435,6 @@ export class AuthService implements IAuthService {
 
       // Update user password
       user.password = hashedPassword;
-      // @ts-expect-error User type mismatch
       await user.save();
 
       logger.info('Password reset successfully', { userId: user._id, email: user.email });

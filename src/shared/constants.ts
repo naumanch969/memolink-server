@@ -56,11 +56,11 @@ export const MEDIA_TYPES = {
 
 // Helper to determine media type from MIME type
 export const getMediaTypeFromMime = (mimeType: string): string => {
-  if (FILE_UPLOAD.ALLOWED_IMAGE_TYPES.includes(mimeType as any)) return MEDIA_TYPES.IMAGE;
-  if (FILE_UPLOAD.ALLOWED_VIDEO_TYPES.includes(mimeType as any)) return MEDIA_TYPES.VIDEO;
-  if (FILE_UPLOAD.ALLOWED_ARCHIVE_TYPES.includes(mimeType as any)) return MEDIA_TYPES.ARCHIVE;
-  if (FILE_UPLOAD.ALLOWED_DATA_TYPES.includes(mimeType as any)) return MEDIA_TYPES.DATA;
-  if (FILE_UPLOAD.ALLOWED_CODE_TYPES.includes(mimeType as any)) return MEDIA_TYPES.CODE;
+  if ((FILE_UPLOAD.ALLOWED_IMAGE_TYPES as readonly string[]).includes(mimeType)) return MEDIA_TYPES.IMAGE;
+  if ((FILE_UPLOAD.ALLOWED_VIDEO_TYPES as readonly string[]).includes(mimeType)) return MEDIA_TYPES.VIDEO;
+  if ((FILE_UPLOAD.ALLOWED_ARCHIVE_TYPES as readonly string[]).includes(mimeType)) return MEDIA_TYPES.ARCHIVE;
+  if ((FILE_UPLOAD.ALLOWED_DATA_TYPES as readonly string[]).includes(mimeType)) return MEDIA_TYPES.DATA;
+  if ((FILE_UPLOAD.ALLOWED_CODE_TYPES as readonly string[]).includes(mimeType)) return MEDIA_TYPES.CODE;
   if (mimeType.startsWith('audio/')) return MEDIA_TYPES.AUDIO;
   return MEDIA_TYPES.DOCUMENT;
 };

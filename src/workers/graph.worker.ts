@@ -111,13 +111,14 @@ export class GraphWorker {
         const taskEdge = edges.find(e => e.to.id.toString() === taskId.toString());
 
         if (taskEdge) {
-            const currentMetadata = taskEdge.metadata || {};
-            const currentCount = (currentMetadata instanceof Map ? currentMetadata.get('reschedule_count') : (currentMetadata as any).reschedule_count) || 0;
+            const currentMetadata = (taskEdge.metadata || {}) as Record<string, unknown>;
+            const currentCount = Number(currentMetadata.reschedule_count || 0);
             const newCount = currentCount + 1;
 
-            const updatedMetadata = currentMetadata instanceof Map
-                ? new Map(currentMetadata).set('reschedule_count', newCount)
-                : { ...(currentMetadata as any), reschedule_count: newCount };
+            const updatedMetadata = {
+                ...currentMetadata,
+                reschedule_count: newCount
+            };
 
             await graphService.createEdge({
                 fromId: userId,
@@ -138,7 +139,7 @@ export class GraphWorker {
                     relation: EdgeType.AVOIDS,
                     weight: 0.8,
                     metadata: {
-                        title: currentMetadata instanceof Map ? currentMetadata.get('title') : (currentMetadata as any).title,
+                        title: currentMetadata.title || 'Untitled Task',
                         reason: '3+ reschedules detected',
                         pattern: 'avoidance'
                     }

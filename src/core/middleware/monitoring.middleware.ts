@@ -86,7 +86,6 @@ export class MonitoringMiddleware {
     }
 
     // Error Tracking Middleware - Captures and logs errors with context
-    // TODO: check whether we really need it
     static errorTrackingMiddleware(err: Error, req: Request, res: Response, next: NextFunction) {
         const requestId = (req as any).requestId;
         const duration = Date.now() - ((req as any).startTime || Date.now());

@@ -1,23 +1,25 @@
 import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
-import { EntryController } from './entry.controller';
-import { createEntryValidation, entryIdValidation, searchEntriesValidation, updateEntryValidation } from './entry.validations';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
+import { EntryController } from './entry.controller';
+import { createEntrySchema, entryIdSchema, searchEntriesSchema, updateEntrySchema } from './entry.schema';
 
 const router = Router();
 
 // All routes require authentication
 router.use(AuthMiddleware.authenticate);
 
-// Entry routes
-router.post('/', createEntryValidation, ValidationMiddleware.validate, EntryController.createEntry);
-router.get('/search', searchEntriesValidation, ValidationMiddleware.validate, EntryController.searchEntries);
+/**
+ * Entry Routes
+ */
+router.post('/', ValidationMiddleware.validateSchema(createEntrySchema), EntryController.createEntry);
+router.get('/search', ValidationMiddleware.validateSchema(searchEntriesSchema), EntryController.searchEntries);
 router.get('/stats', EntryController.getEntryStats);
 router.get('/feed', EntryController.getFeed);
-router.get('/', EntryController.getUserEntries);
-router.get('/:id', entryIdValidation, ValidationMiddleware.validate, EntryController.getEntryById);
-router.patch('/:id/favorite', entryIdValidation, ValidationMiddleware.validate, EntryController.toggleFavorite);
-router.put('/:id', entryIdValidation, updateEntryValidation, ValidationMiddleware.validate, EntryController.updateEntry);
-router.delete('/:id', entryIdValidation, ValidationMiddleware.validate, EntryController.deleteEntry);
+router.get('/', ValidationMiddleware.validateSchema(searchEntriesSchema), EntryController.getUserEntries);
+router.get('/:id', ValidationMiddleware.validateSchema(entryIdSchema), EntryController.getEntryById);
+router.patch('/:id/favorite', ValidationMiddleware.validateSchema(entryIdSchema), EntryController.toggleFavorite);
+router.put('/:id', ValidationMiddleware.validateSchema(updateEntrySchema), EntryController.updateEntry);
+router.delete('/:id', ValidationMiddleware.validateSchema(entryIdSchema), EntryController.deleteEntry);
 
 export default router;
