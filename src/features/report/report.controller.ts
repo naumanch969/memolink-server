@@ -4,9 +4,6 @@ import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { reportService } from './report.service';
 
 export class ReportController {
-    /**
-     * Get report history
-     */
     static async getReports(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();
@@ -22,9 +19,6 @@ export class ReportController {
         }
     }
 
-    /**
-     * Get a specific report
-     */
     static async getReport(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();
@@ -35,22 +29,6 @@ export class ReportController {
         }
     }
 
-    /**
-     * Get the latest reports
-     */
-    static async getLatest(req: AuthenticatedRequest, res: Response) {
-        try {
-            const userId = req.user!._id.toString();
-            const results = await reportService.getLatestReports(userId);
-            ResponseHelper.success(res, results, 'Latest reports retrieved successfully');
-        } catch (error) {
-            ResponseHelper.error(res, 'Failed to retrieve latest reports', 500, error);
-        }
-    }
-
-    /**
-     * Trigger a report generation on demand
-     */
     static async generateOnDemand(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();
@@ -66,10 +44,6 @@ export class ReportController {
         }
     }
 
-    /**
-     * Manually trigger a report creation from a task
-     * Useful for testing or manual regeneration
-     */
     static async createFromTask(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();

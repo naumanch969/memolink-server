@@ -95,3 +95,4 @@ ReminderSchema.index(
 
 
 export const Reminder = mongoose.model<IReminderDocument>('Reminder', ReminderSchema);
+export default Reminder;

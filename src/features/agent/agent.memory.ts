@@ -16,9 +16,7 @@ export class AgentMemory {
         return `agent:memory:${userId}`;
     }
 
-    /**
-     * Add a message to the user's short-term memory
-     */
+    // Add a message to the user's short-term memory
     async addMessage(userId: string, role: 'user' | 'agent' | 'system', content: string) {
         const key = this.getKey(userId);
         const message: ChatMessage = { role, content, timestamp: Date.now() };
@@ -52,9 +50,7 @@ export class AgentMemory {
         }
     }
 
-    /**
-     * Get recent conversation history
-     */
+    // Get recent conversation history
     async getHistory(userId: string): Promise<ChatMessage[]> {
         const key = this.getKey(userId);
 
@@ -80,10 +76,8 @@ export class AgentMemory {
 
         return [];
     }
- 
-    /**
-     * Clear memory (e.g. start new session)
-     */
+
+    // Clear memory (e.g. start new session)
     async clear(userId: string) {
         try {
             await Promise.all([

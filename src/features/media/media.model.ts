@@ -88,3 +88,4 @@ mediaSchema.index({ userId: 1, extension: 1 }); // Index for filtering by extens
 
 export const Media = mongoose.model<IMedia>('Media', mediaSchema);
 export default Media;
+ 

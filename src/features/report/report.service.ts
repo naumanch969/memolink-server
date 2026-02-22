@@ -11,9 +11,8 @@ import { IReport, ReportSearchRequest, ReportType } from './report.interfaces';
 import { Report } from './report.model';
 
 export class ReportService {
-    /**
-     * Creates a report from a completed agent task
-     */
+
+    // Creates a report from a completed agent task
     async createFromTask(userId: string, taskId: string): Promise<IReport> {
         const task = await AgentTask.findById(taskId);
         if (!task || task.status !== 'COMPLETED') {
@@ -43,26 +42,16 @@ export class ReportService {
         }
 
         // Check if report already exists for this exact period to avoid duplicates
-        // We use standardized window to match
         try {
             const report = await Report.findOneAndUpdate(
-                {
-                    userId: new Types.ObjectId(userId),
-                    type,
-                    startDate,
-                    endDate
-                },
+                { userId: new Types.ObjectId(userId), type, startDate, endDate },
                 {
                     $set: {
                         content: task.outputData,
                         'metadata.generatedByTaskId': task._id as Types.ObjectId
                     }
                 },
-                {
-                    upsert: true,
-                    new: true,
-                    setDefaultsOnInsert: true
-                }
+                { upsert: true, new: true, setDefaultsOnInsert: true }
             );
 
             logger.info(`Report [${type}] ${report.isNew ? 'created' : 'updated'} for user ${userId} for period ${startDate.toISOString()}`);
@@ -76,12 +65,7 @@ export class ReportService {
             if (error.code === 11000) {
                 logger.warn(`Duplicate report race condition detected for user ${userId}. Retrying update.`);
                 const report = await Report.findOneAndUpdate(
-                    {
-                        userId: new Types.ObjectId(userId),
-                        type,
-                        startDate,
-                        endDate
-                    },
+                    { userId: new Types.ObjectId(userId), type, startDate, endDate },
                     {
                         $set: {
                             content: task.outputData,
@@ -96,9 +80,8 @@ export class ReportService {
         }
     }
 
-    /**
-     * Manually triggers a report generation task
-     */
+
+    // Manually triggers a report generation task
     async generateOnDemand(userId: string, type: ReportType): Promise<{ taskId: string }> {
         const { AgentTask } = await import('../agent/agent.model');
         const { AgentTaskStatus, AgentTaskType } = await import('../agent/agent.types');
@@ -123,9 +106,8 @@ export class ReportService {
         return { taskId: task._id.toString() };
     }
 
-    /**
-     * Get a specific report by ID
-     */
+
+    // Get a specific report by ID
     async getReportById(reportId: string, userId: string): Promise<IReport> {
         const report = await Report.findOne({ _id: reportId, userId: new Types.ObjectId(userId) });
         if (!report) {
@@ -143,15 +125,9 @@ export class ReportService {
         return report;
     }
 
-    /**
-     * List reports with pagination and filtering
-     */
-    async listReports(userId: string, searchParams: ReportSearchRequest = {}): Promise<{
-        reports: IReport[];
-        total: number;
-        page: number;
-        limit: number;
-    }> {
+
+    // List reports with pagination and filtering
+    async listReports(userId: string, searchParams: ReportSearchRequest = {}): Promise<{ reports: IReport[]; total: number; page: number; limit: number; }> {
         const { type, startDate, endDate, page = 1, limit = 10 } = searchParams;
         const query: any = { userId: new Types.ObjectId(userId) };
 
@@ -179,20 +155,7 @@ export class ReportService {
         };
     }
 
-    /**
-     * Get the latest reports (1 weekly, 1 monthly)
-     */
-    async getLatestReports(userId: string): Promise<{ weekly?: IReport, monthly?: IReport }> {
-        const [weekly, monthly] = await Promise.all([
-            Report.findOne({ userId: new Types.ObjectId(userId), type: ReportType.WEEKLY }).sort({ startDate: -1 }).lean(),
-            Report.findOne({ userId: new Types.ObjectId(userId), type: ReportType.MONTHLY }).sort({ startDate: -1 }).lean(),
-        ]);
 
-        return {
-            weekly: weekly as IReport,
-            monthly: monthly as IReport
-        };
-    }
 }
 
 export const reportService = new ReportService();

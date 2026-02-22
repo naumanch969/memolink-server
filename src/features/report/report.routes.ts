@@ -7,7 +7,6 @@ const router = express.Router();
 router.use(AuthMiddleware.authenticate);
 
 router.get('/', ReportController.getReports);
-router.get('/latest', ReportController.getLatest);
 router.get('/:id', ReportController.getReport);
 router.post('/generate', ReportController.generateOnDemand);
 router.post('/from-task', ReportController.createFromTask);

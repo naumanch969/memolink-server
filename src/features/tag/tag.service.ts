@@ -6,6 +6,7 @@ import { CreateTagRequest, ITag, ITagService, UpdateTagRequest } from './tag.int
 import { Tag } from './tag.model';
 
 export class TagService implements ITagService {
+ 
   async createTag(userId: string, tagData: CreateTagRequest): Promise<ITag> {
     try {
       if (tagData.name) {

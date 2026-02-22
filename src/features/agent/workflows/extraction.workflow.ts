@@ -111,7 +111,7 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
 
         if (entitiesData.length === 0) {
             // Even if no entities, we mark as processed to avoid re-extraction
-            entry.status = 'processed';
+            entry.status = 'ready';
             await entry.save({ session });
             await session.commitTransaction();
             return { status: 'completed', result: { names: [] } };
@@ -209,7 +209,7 @@ export const runEntityExtraction: AgentWorkflow = async (task) => {
 
         // 8. Update Entry Mentions & STATUS (The Integrity Lock)
         entry.mentions = Array.from(new Set([...(entry.mentions || []), ...entityIds.map(id => new mongooseNative.Types.ObjectId(id))])) as any;
-        entry.status = 'processed';
+        entry.status = 'ready';
         await entry.save({ session });
 
         await session.commitTransaction();

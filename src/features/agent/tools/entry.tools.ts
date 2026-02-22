@@ -122,7 +122,7 @@ export const getRecentEntriesTool: AgentTool = {
         }
     },
     handler: async (userId, args) => {
-        const result = await entryService.getFeed(userId, {
+        const result = await entryService.getEntries(userId, {
             limit: args.limit || 5
         });
         return result.entries.map(e => ({

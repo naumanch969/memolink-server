@@ -4,7 +4,7 @@ import { entityService } from '../../entity/entity.service';
 import { graphService } from '../../graph/graph.service';
 import { AGENT_CONSTANTS } from '../agent.constants';
 import { agentMemory } from '../agent.memory';
-import { personaService } from '../persona.service';
+import agentService from '../agent.service';
 import { agentToolDefinitions, agentToolHandlers } from '../tools';
 // We might need to pass agentService or checkMemoryFlush as a callback or a separate manager
 // To avoid circular dependency, we can pass the flush callback
@@ -61,7 +61,7 @@ export class ChatOrchestrator {
         const [history, graphSummary, personaContext] = await Promise.all([
             agentMemory.getHistory(userId),
             graphService.getGraphSummary(userId),
-            personaService.getPersonaContext(userId)
+            agentService.getPersonaContext(userId)
         ]);
 
         const previousHistory = history

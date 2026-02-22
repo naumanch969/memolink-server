@@ -29,7 +29,10 @@ export enum SocketEvents {
 
     // Reports
     REPORT_UPDATED = 'report:updated',
-
+    
+    // Entries
+    ENTRY_UPDATED = 'entry:updated',
+    
     // System
     SYSTEM_HEALTH_UPDATE = 'system:health_update'
 }

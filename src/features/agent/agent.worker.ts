@@ -127,6 +127,12 @@ export const initAgentWorker = () => {
                     result = { processed: true, sync: true };
                     break;
 
+                case AgentTaskType.INTENT_PROCESSING: {
+                    const { runIntentProcessing } = await import('./workflows/intent.workflow');
+                    result = await runIntentProcessing(task);
+                    break;
+                }
+
                 default:
                     throw new Error(`Unknown agent task type: ${task.type}`);
             }
@@ -140,6 +146,16 @@ export const initAgentWorker = () => {
 
             // Broadcast status update
             socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
+
+            // If it was intent processing and we have an entryId, ensure the entry is marked ready if not already handled
+            if (task.type === AgentTaskType.INTENT_PROCESSING && task.inputData?.entryId) {
+                const { entryService } = await import('../entry/entry.service');
+                const entry = await entryService.getEntryById(task.inputData.entryId, task.userId);
+                if (entry && entry.status !== 'ready' && entry.status !== 'failed') {
+                    await entryService.updateEntry(task.inputData.entryId, task.userId, { status: 'ready' });
+                    socketService.emitToUser(task.userId, SocketEvents.ENTRY_UPDATED, entry);
+                }
+            }
 
             // Trigger Report Creation for Analysis Tasks
             if (task.type === AgentTaskType.WEEKLY_ANALYSIS || task.type === AgentTaskType.MONTHLY_ANALYSIS) {

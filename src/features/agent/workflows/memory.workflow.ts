@@ -7,7 +7,7 @@ import { NodeType } from '../../graph/edge.model';
 import { AGENT_CONSTANTS } from '../agent.constants';
 import { agentMemory } from '../agent.memory';
 import { AgentWorkflow } from '../agent.types';
-import { personaService } from '../persona.service';
+import agentService from '../agent.service';
 
 const flushSchema = z.object({
     observations: z.array(z.object({
@@ -72,15 +72,15 @@ export const runMemoryFlush: AgentWorkflow = async (task) => {
 
                 if (obs.target.toUpperCase() === 'USER') {
                     // Update Persona
-                    const persona = await personaService.getPersona(userId);
+                    const persona = await agentService.getPersona(userId);
                     if (persona) {
                         const newMarkdown = (persona.rawMarkdown || '') + formattedObs;
-                        await personaService.updatePersona(userId, {
+                        await agentService.updatePersona(userId, {
                             rawMarkdown: newMarkdown
                         });
 
                         if (newMarkdown.length > AGENT_CONSTANTS.CONSOLIDATION_THRESHOLD) {
-                            await personaService.triggerSynthesis(userId);
+                            await agentService.triggerSynthesis(userId);
                             logger.info(`MemoryFlush: Triggered Synthesis for Persona (Size: ${newMarkdown.length})`);
                         }
                     }

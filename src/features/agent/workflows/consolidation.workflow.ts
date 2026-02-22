@@ -3,6 +3,8 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { AgentWorkflow } from '../agent.types';
+import agentService from '../agent.service';
+import { agentMemory } from '../agent.memory';
 
 const consolidationSchema = z.object({
     summary: z.string().describe("A 1-2 sentence executive summary of who/what this entity is."),
@@ -85,13 +87,11 @@ export const runCognitiveConsolidation: AgentWorkflow = async (task) => {
     const { userId, messageCount = 10 } = task.inputData;
 
     try {
-        const { agentMemory } = await import('../agent.memory');
-        const { personaService } = await import('../persona.service');
 
         // 1. Fetch Context
         const [history, currentPersona] = await Promise.all([
             agentMemory.getHistory(userId),
-            personaService.getPersona(userId)
+            agentService.getPersona(userId)
         ]);
 
         const recentMessages = history.slice(-messageCount);
@@ -125,7 +125,7 @@ export const runCognitiveConsolidation: AgentWorkflow = async (task) => {
         });
 
         // 3. Update Persona
-        await personaService.updatePersona(userId, {
+        await agentService.updatePersona(userId, {
             summary: update.updatedSummary,
             rawMarkdown: update.rawMarkdown
         });

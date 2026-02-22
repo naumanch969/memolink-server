@@ -23,6 +23,9 @@ export class SocketManager {
         // Initialize globally accessible service
         socketService.setIo(this.io);
 
+        // Setup Redis Bridge for cross-process communication (Workers -> Server)
+        this.initRedisBridge();
+
         // Setup middleware
         this.setupMiddleware();
 
@@ -30,6 +33,22 @@ export class SocketManager {
         this.setupHandlers();
 
         logger.info('SocketManager initialized');
+    }
+
+    private async initRedisBridge(): Promise<void> {
+        try {
+            const { config } = await import('../../config/env');
+            const IORedis = (await import('ioredis')).default;
+            const subscriber = new IORedis(config.REDIS_URL);
+
+            socketService.initRedisBridge(subscriber);
+
+            subscriber.on('error', (err) => {
+                logger.error('Redis Bridge Subscriber Error:', err);
+            });
+        } catch (error) {
+            logger.error('Failed to initialize Redis Socket Bridge:', error);
+        }
     }
 
     private setupMiddleware(): void {

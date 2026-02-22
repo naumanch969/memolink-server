@@ -4,7 +4,6 @@ import { ResponseHelper } from '../../core/utils/response.util';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
 import { audioTranscriptionService } from './audio-transcription.service';
-import { personaService } from './persona.service';
 
 export class AgentController {
     static async createTask(req: Request, res: Response): Promise<void> {
@@ -67,6 +66,8 @@ export class AgentController {
             }
 
             const processingResult = await agentService.processNaturalLanguage(userId, text, { tags, timezone });
+
+            console.log('processingResult', processingResult)
 
             ResponseHelper.success(res, {
                 intent: processingResult.intent,
@@ -231,7 +232,7 @@ export class AgentController {
     static async getPersona(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
-            const persona = await personaService.getPersona(userId);
+            const persona = await agentService.getPersona(userId);
             ResponseHelper.success(res, persona, 'User persona retrieved');
         } catch (error) {
             logger.error('Error fetching user persona', error);
