@@ -6,12 +6,8 @@ import { createEntrySchema, entryIdSchema, searchEntriesSchema, updateEntrySchem
 
 const router = Router();
 
-// All routes require authentication
 router.use(AuthMiddleware.authenticate);
 
-/**
- * Entry Routes
- */
 router.post('/', ValidationMiddleware.validateSchema(createEntrySchema), EntryController.createEntry);
 router.get('/search', ValidationMiddleware.validateSchema(searchEntriesSchema), EntryController.searchEntries);
 router.get('/stats', EntryController.getEntryStats);

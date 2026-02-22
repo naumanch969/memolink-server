@@ -1,82 +1,316 @@
-import { agentChatService } from './agent-chat.service';
-import { agentNLPService } from './agent-nlp.service';
-import { agentSyncService } from './agent-sync.service';
-import { agentTaskService } from './agent-task.service';
-import { briefingService } from './agent.briefing';
-import { IAgentTaskDocument } from './agent.model';
-import { AgentTaskType } from './agent.types';
+import { Types } from 'mongoose';
+import { logger } from '../../config/logger';
+import { LLMService } from '../../core/llm/llm.service';
+import DateManager from '../../core/utils/date-manager.util';
+import { Entry } from '../entry/entry.model';
+import { entryService } from '../entry/entry.service';
+import { goalService } from '../goal/goal.service';
+import { graphService } from '../graph/graph.service';
+import reminderService from '../reminder/reminder.service';
+import webActivityService from '../web-activity/web-activity.service';
+import { AGENT_CONSTANTS } from './agent.constants';
+import { agentMemory } from './agent.memory';
+import { AgentTask, IAgentTaskDocument } from './agent.model';
+import { getAgentQueue } from './agent.queue';
+import { AgentTaskStatus, AgentTaskType } from './agent.types';
+import { chatOrchestrator } from './orchestrators/chat.orchestrator';
+import { IUserPersonaDocument, UserPersona } from './persona.model';
+import { agentIntent, AgentIntentType, IntentResult } from './agent.intent';
+import { intentDispatcher } from './handlers/intent.dispatcher';
 
-/**
- * AgentService serves as the primary gateway for all AI agent operations.
- * It coordinates Task Management, Natural Language Processing, Chat, and Memory.
- * Logic is delegated to specialized services to maintain Single Responsibility.
- */
 export class AgentService {
     /**
-     * Task Management
+     * ==========================================
+     * TASK MANAGEMENT
+     * ==========================================
      */
+
     async createTask(userId: string, type: AgentTaskType, inputData: any): Promise<IAgentTaskDocument> {
-        return agentTaskService.createTask(userId, type, inputData);
+        const task = await AgentTask.create({
+            userId,
+            type,
+            status: AgentTaskStatus.PENDING,
+            inputData,
+        });
+
+        try {
+            const queue = getAgentQueue();
+            await queue.add(type, { taskId: task._id.toString() });
+            logger.info(`Agent Task enqueued: [${type}] ${task._id} for user ${userId}`);
+        } catch (error) {
+            logger.error('Failed to enqueue agent task', error);
+            task.status = AgentTaskStatus.FAILED;
+            task.error = 'Failed to enqueue task';
+            await task.save();
+        }
+
+        return task;
     }
 
     async getTask(taskId: string, userId: string): Promise<IAgentTaskDocument | null> {
-        return agentTaskService.getTask(taskId, userId);
+        return AgentTask.findOne({ _id: taskId, userId });
     }
 
     async listUserTasks(userId: string, limit = 20): Promise<IAgentTaskDocument[]> {
-        return agentTaskService.listUserTasks(userId, limit);
+        return AgentTask.find({ userId }).sort({ createdAt: -1 }).limit(limit);
     }
 
     /**
-     * Natural Language Processing
+     * ==========================================
+     * NATURAL LANGUAGE PROCESSING
+     * ==========================================
      */
-    async processNaturalLanguage(userId: string, text: string, options = {}): Promise<any> {
-        return agentNLPService.process(userId, text, options);
+
+    async processNaturalLanguage(userId: string, text: string, options: any = {}): Promise<any> {
+        // 1. Reliability Pattern: Capture to Library first
+        let entry: any = null;
+        try {
+            entry = await entryService.createEntry(userId, {
+                content: text,
+                date: new Date(),
+                type: 'text',
+                status: 'capturing',
+                tags: options.tags || [],
+                metadata: { source: options.source || 'capture-mode' }
+            });
+            logger.info("Reliability Capture: Entry saved before AI processing", { userId, entryId: entry._id });
+        } catch (error) {
+            logger.error("Reliability Capture Failed", error);
+        }
+
+        try {
+            const history = await agentMemory.getHistory(userId);
+
+            // 2. AI Intent Analysis
+            let intentResult: IntentResult;
+            try {
+                intentResult = await agentIntent.classify(userId, text, history, options.timezone);
+            } catch (aiError) {
+                logger.warn("Intent analysis failed, falling back to journaling", aiError);
+                intentResult = {
+                    intents: [{ intent: AgentIntentType.JOURNALING, parsedEntities: { date: new Date() } }],
+                    summary: "Saved as daily entry"
+                };
+            }
+
+            // Handle Clarification loops
+            const clarification = intentResult.intents.find(i => i.needsClarification);
+            if (clarification) {
+                if (entry?._id) await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+                return { ...clarification, originalText: text, result: entry };
+            }
+
+            await agentMemory.addMessage(userId, 'user', text);
+
+            // 3. Dispatch Actions
+            const dispatchResult = await intentDispatcher.dispatch({
+                userId,
+                text,
+                entry,
+                intentResult
+            });
+
+            if (dispatchResult.earlyReturn) {
+                if (entry?._id) await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+                return dispatchResult.earlyReturn;
+            }
+
+            // 4. Record Tasks for Actions
+            const tasks = [];
+            for (const action of dispatchResult.actions) {
+                const task = await this.createTask(userId, action.taskType, {
+                    text,
+                    intent: action.taskType,
+                    resultId: action.commandObject?._id?.toString()
+                });
+                tasks.push(task);
+            }
+
+            // Cleanup: Mark entry ready if no specific tasks were triggered
+            if (dispatchResult.actions.length === 0 && entry?._id) {
+                await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+            }
+
+            const summary = dispatchResult.summary || `Processed ${intentResult.intents.length} intentions.`;
+            await agentMemory.addMessage(userId, 'agent', summary);
+
+            // Background Persona Sync
+            this.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
+
+            return {
+                tasks,
+                result: dispatchResult.actions.length > 0 ? dispatchResult.actions[0].commandObject : entry,
+                summary
+            };
+
+        } catch (error) {
+            logger.error("Agent NLP Processing failed", error);
+            if (entry?._id) {
+                await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+            }
+            throw error;
+        }
     }
 
     async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
-        return agentNLPService.findSimilarEntries(userId, text, limit);
-    }
+        try {
+            const queryVector = await LLMService.generateEmbeddings(text, { workflow: 'similarity', userId });
+            const results = await Entry.aggregate([
+                {
+                    $vectorSearch: {
+                        index: "vector_index",
+                        path: "embeddings",
+                        queryVector,
+                        numCandidates: 100,
+                        limit,
+                        filter: { userId: new Types.ObjectId(userId) }
+                    }
+                },
+                { $project: { content: 1, date: 1, type: 1, score: { $meta: "vectorSearchScore" } } }
+            ]);
 
-    /**
-     * Conversational Interface
-     */
-    async chat(userId: string, message: string): Promise<string> {
-        return agentChatService.chat(userId, message);
-    }
+            if (results.length > 0) return results;
 
-    async goalArchitect(userId: string, message: string, history: Array<{ role: string, content: string }>): Promise<string> {
-        return agentChatService.goalArchitect(userId, message, history);
-    }
-
-    async clearHistory(userId: string): Promise<void> {
-        return agentChatService.clearHistory(userId);
-    }
-
-    async getChatHistory(userId: string) {
-        return agentChatService.getChatHistory(userId);
-    }
-
-    /**
-     * Proactive Features
-     */
-    async getDailyBriefing(userId: string): Promise<string> {
-        return briefingService.getDailyBriefing(userId);
-    }
-
-    /**
-     * Background Synchronization
-     */
-    async syncEntries(userId: string, entryId?: string): Promise<{ taskId: string }> {
-        return agentSyncService.syncEntries(userId, entryId);
-    }
-
-    async syncPersona(userId: string, force: boolean = false): Promise<{ taskId: string }> {
-        return agentSyncService.syncPersona(userId, force);
+            const { entries } = await entryService.getEntries(userId, { q: text, limit });
+            return (entries || []).map((e: any) => ({ content: e.content, date: e.date, type: e.type, score: 0.5 }));
+        } catch (error) {
+            logger.error('Similar entries lookup failed', error);
+            return [];
+        }
     }
 
     async cleanText(userId: string, text: string): Promise<string> {
-        return agentNLPService.cleanText(userId, text);
+        try {
+            const prompt = `Clean raw/fragmented text into polished format while preserving meaning, tone, tags, and mentions.\nInput: "${text}"\nCleaned Text:`;
+            return (await LLMService.generateText(prompt, { workflow: 'text_cleaning', userId, temperature: 0.3 })).trim();
+        } catch (error) {
+            logger.error('Text cleaning failed', error);
+            return text;
+        }
+    }
+
+    /**
+     * ==========================================
+     * CONVERSATIONAL INTERFACE
+     * ==========================================
+     */
+
+    async chat(userId: string, message: string): Promise<string> {
+        await agentMemory.addMessage(userId, 'user', message);
+        return await chatOrchestrator.chat(userId, message, {
+            onFinish: async (finalAnswer) => {
+                await agentMemory.addMessage(userId, 'agent', finalAnswer);
+                this.triggerSynthesis(userId).catch(e => logger.error("Persona Synthesis trigger failed", e));
+                this.checkMemoryFlush(userId).catch(e => logger.error("Memory Flush check failed", e));
+            }
+        });
+    }
+
+    async goalArchitect(userId: string, message: string, history: Array<{ role: string, content: string }>): Promise<string> {
+        const historyText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+        const prompt = `You are a Goal Architect AI. Help the user operationalize ambitions into Goals.\nHistory: ${historyText}\nUSER: ${message}`;
+        return await LLMService.generateText(prompt, { workflow: 'goal_architect', userId });
+    }
+
+    async clearHistory(userId: string): Promise<void> {
+        await agentMemory.clear(userId);
+    }
+
+    async getChatHistory(userId: string) {
+        return await agentMemory.getHistory(userId);
+    }
+
+    private async checkMemoryFlush(userId: string) {
+        const history = await agentMemory.getHistory(userId);
+        if (history.length >= AGENT_CONSTANTS.FLUSH_THRESHOLD) {
+            await this.createTask(userId, AgentTaskType.MEMORY_FLUSH, { count: AGENT_CONSTANTS.FLUSH_COUNT });
+            await this.createTask(userId, AgentTaskType.COGNITIVE_CONSOLIDATION, { messageCount: AGENT_CONSTANTS.FLUSH_COUNT });
+        }
+    }
+
+    /**
+     * ==========================================
+     * PROACTIVE FEATURES & PERSONA
+     * ==========================================
+     */
+
+    async getDailyBriefing(userId: string): Promise<string> {
+        try {
+            const now = new Date();
+            const startOfDay = new Date(now).setHours(0, 0, 0, 0);
+
+            const existingTask = await AgentTask.findOne({
+                userId, type: AgentTaskType.DAILY_BRIEFING,
+                createdAt: { $gte: startOfDay },
+                status: AgentTaskStatus.COMPLETED
+            });
+
+            if (existingTask?.outputData?.text) return existingTask.outputData.text;
+
+            const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+            const [entriesData, upcoming, overdue, goals, webActivity, pendingProposals] = await Promise.all([
+                entryService.getEntries(userId, { dateFrom: twoDaysAgo.toISOString(), limit: 5 }),
+                reminderService.getUpcomingReminders(userId, 15),
+                reminderService.getOverdueReminders(userId),
+                goalService.getGoals(userId, {}),
+                webActivityService.getTodayStats(userId, DateManager.getYesterdayDateKey()),
+                graphService.getPendingProposals(userId)
+            ]);
+
+            const entries = entriesData.entries || [];
+            const prompt = `You are a Chief of Staff AI. provide a structured daily briefing.\nDATA: \nLogs: ${entries.length}\nReminders: ${upcoming.length}\nGoals: ${goals.length}\nWeb Activity: ${webActivity?.totalSeconds || 0}s`;
+
+            const briefingText = await LLMService.generateText(prompt, { workflow: 'daily_briefing', userId });
+
+            await AgentTask.create({
+                userId, type: AgentTaskType.DAILY_BRIEFING, status: AgentTaskStatus.COMPLETED,
+                completedAt: new Date(), outputData: { text: briefingText }
+            });
+
+            return briefingText;
+        } catch (error) {
+            logger.error('Failed to generate daily briefing', error);
+            return "Good morning. I was unable to compile your full briefing.";
+        }
+    }
+
+    async getPersona(userId: string): Promise<IUserPersonaDocument> {
+        let persona = await UserPersona.findOne({ userId });
+        if (!persona) {
+            persona = await UserPersona.create({ userId, summary: 'Synthesizing...', rawMarkdown: '# Persona Loading...', lastSynthesized: new Date() });
+        }
+        return persona;
+    }
+
+    async updatePersona(userId: string, data: Partial<IUserPersonaDocument>): Promise<IUserPersonaDocument> {
+        const persona = await UserPersona.findOneAndUpdate(
+            { userId },
+            { $set: data },
+            { new: true, upsert: true }
+        );
+        return persona;
+    }
+
+    async triggerSynthesis(userId: string, force: boolean = false): Promise<void> {
+        const persona = await this.getPersona(userId);
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        if (!force && persona.lastSynthesized > oneDayAgo && persona.rawMarkdown.length > 100) return;
+        await this.createTask(userId, AgentTaskType.PERSONA_SYNTHESIS, { force });
+    }
+
+    async getPersonaContext(userId: string): Promise<string> {
+        const persona = await this.getPersona(userId);
+        return `USER PERSONA SOURCE OF TRUTH:\n${persona.rawMarkdown}\nSummary: ${persona.summary}`;
+    }
+
+    async syncEntries(userId: string, entryId?: string): Promise<{ taskId: string }> {
+        const task = await this.createTask(userId, AgentTaskType.SYNC, { entryId });
+        return { taskId: task._id.toString() };
+    }
+
+    async syncPersona(userId: string, force: boolean = false): Promise<{ taskId: string }> {
+        const task = await this.createTask(userId, AgentTaskType.PERSONA_SYNTHESIS, { force });
+        return { taskId: task._id.toString() };
     }
 }
 

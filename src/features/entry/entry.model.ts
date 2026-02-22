@@ -28,7 +28,7 @@ const entrySchema = new Schema<IEntry>({
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
   aiProcessed: { type: Boolean, default: false },
-  status: { type: String, enum: ['ready', 'processing', 'failed', 'processed', 'captured'], default: 'ready', index: true },
+  status: { type: String, enum: ['ready', 'processing', 'failed', 'capturing'], default: 'ready', index: true },
   embeddings: { type: [Number], select: false }, // Exclude by default due to size
   moodMetadata: {
     category: { type: String },

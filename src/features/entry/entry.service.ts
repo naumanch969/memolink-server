@@ -1,52 +1,22 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
 import { MongoUtil } from '../../shared/utils/mongo.util';
 import { PaginationUtil } from '../../shared/utils/pagination.util';
-import agentService from '../agent/agent.service';
-import { AgentTaskType } from '../agent/agent.types';
+import { StringUtil } from '../../shared/utils/string.util';
 import { runEntryTagging } from '../agent/workflows/tagging.workflow';
-import KnowledgeEntity from '../entity/entity.model';
-import { entityService } from '../entity/entity.service';
-import { EdgeType, NodeType } from '../graph/edge.model';
-import { graphService } from '../graph/graph.service';
 import { moodService } from '../mood/mood.service';
 import { tagService } from '../tag/tag.service';
-import { entryFeedService } from './entry-feed.service';
-import { entrySearchService } from './entry-search.service';
-import { entryStatsService } from './entry-stats.service';
-import {
-  CreateEntryRequest,
-  EntryFeedRequest,
-  EntryFeedResponse,
-  EntrySearchRequest,
-  EntryStats,
-  IEntry,
-  IEntryService,
-  UpdateEntryRequest
-} from './entry.interfaces';
+import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
 import { Entry } from './entry.model';
 import { classifyMood } from './mood.config';
+import { LLMService } from '../../core/llm/llm.service';
 
 export class EntryService implements IEntryService {
-  /**
-   * Helper method to extract mentions from content
-   */
-  private extractMentions(content: string): string[] {
-    const mentionRegex = /@(\w+)/g;
-    const mentions: string[] = [];
-    let match;
 
-    while ((match = mentionRegex.exec(content)) !== null) {
-      mentions.push(match[1]);
-    }
-
-    return mentions;
-  }
-
-  /**
-   * Create new entry and trigger relevant agent workflows
-   */
+  // Create new entry with core persistence logic and deduplication
   async createEntry(userId: string, entryData: CreateEntryRequest): Promise<IEntry> {
     try {
       // 1. FAST DEDUPLICATION (Double-submit prevention)
@@ -62,82 +32,19 @@ export class EntryService implements IEntryService {
         return this.getEntryById(existing._id.toString(), userId);
       }
 
-      // 2. Extract and resolve mentions/entities
-      const mentionNames = this.extractMentions(entryData.content || '');
-      const mentionIds: Types.ObjectId[] = [];
-      for (const name of mentionNames) {
-        const entity = await entityService.findOrCreateEntity(userId, name, NodeType.PERSON);
-        mentionIds.push(entity._id as Types.ObjectId);
-      }
-
-      // 3. Process tags
-      const explicitTags = entryData.tags || [];
-      const tagIds: Types.ObjectId[] = [];
-      for (const tagIdentifier of explicitTags) {
-        if (MongoUtil.isValidObjectId(tagIdentifier)) {
-          tagIds.push(new Types.ObjectId(tagIdentifier));
-        } else {
-          const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
-          tagIds.push(tag._id as Types.ObjectId);
-        }
-      }
-
-      // 4. Create Entry
+      // 2. Create Entry object
       const entry = new Entry({
         userId: new Types.ObjectId(userId),
         ...entryData,
-        mentions: [...(entryData.mentions || []), ...mentionIds],
-        tags: tagIds,
-        moodMetadata: entryData.mood ? classifyMood(entryData.mood) : undefined
+        // Ensure ObjectIds
+        mentions: entryData.mentions?.map(id => new Types.ObjectId(id)),
+        tags: entryData.tags?.map(id => new Types.ObjectId(id)),
+        media: entryData.media?.map(id => new Types.ObjectId(id)),
+        moodMetadata: entryData.mood ? classifyMood(entryData.mood) : undefined,
       });
 
       await entry.save();
       await entry.populate(['mentions', 'tags', 'media']);
-
-      // 5. Update Metadata & Graph (Post-Save)
-      if (explicitTags.length > 0) {
-        await tagService.incrementUsage(userId, explicitTags);
-      }
-
-      if (mentionIds.length > 0) {
-        await KnowledgeEntity.updateMany(
-          { _id: { $in: mentionIds } },
-          { $inc: { interactionCount: 1 }, $set: { lastInteractionAt: new Date() } }
-        );
-
-        for (const mId of mentionIds) {
-          await graphService.createEdge({
-            fromId: mId.toString(),
-            fromType: NodeType.PERSON,
-            toId: entry._id.toString(),
-            toType: NodeType.CONTEXT,
-            relation: EdgeType.MENTIONED_IN,
-            weight: 1.0,
-            metadata: { entryDate: entry.date }
-          }).catch(err => logger.warn(`Failed to create MENTIONED_IN edge`, err));
-        }
-      }
-
-      // 6. Trigger Agent Workflows
-      if (entryData.content && entryData.content.length > 20) {
-        agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, {
-          entryId: entry._id.toString(),
-          content: entryData.content
-        }).catch(err => logger.error('Failed to trigger auto-tagging', err));
-
-        agentService.createTask(userId, AgentTaskType.ENTITY_EXTRACTION, {
-          entryId: entry._id.toString(),
-          userId
-        }).catch(err => logger.error('Failed to trigger entity extraction', err));
-
-        agentService.createTask(userId, AgentTaskType.EMBED_ENTRY, {
-          entryId: entry._id.toString()
-        }).catch(err => logger.error('Failed to trigger entry embedding', err));
-      }
-
-      // 7. Fire-and-forget background mood recalculation
-      moodService.recalculateDailyMoodFromEntries(userId, entry.date || new Date())
-        .catch(err => logger.error('Failed to auto-update daily mood', err));
 
       return entry;
     } catch (error) {
@@ -146,9 +53,7 @@ export class EntryService implements IEntryService {
     }
   }
 
-  /**
-   * Fetch a single entry by ID with populated relations
-   */
+  // Fetch a single entry by ID with populated relations
   async getEntryById(entryId: string, userId: string): Promise<IEntry> {
     const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media']);
     if (!entry) throw ApiError.notFound('Entry');
@@ -156,31 +61,74 @@ export class EntryService implements IEntryService {
   }
 
   /**
-   * Basic filtered list of entries with pagination
+   * Comprehensive entry listing and search with support for:
+   * - Offset pagination (Search/Grid)
+   * - Cursor pagination (Infinite Feed)
+   * - Vector Search (Semantic/Deep)
+   * - Hybrid Search (RRF)
    */
-  async getUserEntries(userId: string, options: any = {}): Promise<{ entries: IEntry[]; total: number; page: number; limit: number; totalPages: number; }> {
+  async getEntries(userId: string, options: GetEntriesRequest): Promise<GetEntriesResponse> {
     try {
-      const { page, limit, skip } = PaginationUtil.getPaginationParams(options);
-      const sort = PaginationUtil.getSortParams(options, 'createdAt');
+      const limit = Math.min(Math.max(1, options.limit || 20), 100);
+      const userObjectId = new Types.ObjectId(userId);
+      const mode = options.mode || (options.q ? 'instant' : 'feed');
 
-      const filter: any = { userId: new Types.ObjectId(userId) };
-
-      if (options.dateFrom || options.dateTo) {
-        filter.date = {};
-        if (options.dateFrom) filter.date.$gte = new Date(options.dateFrom);
-        if (options.dateTo) filter.date.$lte = new Date(options.dateTo);
+      // 1. SEMANTIC SEARCH (DEEP)
+      if (mode === 'deep' && options.q) {
+        return this.performVectorSearch(userId, options);
       }
 
-      if (options.mood) filter.mood = new RegExp(options.mood, 'i');
-      if (options.isFavorite !== undefined) filter.isFavorite = options.isFavorite;
+      // 2. HYBRID SEARCH
+      if (mode === 'hybrid' && options.q) {
+        return this.performHybridSearch(userId, options);
+      }
 
-      if (options.tags && options.tags.length > 0) {
-        filter.tags = { $in: options.tags.map((id: string) => new Types.ObjectId(id)) };
+      // 3. KEYWORD/FEED SEARCH
+      const filter: any = { userId: userObjectId };
+      this.applyQueryFilters(filter, options);
+
+      // CURSOR-BASED (Stable Feed)
+      if (options.cursor || mode === 'feed') {
+        if (options.cursor) {
+          const cursorEntry = await Entry.findById(options.cursor).select('createdAt');
+          if (cursorEntry) {
+            filter.$or = [
+              { createdAt: { $lt: cursorEntry.createdAt } },
+              { createdAt: cursorEntry.createdAt, _id: { $lt: cursorEntry._id } }
+            ];
+          }
+        }
+
+        const entries = await Entry.find(filter)
+          .populate(['mentions', 'tags', 'media'])
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(limit + 1)
+          .lean();
+
+        const hasMore = entries.length > limit;
+        if (hasMore) entries.pop();
+        const nextCursor = entries.length > 0 ? entries[entries.length - 1]._id.toString() : undefined;
+
+        return { entries: entries as any, nextCursor, hasMore };
+      }
+
+      // OFFSET-BASED (Classic Search/Grid)
+      const { page, skip } = PaginationUtil.getPaginationParams(options);
+      let sort = PaginationUtil.getSortParams(options, 'createdAt');
+      const projection: any = {};
+
+      if (options.q && mode === 'instant') {
+        const sanitized = StringUtil.sanitizeSearchQuery(options.q);
+        if (sanitized) {
+          filter.$text = { $search: sanitized };
+          projection.score = { $meta: 'textScore' };
+          sort = { score: { $meta: 'textScore' }, ...sort } as any;
+        }
       }
 
       const [entries, total] = await Promise.all([
-        Entry.find(filter)
-          .populate([{ path: 'mentions' }, { path: 'tags' }, { path: 'media' }])
+        Entry.find(filter, projection)
+          .populate(['mentions', 'tags', 'media'])
           .sort(sort as any)
           .skip(skip)
           .limit(limit)
@@ -189,42 +137,176 @@ export class EntryService implements IEntryService {
       ]);
 
       return {
-        entries: entries as unknown as IEntry[],
+        entries,
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit),
       };
-    } catch (error: any) {
+    } catch (error) {
       logger.error(`Get entries failed for user ${userId}`, error);
       throw error;
     }
   }
 
-  /**
-   * Delegate search to EntrySearchService
-   */
-  async searchEntries(userId: string, searchParams: EntrySearchRequest) {
-    return entrySearchService.search(userId, searchParams);
+  // Internal helper for semantic lookup
+  private async performVectorSearch(userId: string, options: GetEntriesRequest): Promise<any> {
+    const { limit, skip } = PaginationUtil.getPaginationParams(options);
+    const queryVector = await LLMService.generateEmbeddings(options.q!, { workflow: 'search', userId });
+
+    const pipeline: any[] = [
+      {
+        $vectorSearch: {
+          index: "vector_index",
+          path: "embeddings",
+          queryVector,
+          numCandidates: 100,
+          limit: 50,
+          filter: { userId: new Types.ObjectId(userId) }
+        }
+      },
+      { $addFields: { score: { $meta: "vectorSearchScore" } } }
+    ];
+
+    const filter: any = {};
+    this.applyQueryFilters(filter, options);
+    if (Object.keys(filter).length > 1) pipeline.push({ $match: filter });
+
+    pipeline.push({ $skip: skip });
+    pipeline.push({ $limit: limit });
+
+    const entries = await Entry.aggregate(pipeline);
+    await Entry.populate(entries, {
+      path: 'mentions tags media',
+      model: 'Entry'
+    });
+
+    return { entries, total: entries.length, page: options.page || 1, limit, totalPages: 1 };
   }
 
-  /**
-   * Delegate feed to EntryFeedService
-   */
-  async getFeed(userId: string, feedParams: EntryFeedRequest): Promise<EntryFeedResponse> {
-    return entryFeedService.getFeed(userId, feedParams);
+  // Internal helper for Hybrid (RRF)
+  private async performHybridSearch(userId: string, options: GetEntriesRequest): Promise<any> {
+    const limit = options.limit || 20;
+    const [keywordRes, vectorRes] = await Promise.all([
+      this.getEntries(userId, { ...options, mode: 'instant', limit: 50 }),
+      this.performVectorSearch(userId, { ...options, limit: 50 }).catch(() => ({ entries: [] }))
+    ]);
+
+    const k = 60;
+    const scores: Record<string, { entry: any; score: number }> = {};
+    const processResults = (results: any[]) => {
+      results.forEach((entry, index) => {
+        const id = entry._id.toString();
+        const score = 1 / (k + index + 1);
+        if (scores[id]) scores[id].score += score;
+        else scores[id] = { entry, score };
+      });
+    };
+
+    processResults(keywordRes.entries);
+    processResults(vectorRes.entries);
+
+    const entries = Object.values(scores)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(s => s.entry);
+
+    return { entries, total: entries.length, page: options.page || 1, limit, totalPages: 1 };
   }
 
-  /**
-   * Delegate stats to EntryStatsService
-   */
+  // Unified logic for applying search filters
+  private applyQueryFilters(filter: any, options: GetEntriesRequest) {
+    if (options.type) filter.type = options.type;
+    if (options.mood) filter.mood = new RegExp(options.mood, 'i');
+    if (options.isFavorite !== undefined) filter.isFavorite = options.isFavorite;
+    if (options.isImportant !== undefined) filter.isImportant = options.isImportant;
+    if (options.isPrivate !== undefined) filter.isPrivate = options.isPrivate;
+    if (options.kind) filter.kind = options.kind;
+    if (options.location) filter.location = new RegExp(options.location, 'i');
+
+    if (options.dateFrom || options.dateTo) {
+      filter.date = {};
+      if (options.dateFrom) filter.date.$gte = new Date(options.dateFrom);
+      if (options.dateTo) filter.date.$lte = new Date(options.dateTo);
+    }
+
+    if (options.tags && options.tags.length > 0) {
+      filter.tags = { $in: options.tags.map((id: string) => new Types.ObjectId(id)) };
+    }
+
+    if (options.entities && options.entities.length > 0) {
+      filter.mentions = { $in: options.entities.map((id: string) => new Types.ObjectId(id)) };
+    }
+  }
+
+  // Placeholder for searchEntries (renamed/absorbed)
+  async searchEntries(userId: string, searchParams: GetEntriesRequest) {
+    return this.getEntries(userId, searchParams);
+  }
+
+  // Generates a comprehensive statistical overview of user entries.
   async getEntryStats(userId: string): Promise<EntryStats> {
-    return entryStatsService.getStats(userId);
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const userObjectId = new Types.ObjectId(userId);
+
+      const [
+        totalEntries,
+        entriesToday,
+        entriesThisWeek,
+        entriesThisMonth,
+        entryTypes,
+        averageWords,
+        mostActiveDayData
+      ] = await Promise.all([
+        Entry.countDocuments({ userId: userObjectId }),
+        Entry.countDocuments({ userId: userObjectId, createdAt: { $gte: startOfDay } }),
+        Entry.countDocuments({ userId: userObjectId, createdAt: { $gte: startOfWeek } }),
+        Entry.countDocuments({ userId: userObjectId, createdAt: { $gte: startOfMonth } }),
+        Entry.aggregate([
+          { $match: { userId: userObjectId } },
+          { $group: { _id: '$type', count: { $sum: 1 } } }
+        ]),
+        Entry.aggregate([
+          { $match: { userId: userObjectId } },
+          { $project: { wordCount: { $size: { $split: ['$content', ' '] } } } },
+          { $group: { _id: null, avgWords: { $avg: '$wordCount' } } }
+        ]),
+        Entry.aggregate([
+          { $match: { userId: userObjectId } },
+          { $group: { _id: { $dayOfWeek: '$createdAt' }, count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 1 }
+        ])
+      ]);
+
+      const typeStats = { text: 0, media: 0, mixed: 0 };
+      entryTypes.forEach((type: any) => {
+        if (type._id in typeStats) typeStats[type._id as keyof typeof typeStats] = type.count;
+      });
+
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const mostActiveDay = mostActiveDayData[0] ? dayNames[mostActiveDayData[0]._id - 1] : 'Unknown';
+
+      return {
+        totalEntries,
+        entriesThisMonth,
+        entriesThisWeek,
+        entriesToday,
+        averageWordsPerEntry: Math.round(averageWords[0]?.avgWords || 0),
+        mostActiveDay,
+        entryTypes: typeStats
+      };
+    } catch (error) {
+      logger.error('Get entry stats failed:', error);
+      throw error;
+    }
   }
 
-  /**
-   * Update entry and re-trigger mood calculation if needed
-   */
+  // Update entry and re-trigger mood calculation if needed
   async updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry> {
     try {
       const existingEntry = await Entry.findOne({ _id: entryId, userId });
@@ -271,6 +353,7 @@ export class EntryService implements IEntryService {
       moodService.recalculateDailyMoodFromEntries(userId, entry.date || new Date())
         .catch(err => logger.error('Failed to auto-update daily mood', err));
 
+      socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
       return entry;
     } catch (error) {
       logger.error('Entry update failed:', error);
@@ -278,9 +361,7 @@ export class EntryService implements IEntryService {
     }
   }
 
-  /**
-   * Delete entry and update tag usage metrics
-   */
+  // Delete entry and update tag usage metrics
   async deleteEntry(entryId: string, userId: string): Promise<void> {
     try {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
@@ -296,9 +377,7 @@ export class EntryService implements IEntryService {
     }
   }
 
-  /**
-   * Toggle favorite status of an entry
-   */
+  // Toggle favorite status of an entry
   async toggleFavorite(entryId: string, userId: string): Promise<IEntry> {
     const entry = await Entry.findOne({ _id: entryId, userId });
     if (!entry) throw ApiError.notFound('Entry');
@@ -307,9 +386,7 @@ export class EntryService implements IEntryService {
     return entry;
   }
 
-  /**
-   * Minimal data fetch for calendar views
-   */
+  // Minimal data fetch for calendar views
   async getCalendarEntries(userId: string, startDate: string, endDate: string): Promise<any[]> {
     return Entry.find({
       userId,
@@ -317,18 +394,14 @@ export class EntryService implements IEntryService {
     }).select('date mood type isImportant isFavorite title').sort({ date: 1 });
   }
 
-  /**
-   * Cascade delete all user entries
-   */
+  // Cascade delete all user entries
   async deleteUserData(userId: string): Promise<number> {
     const result = await Entry.deleteMany({ userId });
     logger.info(`Deleted ${result.deletedCount} entries for user ${userId}`);
     return result.deletedCount || 0;
   }
 
-  /**
-   * Self-Healing: Process entries that missed AI processing
-   */
+  // Self-Healing: Process entries that missed AI processing
   async selfHealEntries(limit: number = 10): Promise<number> {
     try {
       const untaggedEntries = await Entry.find({

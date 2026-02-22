@@ -23,7 +23,7 @@ export interface IEntry extends BaseEntity {
   isEdited?: boolean;
   aiProcessed?: boolean;
   isFavorite?: boolean;
-  status?: 'ready' | 'processing' | 'failed' | 'processed' | 'captured';
+  status?: 'ready' | 'processing' | 'failed' | 'capturing';
   embeddings?: number[];
   moodMetadata?: {
     category: string;
@@ -41,24 +41,10 @@ export interface EntryResponse {
 export interface IEntryService {
   createEntry(userId: string, entryData: CreateEntryRequest): Promise<IEntry>;
   getEntryById(entryId: string, userId: string): Promise<IEntry>;
-  getUserEntries(userId: string, options?: EntrySearchRequest): Promise<{
-    entries: IEntry[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }>;
-  searchEntries(userId: string, searchParams: EntrySearchRequest): Promise<{
-    entries: IEntry[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }>;
+  getEntries(userId: string, query: GetEntriesRequest): Promise<GetEntriesResponse>;
   updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry>;
   deleteEntry(entryId: string, userId: string): Promise<void>;
   getEntryStats(userId: string): Promise<EntryStats>;
-  getFeed(userId: string, feedParams: EntryFeedRequest): Promise<EntryFeedResponse>;
   deleteUserData(userId: string): Promise<number>;
   toggleFavorite(entryId: string, userId: string): Promise<IEntry>;
   getCalendarEntries(userId: string, startDate: string, endDate: string): Promise<any[]>;
@@ -81,7 +67,8 @@ export interface CreateEntryRequest {
   startTime?: string;
   endTime?: string;
   isMultiDay?: boolean;
-  status?: 'ready' | 'processing' | 'failed' | 'processed' | 'captured';
+  aiProcessed?: boolean;
+  status?: 'ready' | 'processing' | 'failed' | 'capturing';
   metadata?: Record<string, any>;
 }
 
@@ -97,11 +84,12 @@ export interface UpdateEntryRequest {
   mood?: string;
   location?: string;
   date?: Date;
-  status?: 'ready' | 'processing' | 'failed' | 'processed' | 'captured';
+  aiProcessed?: boolean;
+  status?: 'ready' | 'processing' | 'failed' | 'capturing';
   metadata?: Record<string, any>;
 }
 
-export interface EntrySearchRequest {
+export interface GetEntriesRequest {
   q?: string;
   type?: string;
   dateFrom?: string;
@@ -115,29 +103,26 @@ export interface EntrySearchRequest {
   mood?: string;
   location?: string;
   isFavorite?: boolean;
+
+  // Pagination
   page?: number;
   limit?: number;
   sort?: string;
   order?: 'asc' | 'desc';
-  mode?: 'instant' | 'deep' | 'hybrid';
+  cursor?: string;
+
+  // Search Mode
+  mode?: 'instant' | 'deep' | 'hybrid' | 'feed';
 }
 
-export interface EntryFeedRequest {
-  cursor?: string; // ID of the last entry seen
-  limit?: number;
-  type?: string;
-  tags?: string[];
-  entities?: string[];
-  isPrivate?: boolean;
-  isImportant?: boolean;
-  kind?: 'entry' | 'document' | 'note';
-  mood?: string;
-}
-
-export interface EntryFeedResponse {
+export interface GetEntriesResponse {
   entries: IEntry[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
   nextCursor?: string;
-  hasMore: boolean;
+  hasMore?: boolean;
 }
 
 export interface EntryStats {
