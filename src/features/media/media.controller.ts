@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { CloudinaryService } from '../../config/cloudinary';
+import { cloudinaryService } from '../../config/cloudinary';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.util';
 import { getMediaTypeFromMime } from '../../shared/constants';
@@ -60,7 +60,7 @@ export class MediaController {
       // Upload to Cloudinary with metadata extraction options
       let cloudinaryResult;
       try {
-        cloudinaryResult = await CloudinaryService.uploadFile(req.file, 'memolink', {
+        cloudinaryResult = await cloudinaryService.uploadFile(req.file, 'memolink', {
           extractExif: true,
           enableOcr: shouldEnableOcr,
           enableAiTagging: shouldEnableAiTagging,
@@ -104,7 +104,7 @@ export class MediaController {
           await reservation.rollback();
           // Cleanup the uploaded file
           try {
-            await CloudinaryService.deleteFile(cloudinaryResult.public_id);
+            await cloudinaryService.deleteFile(cloudinaryResult.public_id);
           } catch {
             // Ignore cleanup errors
           }
@@ -121,13 +121,13 @@ export class MediaController {
       if (mediaType === 'video' && cloudinaryResult.public_id) {
         // Generate multiple thumbnails for selection
         if (cloudinaryResult.duration) {
-          videoThumbnails = CloudinaryService.getVideoThumbnails(
+          videoThumbnails = cloudinaryService.getVideoThumbnails(
             cloudinaryResult.public_id,
             cloudinaryResult.duration
           );
           thumbnail = videoThumbnails[0]; // Default to first
         } else {
-          thumbnail = CloudinaryService.getVideoThumbnail(cloudinaryResult.public_id, {
+          thumbnail = cloudinaryService.getVideoThumbnail(cloudinaryResult.public_id, {
             width: 400,
             height: 300,
           });
@@ -135,7 +135,7 @@ export class MediaController {
       } else if (mediaType === 'image') {
         thumbnail = cloudinaryResult.secure_url;
       } else if (req.file.mimetype === 'application/pdf') {
-        thumbnail = CloudinaryService.getPdfThumbnail(cloudinaryResult.public_id);
+        thumbnail = cloudinaryService.getPdfThumbnail(cloudinaryResult.public_id);
       }
 
       // Build enhanced metadata
@@ -240,7 +240,7 @@ export class MediaController {
         });
 
         try {
-          await CloudinaryService.deleteFile(cloudinaryResult.public_id);
+          await cloudinaryService.deleteFile(cloudinaryResult.public_id);
         } catch (cleanupError) {
           logger.error('Failed to cleanup Cloudinary file after DB error (orphan created)', {
             cloudinaryId: cloudinaryResult.public_id,

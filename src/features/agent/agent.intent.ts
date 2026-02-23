@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/llm.service';
 import { ChatMessage } from './agent.memory';
+import { Types } from 'mongoose';
 
 // 1. Define Intention Types
 export enum AgentIntentType {
@@ -62,7 +63,7 @@ export class AgentIntentClassifier {
      * Unified Classification & Extraction
      * Performs intent classification and entity extraction in a single pass to reduce latency.
      */
-    async classify(userId: string, text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
+    async classify(userId: string | Types.ObjectId, text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
         // 1. Prepare Context
         const historyText = history.slice(-3).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 

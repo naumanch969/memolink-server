@@ -4,12 +4,14 @@ import { logger } from '../../config/logger';
 import { cryptoService } from '../crypto/crypto.service';
 import { socketService } from './socket.service';
 import { SocketEvents } from './socket.types';
+import { config } from '../../config/env';
 
 
 export class SocketManager {
     private io: SocketServer;
 
     constructor(server: HttpServer) {
+
         this.io = new SocketServer(server, {
             cors: {
                 origin: process.env.CLIENT_URL || '*',
@@ -37,7 +39,6 @@ export class SocketManager {
 
     private async initRedisBridge(): Promise<void> {
         try {
-            const { config } = await import('../../config/env');
             const IORedis = (await import('ioredis')).default;
             const subscriber = new IORedis(config.REDIS_URL);
 

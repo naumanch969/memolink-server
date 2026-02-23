@@ -2,9 +2,9 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { Notification } from './notification.model';
-import { CreateNotificationDTO, INotificationDocument } from './notification.types';
+import { CreateNotificationDTO, INotificationDocument, INotificationService } from './notification.types';
 
-export class NotificationService {
+export class NotificationService implements INotificationService {
 
     // Create a new notification
     async create(data: CreateNotificationDTO): Promise<INotificationDocument> {

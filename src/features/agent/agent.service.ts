@@ -9,23 +9,24 @@ import { graphService } from '../graph/graph.service';
 import reminderService from '../reminder/reminder.service';
 import webActivityService from '../web-activity/web-activity.service';
 import { AGENT_CONSTANTS } from './agent.constants';
+import { agentIntent, AgentIntentType, IntentResult } from './agent.intent';
+import { IAgentService } from './agent.interfaces';
 import { agentMemory } from './agent.memory';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { getAgentQueue } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
+import { intentDispatcher } from './handlers/intent.dispatcher';
 import { chatOrchestrator } from './orchestrators/chat.orchestrator';
 import { IUserPersonaDocument, UserPersona } from './persona.model';
-import { agentIntent, AgentIntentType, IntentResult } from './agent.intent';
-import { intentDispatcher } from './handlers/intent.dispatcher';
 
-export class AgentService {
+export class AgentService implements IAgentService {
     /**
      * ==========================================
      * TASK MANAGEMENT
      * ==========================================
      */
 
-    async createTask(userId: string, type: AgentTaskType, inputData: any): Promise<IAgentTaskDocument> {
+    async createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: any): Promise<IAgentTaskDocument> {
         const task = await AgentTask.create({
             userId,
             type,
@@ -274,7 +275,7 @@ export class AgentService {
         }
     }
 
-    async getPersona(userId: string): Promise<IUserPersonaDocument> {
+    async getPersona(userId: string | Types.ObjectId): Promise<IUserPersonaDocument> {
         let persona = await UserPersona.findOne({ userId });
         if (!persona) {
             persona = await UserPersona.create({ userId, summary: 'Synthesizing...', rawMarkdown: '# Persona Loading...', lastSynthesized: new Date() });
@@ -282,7 +283,7 @@ export class AgentService {
         return persona;
     }
 
-    async updatePersona(userId: string, data: Partial<IUserPersonaDocument>): Promise<IUserPersonaDocument> {
+    async updatePersona(userId: string | Types.ObjectId, data: Partial<IUserPersonaDocument>): Promise<IUserPersonaDocument> {
         const persona = await UserPersona.findOneAndUpdate(
             { userId },
             { $set: data },
@@ -291,7 +292,7 @@ export class AgentService {
         return persona;
     }
 
-    async triggerSynthesis(userId: string, force: boolean = false): Promise<void> {
+    async triggerSynthesis(userId: string | Types.ObjectId, force: boolean = false): Promise<void> {
         const persona = await this.getPersona(userId);
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         if (!force && persona.lastSynthesized > oneDayAgo && persona.rawMarkdown.length > 100) return;

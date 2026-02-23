@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 import { socketService } from '../../core/socket/socket.service';
@@ -13,7 +14,7 @@ export class NotificationDispatcher {
      * Dispatch a notification using a template
      */
     async dispatchFromTemplate(
-        userId: string,
+        userId: string | Types.ObjectId | Types.ObjectId,
         type: NotificationType,
         templateKey: string,
         payload: any,
@@ -85,7 +86,7 @@ export class NotificationDispatcher {
         return notification;
     }
 
-    private async isThrottled(userId: string, type: NotificationType): Promise<boolean> {
+    private async isThrottled(userId: string | Types.ObjectId, type: NotificationType): Promise<boolean> {
         try {
             const key = `notif_throttle:${userId}:${type}`;
             const count = await redisConnection.incr(key);

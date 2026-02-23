@@ -4,6 +4,7 @@ import { eventStream } from '../core/events/event.stream';
 import { EventType, MemolinkEvent } from '../core/events/event.types';
 import { EdgeType, NodeType } from '../features/graph/edge.model';
 import { graphService } from '../features/graph/graph.service';
+import { Types } from 'mongoose';
 
 export class GraphWorker {
     private isRunning = false;
@@ -36,7 +37,7 @@ export class GraphWorker {
 
                     try {
                         // 1. Validate ID basics
-                        const isValidId = (id: string) => id && id.length === 24 && /^[0-9a-fA-F]+$/.test(id);
+                        const isValidId = (id: string | Types.ObjectId) => id && Types.ObjectId.isValid(id);
 
                         if (event.userId && !isValidId(event.userId)) {
                             logger.warn(`[GraphWorker] Skipping event ${event.id}: Invalid userId ${event.userId}`);

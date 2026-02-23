@@ -1,5 +1,6 @@
 import { ZodSchema } from 'zod';
 import { ToolDefinition } from '../../features/agent/tools/types';
+import { Types } from 'mongoose';
 
 export interface LLMGenerativeOptions {
     temperature?: number;
@@ -9,7 +10,7 @@ export interface LLMGenerativeOptions {
     tools?: ToolDefinition[];  // Generic tool/function definitions for the provider
 
     // Usage tracking context (not sent to the model)
-    userId?: string;
+    userId?: string | Types.ObjectId;
     workflow?: string;
 }
 

@@ -4,13 +4,14 @@ import { LLMService } from '../../../core/llm/llm.service';
 import Entry from '../../entry/entry.model';
 import { AgentWorkflowResult } from '../agent.types';
 import { UserPersona } from '../persona.model';
+import { Types } from 'mongoose';
 
 const PersonaSynthesisSchema = z.object({
     summary: z.string().describe('A 2-3 sentence executive summary of the user\'s current state and focus.'),
     rawMarkdown: z.string().describe('The comprehensive "Living Persona" document in Markdown. Use headers, bullet points, and deep psychological analysis.')
 });
 
-export const runPersonaSynthesis = async (userId: string, inputData: any): Promise<AgentWorkflowResult> => {
+export const runPersonaSynthesis = async (userId: string | Types.ObjectId, inputData: any): Promise<AgentWorkflowResult> => {
     try {
         logger.info(`Starting deep persona synthesis for user ${userId}`);
 

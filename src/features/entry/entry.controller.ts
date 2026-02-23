@@ -54,7 +54,7 @@ export class EntryController {
         status: needsAI ? 'processing' : 'ready'
       });
 
-      // 5. POST-CREATE SIDE EFFECTS (Fire and forget or background tasks)
+      // 5. POST-CREATE SIDE EFFECTS (Fire and forget | background tasks)
       // Update Tag Usage
       if (explicitTags.length > 0) {
         tagService.incrementUsage(userId, explicitTags).catch(e => logger.error('Tag usage increment failed', e));

@@ -1,4 +1,5 @@
 
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 import { AGENT_CONSTANTS } from './agent.constants';
@@ -12,12 +13,12 @@ export interface ChatMessage {
 
 export class AgentMemory {
 
-    private getKey(userId: string): string {
+    private getKey(userId: string | Types.ObjectId): string {
         return `agent:memory:${userId}`;
     }
 
     // Add a message to the user's short-term memory
-    async addMessage(userId: string, role: 'user' | 'agent' | 'system', content: string) {
+    async addMessage(userId: string | Types.ObjectId, role: 'user' | 'agent' | 'system', content: string) {
         const key = this.getKey(userId);
         const message: ChatMessage = { role, content, timestamp: Date.now() };
 
@@ -51,7 +52,7 @@ export class AgentMemory {
     }
 
     // Get recent conversation history
-    async getHistory(userId: string): Promise<ChatMessage[]> {
+    async getHistory(userId: string | Types.ObjectId): Promise<ChatMessage[]> {
         const key = this.getKey(userId);
 
         // 1. Try Redis first

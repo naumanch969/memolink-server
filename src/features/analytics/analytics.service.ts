@@ -8,9 +8,9 @@ import { Media } from '../media/media.model';
 import { Tag } from '../tag/tag.model';
 import { analyticsGraphService } from './analytics-graph.service';
 import { analyticsInsightsService } from './analytics-insights.service';
-import { AnalyticsData, AnalyticsRequest } from './analytics.interfaces';
+import { AnalyticsData, AnalyticsRequest, IAnalyticsService } from './analytics.interfaces';
 
-export class AnalyticsService {
+export class AnalyticsService implements IAnalyticsService {
   /**
    * Main dashboard analytics aggregator.
    */

@@ -29,10 +29,10 @@ export enum SocketEvents {
 
     // Reports
     REPORT_UPDATED = 'report:updated',
-    
+
     // Entries
     ENTRY_UPDATED = 'entry:updated',
-    
+
     // System
     SYSTEM_HEALTH_UPDATE = 'system:health_update'
 }
@@ -41,3 +41,13 @@ export interface SocketData {
     userId: string;
     role: UserRoleType;
 }
+
+export interface ISocketService {
+    setIo(io: any): void;
+    initRedisBridge(subscriber: any): void;
+    emitAll(event: SocketEvents, data: any): void;
+    emitToUser(userId: string | any, event: SocketEvents, data: any): void;
+    emitToRole(role: UserRoleType, event: SocketEvents, data: any): void;
+    emitToRoom(room: string, event: SocketEvents, data: any): void;
+}
+

@@ -1,5 +1,7 @@
+import { Types } from "mongoose";
+
 export interface LLMUsageEntry {
-    userId: string;
+    userId: string | Types.ObjectId;
     workflow: string;
     modelName: string;
     promptTokens: number;
@@ -50,4 +52,10 @@ export interface GeminiCostsSummary {
     };
     projectedMonthEndCostUSD: number;
     recentLogs: LLMUsageLogDetail[];
+}
+
+export interface ILLMUsageService {
+    computeCost(modelName: string, promptTokens: number, completionTokens: number): number;
+    log(entry: LLMUsageEntry): void;
+    getGeminiCostsSummary(): Promise<GeminiCostsSummary>;
 }

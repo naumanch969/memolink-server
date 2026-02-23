@@ -1,14 +1,17 @@
+import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { GOAL_STATUS } from '../../shared/constants';
 import reminderService from '../reminder/reminder.service';
 import { RecurrenceFrequency } from '../reminder/reminder.types';
 
-export class GoalReminderService {
+import { IGoalReminderService } from './goal.interfaces';
+
+export class GoalReminderService implements IGoalReminderService {
     /**
      * Manages reminders linked to a goal based on its tracking schedule.
      * Deletes old reminders and recreates new ones if appropriate.
      */
-    async manageReminders(userId: string, goal: any): Promise<void> {
+    async manageReminders(userId: string | Types.ObjectId, goal: any): Promise<void> {
         try {
             // 1. Delete existing linked reminders
             const { Reminder } = await import('../reminder/reminder.model');

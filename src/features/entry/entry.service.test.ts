@@ -90,7 +90,7 @@ describe('EntryService', () => {
 
             (Entry.countDocuments as jest.Mock).mockResolvedValue(1);
 
-            const result = await entryService.getUserEntries(userId, { page: 1, limit: 10 });
+            const result = await entryService.getEntries(userId, { page: 1, limit: 10 });
 
             expect(result.entries).toEqual(mockEntries);
             expect(result.total).toBe(1);

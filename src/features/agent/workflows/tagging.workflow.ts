@@ -4,6 +4,7 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import { MOOD_METADATA } from '../../entry/mood.config';
 import { TagService } from '../../tag/tag.service';
+import { Types } from 'mongoose';
 
 // Input Validation Schema
 export const EntryTaggingInputSchema = z.object({
@@ -22,7 +23,7 @@ const TaggingOutputSchema = z.object({
 
 export type TaggingOutput = z.infer<typeof TaggingOutputSchema>;
 
-export async function runEntryTagging(userId: string, input: EntryTaggingInput): Promise<TaggingOutput> {
+export async function runEntryTagging(userId: string | Types.ObjectId, input: EntryTaggingInput): Promise<TaggingOutput> {
     logger.info(`Running Auto-Tagging for entry ${input.entryId}`);
 
     // 1. Fetch User's Existing Tags (to influence the LLM to reuse them)

@@ -1,11 +1,18 @@
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 
-export class CacheService {
-    private static TTL = 24 * 60 * 60; // 24 hours in seconds
+export interface ICacheService {
+    get<T>(key: string): Promise<T | null>;
+    set(key: string, value: any, ttl?: number): Promise<void>;
+    del(key: string): Promise<void>;
+    getEmbeddingKey(text: string): string;
+}
+
+export class CacheService implements ICacheService {
+    private readonly TTL = 24 * 60 * 60; // 24 hours in seconds
 
     // get cached value by key
-    static async get<T>(key: string): Promise<T | null> {
+    async get<T>(key: string): Promise<T | null> {
         try {
             const data = await redisConnection.get(key);
             if (!data) return null;
@@ -17,7 +24,7 @@ export class CacheService {
     }
 
     // set caches value with key
-    static async set(key: string, value: any, ttl: number = this.TTL): Promise<void> {
+    async set(key: string, value: any, ttl: number = this.TTL): Promise<void> {
         try {
             const data = JSON.stringify(value);
             await redisConnection.set(key, data, 'EX', ttl);
@@ -27,7 +34,7 @@ export class CacheService {
     }
 
     // delete cached value by key
-    static async del(key: string): Promise<void> {
+    async del(key: string): Promise<void> {
         try {
             await redisConnection.del(key);
         } catch (error) {
@@ -36,9 +43,13 @@ export class CacheService {
     }
 
     // generate a cache key for an embedding query
-    static getEmbeddingKey(text: string): string {
+    getEmbeddingKey(text: string): string {
         // Basic sanitization and hashing would be better, but for now simple key
         const sanitized = text.trim().toLowerCase();
         return `embedding:${Buffer.from(sanitized).toString('base64').slice(0, 100)}`;
     }
 }
+
+export const cacheService = new CacheService();
+export default cacheService;
+

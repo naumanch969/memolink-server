@@ -10,7 +10,15 @@ interface EmailOptions {
   text?: string;
 }
 
-class EmailService {
+export interface IEmailService {
+  sendEmail(options: EmailOptions): Promise<boolean>;
+  sendVerificationEmail(email: string, name: string, otp: string): Promise<boolean>;
+  sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<boolean>;
+  sendWelcomeEmail(email: string, name: string): Promise<boolean>;
+  sendSecurityAlert(email: string, name: string, wrongAnswer: string): Promise<boolean>;
+}
+
+class EmailService implements IEmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {

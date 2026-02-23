@@ -151,3 +151,30 @@ export interface BulkMoveMediaRequest {
   mediaIds: string[];
   targetFolderId?: string;
 }
+
+export interface IChunkedUploadService {
+  createSession(request: any): any;
+  uploadChunk(request: any): any;
+  getSessionStatus(sessionId: string): any;
+  completeUpload(sessionId: string): any;
+  peekUpload(sessionId: string): any;
+  cancelSession(sessionId: string): boolean;
+  validateOwnership(sessionId: string, userId: string): boolean;
+  getUserSessions(userId: string): any[];
+  getStats(): any;
+}
+
+export interface IStorageService {
+  reserveSpace(userId: string, size: number): Promise<any>;
+  getStorageStats(userId: string): Promise<any>;
+  getStorageBreakdown(userId: string): Promise<any>;
+  canUpload(userId: string, fileSize: number): Promise<{ allowed: boolean; reason?: string }>;
+  incrementUsage(userId: string, bytes: number): Promise<void>;
+  decrementUsage(userId: string, bytes: number): Promise<void>;
+  syncStorageUsage(userId: string): Promise<number>;
+  findOrphanedMedia(userId: string): Promise<any[]>;
+  getCleanupSuggestions(userId: string): Promise<any[]>;
+  formatBytes(bytes: number): string;
+}
+
+

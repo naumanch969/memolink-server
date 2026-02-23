@@ -23,16 +23,9 @@ export class GeminiProvider implements ILLMProvider {
         this.model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
     }
 
-    /**
-     * Extracts usageMetadata from a Gemini response and logs it via the usage service.
-     * Fire-and-forget: never blocks or throws.
-     */
-    private logUsage(
-        response: GenerateContentResponse,
-        model: string,
-        startTime: number,
-        options?: LLMGenerativeOptions
-    ): void {
+
+    // Extracts usageMetadata from a Gemini response and logs it via the usage service. | Fire-and-forget: never blocks or throws.
+    private logUsage(response: GenerateContentResponse, model: string, startTime: number, options?: LLMGenerativeOptions): void {
         const usage = response.usageMetadata;
         if (!usage) return;
 

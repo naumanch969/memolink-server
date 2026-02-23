@@ -1,5 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
-import { CloudinaryService } from '../../config/cloudinary';
+import { cloudinaryService } from '../../config/cloudinary';
 import { emailService } from '../../config/email';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
@@ -247,7 +247,7 @@ export class AuthService implements IAuthService {
           const urlParts = user.avatar.split('/');
           const publicIdWithExtension = urlParts.slice(-2).join('/'); // e.g., "memolink/avatars/abc123.jpg"
           const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, ''); // Remove extension
-          await CloudinaryService.deleteFile(publicId);
+          await cloudinaryService.deleteFile(publicId);
         } catch (deleteError) {
           logger.warn('Failed to delete old avatar from Cloudinary:', deleteError);
           // Continue even if delete fails
@@ -255,14 +255,14 @@ export class AuthService implements IAuthService {
       }
 
       // Upload new avatar to Cloudinary
-      const result = await CloudinaryService.uploadFile(file, 'memolink/avatars', {
+      const result = await cloudinaryService.uploadFile(file, 'memolink/avatars', {
         extractExif: false,
         enableOcr: false,
         enableAiTagging: false,
       });
 
       // Generate optimized avatar URL (small size for profile pictures)
-      const avatarUrl = CloudinaryService.getOptimizedUrl(result.public_id, {
+      const avatarUrl = cloudinaryService.getOptimizedUrl(result.public_id, {
         width: 256,
         height: 256,
         crop: 'fill',
@@ -298,7 +298,7 @@ export class AuthService implements IAuthService {
           const urlParts = user.avatar.split('/');
           const publicIdWithExtension = urlParts.slice(-2).join('/');
           const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, '');
-          await CloudinaryService.deleteFile(publicId);
+          await cloudinaryService.deleteFile(publicId);
         } catch (deleteError) {
           logger.warn('Failed to delete avatar from Cloudinary:', deleteError);
         }

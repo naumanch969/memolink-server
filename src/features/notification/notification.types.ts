@@ -28,7 +28,7 @@ export interface INotificationDocument extends INotification, Document {
 
 // DTOs
 export interface CreateNotificationDTO {
-    userId: string;
+    userId: string | Types.ObjectId;
     type: NotificationType;
     title: string;
     message: string;
@@ -60,3 +60,15 @@ export interface INotificationQueue {
 export interface INotificationQueueDocument extends INotificationQueue, Document {
     _id: Types.ObjectId;
 }
+
+export interface INotificationService {
+    create(data: CreateNotificationDTO): Promise<INotificationDocument>;
+    getUserNotifications(userId: string | Types.ObjectId, limit?: number, offset?: number, unreadOnly?: boolean): Promise<{ notifications: any[]; total: number; unreadCount: number }>;
+    markAsRead(userId: string | Types.ObjectId, notificationId: string): Promise<void>;
+    markAllAsRead(userId: string | Types.ObjectId): Promise<void>;
+    delete(userId: string | Types.ObjectId, notificationId: string): Promise<void>;
+    deleteUserData(userId: string | Types.ObjectId): Promise<number>;
+    cleanupOldNotifications(): Promise<number>;
+    registerPushToken(userId: string | Types.ObjectId, token: string, platform: string): Promise<void>;
+}
+

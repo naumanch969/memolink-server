@@ -2,10 +2,10 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { GOAL_STATUS } from '../../shared/constants';
 import { StreakUtil } from '../../shared/utils/streak.util';
-import { GoalPeriod, IGoal, UpdateGoalProgressParams } from './goal.interfaces';
+import { GoalPeriod, IGoal, IGoalProgressService, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 
-export class GoalProgressService {
+export class GoalProgressService implements IGoalProgressService {
     /**
      * Updates progress for a goal, records history logs, recomputes streaks,
      * handles completion triggers, and rolls up progress to parents.

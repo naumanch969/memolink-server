@@ -7,20 +7,10 @@ import { validateEmailOrThrow } from '../../shared/email-validator';
 import { User } from '../auth/auth.model';
 import { getEmailQueue } from '../email/queue/email.queue';
 import { AnnouncementDeliveryLog, DeliveryStatus } from './announcement-delivery-log.model';
+import { CreateAnnouncementDto, IAnnouncementService } from './announcement.interfaces';
 import { Announcement, AnnouncementStatus, AnnouncementType, IAnnouncement } from './announcement.model';
 
-interface CreateAnnouncementDto {
-    title: string;
-    content: string;
-    type: AnnouncementType;
-    target?: {
-        roles?: string[];
-    };
-    scheduledAt?: Date;
-    authorId: string;
-}
-
-export class AnnouncementService {
+export class AnnouncementService implements IAnnouncementService {
 
     async createAnnouncement(data: CreateAnnouncementDto): Promise<IAnnouncement> {
         const announcement = new Announcement({

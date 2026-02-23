@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 import { AccessContext, EventType, MemolinkEvent } from './event.types';
+import { Types } from 'mongoose';
 
 export class EventStream {
     private redis: Redis;
@@ -21,7 +22,7 @@ export class EventStream {
      */
     async publish<T>(
         type: EventType,
-        userId: string,
+        userId: string | Types.ObjectId,
         payload: T,
         source: AccessContext = { deviceId: 'server', platform: 'server', version: '1.0.0' },
         meta: any = {}

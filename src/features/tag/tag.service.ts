@@ -6,8 +6,8 @@ import { CreateTagRequest, ITag, ITagService, UpdateTagRequest } from './tag.int
 import { Tag } from './tag.model';
 
 export class TagService implements ITagService {
- 
-  async createTag(userId: string, tagData: CreateTagRequest): Promise<ITag> {
+
+  async createTag(userId: string | Types.ObjectId, tagData: CreateTagRequest): Promise<ITag> {
     try {
       if (tagData.name) {
         tagData.name = tagData.name.toUpperCase();
@@ -32,7 +32,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async getTagById(tagId: string, userId: string): Promise<ITag> {
+  async getTagById(tagId: string, userId: string | Types.ObjectId): Promise<ITag> {
     try {
       const tag = await Tag.findOne({ _id: tagId, userId });
       if (!tag) {
@@ -45,7 +45,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async getUserTags(userId: string, options: any = {}): Promise<{ tags: ITag[]; total: number; page: number; limit: number; totalPages: number; }> {
+  async getUserTags(userId: string | Types.ObjectId, options: any = {}): Promise<{ tags: ITag[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'usageCount');
@@ -63,7 +63,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async updateTag(tagId: string, userId: string, updateData: UpdateTagRequest): Promise<ITag> {
+  async updateTag(tagId: string, userId: string | Types.ObjectId, updateData: UpdateTagRequest): Promise<ITag> {
     try {
       if (updateData.name) {
         updateData.name = updateData.name.toUpperCase();
@@ -86,7 +86,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async deleteTag(tagId: string, userId: string): Promise<void> {
+  async deleteTag(tagId: string, userId: string | Types.ObjectId): Promise<void> {
     try {
       const tag = await Tag.findOneAndDelete({ _id: tagId, userId });
       if (!tag) {
@@ -99,7 +99,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async searchTags(userId: string, query: string): Promise<ITag[]> {
+  async searchTags(userId: string | Types.ObjectId, query: string): Promise<ITag[]> {
     try {
       const tags = await Tag.find({
         userId,
@@ -115,7 +115,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async findOrCreateTag(userId: string, name: string): Promise<ITag> {
+  async findOrCreateTag(userId: string | Types.ObjectId, name: string): Promise<ITag> {
     try {
       const uppercasedName = name.toUpperCase();
       // Try to find existing tag
@@ -142,7 +142,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async incrementUsage(userId: string, tagIds: string[]): Promise<void> {
+  async incrementUsage(userId: string | Types.ObjectId, tagIds: string[]): Promise<void> {
     try {
       if (!tagIds || tagIds.length === 0) return;
 
@@ -153,11 +153,10 @@ export class TagService implements ITagService {
       );
     } catch (error) {
       logger.error('Increment usage failed:', error);
-      // We don't throw here to prevent unnecessary failures in main flow
     }
   }
 
-  async decrementUsage(userId: string, tagIds: string[]): Promise<void> {
+  async decrementUsage(userId: string | Types.ObjectId, tagIds: string[]): Promise<void> {
     try {
       if (!tagIds || tagIds.length === 0) return;
 
@@ -172,7 +171,7 @@ export class TagService implements ITagService {
     }
   }
 
-  async getTagStats(userId: string) {
+  async getTagStats(userId: string | Types.ObjectId) {
     try {
       const stats = await Tag.aggregate([
         { $match: { userId: new Types.ObjectId(userId) } },
@@ -216,7 +215,7 @@ export class TagService implements ITagService {
   }
 
   // Delete all user data (Cascade Delete)
-  async deleteUserData(userId: string): Promise<number> {
+  async deleteUserData(userId: string | Types.ObjectId): Promise<number> {
     const result = await Tag.deleteMany({ userId });
     logger.info(`Deleted ${result.deletedCount} tags for user ${userId}`);
     return result.deletedCount || 0;

@@ -12,24 +12,9 @@ import { reminderService } from '../reminder/reminder.service';
 import { tagService } from '../tag/tag.service';
 import { webActivityService } from '../web-activity/web-activity.service';
 
-export interface UserListFilter {
-    page: number;
-    limit: number;
-    search?: string;
-    role?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    isVerified?: boolean;
-}
+import { IUsersAdminService, UserListFilter, UserListResult } from './users.interfaces';
 
-export interface UserListResult {
-    users: any[]; // User objects from Mongo lean()
-    total: number;
-    page: number;
-    totalPages: number;
-}
-
-export class UsersAdminService {
+export class UsersAdminService implements IUsersAdminService {
 
     /**
      * Get all users with pagination and filtering

@@ -1,9 +1,9 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { CreateMoodRequest, MoodFilter } from './mood.interfaces';
+import { CreateMoodRequest, IMoodService, MoodFilter } from './mood.interfaces';
 import Mood from './mood.model';
 
-export class MoodService {
+export class MoodService implements IMoodService {
     /**
      * Normalizes a date to YYYY-MM-DD 00:00:00 UTC
      */
@@ -18,7 +18,7 @@ export class MoodService {
         return normalized;
     }
 
-    async upsertMood(userId: string, data: CreateMoodRequest) {
+    async upsertMood(userId: string | Types.ObjectId, data: CreateMoodRequest) {
         try {
             const normalizedDate = this.normalizeDate(data.date);
 
@@ -46,7 +46,7 @@ export class MoodService {
         }
     }
 
-    async getMoods(userId: string, filter: MoodFilter = {}) {
+    async getMoods(userId: string | Types.ObjectId, filter: MoodFilter = {}) {
         try {
             const query: any = { userId: new Types.ObjectId(userId) };
 
@@ -63,7 +63,7 @@ export class MoodService {
         }
     }
 
-    async deleteMood(userId: string, date: Date) {
+    async deleteMood(userId: string | Types.ObjectId, date: Date) {
         try {
             const normalizedDate = this.normalizeDate(date);
             return await Mood.findOneAndDelete({
@@ -80,7 +80,7 @@ export class MoodService {
      * Recalculates the daily average mood score based on all entries for a specific day.
      * This ensures the daily mood reflects the cumulative state of journal entries.
      */
-    async recalculateDailyMoodFromEntries(userId: string, date: Date): Promise<void> {
+    async recalculateDailyMoodFromEntries(userId: string | Types.ObjectId, date: Date): Promise<void> {
         try {
             // We use dynamic import for the model if needed, but since it's a model it's usually fine
             const { Entry } = await import('../entry/entry.model');

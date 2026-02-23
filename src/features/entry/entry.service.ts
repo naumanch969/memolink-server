@@ -17,7 +17,7 @@ import { LLMService } from '../../core/llm/llm.service';
 export class EntryService implements IEntryService {
 
   // Create new entry with core persistence logic and deduplication
-  async createEntry(userId: string, entryData: CreateEntryRequest): Promise<IEntry> {
+  async createEntry(userId: string | Types.ObjectId, entryData: CreateEntryRequest): Promise<IEntry> {
     try {
       // 1. FAST DEDUPLICATION (Double-submit prevention)
       const last30Secs = new Date(Date.now() - 30000);
@@ -54,7 +54,7 @@ export class EntryService implements IEntryService {
   }
 
   // Fetch a single entry by ID with populated relations
-  async getEntryById(entryId: string, userId: string): Promise<IEntry> {
+  async getEntryById(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
     const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media']);
     if (!entry) throw ApiError.notFound('Entry');
     return entry;
@@ -67,7 +67,7 @@ export class EntryService implements IEntryService {
    * - Vector Search (Semantic/Deep)
    * - Hybrid Search (RRF)
    */
-  async getEntries(userId: string, options: GetEntriesRequest): Promise<GetEntriesResponse> {
+  async getEntries(userId: string | Types.ObjectId, options: GetEntriesRequest): Promise<GetEntriesResponse> {
     try {
       const limit = Math.min(Math.max(1, options.limit || 20), 100);
       const userObjectId = new Types.ObjectId(userId);
@@ -150,7 +150,7 @@ export class EntryService implements IEntryService {
   }
 
   // Internal helper for semantic lookup
-  private async performVectorSearch(userId: string, options: GetEntriesRequest): Promise<any> {
+  private async performVectorSearch(userId: string | Types.ObjectId, options: GetEntriesRequest): Promise<any> {
     const { limit, skip } = PaginationUtil.getPaginationParams(options);
     const queryVector = await LLMService.generateEmbeddings(options.q!, { workflow: 'search', userId });
 
@@ -185,7 +185,7 @@ export class EntryService implements IEntryService {
   }
 
   // Internal helper for Hybrid (RRF)
-  private async performHybridSearch(userId: string, options: GetEntriesRequest): Promise<any> {
+  private async performHybridSearch(userId: string | Types.ObjectId, options: GetEntriesRequest): Promise<any> {
     const limit = options.limit || 20;
     const [keywordRes, vectorRes] = await Promise.all([
       this.getEntries(userId, { ...options, mode: 'instant', limit: 50 }),
@@ -240,12 +240,12 @@ export class EntryService implements IEntryService {
   }
 
   // Placeholder for searchEntries (renamed/absorbed)
-  async searchEntries(userId: string, searchParams: GetEntriesRequest) {
+  async searchEntries(userId: string | Types.ObjectId, searchParams: GetEntriesRequest) {
     return this.getEntries(userId, searchParams);
   }
 
   // Generates a comprehensive statistical overview of user entries.
-  async getEntryStats(userId: string): Promise<EntryStats> {
+  async getEntryStats(userId: string | Types.ObjectId): Promise<EntryStats> {
     try {
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -307,7 +307,7 @@ export class EntryService implements IEntryService {
   }
 
   // Update entry and re-trigger mood calculation if needed
-  async updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry> {
+  async updateEntry(entryId: string, userId: string | Types.ObjectId, updateData: UpdateEntryRequest): Promise<IEntry> {
     try {
       const existingEntry = await Entry.findOne({ _id: entryId, userId });
       if (!existingEntry) throw ApiError.notFound('Entry');
@@ -362,7 +362,7 @@ export class EntryService implements IEntryService {
   }
 
   // Delete entry and update tag usage metrics
-  async deleteEntry(entryId: string, userId: string): Promise<void> {
+  async deleteEntry(entryId: string, userId: string | Types.ObjectId): Promise<void> {
     try {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
       if (!entry) throw ApiError.notFound('Entry');
@@ -378,7 +378,7 @@ export class EntryService implements IEntryService {
   }
 
   // Toggle favorite status of an entry
-  async toggleFavorite(entryId: string, userId: string): Promise<IEntry> {
+  async toggleFavorite(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
     const entry = await Entry.findOne({ _id: entryId, userId });
     if (!entry) throw ApiError.notFound('Entry');
     entry.isFavorite = !entry.isFavorite;
@@ -387,7 +387,7 @@ export class EntryService implements IEntryService {
   }
 
   // Minimal data fetch for calendar views
-  async getCalendarEntries(userId: string, startDate: string, endDate: string): Promise<any[]> {
+  async getCalendarEntries(userId: string | Types.ObjectId, startDate: string, endDate: string): Promise<any[]> {
     return Entry.find({
       userId,
       date: { $gte: new Date(startDate), $lte: new Date(endDate) }
@@ -395,7 +395,7 @@ export class EntryService implements IEntryService {
   }
 
   // Cascade delete all user entries
-  async deleteUserData(userId: string): Promise<number> {
+  async deleteUserData(userId: string | Types.ObjectId): Promise<number> {
     const result = await Entry.deleteMany({ userId });
     logger.info(`Deleted ${result.deletedCount} entries for user ${userId}`);
     return result.deletedCount || 0;

@@ -11,7 +11,7 @@ import { AgentIntentType, Intention, IntentResult } from '../agent.intent';
 import { AgentTaskType } from '../agent.types';
 
 export interface ExecuteParams {
-    userId: string;
+    userId: string | Types.ObjectId | Types.ObjectId;
     text: string;
     entry: any; // The persisting entry
     intentResult: IntentResult;
@@ -119,7 +119,7 @@ export class IntentDispatcher {
         };
     }
 
-    private async handleReminderCreate(userId: string, text: string, entry: any, intention: Intention) {
+    private async handleReminderCreate(userId: string | Types.ObjectId, text: string, entry: any, intention: Intention) {
         const commandObject = await reminderService.createReminder(userId, {
             title: intention.extractedEntities?.title || text,
             date: intention.parsedEntities?.date?.toISOString() || new Date().toISOString(),
@@ -141,7 +141,7 @@ export class IntentDispatcher {
         return commandObject;
     }
 
-    private async handleGoalCreate(userId: string, text: string, entry: any, intention: Intention) {
+    private async handleGoalCreate(userId: string | Types.ObjectId, text: string, entry: any, intention: Intention) {
         const meta = intention.extractedEntities?.metadata || {};
         const hasTargetValue = meta.targetValue !== undefined && meta.targetValue !== null;
 
@@ -167,7 +167,7 @@ export class IntentDispatcher {
         return commandObject;
     }
 
-    private async handleKnowledgeQuery(userId: string, text: string, entry: any) {
+    private async handleKnowledgeQuery(userId: string | Types.ObjectId, text: string, entry: any) {
         const [contextEntries, graphContext] = await Promise.all([
             this.findSimilarEntries(userId, text, 5),
             graphService.getGraphSummary(userId)
@@ -204,7 +204,7 @@ export class IntentDispatcher {
         return { answer };
     }
 
-    private async handleReminderUpdate(userId: string, text: string, entry: any, intention: Intention) {
+    private async handleReminderUpdate(userId: string | Types.ObjectId, text: string, entry: any, intention: Intention) {
         let searchTitle = intention.extractedEntities?.title || text;
         searchTitle = searchTitle.replace(/^(that|the|my|this|a|it|task|reminder)\s+/i, '').trim();
         searchTitle = searchTitle.replace(/\s+(task|reminder|doc)$/i, '').trim();
@@ -242,7 +242,7 @@ export class IntentDispatcher {
         }
     }
 
-    private async handleTaskCreate(userId: string, text: string, entry: any, intention: Intention) {
+    private async handleTaskCreate(userId: string | Types.ObjectId, text: string, entry: any, intention: Intention) {
         const commandObject = await reminderService.createReminder(userId, {
             title: intention.extractedEntities?.title || text,
             date: new Date().toISOString(),
@@ -258,7 +258,7 @@ export class IntentDispatcher {
         return commandObject;
     }
 
-    private async handleJournaling(userId: string, entry: any, intention: any) {
+    private async handleJournaling(userId: string | Types.ObjectId, entry: any, intention: any) {
         if (entry?._id) {
             await entryService.updateEntry(entry._id.toString(), userId, {
                 date: intention.parsedEntities?.date || entry.date,
@@ -271,7 +271,7 @@ export class IntentDispatcher {
      * Finds semantically similar entries for a given text
      * (Duplicated from AgentService for now to keep IntentDispatcher independent)
      */
-    private async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
+    private async findSimilarEntries(userId: string | Types.ObjectId, text: string, limit: number = 5): Promise<any[]> {
         try {
             const queryVector = await LLMService.generateEmbeddings(text, {
                 workflow: 'similarity_search',

@@ -3,10 +3,10 @@ import { logger } from '../../config/logger';
 import DateManager from '../../core/utils/date-manager.util';
 import { ActivityDefinitions } from './activity-definitions.model';
 import { WebActivitySyncLog } from './web-activity-sync-log.model';
-import { ActivitySyncBatch, IWebActivity } from './web-activity.interfaces';
+import { ActivitySyncBatch, IWebActivity, IWebActivityService } from './web-activity.interfaces';
 import { WebActivity } from './web-activity.model';
 
-export class WebActivityService {
+export class WebActivityService implements IWebActivityService {
     private static readonly DOT_REPLACEMENT = '__dot__';
 
     /**

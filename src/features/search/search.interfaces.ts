@@ -18,3 +18,8 @@ export interface GlobalSearchResponse {
     tags?: any[];
     total: number;
 }
+
+export interface ISearchService {
+    globalSearch(userId: string, params: GlobalSearchRequest): Promise<GlobalSearchResponse>;
+}
+

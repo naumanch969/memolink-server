@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 export enum EventType {
     // 1. System & Lifecycle
     SESSION_START = 'session_start',
@@ -33,7 +35,7 @@ export interface MemolinkEvent<T = any> {
     id: string;           // UUIDv4
     type: EventType;
     timestamp: number;    // UTC Epoch
-    userId: string;       // The owner of the event
+    userId: string | Types.ObjectId;       // The owner of the event
     source: AccessContext;
     payload: T;
     meta?: {

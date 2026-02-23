@@ -4,7 +4,9 @@ import jwt from 'jsonwebtoken';
 import { config } from '../../config/env';
 import { JWTPayload } from '../../features/auth/auth.interfaces';
 
-export class CryptoService {
+import { ICryptoService } from './crypto.interface';
+
+export class CryptoService implements ICryptoService {
   // Password hashing
   async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, config.BCRYPT_ROUNDS);

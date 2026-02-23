@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { Types } from 'mongoose';
 
 export enum TelemetryEvent {
     AI_REQUEST_COMPLETED = 'ai_request_completed',
@@ -13,7 +14,7 @@ export interface AIUsagePayload {
     promptTokens: number;
     completionTokens: number;
     feature?: string;
-    userId?: string;
+    userId?: string | Types.ObjectId;
 }
 
 export interface HTTPUsagePayload {

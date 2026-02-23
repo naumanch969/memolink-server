@@ -3,7 +3,9 @@ import { logger } from '../../config/logger';
 import { StreakUtil } from '../../shared/utils/streak.util';
 import { Entry } from '../entry/entry.model';
 
-export class AnalyticsInsightsService {
+import { IAnalyticsInsightsService } from './analytics.interfaces';
+
+export class AnalyticsInsightsService implements IAnalyticsInsightsService {
     /**
      * Calculates journaling streaks using StreakUtil with a 1-day grace period (2 days total delta).
      */

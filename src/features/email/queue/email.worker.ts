@@ -2,7 +2,7 @@ import { Job } from 'bullmq';
 import { logger } from '../../../config/logger';
 import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
-import { QueueService } from '../../../core/queue/QueueService';
+import { queueService } from '../../../core/queue/queue.service';
 import { validateEmailOrThrow } from '../../../shared/email-validator';
 import { EMAIL_QUEUE_NAME } from './email.queue';
 import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData } from './email.types';
@@ -71,7 +71,7 @@ const processEmailJob = async (job: Job<EmailJob>) => {
 
 export const initEmailWorker = () => {
     // Register the worker
-    const worker = QueueService.registerWorker(EMAIL_QUEUE_NAME, processEmailJob, {
+    const worker = queueService.registerWorker(EMAIL_QUEUE_NAME, processEmailJob, {
         concurrency: 5, // Process up to 5 emails concurrently
         limiter: {
             max: 10, // Max 10 emails

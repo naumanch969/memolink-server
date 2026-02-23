@@ -10,16 +10,22 @@ export interface IQueueDefinition<T = any> {
     worker?: Worker<T>;
 }
 
-export class QueueService {
-    private static queues: Map<string, Queue> = new Map();
-    private static workers: Map<string, Worker> = new Map();
+export interface IQueueService {
+    registerQueue<T>(name: string, options?: Omit<QueueOptions, 'connection'>): Queue<T>;
+    registerWorker<T>(name: string, processor: Processor<T>, options?: Omit<WorkerOptions, 'connection'>): Worker<T>;
+    close(): Promise<void>;
+}
+
+export class QueueService implements IQueueService {
+    private queues: Map<string, Queue> = new Map();
+    private workers: Map<string, Worker> = new Map();
 
     /**
      * Register a queue
      * @param name The name of the queue
      * @param options BullMQ Queue options
      */
-    static registerQueue<T>(name: string, options?: Omit<QueueOptions, 'connection'>): Queue<T> {
+    registerQueue<T>(name: string, options?: Omit<QueueOptions, 'connection'>): Queue<T> {
         if (this.queues.has(name)) {
             return this.queues.get(name) as Queue<T>;
         }
@@ -53,7 +59,7 @@ export class QueueService {
      * @param processor The job processor function
      * @param options BullMQ Worker options
      */
-    static registerWorker<T>(name: string, processor: Processor<T>, options?: Omit<WorkerOptions, 'connection'>): Worker<T> {
+    registerWorker<T>(name: string, processor: Processor<T>, options?: Omit<WorkerOptions, 'connection'>): Worker<T> {
         if (this.workers.has(name)) {
             logger.warn(`Worker for queue [${name}] already exists`);
             return this.workers.get(name) as Worker<T>;
@@ -90,10 +96,8 @@ export class QueueService {
         return worker;
     }
 
-    /**
-     * Gracefully close all queues and workers
-     */
-    static async close() {
+    // Gracefully close all queues and workers
+    async close() {
         logger.info('Closing all queues and workers...');
 
         const queueClosePromises = Array.from(this.queues.values()).map((q) => q.close());
@@ -103,3 +107,6 @@ export class QueueService {
         logger.info('All queues and workers closed');
     }
 }
+
+export const queueService = new QueueService();
+

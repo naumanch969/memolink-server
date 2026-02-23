@@ -8,14 +8,14 @@ import { EdgeType, NodeType } from '../graph/edge.model';
 import { graphService } from '../graph/graph.service';
 import { goalProgressService } from './goal-progress.service';
 import { goalReminderService } from './goal-reminder.service';
-import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
+import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, IGoalService, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
 import Goal from './goal.model';
 
-export class GoalService {
+export class GoalService implements IGoalService {
     /**
      * Create new Goal, calculate deadlines, and setup automation
      */
-    async createGoal(userId: string, params: CreateGoalParams): Promise<IGoal> {
+    async createGoal(userId: string | Types.ObjectId, params: CreateGoalParams): Promise<IGoal> {
         try {
             const startDate = params.startDate ? new Date(params.startDate) : new Date();
             let deadline = params.deadline ? new Date(params.deadline) : undefined;

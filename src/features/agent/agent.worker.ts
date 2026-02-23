@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { logger } from '../../config/logger';
-import { QueueService } from '../../core/queue/QueueService';
+import { queueService } from '../../core/queue/queue.service';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from './agent.model';
@@ -13,7 +13,7 @@ interface AgentJobData {
 }
 
 export const initAgentWorker = () => {
-    QueueService.registerWorker<AgentJobData>(AGENT_QUEUE_NAME, async (job: Job<AgentJobData>) => {
+    queueService.registerWorker<AgentJobData>(AGENT_QUEUE_NAME, async (job: Job<AgentJobData>) => {
         const { taskId } = job.data;
         logger.info(`Processing Agent Task: ${taskId}`);
 
@@ -175,7 +175,7 @@ export const initAgentWorker = () => {
             await task.save();
 
             // Broadcast status update
-            socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
+            socketService.emitToUser(task.userId.toString(), SocketEvents.AGENT_TASK_UPDATED, task);
 
             throw error; // Rethrow to let BullMQ handle retries if configured
         }

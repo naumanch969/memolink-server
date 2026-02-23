@@ -7,9 +7,9 @@ import Entry from '../entry/entry.model';
 import { llmUsageService } from '../llm-usage/llm-usage.service';
 import { SystemMetric } from './metric.model';
 
-import { SystemHealth } from './monitoring.types';
+import { IMonitoringService, SystemHealth } from './monitoring.types';
 
-export class MonitoringService {
+export class MonitoringService implements IMonitoringService {
     /**
      * Get Aggregated Dashboard Metrics for the last 24 hours
      */

@@ -1,10 +1,11 @@
 import os from 'os';
 import { Counter, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
+import { IMetricsService } from './monitoring.types';
 
 // --- Prometheus Metrics Service ---
- 
-export class MetricsService {
+
+export class MetricsService implements IMetricsService {
     private registry: Registry;
 
     // HTTP Metrics
@@ -118,5 +119,5 @@ export class MetricsService {
         return this.registry.getMetricsAsJSON();
     }
 }
- 
+
 export const metricsService = new MetricsService();

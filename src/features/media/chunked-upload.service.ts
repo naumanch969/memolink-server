@@ -88,7 +88,9 @@ export interface SessionStatusResponse {
   expiresAt: Date;
 }
 
-class ChunkedUploadService {
+import { IChunkedUploadService } from './media.interfaces';
+
+export class ChunkedUploadService implements IChunkedUploadService {
   private sessions: Map<string, UploadSession> = new Map();
   private cleanupTimer: NodeJS.Timeout | null = null;
 

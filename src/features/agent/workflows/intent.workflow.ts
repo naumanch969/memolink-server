@@ -4,9 +4,9 @@ import { SocketEvents } from '../../../core/socket/socket.types';
 import { entryService } from '../../entry/entry.service';
 import { agentIntent, AgentIntentType } from '../agent.intent';
 import { agentMemory } from '../agent.memory';
+import agentService from '../agent.service';
 import { IAgentTask } from '../agent.types';
 import { intentDispatcher } from '../handlers/intent.dispatcher';
-import { personaService } from '../persona.service';
 
 export const runIntentProcessing = async (task: IAgentTask) => {
     const { userId } = task;
@@ -95,7 +95,7 @@ export const runIntentProcessing = async (task: IAgentTask) => {
         } catch (extError) {
             logger.error(`[IntentWorkflow] Extraction failed for entry ${entryId}`, extError);
         }
- 
+
         // C. Embedding
         await updateStep('indexing');
         try {
@@ -117,7 +117,7 @@ export const runIntentProcessing = async (task: IAgentTask) => {
         await agentMemory.addMessage(userId, 'agent', summary);
 
         // Background Persona Sync
-        personaService.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
+        agentService.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
 
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
 

@@ -1,9 +1,10 @@
+import { Types } from 'mongoose';
 import { Server as SocketServer } from 'socket.io';
 import { logger } from '../../config/logger';
 import redisConnection from '../../config/redis';
-import { SocketEvents, UserRoleType } from './socket.types';
+import { ISocketService, SocketEvents, UserRoleType } from './socket.types';
 
-class SocketService {
+class SocketService implements ISocketService {
     private static instance: SocketService;
     private _io: SocketServer | null = null;
     private readonly REDIS_CHANNEL = 'SOCKET_BRIDGE';
@@ -22,9 +23,7 @@ class SocketService {
         logger.info('Socket.io instance set in SocketService');
     }
 
-    /**
-     * Initializes a subscriber to listen for events from other processes (e.g., workers)
-     */
+    // Initializes a subscriber to listen for events from other processes (e.g., workers)
     public initRedisBridge(subscriber: any): void {
         subscriber.subscribe(this.REDIS_CHANNEL, (err: any) => {
             if (err) {
@@ -77,9 +76,7 @@ class SocketService {
         return this._io;
     }
 
-    /**
-     * Emit to all connected clients
-     */
+    // Emit to all connected clients
     public emitAll(event: SocketEvents, data: any): void {
         if (this._io) {
             this._io.emit(event, data);
@@ -88,10 +85,8 @@ class SocketService {
         }
     }
 
-    /**
-     * Emit to a specific user
-     */
-    public emitToUser(userId: string, event: SocketEvents, data: any): void {
+    // Emit to a specific user
+    public emitToUser(userId: string | Types.ObjectId, event: SocketEvents, data: any): void {
         if (this._io) {
             this._io.to(`user:${userId}`).emit(event, data);
         } else {
@@ -99,9 +94,7 @@ class SocketService {
         }
     }
 
-    /**
-     * Emit to a specific role
-     */
+    // Emit to a specific role
     public emitToRole(role: UserRoleType, event: SocketEvents, data: any): void {
         if (this._io) {
             this._io.to(`role:${role}`).emit(event, data);
@@ -110,9 +103,7 @@ class SocketService {
         }
     }
 
-    /**
-     * Emit to a specific room
-     */
+    // Emit to a specific room
     public emitToRoom(room: string, event: SocketEvents, data: any): void {
         if (this._io) {
             this._io.to(room).emit(event, data);

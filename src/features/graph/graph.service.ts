@@ -2,7 +2,7 @@ import { ClientSession, Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import Helpers from '../../shared/helpers';
 import { EdgeStatus, EdgeType, GraphEdge, NodeType } from './edge.model';
-import { IGraphEdge } from './graph.interface';
+import { IGraphEdge, IGraphService } from './graph.interface';
 
 /**
  * Strict Ontology: Defines which source nodes can have which relations to which target nodes.
@@ -53,15 +53,15 @@ const INVERSE_RELATIONS: Partial<Record<EdgeType, EdgeType>> = {
     [EdgeType.HAS_TASK]: EdgeType.OWNED_BY,
 };
 
-export class GraphService {
+export class GraphService implements IGraphService {
 
     /**
      * TAO Core: Creates an Association (Edge) and its Inverse.
      */
     async createAssociation(params: {
-        fromId: string;
+        fromId: string | Types.ObjectId | Types.ObjectId;
         fromType: NodeType;
-        toId: string;
+        toId: string | Types.ObjectId | Types.ObjectId;
         toType: NodeType;
         relation: EdgeType;
         weight?: number;
@@ -93,9 +93,9 @@ export class GraphService {
      * Low-level: Creates or Updates a single directed edge.
      */
     async createEdge(params: {
-        fromId: string;
+        fromId: string | Types.ObjectId;
         fromType: NodeType;
-        toId: string;
+        toId: string | Types.ObjectId;
         toType: NodeType;
         relation: EdgeType;
         weight?: number;
@@ -191,7 +191,7 @@ export class GraphService {
     /**
      * Removes an edge by semantic lookup.
      */
-    async removeEdge(fromId: string, toId: string, relation: EdgeType): Promise<void> {
+    async removeEdge(fromId: string | Types.ObjectId, toId: string | Types.ObjectId, relation: EdgeType): Promise<void> {
         await GraphEdge.deleteMany({
             "from.id": new Types.ObjectId(fromId),
             "to.id": new Types.ObjectId(toId),
@@ -242,7 +242,7 @@ export class GraphService {
      * Finds all nodes connected FROM a source node.
      * e.g. "Get all Goals for User" -> getOutbounds(userId, HAS_GOAL)
      */
-    async getOutbounds(fromId: string, relation?: EdgeType): Promise<IGraphEdge[]> {
+    async getOutbounds(fromId: string | Types.ObjectId, relation?: EdgeType): Promise<IGraphEdge[]> {
         const query: any = { "from.id": new Types.ObjectId(fromId) };
         if (relation) query.relation = relation;
 
@@ -253,7 +253,7 @@ export class GraphService {
      * Finds all nodes connected TO a target node.
      * e.g. "What triggers Anxiety?" -> getInbounds(anxietyId, TRIGGERS)
      */
-    async getInbounds(toId: string, relation?: EdgeType): Promise<IGraphEdge[]> {
+    async getInbounds(toId: string | Types.ObjectId, relation?: EdgeType): Promise<IGraphEdge[]> {
         const query: any = { "to.id": new Types.ObjectId(toId) };
         if (relation) query.relation = relation;
         return GraphEdge.find(query);
@@ -314,7 +314,7 @@ export class GraphService {
      * Returns a high-level textual summary of the user's graph state.
      * Used for Agent Context.
      */
-    async getGraphSummary(userId: string): Promise<string> {
+    async getGraphSummary(userId: string | Types.ObjectId): Promise<string> {
         try {
             // 1. Get all outbound edges from User (only ACTIVE ones)
             const query: any = { "from.id": new Types.ObjectId(userId), status: EdgeStatus.ACTIVE };

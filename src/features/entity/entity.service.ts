@@ -4,18 +4,16 @@ import { redisConnection } from '../../config/redis';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
 import { NodeType } from '../graph/edge.model';
-import { CreateEntityRequest, IKnowledgeEntity, UpdateEntityRequest } from './entity.interfaces';
+import { CreateEntityRequest, IEntityService, IKnowledgeEntity, UpdateEntityRequest } from './entity.interfaces';
 import { KnowledgeEntity } from './entity.model';
 
-export class EntityService {
-    private getRedisKey(userId: string): string {
+export class EntityService implements IEntityService {
+    private getRedisKey(userId: string | Types.ObjectId): string {
         return `agent:entities:registry:${userId}`;
     }
 
-    /**
-     * Registers an entity's name in Redis for fast lookup
-     */
-    private async registerInRedis(userId: string, entityId: string, name: string, aliases: string[] = []) {
+    // Registers an entity's name in Redis for fast lookup
+    private async registerInRedis(userId: string | Types.ObjectId, entityId: string, name: string, aliases: string[] = []) {
         try {
             const key = this.getRedisKey(userId);
             const hash: Record<string, string> = {};
@@ -29,7 +27,7 @@ export class EntityService {
         }
     }
 
-    private async unregisterInRedis(userId: string, name: string) {
+    private async unregisterInRedis(userId: string | Types.ObjectId, name: string) {
         try {
             const key = this.getRedisKey(userId);
             await redisConnection.hdel(key, name.toLowerCase());
@@ -38,15 +36,13 @@ export class EntityService {
         }
     }
 
-    /**
-     * Gets all entity names for a user (for the Agent's fast string match)
-     */
-    async getEntityRegistry(userId: string): Promise<Record<string, string>> {
+    // Gets all entity names for a user (for the Agent's fast string match)
+    async getEntityRegistry(userId: string | Types.ObjectId): Promise<Record<string, string>> {
         const key = this.getRedisKey(userId);
         return await redisConnection.hgetall(key);
     }
 
-    async createEntity(userId: string, data: CreateEntityRequest, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
+    async createEntity(userId: string | Types.ObjectId, data: CreateEntityRequest, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
         const existing = await KnowledgeEntity.findOne({
             userId,
             name: { $regex: new RegExp(`^${data.name.trim()}$`, 'i') },
@@ -85,13 +81,13 @@ export class EntityService {
         return entity;
     }
 
-    async getEntityById(entityId: string, userId: string): Promise<IKnowledgeEntity> {
+    async getEntityById(entityId: string, userId: string | Types.ObjectId): Promise<IKnowledgeEntity> {
         const entity = await KnowledgeEntity.findOne({ _id: entityId, userId, isDeleted: false });
         if (!entity) throw ApiError.notFound('Entity');
         return entity;
     }
 
-    async getEntitiesByIds(entityIds: string[], userId: string): Promise<IKnowledgeEntity[]> {
+    async getEntitiesByIds(entityIds: string[], userId: string | Types.ObjectId): Promise<IKnowledgeEntity[]> {
         return KnowledgeEntity.find({
             _id: { $in: entityIds.map(id => new Types.ObjectId(id)) },
             userId,
@@ -99,7 +95,7 @@ export class EntityService {
         }).lean();
     }
 
-    async updateEntity(entityId: string, userId: string, data: UpdateEntityRequest, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
+    async updateEntity(entityId: string, userId: string | Types.ObjectId, data: UpdateEntityRequest, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
         const entity = await KnowledgeEntity.findOne({ _id: entityId, userId, isDeleted: false }).session(options.session || null);
         if (!entity) throw ApiError.notFound('Entity');
 
@@ -121,7 +117,7 @@ export class EntityService {
         return entity;
     }
 
-    async deleteEntity(entityId: string, userId: string, options: { session?: ClientSession } = {}): Promise<void> {
+    async deleteEntity(entityId: string, userId: string | Types.ObjectId, options: { session?: ClientSession } = {}): Promise<void> {
         const entity = await KnowledgeEntity.findOne({ _id: entityId, userId, isDeleted: false }).session(options.session || null);
         if (!entity) throw ApiError.notFound('Entity');
 
@@ -134,7 +130,7 @@ export class EntityService {
         }
     }
 
-    async listEntities(userId: string, options: { otype?: NodeType, search?: string, limit?: number, page?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' } = {}) {
+    async listEntities(userId: string | Types.ObjectId, options: { otype?: NodeType, search?: string, limit?: number, page?: number, sortBy?: string, sortOrder?: 'asc' | 'desc' } = {}) {
         const { limit = 20, skip } = Helpers.getPaginationParams(options);
 
         // Determine sort
@@ -174,7 +170,7 @@ export class EntityService {
         };
     }
 
-    async deleteUserData(userId: string): Promise<number> {
+    async deleteUserData(userId: string | Types.ObjectId): Promise<number> {
         const result = await KnowledgeEntity.deleteMany({ userId });
         const key = this.getRedisKey(userId);
         await redisConnection.del(key);
@@ -182,10 +178,8 @@ export class EntityService {
         return result.deletedCount || 0;
     }
 
-    /**
-     * Find or Create logic (used by extraction workflows)
-     */
-    async findOrCreateEntity(userId: string, name: string, otype: NodeType, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
+    // Find or Create logic (used by extraction workflows)
+    async findOrCreateEntity(userId: string | Types.ObjectId, name: string, otype: NodeType, options: { session?: ClientSession } = {}): Promise<IKnowledgeEntity> {
         const entity = await KnowledgeEntity.findOne({
             userId,
             name: { $regex: new RegExp(`^${name}$`, 'i') }
@@ -208,10 +202,8 @@ export class EntityService {
         return entity;
     }
 
-    /**
-     * Migration Helper: Seed entities from existing persons
-     */
-    async migrateFromPersons(userId: string) {
+    // Migration Helper: Seed entities from existing persons
+    async migrateFromPersons(userId: string | Types.ObjectId) {
         const entities = await KnowledgeEntity.find({ userId, isDeleted: false });
 
         for (const e of entities) {

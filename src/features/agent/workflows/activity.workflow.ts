@@ -1,9 +1,10 @@
+import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entryService } from '../../entry/entry.service';
 import { WebActivity } from '../../web-activity/web-activity.model';
 
-export const runWebActivitySummary = async (userId: string, inputData: { date: string }) => {
+export const runWebActivitySummary = async (userId: string | Types.ObjectId, inputData: { date: string }) => {
     const { date } = inputData;
     logger.info(`Running Web Activity Summary for user ${userId} on ${date}`);
 

@@ -4,9 +4,9 @@ import { KnowledgeEntity } from '../entity/entity.model';
 import { entryService } from '../entry/entry.service';
 import Goal from '../goal/goal.model';
 import { Reminder } from '../reminder/reminder.model';
-import { GlobalSearchRequest, GlobalSearchResponse } from './search.interfaces';
+import { GlobalSearchRequest, GlobalSearchResponse, ISearchService } from './search.interfaces';
 
-export class SearchService {
+export class SearchService implements ISearchService {
     async globalSearch(userId: string, params: GlobalSearchRequest): Promise<GlobalSearchResponse> {
         const { q, limit = 10, mode = 'instant', collections = ['entries', 'goals', 'reminders', 'entities'], filters } = params;
         const userIdObj = new Types.ObjectId(userId);

@@ -6,16 +6,16 @@ import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from '../agent/agent.model';
 import { agentService } from '../agent/agent.service';
-import { AgentTaskType } from '../agent/agent.types';
-import { IReport, ReportSearchRequest, ReportType } from './report.interfaces';
-import { Report } from './report.model';
+import { AgentTaskStatus, AgentTaskType } from '../agent/agent.types';
+import { IReport, IReportService, ReportSearchRequest, ReportType } from './report.interfaces';
+import Report from './report.model';
 
-export class ReportService {
+export class ReportService implements IReportService {
 
     // Creates a report from a completed agent task
-    async createFromTask(userId: string, taskId: string): Promise<IReport> {
+    async createFromTask(userId: string | Types.ObjectId, taskId: string): Promise<IReport> {
         const task = await AgentTask.findById(taskId);
-        if (!task || task.status !== 'COMPLETED') {
+        if (!task || task.status !== AgentTaskStatus.COMPLETED) {
             throw ApiError.badRequest('Task not found or not completed');
         }
 

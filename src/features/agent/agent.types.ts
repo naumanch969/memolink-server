@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 export enum AgentTaskType {
     DAILY_REFLECTION = 'DAILY_REFLECTION',
     ENTRY_TAGGING = 'ENTRY_TAGGING',
@@ -31,7 +33,7 @@ export enum AgentTaskStatus {
 }
 
 export interface IAgentTask {
-    userId: string;
+    userId: Types.ObjectId;
     type: AgentTaskType;
     status: AgentTaskStatus;
     inputData: any;

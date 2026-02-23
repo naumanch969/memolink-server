@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { CloudinaryService } from '../../config/cloudinary';
+import { cloudinaryService } from '../../config/cloudinary';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.util';
 import { getMediaTypeFromMime } from '../../shared/constants';
@@ -141,7 +141,7 @@ export class ChunkedUploadController {
       const { chunks, session } = chunkedUploadService.peekUpload(sessionId);
 
       // Upload to Cloudinary via stream
-      const cloudinaryResult = await CloudinaryService.uploadLargeStream(
+      const cloudinaryResult = await cloudinaryService.uploadLargeStream(
         chunks,
         session.mimeType,
         session.fileName,
@@ -161,13 +161,13 @@ export class ChunkedUploadController {
 
       if (mediaType === 'video' && cloudinaryResult.public_id) {
         if (cloudinaryResult.duration) {
-          videoThumbnails = CloudinaryService.getVideoThumbnails(
+          videoThumbnails = cloudinaryService.getVideoThumbnails(
             cloudinaryResult.public_id,
             cloudinaryResult.duration
           );
           thumbnail = videoThumbnails[0];
         } else {
-          thumbnail = CloudinaryService.getVideoThumbnail(cloudinaryResult.public_id, {
+          thumbnail = cloudinaryService.getVideoThumbnail(cloudinaryResult.public_id, {
             width: 400,
             height: 300,
           });
@@ -175,7 +175,7 @@ export class ChunkedUploadController {
       } else if (mediaType === 'image') {
         thumbnail = cloudinaryResult.secure_url;
       } else if (session.mimeType === 'application/pdf') {
-        thumbnail = CloudinaryService.getPdfThumbnail(cloudinaryResult.public_id);
+        thumbnail = cloudinaryService.getPdfThumbnail(cloudinaryResult.public_id);
       }
 
       // Build metadata

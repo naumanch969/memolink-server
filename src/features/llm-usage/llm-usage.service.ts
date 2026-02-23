@@ -1,6 +1,6 @@
 import { logger } from '../../config/logger';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
-import { GeminiCostsSummary, LLMUsageEntry, LLMUsageLogDetail } from './llm-usage.interface';
+import { GeminiCostsSummary, ILLMUsageService, LLMUsageEntry, LLMUsageLogDetail } from './llm-usage.interface';
 import { LLMUsageLog } from './llm-usage.model';
 
 // Gemini 2.5 Flash pricing (USD per token)
@@ -12,7 +12,7 @@ const PRICING_PER_TOKEN = {
 type PricedModel = keyof typeof PRICING_PER_TOKEN;
 
 
-class LLMUsageService {
+export class LLMUsageService implements ILLMUsageService {
 
     /**
      * Compute estimated cost for a single call based on model pricing.

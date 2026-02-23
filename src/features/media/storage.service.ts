@@ -59,7 +59,9 @@ export interface CleanupSuggestion {
   description: string;
 }
 
-export class StorageService {
+import { IStorageService } from './media.interfaces';
+
+export class StorageService implements IStorageService {
   // In-memory reservation tracking (consider Redis for distributed systems)
   private reservations = new Map<string, ReservationRecord>();
   private cleanupInterval: NodeJS.Timeout | null = null;

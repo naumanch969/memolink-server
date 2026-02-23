@@ -1,16 +1,18 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../../config/logger';
-import { llmUsageService } from '../llm-usage/llm-usage.service';
 import { withRetry } from '../../core/utils/retry.util';
+import { llmUsageService } from '../llm-usage/llm-usage.service';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+import { IAudioTranscriptionService } from './agent.interfaces';
 
 /**
  * Audio Transcription Service
  * Uses Gemini's native multimodal capabilities to transcribe audio files.
  * Supports: mp3, wav, m4a, webm, ogg, aac, caf, mp4 audio
  */
-class AudioTranscriptionService {
+class AudioTranscriptionService implements IAudioTranscriptionService {
     private client: GoogleGenerativeAI;
 
     constructor() {

@@ -5,6 +5,7 @@ import { Entry } from '../../entry/entry.model';
 import Goal from '../../goal/goal.model';
 import { AgentTask } from '../agent.model';
 import { AgentTaskStatus, AgentTaskType } from '../agent.types';
+import { Types } from 'mongoose';
 
 // Output Schema for Monthly Analysis
 const MonthlyAnalysisOutputSchema = z.object({
@@ -25,7 +26,7 @@ const MonthlyAnalysisOutputSchema = z.object({
 
 export type MonthlyAnalysisOutput = z.infer<typeof MonthlyAnalysisOutputSchema>;
 
-export async function runMonthlyAnalysis(userId: string): Promise<MonthlyAnalysisOutput> {
+export async function runMonthlyAnalysis(userId: string | Types.ObjectId): Promise<MonthlyAnalysisOutput> {
     logger.info(`Running Monthly Analysis for user ${userId}`);
 
     const now = new Date();

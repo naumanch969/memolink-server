@@ -8,7 +8,7 @@ import { AgentTaskType } from '../agent.types';
  * The Sync Workflow: A throttled, background process that ensures
  * all library entries are eventually enhanced with AI.
  */
-export async function runSyncWorkflow(userId: string, inputData: { entryId?: string } = {}): Promise<{ processed: number, remaining: number }> {
+export async function runSyncWorkflow(userId: string | Types.ObjectId, inputData: { entryId?: string } = {}): Promise<{ processed: number, remaining: number }> {
     const { entryId } = inputData;
     let processed = 0;
 
@@ -47,7 +47,7 @@ export async function runSyncWorkflow(userId: string, inputData: { entryId?: str
     return { processed, remaining };
 }
 
-async function enqueueEntryTasks(userId: string, entryId: string) {
+async function enqueueEntryTasks(userId: string | Types.ObjectId, entryId: string) {
     // We use the central service to ensure consistent task creation
     await Promise.all([
         agentService.createTask(userId, AgentTaskType.ENTRY_TAGGING, { entryId }),

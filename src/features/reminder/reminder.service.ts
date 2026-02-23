@@ -9,12 +9,12 @@ import { graphService } from '../graph/graph.service';
 import { NotificationQueue } from '../notification/notification.model';
 import { NotificationStatus } from '../notification/notification.types';
 import { Reminder } from './reminder.model';
-import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
+import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, IReminderService, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
 
-class ReminderService {
+export class ReminderService implements IReminderService {
 
 
-    async createReminder(userId: string, data: CreateReminderRequest): Promise<ReminderResponse> {
+    async createReminder(userId: string | Types.ObjectId, data: CreateReminderRequest): Promise<ReminderResponse> {
         try {
             // Convert string IDs to ObjectIds
             const reminderData: any = {
@@ -102,7 +102,7 @@ class ReminderService {
 
 
 
-    async getReminders(userId: string, query: GetRemindersQuery): Promise<GetRemindersResponse> {
+    async getReminders(userId: string | Types.ObjectId, query: GetRemindersQuery): Promise<GetRemindersResponse> {
         try {
             const filter: any = { userId: new Types.ObjectId(userId) };
 
@@ -171,7 +171,7 @@ class ReminderService {
         }
     }
 
-    async getReminderById(userId: string, reminderId: string): Promise<ReminderResponse> {
+    async getReminderById(userId: string | Types.ObjectId, reminderId: string): Promise<ReminderResponse> {
         try {
             const reminder = await Reminder.findOne({
                 _id: new Types.ObjectId(reminderId),
@@ -194,7 +194,7 @@ class ReminderService {
         }
     }
 
-    async getUpcomingReminders(userId: string, limit: number = 10): Promise<ReminderResponse[]> {
+    async getUpcomingReminders(userId: string | Types.ObjectId, limit: number = 10): Promise<ReminderResponse[]> {
         try {
             const now = new Date();
             const reminders = await Reminder.find({
@@ -214,7 +214,7 @@ class ReminderService {
         }
     }
 
-    async getOverdueReminders(userId: string): Promise<ReminderResponse[]> {
+    async getOverdueReminders(userId: string | Types.ObjectId): Promise<ReminderResponse[]> {
         try {
             const now = new Date();
             const reminders = await Reminder.find({
@@ -236,7 +236,7 @@ class ReminderService {
 
 
     async updateReminder(
-        userId: string,
+        userId: string | Types.ObjectId,
         reminderId: string,
         data: UpdateReminderRequest
     ): Promise<ReminderResponse> {
@@ -310,7 +310,7 @@ class ReminderService {
         }
     }
 
-    async completeReminder(userId: string, reminderId: string, completedAt?: Date): Promise<ReminderResponse> {
+    async completeReminder(userId: string | Types.ObjectId, reminderId: string, completedAt?: Date): Promise<ReminderResponse> {
         try {
             const reminder = await Reminder.findOne({
                 _id: new Types.ObjectId(reminderId),
@@ -381,7 +381,7 @@ class ReminderService {
         }
     }
 
-    async cancelReminder(userId: string, reminderId: string): Promise<ReminderResponse> {
+    async cancelReminder(userId: string | Types.ObjectId, reminderId: string): Promise<ReminderResponse> {
         try {
             const reminder = await Reminder.findOne({
                 _id: new Types.ObjectId(reminderId),
@@ -407,7 +407,7 @@ class ReminderService {
 
 
 
-    async deleteReminder(userId: string, reminderId: string): Promise<void> {
+    async deleteReminder(userId: string | Types.ObjectId, reminderId: string): Promise<void> {
         try {
             const reminder = await Reminder.findOneAndDelete({
                 _id: new Types.ObjectId(reminderId),
@@ -527,7 +527,7 @@ class ReminderService {
     }
 
     // Delete all user data (Cascade Delete)
-    async deleteUserData(userId: string): Promise<number> {
+    async deleteUserData(userId: string | Types.ObjectId): Promise<number> {
         const result = await Reminder.deleteMany({ userId });
         logger.info(`Deleted ${result.deletedCount} reminders for user ${userId}`);
         return result.deletedCount || 0;

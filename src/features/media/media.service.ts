@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { CloudinaryService } from '../../config/cloudinary';
+import cloudinaryService from '../../config/cloudinary';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
@@ -117,7 +117,7 @@ export class MediaService implements IMediaService {
       // Delete from Cloudinary to prevent orphaned files
       if (media.cloudinaryId) {
         try {
-          await CloudinaryService.deleteFile(media.cloudinaryId);
+          await cloudinaryService.deleteFile(media.cloudinaryId);
           logger.info('Cloudinary file deleted', { cloudinaryId: media.cloudinaryId });
         } catch (cloudinaryError) {
           // Log error with details for manual cleanup
@@ -173,7 +173,7 @@ export class MediaService implements IMediaService {
           // Delete from Cloudinary first
           if (media.cloudinaryId) {
             try {
-              await CloudinaryService.deleteFile(media.cloudinaryId);
+              await cloudinaryService.deleteFile(media.cloudinaryId);
             } catch (cloudinaryError) {
               logger.error('Cloudinary delete failed in bulk operation', {
                 cloudinaryId: media.cloudinaryId,

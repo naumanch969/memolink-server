@@ -4,7 +4,9 @@ import { KnowledgeEntity } from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
 import { Tag } from '../tag/tag.model';
 
-export class AnalyticsGraphService {
+import { IAnalyticsGraphService } from './analytics.interfaces';
+
+export class AnalyticsGraphService implements IAnalyticsGraphService {
     /**
      * Generates graph data (nodes and links) based on entity co-occurrence in entries.
      */

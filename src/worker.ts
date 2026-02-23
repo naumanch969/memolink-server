@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { config } from './config/env';
 import { logger } from './config/logger';
 import redisConnection from './config/redis';
-import { QueueService } from './core/queue/QueueService';
+import { queueService } from './core/queue/queue.service';
 import { initAgentWorker } from './features/agent/agent.worker';
 import { initEmailWorker } from './features/email/queue/email.worker';
 
@@ -73,7 +73,7 @@ async function startWorker() {
                 const { notificationWorker } = await import('./features/notification/notification.worker');
                 await notificationWorker.stop();
 
-                await QueueService.close();
+                await queueService.close();
                 await mongoose.disconnect();
                 // Redis connection is shared, but we can disconnect it last
                 redisConnection.disconnect();

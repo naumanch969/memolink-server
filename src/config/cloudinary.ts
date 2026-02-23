@@ -34,11 +34,24 @@ export interface CloudinaryUploadResult {
   };
 }
 
-export class CloudinaryService {
-  /**
-   * Upload file to Cloudinary with enhanced metadata extraction
-   */
-  static async uploadFile(
+export interface ICloudinaryService {
+  uploadFile(file: any, folder?: string, options?: any): Promise<CloudinaryUploadResult>;
+  uploadLargeStream(chunks: Buffer[], mimeType: string, filename: string, folder?: string, options?: any): Promise<CloudinaryUploadResult>;
+  deleteFile(publicId: string): Promise<void>;
+  getFileInfo(publicId: string): Promise<Record<string, unknown>>;
+  getOptimizedUrl(publicId: string, options?: any): string;
+  getResponsiveVariants(publicId: string): any;
+  getVideoThumbnail(publicId: string, options?: any): string;
+  getPdfThumbnail(publicId: string, options?: any): string;
+  getVideoThumbnails(publicId: string, duration: number, options?: any): string[];
+  getVideoStreamingUrl(publicId: string): string;
+  getResourceInfo(publicId: string, resourceType?: 'image' | 'video' | 'raw'): Promise<Record<string, unknown>>;
+}
+
+export class CloudinaryService implements ICloudinaryService {
+
+  // Upload file to Cloudinary with enhanced metadata extraction
+  async uploadFile(
     file: Express.Multer.File,
     folder: string = 'memolink',
     options: {
@@ -117,10 +130,8 @@ export class CloudinaryService {
     }
   }
 
-  /**
-   * Upload file stream to Cloudinary (Better for large files)
-   */
-  static async uploadLargeStream(
+  // Upload file stream to Cloudinary (Better for large files)
+  async uploadLargeStream(
     chunks: Buffer[],
     mimeType: string,
     filename: string,
@@ -201,7 +212,7 @@ export class CloudinaryService {
   }
 
   // Delete file from Cloudinary
-  static async deleteFile(publicId: string): Promise<void> {
+  async deleteFile(publicId: string): Promise<void> {
     try {
       await cloudinary.uploader.destroy(publicId);
       logger.info('File deleted from Cloudinary successfully', { public_id: publicId });
@@ -212,7 +223,7 @@ export class CloudinaryService {
   }
 
   // Get file info
-  static async getFileInfo(publicId: string): Promise<Record<string, unknown>> {
+  async getFileInfo(publicId: string): Promise<Record<string, unknown>> {
     try {
       const result = await cloudinary.api.resource(publicId);
       return result;
@@ -229,7 +240,7 @@ export class CloudinaryService {
    * - WebP/AVIF auto-format
    * - Quality optimization
    */
-  static getOptimizedUrl(
+  getOptimizedUrl(
     publicId: string,
     options: {
       width?: number;
@@ -262,7 +273,7 @@ export class CloudinaryService {
   /**
    * Generate responsive image variants for srcset
    */
-  static getResponsiveVariants(publicId: string): {
+  getResponsiveVariants(publicId: string): {
     thumbnail: string;
     small: string;
     medium: string;
@@ -293,7 +304,7 @@ export class CloudinaryService {
   /**
    * Generate video thumbnail at specific time
    */
-  static getVideoThumbnail(
+  getVideoThumbnail(
     publicId: string,
     options: {
       width?: number;
@@ -314,7 +325,7 @@ export class CloudinaryService {
   /**
    * Generate PDF page thumbnail
    */
-  static getPdfThumbnail(
+  getPdfThumbnail(
     publicId: string,
     options: {
       page?: number;
@@ -336,7 +347,7 @@ export class CloudinaryService {
    * Generate multiple video thumbnails at different timestamps
    * Returns array of thumbnail URLs for user selection
    */
-  static getVideoThumbnails(
+  getVideoThumbnails(
     publicId: string,
     duration: number,
     options: {
@@ -365,7 +376,7 @@ export class CloudinaryService {
   /**
    * Get HLS streaming URL for video
    */
-  static getVideoStreamingUrl(publicId: string): string {
+  getVideoStreamingUrl(publicId: string): string {
     const cloudName = config.CLOUDINARY_CLOUD_NAME;
     return `https://res.cloudinary.com/${cloudName}/video/upload/sp_hd/${publicId}.m3u8`;
   }
@@ -373,7 +384,7 @@ export class CloudinaryService {
   /**
    * Get resource with full info (EXIF, OCR, etc.)
    */
-  static async getResourceInfo(publicId: string, resourceType: 'image' | 'video' | 'raw' = 'image'): Promise<Record<string, unknown>> {
+  async getResourceInfo(publicId: string, resourceType: 'image' | 'video' | 'raw' = 'image'): Promise<Record<string, unknown>> {
     try {
       const result = await cloudinary.api.resource(publicId, {
         resource_type: resourceType,
@@ -389,4 +400,6 @@ export class CloudinaryService {
   }
 }
 
-export default cloudinary;
+export const cloudinaryService = new CloudinaryService();
+export default cloudinaryService;
+

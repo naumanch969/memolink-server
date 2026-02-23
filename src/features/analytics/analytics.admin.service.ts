@@ -5,56 +5,9 @@ import { Entry } from '../entry/entry.model';
 import { Goal } from '../goal/goal.model';
 import { Media } from '../media/media.model';
 import { Tag } from '../tag/tag.model';
+import { ActiveUserStats, ContentGrowthData, FeatureStats, FeatureUsageBreakdown, IAnalyticsAdminService, PlatformStats, RetentionStats, UserAccountStats, UserGrowthData } from './analytics.interfaces';
 
-export interface UserGrowthData {
-    date: string;
-    count: number;
-}
-
-export interface ContentGrowthData {
-    date: string;
-    entries: number;
-    media: number;
-}
-
-export interface PlatformStats {
-    platform: string;
-    count: number;
-    percentage: number;
-}
-
-export interface FeatureStats {
-    users: number;
-    entries: number;
-    media: number;
-    goals: number;
-}
-
-export interface UserAccountStats {
-    roles: { role: string; count: number }[];
-    verification: { status: string; count: number }[];
-}
-
-export interface ActiveUserStats {
-    daily: number;
-    weekly: number;
-    monthly: number;
-}
-
-export interface FeatureUsageBreakdown {
-    entryTypes: { type: string; count: number }[];
-    mediaTypes: { type: string; count: number }[];
-    mediaStorage: { type: string; size: number }[];
-    topTags: { name: string; count: number }[];
-    topEntities: { name: string; count: number }[];
-}
-
-export interface RetentionStats {
-    cohort: string;
-    retention: number;
-}
-
-export class AnalyticsAdminService {
+export class AnalyticsAdminService implements IAnalyticsAdminService {
 
     /**
      * Get user signups grouped by date (last 30 days)

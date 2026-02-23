@@ -5,6 +5,7 @@ import { Entry } from '../../entry/entry.model';
 import Goal from '../../goal/goal.model';
 import { AgentTask } from '../agent.model';
 import { AgentTaskStatus, AgentTaskType } from '../agent.types';
+import { Types } from 'mongoose';
 
 // Output Schema for Weekly Analysis
 const WeeklyAnalysisOutputSchema = z.object({
@@ -19,7 +20,7 @@ const WeeklyAnalysisOutputSchema = z.object({
 
 export type WeeklyAnalysisOutput = z.infer<typeof WeeklyAnalysisOutputSchema>;
 
-export async function runWeeklyAnalysis(userId: string): Promise<WeeklyAnalysisOutput> {
+export async function runWeeklyAnalysis(userId: string | Types.ObjectId): Promise<WeeklyAnalysisOutput> {
     logger.info(`Running Weekly Analysis for user ${userId}`);
 
     // Idempotency: Check if analysis was already generated TODAY

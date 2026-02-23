@@ -1,3 +1,4 @@
+import { ILogViewerService } from './monitoring.types';
 
 export interface LogEntry {
     timestamp: string;
@@ -6,7 +7,7 @@ export interface LogEntry {
     meta?: any;
 }
 
-class LogViewerService {
+export class LogViewerService implements ILogViewerService {
     private logs: LogEntry[] = [];
     private readonly MAX_LOGS = 1000;
 

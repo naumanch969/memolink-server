@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq';
-import { QueueService } from '../../../core/queue/QueueService';
+import { queueService } from '../../../core/queue/queue.service';
 import { EmailJob } from './email.types';
 
 export const EMAIL_QUEUE_NAME = 'email-delivery';
@@ -9,7 +9,7 @@ export let emailQueue: Queue<EmailJob>;
 export let emailDLQ: Queue<any>;
 
 export const initEmailQueue = () => {
-    emailQueue = QueueService.registerQueue(EMAIL_QUEUE_NAME, {
+    emailQueue = queueService.registerQueue(EMAIL_QUEUE_NAME, {
         defaultJobOptions: {
             attempts: 5,
             backoff: {
@@ -22,7 +22,7 @@ export const initEmailQueue = () => {
     });
 
     // Initialize Dead Letter Queue for permanently failed emails
-    emailDLQ = QueueService.registerQueue(EMAIL_DLQ_NAME, {
+    emailDLQ = queueService.registerQueue(EMAIL_DLQ_NAME, {
         defaultJobOptions: {
             removeOnComplete: false, // Keep all DLQ entries
             removeOnFail: false,

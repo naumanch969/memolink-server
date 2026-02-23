@@ -5,6 +5,7 @@ import { Entry } from '../../entry/entry.model';
 import Goal from '../../goal/goal.model';
 import { AgentTask } from '../agent.model';
 import { AgentTaskStatus, AgentTaskType } from '../agent.types';
+import { Types } from 'mongoose';
 
 // Input Validation Schema
 export const DailyReflectionInputSchema = z.object({
@@ -27,7 +28,7 @@ const ReflectionOutputSchema = z.object({
 
 export type ReflectionOutput = z.infer<typeof ReflectionOutputSchema>;
 
-export async function runDailyReflection(userId: string, input: DailyReflectionInput): Promise<ReflectionOutput> {
+export async function runDailyReflection(userId: string | Types.ObjectId, input: DailyReflectionInput): Promise<ReflectionOutput> {
     logger.info(`Running Daily Reflection for user ${userId}`);
 
     // Idempotency: Check if reflection was already generated for the target date

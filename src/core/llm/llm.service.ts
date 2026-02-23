@@ -1,5 +1,5 @@
 import { ZodSchema } from 'zod';
-import { CacheService } from '../cache/cache.service';
+import { cacheService } from '../cache/cache.service';
 import { ILLMProvider, ILLMService, LLMGenerativeOptions } from './llm.types';
 import { GeminiProvider } from './providers/gemini.provider';
 
@@ -41,8 +41,8 @@ class LLMServiceClass implements ILLMService {
             throw new Error(`Current provider ${this.provider.name} does not support embeddings`);
         }
 
-        const cacheKey = CacheService.getEmbeddingKey(text);
-        const cached = await CacheService.get<number[]>(cacheKey);
+        const cacheKey = cacheService.getEmbeddingKey(text);
+        const cached = await cacheService.get<number[]>(cacheKey);
 
         if (cached) {
             return cached;
@@ -51,10 +51,11 @@ class LLMServiceClass implements ILLMService {
         const embeddings = await this.provider.generateEmbeddings(text, options);
 
         // Cache the result
-        await CacheService.set(cacheKey, embeddings);
+        await cacheService.set(cacheKey, embeddings);
 
         return embeddings;
     }
 }
+
 
 export const LLMService = new LLMServiceClass();
