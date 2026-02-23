@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { logger } from '../../config/logger';
 import { eventStream } from '../../core/events/event.stream';
 import { EventType } from '../../core/events/event.types';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 
 export class EventsController {

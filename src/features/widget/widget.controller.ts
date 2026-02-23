@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { ApiError } from '../../core/errors/api.error';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { WidgetService } from './widget.service';
 

@@ -4,7 +4,7 @@ import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 import { MetricsService } from '../../features/monitoring/metrics.service';
 import { cryptoService } from '../crypto/crypto.service';
-import { ResponseHelper } from '../utils/response.util';
+import { ResponseHelper } from '../utils/response.utils';
 
 export class RateLimitMiddleware {
     /**

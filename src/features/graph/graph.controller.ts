@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import KnowledgeEntity from '../entity/entity.model';
 import Goal from '../goal/goal.model';

@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import cloudinaryService from '../../config/cloudinary';
+import cloudinaryService from '../../config/cloudinary.service';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';

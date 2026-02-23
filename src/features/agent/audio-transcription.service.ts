@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../../config/logger';
-import { withRetry } from '../../core/utils/retry.util';
+import { withRetry } from '../../core/utils/retry.utils';
 import { llmUsageService } from '../llm-usage/llm-usage.service';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';

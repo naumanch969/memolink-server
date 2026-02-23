@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import logger from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { GOAL_STATUS } from '../../shared/constants';
-import { MongoUtil } from '../../shared/utils/mongo.util';
+import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { EdgeType, NodeType } from '../graph/edge.model';
 import { graphService } from '../graph/graph.service';
 import { goalProgressService } from './goal-progress.service';

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { GlobalSearchRequest } from './search.interfaces';
 import { searchService } from './search.service';

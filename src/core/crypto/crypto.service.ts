@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../../config/env';
 import { JWTPayload } from '../../features/auth/auth.interfaces';
 
-import { ICryptoService } from './crypto.interface';
+import { ICryptoService } from './crypto.interfaces';
 
 export class CryptoService implements ICryptoService {
   // Password hashing

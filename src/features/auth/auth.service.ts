@@ -1,6 +1,6 @@
 import { OAuth2Client } from 'google-auth-library';
-import { cloudinaryService } from '../../config/cloudinary';
-import { emailService } from '../../config/email';
+import { cloudinaryService } from '../../config/cloudinary.service';
+import { emailService } from '../../config/email.service';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { cryptoService } from '../../core/crypto/crypto.service';

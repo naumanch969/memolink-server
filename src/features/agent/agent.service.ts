@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { LLMService } from '../../core/llm/llm.service';
-import DateManager from '../../core/utils/date-manager.util';
+import DateUtil from '../../shared/utils/date.utils';
 import { Entry } from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
@@ -254,7 +254,7 @@ export class AgentService implements IAgentService {
                 reminderService.getUpcomingReminders(userId, 15),
                 reminderService.getOverdueReminders(userId),
                 goalService.getGoals(userId, {}),
-                webActivityService.getTodayStats(userId, DateManager.getYesterdayDateKey()),
+                webActivityService.getTodayStats(userId, DateUtil.getYesterdayDateKey()),
                 graphService.getPendingProposals(userId)
             ]);
 

@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
-import { DataValue } from '../../shared/types/dataProperties';
+import { DataValue } from '../../shared/types/data-properties';
 
 // Goal Types
 export enum GoalPeriod {

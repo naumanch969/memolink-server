@@ -3,8 +3,8 @@ import multer, { Field } from 'multer';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { FILE_UPLOAD } from '../../shared/constants';
+import { FileUtil } from '../../shared/utils/file.utils';
 import { ApiError } from '../errors/api.error';
-import { getExtensionFromMimeType, validateFileMagicBytes } from '../utils/file-validator.util';
 
 export class FileUploadMiddleware {
   // Multer memory storage
@@ -66,7 +66,7 @@ export class FileUploadMiddleware {
       return next();
     }
 
-    const validation = validateFileMagicBytes(file.buffer, file.mimetype);
+    const validation = FileUtil.validateFileMagicBytes(file.buffer, file.mimetype);
 
     if (!validation.valid) {
       logger.warn('File content validation failed', {
@@ -81,7 +81,7 @@ export class FileUploadMiddleware {
       });
     }
 
-    (file as any).extension = getExtensionFromMimeType(file.mimetype);
+    (file as any).extension = FileUtil.getExtensionFromMimeType(file.mimetype);
 
     next();
   }

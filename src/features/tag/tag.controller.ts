@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { Helpers } from '../../shared/helpers';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { CreateTagRequest, UpdateTagRequest } from './tag.interfaces';

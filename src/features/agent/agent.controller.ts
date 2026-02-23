@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
 import { audioTranscriptionService } from './audio-transcription.service';

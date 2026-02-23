@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import DateManager from '../../core/utils/date-manager.util';
+import DateUtil from '../../shared/utils/date.utils';
 import { ActivityDefinitions } from './activity-definitions.model';
 import { WebActivitySyncLog } from './web-activity-sync-log.model';
 import { ActivitySyncBatch, IWebActivity, IWebActivityService } from './web-activity.interfaces';
@@ -79,7 +79,7 @@ export class WebActivityService implements IWebActivityService {
      */
     async getStatsByDate(userId: string, date?: string, timezone: string = 'UTC'): Promise<IWebActivity | null> {
         try {
-            const targetDate = date || DateManager.getLocalDateKey(timezone);
+            const targetDate = date || DateUtil.getLocalDateKey(timezone);
             const activity = await WebActivity.findOne({
                 userId: new Types.ObjectId(userId),
                 date: targetDate

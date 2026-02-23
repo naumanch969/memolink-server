@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { StreakUtil } from '../../shared/utils/streak.util';
+import { StreakUtil } from '../../shared/utils/streak.utils';
 import { Entry } from '../entry/entry.model';
 
 import { IAnalyticsInsightsService } from './analytics.interfaces';

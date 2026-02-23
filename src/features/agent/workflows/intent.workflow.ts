@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { socketService } from '../../../core/socket/socket.service';
 import { SocketEvents } from '../../../core/socket/socket.types';
@@ -8,29 +9,31 @@ import agentService from '../agent.service';
 import { IAgentTask } from '../agent.types';
 import { intentDispatcher } from '../handlers/intent.dispatcher';
 
+const updateStep = async (step: string, entryId: string, userId: string | Types.ObjectId) => {
+    logger.info(`[IntentWorkflow] Step: ${step} for entry ${entryId}`);
+    const entry = await entryService.updateEntry(entryId, userId, {
+        status: 'processing',
+        metadata: { processingStep: step }
+    });
+    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
+    return entry;
+};
+
 export const runIntentProcessing = async (task: IAgentTask) => {
     const { userId } = task;
     const { text, entryId, options } = task.inputData;
 
-    const updateStep = async (step: string) => {
-        logger.info(`[IntentWorkflow] Step: ${step} for entry ${entryId}`);
-        const entry = await entryService.updateEntry(entryId, userId, {
-            status: 'processing',
-            metadata: { processingStep: step }
-        });
-        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
-        return entry;
-    };
-
     try {
+        console.log('1. Intent Workflow started')
         let entry = await entryService.getEntryById(entryId, userId);
         if (!entry) {
             logger.error(`[IntentWorkflow] Entry not found for intent processing ${entryId}`);
             return { status: 'failed', error: 'Entry not found' };
         }
 
+        console.log('2. Entry found')
         // 1. Intent Analysis
-        await updateStep('analyzing_intent');
+        await updateStep('analyzing_intent', entryId, userId);
         let intentResult = options?.intentResult;
         if (!intentResult) {
             const history = await agentMemory.getHistory(userId);
@@ -45,6 +48,7 @@ export const runIntentProcessing = async (task: IAgentTask) => {
             }
         }
 
+        console.log('3. Intent Analysis completed')
         // Handle Clarification loops
         const clarification = intentResult.intents.find((i: any) => i.needsClarification);
         if (clarification) {
@@ -59,10 +63,12 @@ export const runIntentProcessing = async (task: IAgentTask) => {
             };
         }
 
+        console.log('4. Adding message to memory')
         await agentMemory.addMessage(userId, 'user', text);
 
+        console.log('5. Dispatching actions')
         // 2. Dispatch Principal Actions (Journaling, Goals, Reminders)
-        await updateStep('executing_actions');
+        await updateStep('executing_actions', entryId, userId);
         const dispatchResult = await intentDispatcher.dispatch({
             userId,
             text,
@@ -76,10 +82,11 @@ export const runIntentProcessing = async (task: IAgentTask) => {
             return { status: 'completed', result: dispatchResult.earlyReturn };
         }
 
+        console.log('6. Dispatching actions completed')
         // 3. Sequentially process remaining workflows
 
         // A. Tagging
-        await updateStep('tagging');
+        await updateStep('tagging', entryId, userId);
         try {
             const { runEntryTagging } = await import('./tagging.workflow');
             await runEntryTagging(userId, { entryId, content: text });
@@ -88,7 +95,7 @@ export const runIntentProcessing = async (task: IAgentTask) => {
         }
 
         // B. Extraction
-        await updateStep('extracting_entities');
+        await updateStep('extracting_entities', entryId, userId);
         try {
             const { runEntityExtraction } = await import('./extraction.workflow');
             await runEntityExtraction(task);
@@ -97,7 +104,7 @@ export const runIntentProcessing = async (task: IAgentTask) => {
         }
 
         // C. Embedding
-        await updateStep('indexing');
+        await updateStep('indexing', entryId, userId);
         try {
             const { runEntryEmbedding } = await import('./embedding.workflow');
             await runEntryEmbedding(task);
@@ -105,6 +112,7 @@ export const runIntentProcessing = async (task: IAgentTask) => {
             logger.error(`[IntentWorkflow] Embedding failed for entry ${entryId}`, embedError);
         }
 
+        console.log('7. Tagging, Extraction, Embedding completed')
         // 4. Final Cleanup
         entry = await entryService.getEntryById(entryId, userId); // Refresh final state
         entry = await entryService.updateEntry(entryId, userId, {
@@ -116,11 +124,13 @@ export const runIntentProcessing = async (task: IAgentTask) => {
         const summary = dispatchResult.summary || `Processed ${intentResult.intents.length} intentions.`;
         await agentMemory.addMessage(userId, 'agent', summary);
 
+        console.log('8. Final Cleanup completed')
         // Background Persona Sync
         agentService.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
 
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
 
+        console.log('9. Intent Workflow completed')
         return {
             status: 'completed',
             result: {

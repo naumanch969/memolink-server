@@ -1,12 +1,12 @@
-import { ArrayUtil } from './utils/array.util';
-import { ColorUtil } from './utils/color.util';
-import { DateUtil } from './utils/date.util';
-import { FileUtil } from './utils/file.util';
-import { MongoUtil } from './utils/mongo.util';
-import { ObjectUtil } from './utils/object.util';
-import { PaginationUtil } from './utils/pagination.util';
-import { StringUtil } from './utils/string.util';
-import { ValidationUtil } from './utils/validation.util';
+import { ArrayUtil } from './utils/array.utils';
+import { ColorUtil } from './utils/color.utils';
+import { DateUtil } from './utils/date.utils';
+import { FileUtil } from './utils/file.utils';
+import { MongoUtil } from './utils/mongo.utils';
+import { ObjectUtil } from './utils/object.utils';
+import { PaginationUtil } from './utils/pagination.utils';
+import { StringUtil } from './utils/string.utils';
+import { ValidationUtil } from './utils/validation.utils';
 
 /**
  * @deprecated Use specific utility classes from src/shared/utils instead (e.g., MongoUtil, DateUtil).

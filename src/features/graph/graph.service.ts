@@ -2,7 +2,7 @@ import { ClientSession, Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import Helpers from '../../shared/helpers';
 import { EdgeStatus, EdgeType, GraphEdge, NodeType } from './edge.model';
-import { IGraphEdge, IGraphService } from './graph.interface';
+import { IGraphEdge, IGraphService } from './graph.interfaces';
 
 /**
  * Strict Ontology: Defines which source nodes can have which relations to which target nodes.

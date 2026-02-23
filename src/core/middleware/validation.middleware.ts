@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { HTTP_STATUS } from '../../shared/constants';
-import { ResponseHelper } from '../utils/response.util';
+import { ResponseHelper } from '../utils/response.utils';
 
 export class ValidationMiddleware {
 

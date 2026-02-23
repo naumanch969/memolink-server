@@ -1,10 +1,10 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { ENTRY_TYPES } from '../../shared/constants';
-import { MongoUtil } from '../../shared/utils/mongo.util';
-import { StringUtil } from '../../shared/utils/string.util';
+import { MongoUtil } from '../../shared/utils/mongo.utils';
+import { StringUtil } from '../../shared/utils/string.utils';
 import agentService from '../agent/agent.service';
 import { AgentTaskType } from '../agent/agent.types';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';

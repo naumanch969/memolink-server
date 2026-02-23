@@ -4,7 +4,7 @@ import { logger } from '../../config/logger';
 import { HTTP_STATUS } from '../../shared/constants';
 import { Helpers } from '../../shared/helpers';
 import { ApiError, IAppError } from '../errors/api.error';
-import { ResponseHelper } from '../utils/response.util';
+import { ResponseHelper } from '../utils/response.utils';
 
 /**
  * Express Error Handling Middleware

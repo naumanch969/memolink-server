@@ -2,7 +2,7 @@ import { GenerateContentResponse, GenerativeModel, GoogleGenerativeAI } from '@g
 import { ZodSchema } from 'zod';
 import { logger } from '../../../config/logger';
 import { llmUsageService } from '../../../features/llm-usage/llm-usage.service';
-import { withRetry } from '../../utils/retry.util';
+import { withRetry } from '../../utils/retry.utils';
 import { ILLMProvider, LLMGenerativeOptions } from '../llm.types';
 
 // ONLY GEMINI 2.5 IS SUPPOSED TO BE USED.

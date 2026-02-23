@@ -3,7 +3,7 @@ import { logger } from '../../config/logger';
 import { AuthenticatedRequest } from '../../features/auth/auth.interfaces';
 import { cryptoService } from '../crypto/crypto.service';
 import { ApiError } from '../errors/api.error';
-import { ResponseHelper } from '../utils/response.util';
+import { ResponseHelper } from '../utils/response.utils';
 
 
 export class AuthMiddleware {

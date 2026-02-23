@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import { webActivityService } from './web-activity.service';
 

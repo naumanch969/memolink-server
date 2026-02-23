@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { DataConfig, DataType, DataValue } from './types/dataProperties';
+import { DataConfig, DataType, DataValue } from './types/data-properties';
 
 // Re-export global data types
 export { DataConfig, DataType, DataValue };

@@ -1,7 +1,7 @@
 import { Response } from 'express';
-import { cloudinaryService } from '../../config/cloudinary';
+import { cloudinaryService } from '../../config/cloudinary.service';
 import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response.util';
+import { ResponseHelper } from '../../core/utils/response.utils';
 import { getMediaTypeFromMime } from '../../shared/constants';
 import { Helpers } from '../../shared/helpers';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
