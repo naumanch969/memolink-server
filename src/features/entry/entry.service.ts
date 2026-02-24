@@ -350,9 +350,6 @@ export class EntryService implements IEntryService {
         if (removedTags.length > 0) await tagService.decrementUsage(userId, removedTags);
       }
 
-      moodService.recalculateDailyMoodFromEntries(userId, entry.date || new Date())
-        .catch(err => logger.error('Failed to auto-update daily mood', err));
-
       socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
       return entry;
     } catch (error) {

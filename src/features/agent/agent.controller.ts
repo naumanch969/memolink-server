@@ -70,8 +70,7 @@ export class AgentController {
             console.log('processingResult', processingResult)
 
             ResponseHelper.success(res, {
-                intent: processingResult.intent,
-                task: processingResult.task,
+                task: processingResult.tasks[0],
                 data: processingResult.result
             }, 'Processed');
         } catch (error) {
@@ -126,8 +125,7 @@ export class AgentController {
             ResponseHelper.success(res, {
                 transcription: transcription.text,
                 confidence: transcription.confidence,
-                intent: processingResult.intent,
-                task: processingResult.task,
+                task: processingResult.tasks[0],
                 data: processingResult.result,
             }, 'Audio processed');
         } catch (error) {

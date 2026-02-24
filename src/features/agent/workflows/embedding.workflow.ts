@@ -34,6 +34,10 @@ export class EntryEmbeddingWorkflow implements IAgentWorkflow {
                 userId: task.userId,
             });
 
+            if (embeddings.length == 0) {
+                return { status: 'failed', error: `Embeddings generation failed for entry ${entryId}` };
+            }
+
             // 3. Save to Entry
             await Entry.findByIdAndUpdate(entryId, {
                 $set: { embeddings }

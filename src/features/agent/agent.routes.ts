@@ -4,10 +4,11 @@ import { RateLimitMiddleware } from '../../core/middleware/rate-limit.middleware
 import { FileUploadMiddleware } from '../../core/middleware/upload.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { AgentController } from './agent.controller';
-import { chatValidation, cleanTextValidation, createTaskValidation, goalArchitectValidation, processNLValidation, taskIdValidation } from './agent.validations';
+import { chatValidation, cleanTextValidation, createTaskValidation, goalArchitectValidation, processCaptureValidation, taskIdValidation } from './agent.validations';
 
 const router = Router();
 
+const aiLimiter = RateLimitMiddleware.limit({ zone: 'ai', maxRequests: 10, windowMs: 60 * 1000 });
 // Protect all agent routes
 router.use(AuthMiddleware.authenticate);
 
@@ -17,10 +18,9 @@ router.get('/tasks/:taskId', taskIdValidation, ValidationMiddleware.validate, Ag
 
 // Expensive AI & Processing operations - restricted to 50 requests per hour per user (approx)
 // or more loosely 10 requests per minute
-const aiLimiter = RateLimitMiddleware.limit({ zone: 'ai', maxRequests: 10, windowMs: 60 * 1000 });
 
-router.post('/intent', aiLimiter, processNLValidation, ValidationMiddleware.validate, AgentController.processNaturalLanguage);
-router.post('/intent/audio', aiLimiter, FileUploadMiddleware.uploadSingle('audio'), AgentController.processAudioIntent);
+router.post('/process', aiLimiter, processCaptureValidation, ValidationMiddleware.validate, AgentController.processNaturalLanguage);
+router.post('/process/audio', aiLimiter, FileUploadMiddleware.uploadSingle('audio'), AgentController.processAudioIntent);
 router.post('/chat', aiLimiter, chatValidation, ValidationMiddleware.validate, AgentController.chat);
 router.post('/clean', aiLimiter, cleanTextValidation, ValidationMiddleware.validate, AgentController.cleanText);
 router.get('/chat', AgentController.getHistory);

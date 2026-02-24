@@ -10,7 +10,7 @@ export const taskIdValidation = [
     param('taskId').isMongoId().withMessage('Invalid task ID'),
 ];
 
-export const processNLValidation = [
+export const processCaptureValidation = [
     body('text').notEmpty().withMessage('Text input is required').isString().trim(),
     body('tags').optional().isArray(),
     body('timezone').optional().isString(),

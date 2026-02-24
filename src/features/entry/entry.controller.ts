@@ -84,12 +84,12 @@ export class EntryController {
 
       // TRIGGER AGENT TASK
       if (needsAI) {
-        agentService.createTask(userId, AgentTaskType.INTENT_PROCESSING, {
+        agentService.createTask(userId, AgentTaskType.ENTRY_ENRICHMENT, {
           entryId: entry._id.toString(),
           text: entry.content,
           options: { timezone: metadata?.timezone }
         }).catch(async (err) => {
-          logger.error('Failed to trigger intent processing', err);
+          logger.error('Failed to trigger entry enrichment', err);
           const failedEntry = await entryService.updateEntry(entry._id.toString(), userId, {
             status: 'failed',
             metadata: { ...entry.metadata, error: 'Failed to enqueue AI task' }
@@ -136,6 +136,13 @@ export class EntryController {
   static async updateEntry(req: AuthenticatedRequest, res: Response) {
     try {
       const entry = await entryService.updateEntry(req.params.id, req.user!._id.toString(), req.body);
+
+      // MOOD RECALCULATION
+      if (req.body.mood) {
+        moodService.recalculateDailyMoodFromEntries(req.user!._id.toString(), entry.date || new Date())
+          .catch(err => logger.error('Failed to auto-update daily mood', err));
+      }
+
       ResponseHelper.success(res, entry, 'Entry updated successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to update entry', 500, error);

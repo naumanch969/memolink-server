@@ -2,10 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../../../config/logger';
 import { withRetry } from '../../../core/utils/retry.utils';
 import { llmUsageService } from '../../llm-usage/llm-usage.service';
-
-const DEFAULT_MODEL = 'gemini-2.5-flash';
-
 import { IAudioTranscriptionService } from '../agent.interfaces';
+import { AGENT_CONSTANTS } from '../agent.constants';
 
 /**
  * Audio Transcription Service
@@ -30,7 +28,7 @@ class AudioTranscriptionService implements IAudioTranscriptionService {
         mimeType: string,
         options?: { userId?: string; language?: string }
     ): Promise<{ text: string; confidence: 'high' | 'medium' | 'low' }> {
-        const model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
+        const model = this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL });
         const base64Audio = audioBuffer.toString('base64');
 
         const languageHint = options?.language
@@ -85,7 +83,7 @@ Output strictly valid JSON:
                 llmUsageService.log({
                     userId: options?.userId ?? 'system',
                     workflow: 'audio-transcription',
-                    modelName: DEFAULT_MODEL,
+                    modelName: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL,
                     promptTokens: usage.promptTokenCount ?? 0,
                     completionTokens: usage.candidatesTokenCount ?? 0,
                     totalTokens: usage.totalTokenCount ?? 0,

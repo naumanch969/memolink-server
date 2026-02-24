@@ -37,23 +37,28 @@ class LLMServiceClass implements ILLMService {
     }
 
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
-        if (!this.provider.generateEmbeddings) {
-            throw new Error(`Current provider ${this.provider.name} does not support embeddings`);
+        try {
+            if (!this.provider.generateEmbeddings) {
+                throw new Error(`Current provider ${this.provider.name} does not support embeddings`);
+            }
+
+            const cacheKey = cacheService.getEmbeddingKey(text);
+            const cached = await cacheService.get<number[]>(cacheKey);
+
+            if (cached) {
+                return cached;
+            }
+
+            const embeddings = await this.provider.generateEmbeddings(text, options);
+
+            // Cache the result
+            await cacheService.set(cacheKey, embeddings);
+
+            return embeddings;
         }
-
-        const cacheKey = cacheService.getEmbeddingKey(text);
-        const cached = await cacheService.get<number[]>(cacheKey);
-
-        if (cached) {
-            return cached;
+        catch {
+            return [];
         }
-
-        const embeddings = await this.provider.generateEmbeddings(text, options);
-
-        // Cache the result
-        await cacheService.set(cacheKey, embeddings);
-
-        return embeddings;
     }
 }
 

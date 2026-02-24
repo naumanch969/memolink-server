@@ -11,17 +11,28 @@ import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
 
+const nodeTypes = Object.values(NodeType);
+const edgeTypes = Object.values(EdgeType);
+
 const extractionSchema = z.object({
     entities: z.array(z.object({
         name: z.string(),
-        otype: z.nativeEnum(NodeType),
+        otype: z.preprocess((val) => {
+            if (typeof val !== 'string') return NodeType.ENTITY;
+            const normalized = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
+            return nodeTypes.includes(normalized as NodeType) ? normalized : NodeType.ENTITY;
+        }, z.nativeEnum(NodeType)),
         summary: z.string().optional(),
         aliases: z.array(z.string()).optional()
     })).optional(),
     relations: z.array(z.object({
         source: z.string(),
         target: z.string(),
-        type: z.nativeEnum(EdgeType),
+        type: z.preprocess((val) => {
+            if (typeof val !== 'string') return EdgeType.ASSOCIATED_WITH;
+            const upper = val.toUpperCase();
+            return edgeTypes.includes(upper as EdgeType) ? upper : EdgeType.ASSOCIATED_WITH;
+        }, z.nativeEnum(EdgeType)),
         metadata: z.record(z.string(), z.any()).optional()
     })).optional()
 });
@@ -36,42 +47,37 @@ export class EntityExtractionWorkflow implements IAgentWorkflow {
             return { status: 'failed', error: 'Entry ID is required for extraction workflow' };
         }
 
-        const session = await mongooseNative.startSession();
-        session.startTransaction();
-
         try {
-            // 1. Fetch Entry
-            const entry = await Entry.findById(entryId).session(session);
+            // 1. Fetch Context (No Transaction yet)
+            const entry = await Entry.findById(entryId).lean();
             if (!entry) throw new Error('Entry not found');
-            if (!entry.content) {
-                await session.commitTransaction();
+            if (!entry.content || entry.content.length < 5) {
                 return { status: 'completed', result: { names: [] } };
             }
 
-            // 2. Fetch Existing Entity Names for Disambiguation
+            // 2. Fetch Registry & Refutations
             const entityRegistry = await entityService.getEntityRegistry(userId);
             const knownNames = Object.keys(entityRegistry);
 
-            // 2.5 Fetch Negative Context (Refutations)
             const refutedRelations = await graphService.getRefutationContext(userId);
             const negativeContext = refutedRelations.length > 0
                 ? `\nREJECTED RELATIONSHIPS (Do not extract these unless specifically mentioned as a change):\n${refutedRelations.join('\n')}`
                 : '';
 
-            // 3. Call LLM
+            // 3. Call LLM for Extraction
             const prompt = `
             Analyze the journal entry and extract "Chief of Staff" level intelligence about entities and their relationships.
             
             KNOWN ENTITIES for this user:
             ${knownNames.join(', ')}
             ${negativeContext}
-    
+
             Rules:
             1. If an entity matches or is an alias for a KNOWN ENTITY, use the EXACT name from the list above.
             2. Extract relationships BETWEEN them.
             3. Relationship types MUST use: WORKS_AT, CONTRIBUTES_TO, MEMBER_OF, PART_OF, OWNED_BY, ASSOCIATED_WITH, BLOCKS, SUPPORTS, REQUIRES, INFLUENCES, TRIGGERS, KNOWS, INTERESTED_IN.
             4. If a relationship matches one in "REJECTED RELATIONSHIPS", ONLY extract it if the entry explicitly mentions a change of state (e.g. "John now works at...").
-    
+
             Entry:
             "${entry.content}"
           `;
@@ -83,6 +89,7 @@ export class EntityExtractionWorkflow implements IAgentWorkflow {
             let entitiesData = response.entities || [];
             let relationsData = response.relations || [];
 
+            console.log('entitiesData', entitiesData, relationsData)
             // 3.5 THE CRITIC PASS (Verification Loop)
             if (entitiesData.length > 0) {
                 const criticPrompt = `
@@ -118,116 +125,129 @@ export class EntityExtractionWorkflow implements IAgentWorkflow {
             }
 
             if (entitiesData.length === 0) {
-                await session.commitTransaction();
                 return { status: 'completed', result: { names: [] } };
             }
 
-            const entityIds: string[] = [];
-            const nameToIdMap: Record<string, { id: string, type: NodeType }> = {};
+            // 4. PERSISTENCE (Start Transaction only when ready to write)
+            const session = await mongooseNative.startSession();
+            session.startTransaction();
 
-            // 4. Upsert Entities
-            for (const e of entitiesData) {
-                const otype = e.otype as NodeType;
+            try {
+                // Fetch full Mongoose document for the write phase
+                const entryDoc = await Entry.findById(entryId).session(session);
+                if (!entryDoc) throw new Error('Entry lost during processing');
 
-                let entity = await KnowledgeEntity.findOne({
-                    userId,
-                    $or: [
-                        { name: { $regex: new RegExp(`^${e.name.trim()}$`, 'i') } },
-                        { aliases: { $in: [e.name.trim()] } }
-                    ],
-                    isDeleted: false
-                }).session(session);
+                const entityIds: string[] = [];
+                const nameToIdMap: Record<string, { id: string, type: NodeType }> = {};
 
-                if (!entity) {
-                    entity = await entityService.createEntity(userId, {
-                        name: e.name,
-                        otype,
-                        aliases: e.aliases,
-                        summary: e.summary,
-                        tags: (e as any).tags,
-                        jobTitle: otype === NodeType.PERSON ? (e as any).role : undefined
-                    }, { session }) as any;
-                } else {
-                    const oldScore = entity.sentimentScore || 0;
-                    const count = entity.interactionCount || 0;
-                    const newScore = ((oldScore * count) + ((e as any).sentiment || 0)) / (count + 1);
-                    const newAliases = Array.from(new Set([...(entity.aliases || []), ...(e.aliases || [])]));
+                // 4.1 Upsert Entities
+                for (const e of entitiesData) {
+                    const otype = e.otype as NodeType;
 
-                    await entityService.updateEntity(entity._id.toString(), userId, {
-                        lastInteractionAt: entry.date,
-                        lastInteractionSummary: e.summary,
-                        sentimentScore: newScore,
-                        interactionCount: count + 1,
-                        aliases: newAliases,
-                        tags: Array.from(new Set([...(entity.tags || []), ...((e as any).tags || [])]))
-                    }, { session });
-                }
+                    let entity = await KnowledgeEntity.findOne({
+                        userId,
+                        $or: [
+                            { name: { $regex: new RegExp(`^${e.name.trim()}$`, 'i') } },
+                            { aliases: { $in: [e.name.trim()] } }
+                        ],
+                        isDeleted: false
+                    }).session(session);
 
-                const sid = entity!._id.toString();
-                entityIds.push(sid);
-                nameToIdMap[e.name.toLowerCase()] = { id: sid, type: otype };
-                (e.aliases || []).forEach(alias => {
-                    nameToIdMap[alias.toLowerCase()] = { id: sid, type: otype };
-                });
+                    if (!entity) {
+                        entity = await entityService.createEntity(userId, {
+                            name: e.name,
+                            otype,
+                            aliases: e.aliases,
+                            summary: e.summary,
+                            tags: (e as any).tags,
+                            jobTitle: otype === NodeType.PERSON ? (e as any).role : undefined
+                        }, { session }) as any;
+                    } else {
+                        const oldScore = entity.sentimentScore || 0;
+                        const count = entity.interactionCount || 0;
+                        const newScore = ((oldScore * count) + ((e as any).sentiment || 0)) / (count + 1);
+                        const newAliases = Array.from(new Set([...(entity.aliases || []), ...(e.aliases || [])]));
 
-                // 5. Create "MENTIONED_IN" Edge
-                await graphService.createAssociation({
-                    fromId: sid,
-                    fromType: otype,
-                    toId: entryId,
-                    toType: NodeType.CONTEXT,
-                    relation: EdgeType.MENTIONED_IN,
-                    sourceEntryId: entryId,
-                    metadata: { entryDate: entry.date, name: e.name, isExtraction: true }
-                }, { session });
+                        await entityService.updateEntity(entity._id.toString(), userId, {
+                            lastInteractionAt: entry.date,
+                            lastInteractionSummary: e.summary,
+                            sentimentScore: newScore,
+                            interactionCount: count + 1,
+                            aliases: newAliases,
+                            tags: Array.from(new Set([...(entity.tags || []), ...((e as any).tags || [])]))
+                        }, { session });
+                    }
 
-                // 6. Create Ego-Edge
-                const egoRelation = otype === NodeType.PERSON ? EdgeType.KNOWS : EdgeType.INTERESTED_IN;
-                await graphService.createAssociation({
-                    fromId: userId.toString(),
-                    fromType: NodeType.USER,
-                    toId: sid,
-                    toType: otype,
-                    relation: egoRelation,
-                    sourceEntryId: entryId,
-                    metadata: { name: e.name, sentiment: (e as any).sentiment, originEntryId: entryId, isExtraction: true }
-                }, { session }).catch(err => logger.debug(`Ego-edge failed for ${e.name}`));
-            }
+                    const sid = entity!._id.toString();
+                    entityIds.push(sid);
+                    nameToIdMap[e.name.toLowerCase()] = { id: sid, type: otype };
+                    (e.aliases || []).forEach(alias => {
+                        nameToIdMap[alias.toLowerCase()] = { id: sid, type: otype };
+                    });
 
-            // 7. Upsert Relationships
-            for (const rel of relationsData) {
-                const source = nameToIdMap[rel.source.toLowerCase()];
-                const target = nameToIdMap[rel.target.toLowerCase()];
-
-                if (source && target && source.id !== target.id) {
+                    // 4.2 Create "MENTIONED_IN" Edge
                     await graphService.createAssociation({
-                        fromId: source.id,
-                        fromType: source.type,
-                        toId: target.id,
-                        toType: target.type,
-                        relation: rel.type as EdgeType,
+                        fromId: sid,
+                        fromType: otype,
+                        toId: entryId,
+                        toType: NodeType.CONTEXT,
+                        relation: EdgeType.MENTIONED_IN,
                         sourceEntryId: entryId,
-                        metadata: { ...rel.metadata, sourceName: rel.source, targetName: rel.target, originEntryId: entryId }
-                    }, { session }).catch(err => logger.warn(`Relation ${rel.type} failed: ${err.message}`));
+                        metadata: { entryDate: entryDoc.date, name: e.name, isExtraction: true }
+                    }, { session });
+
+                    // 4.3 Create Ego-Edge
+                    const egoRelation = otype === NodeType.PERSON ? EdgeType.KNOWS : EdgeType.INTERESTED_IN;
+                    await graphService.createAssociation({
+                        fromId: userId.toString(),
+                        fromType: NodeType.USER,
+                        toId: sid,
+                        toType: otype,
+                        relation: egoRelation,
+                        sourceEntryId: entryId,
+                        metadata: { name: e.name, sentiment: (e as any).sentiment, originEntryId: entryId, isExtraction: true }
+                    }, { session }).catch(err => logger.debug(`Ego-edge failed for ${e.name}`));
                 }
+
+                // 4.4 Upsert Relationships
+                for (const rel of relationsData) {
+                    const source = nameToIdMap[rel.source.toLowerCase()];
+                    const target = nameToIdMap[rel.target.toLowerCase()];
+
+                    if (source && target && source.id !== target.id) {
+                        await graphService.createAssociation({
+                            fromId: source.id,
+                            fromType: source.type,
+                            toId: target.id,
+                            toType: target.type,
+                            relation: rel.type as EdgeType,
+                            sourceEntryId: entryId,
+                            metadata: { ...rel.metadata, sourceName: rel.source, targetName: rel.target, originEntryId: entryId }
+                        }, { session }).catch(err => logger.warn(`Relation ${rel.type} failed: ${err.message}`));
+                    }
+                }
+
+                // 4.5 Update Entry Mentions
+                entryDoc.mentions = Array.from(new Set([...(entryDoc.mentions || []), ...entityIds.map(id => new mongooseNative.Types.ObjectId(id))])) as any;
+                await entryDoc.save({ session });
+
+                await session.commitTransaction();
+                session.endSession();
+
+                return {
+                    status: 'completed',
+                    result: { names: entitiesData.map((e: any) => e.name), count: entitiesData.length }
+                };
+
+            } catch (innerError: any) {
+                await session.abortTransaction();
+                session.endSession();
+                throw innerError;
             }
-
-            // 8. Update Entry Mentions
-            entry.mentions = Array.from(new Set([...(entry.mentions || []), ...entityIds.map(id => new mongooseNative.Types.ObjectId(id))])) as any;
-            await entry.save({ session });
-
-            await session.commitTransaction();
-            return {
-                status: 'completed',
-                result: { names: entitiesData.map((e: any) => e.name), count: entitiesData.length }
-            };
 
         } catch (error: any) {
-            await session.abortTransaction();
             logger.error(`[ExtractionWorkflow] Failed: ${error.message}`, { entryId, userId });
             return { status: 'failed', error: error.message };
-        } finally {
-            session.endSession();
         }
     }
 }

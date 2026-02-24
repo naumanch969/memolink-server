@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { CreateMoodRequest, IMoodService, MoodFilter } from './mood.interfaces';
 import Mood from './mood.model';
+import { classifyMood } from '../entry/mood.config';
+import Entry from '../entry/entry.model';
 
 export class MoodService implements IMoodService {
     /**
@@ -83,9 +85,6 @@ export class MoodService implements IMoodService {
     async recalculateDailyMoodFromEntries(userId: string | Types.ObjectId, date: Date): Promise<void> {
         try {
             // We use dynamic import for the model if needed, but since it's a model it's usually fine
-            const { Entry } = await import('../entry/entry.model');
-            const { classifyMood } = await import('../entry/mood.config');
-
             const startOfDay = new Date(date);
             startOfDay.setUTCHours(0, 0, 0, 0);
             const endOfDay = new Date(date);

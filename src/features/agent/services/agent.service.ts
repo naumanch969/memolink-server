@@ -1,6 +1,8 @@
 import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
+import { socketService } from '../../../core/socket/socket.service';
+import { SocketEvents } from '../../../core/socket/socket.types';
 import DateUtil from '../../../shared/utils/date.utils';
 import { Entry } from '../../entry/entry.model';
 import { entryService } from '../../entry/entry.service';
@@ -13,11 +15,9 @@ import { IAgentService } from '../agent.interfaces';
 import { AgentTask, IAgentTaskDocument } from '../agent.model';
 import { getAgentQueue } from '../agent.queue';
 import { AgentTaskInput, AgentTaskStatus, AgentTaskType } from '../agent.types';
-import { intentDispatcher } from '../handlers/intent.dispatcher';
 import { agentMemoryService } from '../memory/agent.memory';
 import { IUserPersonaDocument, UserPersona } from '../memory/persona.model';
 import { chatOrchestrator } from '../orchestrators/chat.orchestrator';
-import { agentIntentService, AgentIntentType, IntentResult } from '../services/agent.intent.service';
 export class AgentService implements IAgentService {
     /**
      * ==========================================
@@ -37,11 +37,15 @@ export class AgentService implements IAgentService {
             const queue = getAgentQueue();
             await queue.add(type, { taskId: task._id.toString() });
             logger.info(`Agent Task enqueued: [${type}] ${task._id} for user ${userId}`);
+
+            // Notify frontend immediately that a task is enqueued
+            socketService.emitToUser(userId, SocketEvents.AGENT_TASK_UPDATED, task);
         } catch (error) {
             logger.error('Failed to enqueue agent task', error);
             task.status = AgentTaskStatus.FAILED;
             task.error = 'Failed to enqueue task';
             await task.save();
+            socketService.emitToUser(userId, SocketEvents.AGENT_TASK_UPDATED, task);
         }
 
         return task;
@@ -69,82 +73,44 @@ export class AgentService implements IAgentService {
                 content: text,
                 date: new Date(),
                 type: 'text',
-                status: 'capturing',
+                status: 'processing', // Start in processing since it's an AI flow
                 tags: options.tags || [],
                 metadata: { source: options.source || 'capture-mode' }
             });
-            logger.info("Reliability Capture: Entry saved before AI processing", { userId, entryId: entry._id });
+            logger.info("Reliability Capture: Entry saved", { userId, entryId: entry._id });
         } catch (error) {
             logger.error("Reliability Capture Failed", error);
+            throw error;
         }
 
         try {
-            const history = await agentMemoryService.getHistory(userId);
-            let intentResult: IntentResult;
-            try {
-                intentResult = await agentIntentService.classify(userId, text, history, options.timezone);
-            } catch (aiError) {
-                logger.warn("Intent analysis failed, falling back to journaling", aiError);
-                intentResult = {
-                    intents: [{ intent: AgentIntentType.JOURNALING, parsedEntities: { date: new Date() } }],
-                    summary: "Saved as daily entry"
-                };
-            }
-
-            // Handle Clarification loops
-            const clarification = intentResult.intents.find(i => i.needsClarification);
-            if (clarification) {
-                if (entry?._id) await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
-                return { ...clarification, originalText: text, result: entry };
-            }
-
+            // Keep user history updated
             await agentMemoryService.addMessage(userId, 'user', text);
 
-            // 3. Dispatch Actions
-            const dispatchResult = await intentDispatcher.dispatch({
-                userId,
+            // 2. Trigger Unified Enrichment Task
+            // This task now handles Tagging, Extraction, and Indexing in background.
+            const task = await this.createTask(userId, AgentTaskType.ENTRY_ENRICHMENT, {
                 text,
-                entry,
-                intentResult
+                entryId: entry._id.toString(),
+                options: { timezone: options.timezone }
             });
 
-            if (dispatchResult.earlyReturn) {
-                if (entry?._id) await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
-                return dispatchResult.earlyReturn;
-            }
-
-            // 4. Record Tasks for Actions
-            const tasks = [];
-            for (const action of dispatchResult.actions) {
-                const task = await this.createTask(userId, action.taskType, {
-                    text,
-                    intent: action.taskType,
-                    resultId: action.commandObject?._id?.toString()
-                });
-                tasks.push(task);
-            }
-
-            // Cleanup: Mark entry ready if no specific tasks were triggered
-            if (dispatchResult.actions.length === 0 && entry?._id) {
-                await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
-            }
-
-            const summary = dispatchResult.summary || `Processed ${intentResult.intents.length} intentions.`;
+            const summary = "Processing your entry...";
             await agentMemoryService.addMessage(userId, 'agent', summary);
 
             // Background Persona Sync
             this.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
 
             return {
-                tasks,
-                result: dispatchResult.actions.length > 0 ? dispatchResult.actions[0].commandObject : entry,
+                tasks: [task],
+                result: entry,
                 summary
             };
 
         } catch (error) {
             logger.error("Agent NLP Processing failed", error);
             if (entry?._id) {
-                await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
+                await entryService.updateEntry(entry._id.toString(), userId, { status: 'failed' });
             }
             throw error;
         }

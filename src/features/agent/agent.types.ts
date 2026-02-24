@@ -9,7 +9,7 @@ export enum AgentTaskType {
     DAILY_BRIEFING = 'DAILY_BRIEFING',
     KNOWLEDGE_QUERY = 'KNOWLEDGE_QUERY',
     WEB_ACTIVITY_SUMMARY = 'WEB_ACTIVITY_SUMMARY',
-    INTENT_PROCESSING = 'INTENT_PROCESSING',
+    ENTRY_ENRICHMENT = 'ENTRY_ENRICHMENT',
     SYNC = 'SYNC',
     PERSONA_SYNTHESIS = 'PERSONA_SYNTHESIS',
     MEMORY_FLUSH = 'MEMORY_FLUSH',
@@ -34,13 +34,12 @@ export enum AgentTaskStatus {
  * TASK DATA CONTRACTS
  */
 
-export interface IntentProcessingInput {
+export interface EntryEnrichmentInput {
     text: string;
     entryId: string;
     options?: {
         timezone?: string;
         source?: string;
-        intentResult?: any;
     };
 }
 
@@ -68,7 +67,7 @@ export interface ConsolidationInput {
 }
 
 export type AgentTaskInput =
-    | IntentProcessingInput
+    | EntryEnrichmentInput
     | PersonaSynthesisInput
     | SyncInput
     | WebActivityInput

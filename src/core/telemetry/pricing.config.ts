@@ -5,12 +5,12 @@ export interface PricingModel {
 
 // Pricing as of Feb 2026 (Hypothetical / Latest)
 export const AI_PRICING: Record<string, PricingModel> = {
-    'gemini-2.5-flash': { input: 0.30, output: 2.50 },
+    'gemini-2.5-flash': { input: 0.10, output: 0.40 },
     'gemini-1.5-pro': { input: 3.50, output: 10.50 },
     'gpt-4o': { input: 5.00, output: 15.00 },
     'gpt-4o-mini': { input: 0.15, output: 0.60 },
     'claude-3-5-sonnet': { input: 3.00, output: 15.00 },
-    'text-embedding-004': { input: 0.00, output: 0.00 },
+    'gemini-embedding-001': { input: 0.00, output: 0.00 },
 };
 
 export const STORAGE_PRICING = {

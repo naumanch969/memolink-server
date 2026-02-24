@@ -1,17 +1,13 @@
 import { GenerateContentResponse, GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { ZodSchema } from 'zod';
 import { logger } from '../../../config/logger';
+import { AGENT_CONSTANTS } from '../../../features/agent/agent.constants';
 import { llmUsageService } from '../../../features/llm-usage/llm-usage.service';
 import { withRetry } from '../../utils/retry.utils';
 import { ILLMProvider, LLMGenerativeOptions } from '../llm.types';
 
-// ONLY GEMINI 2.5 IS SUPPOSED TO BE USED.
-const DEFAULT_MODEL = 'gemini-2.5-flash';
-const EMBEDDING_MODEL = 'text-embedding-004';
-
-
 export class GeminiProvider implements ILLMProvider {
-    public name = DEFAULT_MODEL;
+    public name = AGENT_CONSTANTS.DEFAULT_TEXT_MODEL;
     private client: GoogleGenerativeAI;
     private model: GenerativeModel;
 
@@ -20,7 +16,7 @@ export class GeminiProvider implements ILLMProvider {
             throw new Error('GEMINI_API_KEY is not defined');
         }
         this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = this.client.getGenerativeModel({ model: DEFAULT_MODEL });
+        this.model = this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL });
     }
 
 
@@ -44,7 +40,7 @@ export class GeminiProvider implements ILLMProvider {
         try {
             // Configure model if options provided
             const modelToUse = options?.systemInstruction
-                ? this.client.getGenerativeModel({ model: DEFAULT_MODEL, systemInstruction: options.systemInstruction })
+                ? this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, systemInstruction: options.systemInstruction })
                 : this.model;
 
             const generationConfig = {
@@ -65,7 +61,7 @@ export class GeminiProvider implements ILLMProvider {
                 { operationName: 'Gemini.generateText' }
             );
 
-            this.logUsage(response, DEFAULT_MODEL, startTime, options);
+            this.logUsage(response, AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, startTime, options);
             return response.text();
         } catch (error) {
             // Error is already logged by withRetry if it exhausts attempts, 
@@ -146,7 +142,7 @@ export class GeminiProvider implements ILLMProvider {
         try {
             // Configure model if options provided
             const modelParams: any = {
-                model: DEFAULT_MODEL,
+                model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL,
             };
 
             if (options?.systemInstruction) {
@@ -177,7 +173,7 @@ export class GeminiProvider implements ILLMProvider {
                 { operationName: 'Gemini.generateWithTools' }
             );
 
-            this.logUsage(response, DEFAULT_MODEL, startTime, options);
+            this.logUsage(response, AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, startTime, options);
 
             // Check for function calls
             const functionCalls = response.functionCalls();
@@ -200,27 +196,35 @@ export class GeminiProvider implements ILLMProvider {
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         try {
             const startTime = Date.now();
+
             const result = await withRetry(
                 async () => {
-                    const embeddingModel = this.client.getGenerativeModel({ model: EMBEDDING_MODEL });
+                    // Reuse or get the embedding model
+                    const embeddingModel = this.client.getGenerativeModel({
+                        model: AGENT_CONSTANTS.DEFAULT_EMBEDDING_MODEL, // "text-embedding-004"
+                    });
+
+                    // Simple text-based embedding request
                     return await embeddingModel.embedContent(text);
                 },
                 { operationName: 'Gemini.generateEmbeddings' }
             );
 
-            // embedContent doesn't return usageMetadata, so estimate token count
+            // Log usage (estimate tokens)
             const estimatedTokens = Math.ceil(text.length / 4);
             llmUsageService.log({
                 userId: options?.userId ?? 'system',
                 workflow: options?.workflow ?? 'embedding',
-                modelName: EMBEDDING_MODEL,
+                modelName: AGENT_CONSTANTS.DEFAULT_EMBEDDING_MODEL,
                 promptTokens: estimatedTokens,
                 completionTokens: 0,
                 totalTokens: estimatedTokens,
                 durationMs: Date.now() - startTime,
             });
 
-            return result.embedding.values;
+            // ✅ Access the embedding correctly
+            const embedding = result.embedding.values;
+            return embedding;
         } catch (error) {
             logger.error('Gemini generateEmbeddings error:', error);
             throw error;

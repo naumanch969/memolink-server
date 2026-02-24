@@ -10,6 +10,7 @@ import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
+import graphService from '../../graph/graph.service';
 
 const flushSchema = z.object({
     observations: z.array(z.object({
@@ -121,7 +122,6 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
             // 4. Handle Associations (Graph)
             const associations = result.associations || [];
             if (associations.length > 0) {
-                const { graphService } = await import('../../graph/graph.service');
 
                 for (const assoc of associations) {
                     try {

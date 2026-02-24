@@ -45,22 +45,6 @@ export interface IAgentMemoryService {
     saveToArchive(userId: string | Types.ObjectId, messages: IChatMessage[]): Promise<void>;
 }
 
-export interface IIntent {
-    intent: string;
-    reasoning: string;
-    confidence?: number;
-    extractedEntities?: any;
-}
-
-export interface IIntentResult {
-    intents: any[];
-    summary: string;
-}
-
-export interface IAgentIntentService {
-    classify(userId: string | Types.ObjectId, text: string, history: IChatMessage[], timezone?: string): Promise<IIntentResult>;
-}
-
 export interface IAgentAccountabilityService {
     performDailyAudit(userId: string | Types.ObjectId): Promise<void>;
     checkOverdueTasks(userId: string | Types.ObjectId): Promise<void>;
@@ -68,10 +52,6 @@ export interface IAgentAccountabilityService {
 
 export interface IChatOrchestrator {
     chat(userId: string, message: string, options?: { onFinish?: (answer: string) => Promise<void> }): Promise<string>;
-}
-
-export interface IIntentDispatcher {
-    dispatch(params: { userId: string | Types.ObjectId; text: string; entry: any; intentResult: IIntentResult }): Promise<any>;
 }
 
 export interface IAgentWorkflow {

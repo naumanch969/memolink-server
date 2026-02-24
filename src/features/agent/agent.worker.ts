@@ -3,24 +3,24 @@ import { logger } from '../../config/logger';
 import { queueService } from '../../core/queue/queue.service';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
+import entryService from '../entry/entry.service';
+import reportService from '../report/report.service';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { AGENT_QUEUE_NAME } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
 import { agentWorkflowRegistry } from './agent.workflow.registry';
-import { intentWorkflow } from './workflows/intent.workflow';
 import { weeklyAnalysisWorkflow } from './workflows/analysis.workflow';
-import { monthlyAnalysisWorkflow } from './workflows/monthly-analysis.workflow';
-import { webActivityWorkflow } from './workflows/web-activity.workflow';
-import { syncWorkflow } from './workflows/sync.workflow';
-import { personaWorkflow } from './workflows/persona.workflow';
-import { memoryFlushWorkflow } from './workflows/memory.workflow';
 import { cognitiveConsolidationWorkflow, entityConsolidationWorkflow } from './workflows/consolidation.workflow';
-import { retroactiveLinkingWorkflow } from './workflows/linking.workflow';
-import { taggingWorkflow } from './workflows/tagging.workflow';
-import { entityExtractionWorkflow } from './workflows/extraction.workflow';
 import { entryEmbeddingWorkflow } from './workflows/embedding.workflow';
-import entryService from '../entry/entry.service';
-import reportService from '../report/report.service';
+import { enrichmentWorkflow } from './workflows/enrichment.workflow';
+import { entityExtractionWorkflow } from './workflows/extraction.workflow';
+import { retroactiveLinkingWorkflow } from './workflows/linking.workflow';
+import { memoryFlushWorkflow } from './workflows/memory.workflow';
+import { monthlyAnalysisWorkflow } from './workflows/monthly-analysis.workflow';
+import { personaWorkflow } from './workflows/persona.workflow';
+import { syncWorkflow } from './workflows/sync.workflow';
+import { taggingWorkflow } from './workflows/tagging.workflow';
+import { webActivityWorkflow } from './workflows/web-activity.workflow';
 
 /**
  * AGENT WORKFLOW REGISTRATION
@@ -30,66 +30,79 @@ import reportService from '../report/report.service';
 const registerWorkflows = () => {
     const registry = agentWorkflowRegistry;
 
+    // To enrich entry, tagging, add mood, extraction, embedding
     registry.register({
-        type: AgentTaskType.INTENT_PROCESSING,
-        execute: (task) => intentWorkflow.execute(task)
+        type: AgentTaskType.ENTRY_ENRICHMENT,
+        execute: (task) => enrichmentWorkflow.execute(task)
     });
 
+    // To generate weekly analysis
     registry.register({
         type: AgentTaskType.WEEKLY_ANALYSIS,
         execute: (task) => weeklyAnalysisWorkflow.execute(task)
     });
 
+    // To generate monthly analysis
     registry.register({
         type: AgentTaskType.MONTHLY_ANALYSIS,
         execute: (task) => monthlyAnalysisWorkflow.execute(task)
     });
 
+    // To generate web activity summary
     registry.register({
         type: AgentTaskType.WEB_ACTIVITY_SUMMARY,
         execute: (task) => webActivityWorkflow.execute(task)
     });
 
+    // To sync entries, execute all pending AgentTasks (retrieved from DB)
     registry.register({
         type: AgentTaskType.SYNC,
         execute: (task) => syncWorkflow.execute(task)
     });
 
+    // To update user persona
     registry.register({
         type: AgentTaskType.PERSONA_SYNTHESIS,
         execute: (task) => personaWorkflow.execute(task)
     });
 
+    // 
     registry.register({
         type: AgentTaskType.MEMORY_FLUSH,
         execute: (task) => memoryFlushWorkflow.execute(task)
     });
 
+    // To update entity (people, places, organizations, etc.) summaries 
     registry.register({
         type: AgentTaskType.ENTITY_CONSOLIDATION,
         execute: (task) => entityConsolidationWorkflow.execute(task)
     });
 
+    // TODO: check if this is needed
     registry.register({
         type: AgentTaskType.RETROACTIVE_LINKING,
         execute: (task) => retroactiveLinkingWorkflow.execute(task)
     });
 
+    // To update user persona
     registry.register({
         type: AgentTaskType.COGNITIVE_CONSOLIDATION,
         execute: (task) => cognitiveConsolidationWorkflow.execute(task)
     });
 
+    // Generate tags for entry - enrichement
     registry.register({
         type: AgentTaskType.TAGGING,
         execute: (task) => taggingWorkflow.execute(task)
     });
 
+    // Extract entities (people, places, organizations, etc.) from entry - enrichement
     registry.register({
         type: AgentTaskType.ENTITY_EXTRACTION,
         execute: (task) => entityExtractionWorkflow.execute(task)
     });
 
+    // Generate vector embedding for entry - enrichement
     registry.register({
         type: AgentTaskType.ENTRY_EMBEDDING,
         execute: (task) => entryEmbeddingWorkflow.execute(task)
@@ -138,6 +151,10 @@ export const initAgentWorker = () => {
             await handleTaskFailure(task, error);
             throw error;
         }
+    }, {
+        concurrency: 5, // Allow multiple tasks to be processed in parallel
+        lockDuration: 300000, // 5 minutes to prevent "could not renew lock" errors
+        stalledInterval: 60000, // 60 seconds
     });
 };
 
@@ -168,8 +185,8 @@ async function handleTaskFailure(task: IAgentTaskDocument, error: any) {
     await task.save();
     socketService.emitToUser(task.userId.toString(), SocketEvents.AGENT_TASK_UPDATED, task);
 
-    // Specific cleanup for failed intent processing
-    if (task.type === AgentTaskType.INTENT_PROCESSING && task.inputData?.entryId) {
+    // Specific cleanup for failed enrichment
+    if (task.type === AgentTaskType.ENTRY_ENRICHMENT && task.inputData?.entryId) {
         try {
             const entry = await entryService.getEntryById(task.inputData.entryId, task.userId);
             if (entry && entry.status === 'processing') {
@@ -185,8 +202,8 @@ async function handleTaskFailure(task: IAgentTaskDocument, error: any) {
 }
 
 async function postProcessTask(task: IAgentTaskDocument) {
-    // 1. Mark entry ready if intent processing finished
-    if (task.type === AgentTaskType.INTENT_PROCESSING && task.inputData?.entryId) {
+    // 1. Mark entry ready if enrichment finished
+    if (task.type === AgentTaskType.ENTRY_ENRICHMENT && task.inputData?.entryId) {
         const entry = await entryService.getEntryById(task.inputData.entryId, task.userId);
         if (entry && entry.status !== 'ready' && entry.status !== 'failed') {
             await entryService.updateEntry(task.inputData.entryId, task.userId, { status: 'ready' });

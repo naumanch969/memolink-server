@@ -89,7 +89,7 @@ export class MonitoringService implements IMonitoringService {
         // Group by model
         const modelCosts: Record<string, number> = {};
         metrics.filter(m => m.key.startsWith('ai:cost:usd')).forEach(m => {
-            // If we tracked model specific cost (e.g. ai:cost:usd:gemini-1.5), we could split here.
+            // If we tracked model specific cost (e.g. ai:cost:usd:gemini-2.5-flash), we could split here.
         });
 
         const modelUsage: Record<string, number> = {};

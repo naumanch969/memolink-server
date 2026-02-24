@@ -51,10 +51,10 @@ export class SyncWorkflow implements IAgentWorkflow {
     }
 
     private async enqueueEntryTasks(userId: string | Types.ObjectId, entryId: string) {
-        // Rely on the central INTENT_PROCESSING orchestrator rather than scattering sub-tasks.
-        // The intent.workflow.ts natively calls tagging, extraction, and embedding sequentially.
+        // Rely on the central ENTRY_ENRICHMENT orchestrator rather than scattering sub-tasks.
+        // The enrichment.workflow.ts natively calls tagging, extraction, and embedding sequentially.
         const entry = await Entry.findById(entryId).select('content').lean();
-        await agentService.createTask(userId, AgentTaskType.INTENT_PROCESSING, {
+        await agentService.createTask(userId, AgentTaskType.ENTRY_ENRICHMENT, {
             entryId,
             text: entry?.content
         });
