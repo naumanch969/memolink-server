@@ -1,10 +1,10 @@
 import { Types } from 'mongoose';
 import { IAgentTaskDocument } from './agent.model';
-import { AgentTaskType } from './agent.types';
-import { IUserPersonaDocument } from './persona.model';
+import { AgentTaskInput, AgentTaskType } from './agent.types';
+import { IUserPersonaDocument } from './memory/persona.model';
 
 export interface IAgentService {
-    createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: any): Promise<IAgentTaskDocument>;
+    createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: AgentTaskInput): Promise<IAgentTaskDocument>;
     getTask(taskId: string, userId: string): Promise<IAgentTaskDocument | null>;
     listUserTasks(userId: string, limit?: number): Promise<IAgentTaskDocument[]>;
     processNaturalLanguage(userId: string, text: string, options?: any): Promise<any>;
@@ -31,3 +31,56 @@ export interface IAudioTranscriptionService {
     ): Promise<{ text: string; confidence: 'high' | 'medium' | 'low' }>;
 }
 
+export interface IChatMessage {
+    role: 'user' | 'agent' | 'system';
+    content: string;
+    timestamp: number;
+}
+
+export interface IAgentMemoryService {
+    addMessage(userId: string | Types.ObjectId, role: 'user' | 'agent' | 'system', content: string): Promise<void>;
+    getHistory(userId: string | Types.ObjectId): Promise<IChatMessage[]>;
+    clear(userId: string | Types.ObjectId): Promise<void>;
+    flush(userId: string | Types.ObjectId, count: number): Promise<void>;
+    saveToArchive(userId: string | Types.ObjectId, messages: IChatMessage[]): Promise<void>;
+}
+
+export interface IIntent {
+    intent: string;
+    reasoning: string;
+    confidence?: number;
+    extractedEntities?: any;
+}
+
+export interface IIntentResult {
+    intents: any[];
+    summary: string;
+}
+
+export interface IAgentIntentService {
+    classify(userId: string | Types.ObjectId, text: string, history: IChatMessage[], timezone?: string): Promise<IIntentResult>;
+}
+
+export interface IAgentAccountabilityService {
+    performDailyAudit(userId: string | Types.ObjectId): Promise<void>;
+    checkOverdueTasks(userId: string | Types.ObjectId): Promise<void>;
+}
+
+export interface IChatOrchestrator {
+    chat(userId: string, message: string, options?: { onFinish?: (answer: string) => Promise<void> }): Promise<string>;
+}
+
+export interface IIntentDispatcher {
+    dispatch(params: { userId: string | Types.ObjectId; text: string; entry: any; intentResult: IIntentResult }): Promise<any>;
+}
+
+export interface IAgentWorkflow {
+    type: string;
+    execute(task: IAgentTaskDocument): Promise<any>;
+}
+
+export interface IAgentWorkflowRegistry {
+    register(workflow: IAgentWorkflow): void;
+    getWorkflow(type: AgentTaskType): IAgentWorkflow;
+    hasWorkflow(type: AgentTaskType): boolean;
+}

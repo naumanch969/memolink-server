@@ -1,12 +1,14 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { ENTRY_TYPES } from '../../shared/constants';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
-import agentService from '../agent/agent.service';
 import { AgentTaskType } from '../agent/agent.types';
+import agentService from '../agent/services/agent.service';
 import { AuthenticatedRequest } from '../auth/auth.interfaces';
 import KnowledgeEntity from '../entity/entity.model';
 import { entityService } from '../entity/entity.service';
@@ -86,7 +88,14 @@ export class EntryController {
           entryId: entry._id.toString(),
           text: entry.content,
           options: { timezone: metadata?.timezone }
-        }).catch(err => logger.error('Failed to trigger intent processing', err));
+        }).catch(async (err) => {
+          logger.error('Failed to trigger intent processing', err);
+          const failedEntry = await entryService.updateEntry(entry._id.toString(), userId, {
+            status: 'failed',
+            metadata: { ...entry.metadata, error: 'Failed to enqueue AI task' }
+          });
+          socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, failedEntry);
+        });
       }
 
       // MOOD RECALCULATION
@@ -107,12 +116,7 @@ export class EntryController {
     try {
       const result = await entryService.getEntries(req.user!._id.toString(), req.query as any);
 
-      ResponseHelper.paginated(res, result.entries, {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-      }, 'Entries retrieved successfully');
+      ResponseHelper.success(res, result, 'Entries retrieved successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to retrieve entries', 500, error);
     }
@@ -179,12 +183,7 @@ export class EntryController {
     try {
       const result = await entryService.getEntries(req.user!._id.toString(), { ...req.query, q: req.query.q } as any);
 
-      ResponseHelper.paginated(res, result.entries, {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-      }, 'Search results retrieved');
+      ResponseHelper.success(res, result, 'Search results retrieved');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to search entries', 500, error);
     }

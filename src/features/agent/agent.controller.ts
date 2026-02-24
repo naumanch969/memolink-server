@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { agentService } from './agent.service';
 import { AgentTaskType } from './agent.types';
-import { audioTranscriptionService } from './audio-transcription.service';
+import { audioTranscriptionService } from './services/agent.audio.service';
+import { agentService } from './services/agent.service';
 
 export class AgentController {
     static async createTask(req: Request, res: Response): Promise<void> {

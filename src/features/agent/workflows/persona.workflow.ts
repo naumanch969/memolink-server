@@ -2,38 +2,43 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import Entry from '../../entry/entry.model';
-import { AgentWorkflowResult } from '../agent.types';
-import { UserPersona } from '../persona.model';
-import { Types } from 'mongoose';
+import { IAgentWorkflow } from '../agent.interfaces';
+import { IAgentTaskDocument } from '../agent.model';
+import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { UserPersona } from '../memory/persona.model';
 
 const PersonaSynthesisSchema = z.object({
     summary: z.string().describe('A 2-3 sentence executive summary of the user\'s current state and focus.'),
     rawMarkdown: z.string().describe('The comprehensive "Living Persona" document in Markdown. Use headers, bullet points, and deep psychological analysis.')
 });
 
-export const runPersonaSynthesis = async (userId: string | Types.ObjectId, inputData: any): Promise<AgentWorkflowResult> => {
-    try {
-        logger.info(`Starting deep persona synthesis for user ${userId}`);
+export class PersonaWorkflow implements IAgentWorkflow {
+    public readonly type = AgentTaskType.PERSONA_SYNTHESIS;
 
-        // 1. Fetch Context
-        const [persona, entries] = await Promise.all([
-            UserPersona.findOne({ userId }),
-            Entry.find({ userId }).sort({ date: -1 }).limit(100).select('content date').lean()
-        ]);
+    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+        const { userId } = task;
+        try {
+            logger.info(`Starting deep persona synthesis for user ${userId}`);
 
-        if (!entries || entries.length === 0) {
-            logger.info(`No entries found for user ${userId}, synthesis skipping.`);
-            return { status: 'completed', result: { note: 'No data to synthesize' } };
-        }
+            // 1. Fetch Context
+            const [persona, entries] = await Promise.all([
+                UserPersona.findOne({ userId }),
+                Entry.find({ userId }).sort({ date: -1 }).limit(100).select('content date').lean()
+            ]);
 
-        const entriesText = entries
-            .map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`)
-            .join('\n---\n');
+            if (!entries || entries.length === 0) {
+                logger.info(`No entries found for user ${userId}, synthesis skipping.`);
+                return { status: 'completed', result: { note: 'No data to synthesize' } };
+            }
 
-        const existingRawMarkdown = persona?.rawMarkdown || 'No existing persona document.';
+            const entriesText = entries
+                .map((e: any) => `[${new Date(e.date).toLocaleDateString()}] ${e.content}`)
+                .join('\n---\n');
 
-        // 2. Synthesize with LLM
-        const prompt = `
+            const existingRawMarkdown = persona?.rawMarkdown || 'No existing persona document.';
+
+            // 2. Synthesize with LLM
+            const prompt = `
             You are a Master Psychologist and Chief of Staff. Your task is to maintain a "Living Persona" document (MEMORY.md) for the user.
             This document is the absolute source of truth for who the user is, how they think, and what they value.
 
@@ -59,31 +64,34 @@ export const runPersonaSynthesis = async (userId: string | Types.ObjectId, input
             Format the output as JSON matching the schema provided.
         `;
 
-        const synthesis = await LLMService.generateJSON(prompt, PersonaSynthesisSchema, {
-            workflow: 'persona_synthesis',
-            userId,
-        });
-
-        // 3. Update Database
-        if (persona) {
-            persona.summary = synthesis.summary;
-            persona.rawMarkdown = synthesis.rawMarkdown;
-            persona.lastSynthesized = new Date();
-            await persona.save();
-        } else {
-            await UserPersona.create({
+            const synthesis = await LLMService.generateJSON(prompt, PersonaSynthesisSchema, {
+                workflow: 'persona_synthesis',
                 userId,
-                summary: synthesis.summary,
-                rawMarkdown: synthesis.rawMarkdown,
-                lastSynthesized: new Date()
             });
+
+            // 3. Update Database
+            if (persona) {
+                persona.summary = synthesis.summary;
+                persona.rawMarkdown = synthesis.rawMarkdown;
+                persona.lastSynthesized = new Date();
+                await persona.save();
+            } else {
+                await UserPersona.create({
+                    userId,
+                    summary: synthesis.summary,
+                    rawMarkdown: synthesis.rawMarkdown,
+                    lastSynthesized: new Date()
+                });
+            }
+
+            logger.info(`Persona document updated for user ${userId}`);
+            return { status: 'completed', result: synthesis };
+
+        } catch (error: any) {
+            logger.error(`Persona synthesis failed for user ${userId}`, error);
+            return { status: 'failed', error: error.message };
         }
-
-        logger.info(`Persona document updated for user ${userId}`);
-        return { status: 'completed', result: synthesis };
-
-    } catch (error: any) {
-        logger.error(`Persona synthesis failed for user ${userId}`, error);
-        return { status: 'failed', error: error.message };
     }
-};
+}
+
+export const personaWorkflow = new PersonaWorkflow();

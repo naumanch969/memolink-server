@@ -1,9 +1,8 @@
 
 import cron from 'node-cron';
 import { logger } from '../../config/logger';
-import { agentAccountability } from '../../features/agent/agent.accountability';
-import { agentService } from '../../features/agent/agent.service';
 import { AgentTaskType } from '../../features/agent/agent.types';
+import { agentService } from '../../features/agent/services/agent.service';
 import { User } from '../../features/auth/auth.model';
 import { entryService } from '../../features/entry/entry.service';
 import { storageService } from '../../features/media/storage.service';
@@ -11,6 +10,7 @@ import { initNotificationProcessor } from '../../features/notification/notificat
 import { notificationService } from '../../features/notification/notification.service';
 import { WebActivity } from '../../features/web-activity/web-activity.model';
 import DateUtil from '../../shared/utils/date.utils';
+import { agentAccountabilityService } from '../../features/agent/services/agent.accountability.service';
 
 export const initCronJobs = () => {
 
@@ -30,7 +30,7 @@ export const initCronJobs = () => {
 
     // Agent Accountability: Every 4 hours
     cron.schedule('0 */4 * * *', async () => {
-        await agentAccountability.runAccountabilityLoop();
+        await agentAccountabilityService.runAccountabilityLoop();
     });
 
     // Orphan Detection: Daily at 3 AM

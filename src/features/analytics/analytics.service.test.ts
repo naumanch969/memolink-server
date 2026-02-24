@@ -42,7 +42,7 @@ jest.mock('../agent/agent.model', () => ({
     }
 }));
 
-jest.mock('../agent/agent.service', () => ({
+jest.mock('../agent/services/agent.service', () => ({
     agentService: {
         createTask: jest.fn().mockResolvedValue({}),
     }

@@ -4,15 +4,9 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import { MOOD_METADATA } from '../../entry/mood.config';
 import { TagService } from '../../tag/tag.service';
-import { Types } from 'mongoose';
-
-// Input Validation Schema
-export const EntryTaggingInputSchema = z.object({
-    entryId: z.string(),
-    content: z.string(),
-});
-
-export type EntryTaggingInput = z.infer<typeof EntryTaggingInputSchema>;
+import { IAgentWorkflow } from '../agent.interfaces';
+import { IAgentTaskDocument } from '../agent.model';
+import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
 
 // Output Schema
 const TaggingOutputSchema = z.object({
@@ -23,87 +17,92 @@ const TaggingOutputSchema = z.object({
 
 export type TaggingOutput = z.infer<typeof TaggingOutputSchema>;
 
-export async function runEntryTagging(userId: string | Types.ObjectId, input: EntryTaggingInput): Promise<TaggingOutput> {
-    logger.info(`Running Auto-Tagging for entry ${input.entryId}`);
+export class TaggingWorkflow implements IAgentWorkflow {
+    public readonly type = AgentTaskType.TAGGING;
 
-    // 1. Fetch User's Existing Tags (to influence the LLM to reuse them)
-    // We fetch top 50 most used tags to give context
-    const tagService = new TagService();
-    const existingTagsResult = await tagService.getUserTags(userId, { limit: 50, sort: 'usageCount' });
-    const existingTags = existingTagsResult.tags.map(t => t.name).join(', ');
+    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+        const { userId, inputData } = task;
+        const { entryId, content } = (inputData as any) || {};
 
-    // 2. Prepare Prompt
-    const prompt = `
-    Analyze the following journal entry written by the user.
+        if (!entryId || !content) {
+            return { status: 'failed', error: 'Entry ID and content are required' };
+        }
+
+        try {
+            logger.info(`Running Auto-Tagging for entry ${entryId}`);
+
+            // 1. Fetch User's Existing Tags
+            const tagService = new TagService();
+            const existingTagsResult = await tagService.getUserTags(userId, { limit: 50, sort: 'usageCount' });
+            const existingTags = existingTagsResult.tags.map(t => t.name).join(', ');
+
+            // 2. Prepare Prompt
+            const prompt = `
+            Analyze the following journal entry written by the user.
+            
+            Current Entry Content:
+            "${content}"
     
-    Current Entry Content:
-    "${input.content}"
+            User's Existing Tags (Prefer these if relevant):
+            [${existingTags}]
+    
+            Task:
+            1. Identify 1-5 highly relevant topics or themes. 
+               - If a topic matches an Existing Tag (fuzzy match), use the Existing Tag name exactly.
+               - If it's a new concept, create a concise, 1-2 word tag (Capitalized).
+            2. Determine the emotional tone/mood of the entry.
+               - Provide a descriptive word (e.g. "Peaceful", "Ecstatic", "A bit overwhelmed").
+               - Also categorize it into one of these standard buckets: excellent, good, neutral, calm, focus, stressed, sad, angry.
+    
+            Output strictly in JSON with the following keys:
+            {
+                "suggestedTags": ["tag1", "tag2"],
+                "sentiment": "string",
+                "category": "excellent | good | neutral | calm | focus | stressed | sad | angry"
+            }
+            `;
 
-    User's Existing Tags (Prefer these if relevant):
-    [${existingTags}]
+            // 3. Call LLM
+            const result = await LLMService.generateJSON(prompt, TaggingOutputSchema, {
+                temperature: 0.3,
+                workflow: 'tagging',
+                userId,
+            });
 
-    Task:
-    1. Identify 1-5 highly relevant topics or themes. 
-       - If a topic matches an Existing Tag (fuzzy match), use the Existing Tag name exactly.
-       - If it's a new concept, create a concise, 1-2 word tag (Capitalized).
-    2. Determine the emotional tone/mood of the entry.
-       - Provide a descriptive word (e.g. "Peaceful", "Ecstatic", "A bit overwhelmed").
-       - Also categorize it into one of these standard buckets: excellent, good, neutral, calm, focus, stressed, sad, angry.
+            // 4. Post-Processing: Apply tags to the entry
+            const entry = await Entry.findById(entryId);
+            if (!entry) {
+                return { status: 'failed', error: `Entry not found: ${entryId}` };
+            }
 
-    Output strictly in JSON with the following keys:
-    {
-        "suggestedTags": ["tag1", "tag2"],
-        "sentiment": "string",
-        "category": "excellent | good | neutral | calm | focus | stressed | sad | angry"
-    }
-    `;
+            for (const tagName of result.suggestedTags) {
+                const tag = await tagService.findOrCreateTag(userId, tagName);
+                const isAlreadyTagged = entry.tags?.some(t => t.toString() === tag._id.toString());
 
-    // 3. Call LLM
-    const result = await LLMService.generateJSON(prompt, TaggingOutputSchema, {
-        temperature: 0.3, // Low temp for consistency
-        workflow: 'tagging',
-        userId,
-    });
+                if (!isAlreadyTagged) {
+                    entry.tags = entry.tags || [];
+                    entry.tags.push(tag._id);
+                    await tagService.incrementUsage(userId, [tag._id.toString()]);
+                }
+            }
 
-    // 4. Post-Processing: Apply tags to the entry
-    // We don't just return the result; the agent actually does the work of updating the entry.
+            if (!entry.mood) {
+                entry.mood = result.sentiment;
+            }
 
-    // Find entry
-    const entry = await Entry.findById(input.entryId);
-    if (!entry) {
-        throw new Error(`Entry not found: ${input.entryId}`);
-    }
+            if (result.category) {
+                entry.moodMetadata = MOOD_METADATA[result.category as any];
+            }
 
-    // Process suggested tags
-    for (const tagName of result.suggestedTags) {
-        // Find or create the tag
-        const tag = await tagService.findOrCreateTag(userId, tagName);
+            await entry.save();
+            logger.info(`Auto-tagged entry ${entryId} with: ${result.suggestedTags.join(', ')}`);
 
-        // Add to entry if not already present
-        // Convert both to string to compare
-        const isAlreadyTagged = entry.tags?.some(t => t.toString() === tag._id.toString());
-
-        if (!isAlreadyTagged) {
-            entry.tags = entry.tags || [];
-            entry.tags.push(tag._id);
-            // Increment usage
-            await tagService.incrementUsage(userId, [tag._id.toString()]);
+            return { status: 'completed', result };
+        } catch (error: any) {
+            logger.error(`Tagging workflow failed for entry ${entryId}`, error);
+            return { status: 'failed', error: error.message };
         }
     }
-
-    // Update Mood if not set manually
-    if (!entry.mood) {
-        entry.mood = result.sentiment;
-    }
-
-    // Apply AI category if provided
-    if (result.category) {
-        entry.moodMetadata = MOOD_METADATA[result.category as any];
-    }
-
-    entry.aiProcessed = true;
-    await entry.save();
-    logger.info(`Auto-tagged entry ${input.entryId} with: ${result.suggestedTags.join(', ')}`);
-
-    return result;
 }
+
+export const taggingWorkflow = new TaggingWorkflow();

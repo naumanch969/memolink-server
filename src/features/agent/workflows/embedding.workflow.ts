@@ -1,48 +1,55 @@
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
-import { IAgentTask } from '../agent.types';
+import { IAgentWorkflow } from '../agent.interfaces';
+import { IAgentTaskDocument } from '../agent.model';
+import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
 
-export const runEntryEmbedding = async (task: IAgentTask) => {
-    const { entryId } = task.inputData;
+export class EntryEmbeddingWorkflow implements IAgentWorkflow {
+    public readonly type = AgentTaskType.ENTRY_EMBEDDING;
 
-    if (!entryId) {
-        throw new Error('Entry ID is required for embedding workflow');
-    }
+    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+        const { entryId } = (task.inputData as any) || {};
 
-    try {
-        // 1. Fetch Entry
-        const entry = await Entry.findById(entryId);
-        if (!entry) {
-            throw new Error(`Entry ${entryId} not found`);
+        if (!entryId) {
+            return { status: 'failed', error: 'Entry ID is required for embedding workflow' };
         }
 
-        if (!entry.content) {
-            logger.info(`Skipping embedding for entry ${entryId} due to no content`);
-            return { status: 'skipped', reason: 'no content' };
+        try {
+            // 1. Fetch Entry
+            const entry = await Entry.findById(entryId);
+            if (!entry) {
+                return { status: 'failed', error: `Entry ${entryId} not found` };
+            }
+
+            if (!entry.content) {
+                logger.info(`Skipping embedding for entry ${entryId} due to no content`);
+                return { status: 'completed', result: { skipped: true, reason: 'no content' } };
+            }
+
+            // 2. Generate Embeddings
+            logger.info(`Generating embeddings for entry ${entryId}`);
+            const embeddings = await LLMService.generateEmbeddings(entry.content, {
+                workflow: 'entry_embedding',
+                userId: task.userId,
+            });
+
+            // 3. Save to Entry
+            await Entry.findByIdAndUpdate(entryId, {
+                $set: { embeddings }
+            });
+
+            logger.info(`Embeddings saved for entry ${entryId}`);
+
+            return {
+                status: 'completed',
+                result: { vectorSize: embeddings.length }
+            };
+        } catch (error: any) {
+            logger.error(`Error in EntryEmbeddingWorkflow for entry ${entryId}:`, error);
+            return { status: 'failed', error: error.message };
         }
-
-        // 2. Generate Embeddings
-        logger.info(`Generating embeddings for entry ${entryId}`);
-        const embeddings = await LLMService.generateEmbeddings(entry.content, {
-            workflow: 'entry_embedding',
-            userId: task.userId,
-        });
-
-        // 3. Save to Entry
-        // We use findOneAndUpdate to avoid issues with versioning if entry was modified
-        await Entry.findByIdAndUpdate(entryId, {
-            $set: { embeddings }
-        });
-
-        logger.info(`Embeddings saved for entry ${entryId}`);
-
-        return {
-            status: 'completed',
-            vectorSize: embeddings.length
-        };
-    } catch (error: any) {
-        logger.error(`Error in runEntryEmbedding for entry ${entryId}:`, error);
-        throw error;
     }
-};
+}
+
+export const entryEmbeddingWorkflow = new EntryEmbeddingWorkflow();

@@ -1,14 +1,18 @@
 import { isAfter, startOfDay, subDays } from 'date-fns';
 import { Types } from 'mongoose';
-import { logger } from '../../config/logger';
-import { GOAL_STATUS } from '../../shared/constants';
-import { User } from '../auth/auth.model';
-import { Entry } from '../entry/entry.model';
-import Goal from '../goal/goal.model';
-import notificationService from '../notification/notification.service';
-import { NotificationType } from '../notification/notification.types';
+import { logger } from '../../../config/logger';
+import { GOAL_STATUS } from '../../../shared/constants';
+import { User } from '../../auth/auth.model';
+import { Entry } from '../../entry/entry.model';
+import Goal from '../../goal/goal.model';
+import { Notification } from '../../notification/notification.model';
+import notificationService from '../../notification/notification.service';
+import { NotificationType } from '../../notification/notification.types';
 
-export class AgentAccountability {
+import { IAgentAccountabilityService } from '../agent.interfaces';
+import { string } from 'zod';
+
+export class AgentAccountability implements IAgentAccountabilityService {
     /**
      * Runs the accountability loop for all active users
      */
@@ -101,7 +105,6 @@ export class AgentAccountability {
     }
 
     private async wasNudgedToday(userId: string, targetId: string): Promise<boolean> {
-        const { Notification } = await import('../notification/notification.model');
         const today = startOfDay(new Date());
 
         const query: any = {
@@ -119,6 +122,14 @@ export class AgentAccountability {
         const existing = await Notification.findOne(query);
         return !!existing;
     }
+
+    async performDailyAudit(userId: string | Types.ObjectId): Promise<void> {
+        await this.checkUserAccountability(userId.toString());
+    }
+
+    async checkOverdueTasks(userId: string | Types.ObjectId): Promise<void> {
+        // Implementation for overdue tasks
+    }
 }
 
-export const agentAccountability = new AgentAccountability();
+export const agentAccountabilityService = new AgentAccountability();

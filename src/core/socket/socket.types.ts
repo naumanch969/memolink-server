@@ -4,7 +4,7 @@ export type UserRoleType = typeof USER_ROLES[keyof typeof USER_ROLES];
 
 export enum SocketEvents {
     // Connection
-    CONNECT = 'connect',
+    CONNECT = 'connection',
     DISCONNECT = 'disconnect',
 
     // Notifications

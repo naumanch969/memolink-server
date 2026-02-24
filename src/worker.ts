@@ -6,6 +6,8 @@ import redisConnection from './config/redis';
 import { queueService } from './core/queue/queue.service';
 import { initAgentWorker } from './features/agent/agent.worker';
 import { initEmailWorker } from './features/email/queue/email.worker';
+import { getEmailQueue } from './features/email/queue/email.queue';
+import { getAgentQueue } from './features/agent/agent.queue';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -45,9 +47,6 @@ async function startWorker() {
         // DEV ONLY: Clear queues on startup to prevent zombie jobs
         if (config.NODE_ENV === 'development') {
             logger.info('Development mode detected: Cleaning queues...');
-
-            const { getEmailQueue } = await import('./features/email/queue/email.queue');
-            const { getAgentQueue } = await import('./features/agent/agent.queue');
 
             const emailQueue = getEmailQueue();
             const agentQueue = getAgentQueue();

@@ -3,13 +3,12 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { graphService } from '../../graph/graph.service';
 import { AGENT_CONSTANTS } from '../agent.constants';
-import { agentMemory } from '../agent.memory';
-import agentService from '../agent.service';
-import { agentToolDefinitions, agentToolHandlers } from '../tools';
-// We might need to pass agentService or checkMemoryFlush as a callback or a separate manager
-// To avoid circular dependency, we can pass the flush callback
+import { agentMemoryService } from '../memory/agent.memory';
+import agentService from '../services/agent.service';
 
-export class ChatOrchestrator {
+import { IChatOrchestrator } from '../agent.interfaces';
+
+export class ChatOrchestrator implements IChatOrchestrator {
 
     async chat(userId: string, message: string, options: { onFinish?: (answer: string) => Promise<void> } = {}): Promise<string> {
         // 1. Persist user message (Assumed already persisted by AgentService before calling orchestrator if following capture-first)
@@ -59,7 +58,7 @@ export class ChatOrchestrator {
 
         // 4. Get Full Context
         const [history, graphSummary, personaContext] = await Promise.all([
-            agentMemory.getHistory(userId),
+            agentMemoryService.getHistory(userId),
             graphService.getGraphSummary(userId),
             agentService.getPersonaContext(userId)
         ]);
@@ -100,7 +99,7 @@ export class ChatOrchestrator {
         - Bold key information like dates or titles.
         `;
 
-        let currentPrompt = systemPrompt;
+        const currentPrompt = systemPrompt;
         let iteration = 0;
         const MAX_ITERATIONS = AGENT_CONSTANTS.MAX_RE_ACT_ITERATIONS;
 
@@ -108,44 +107,13 @@ export class ChatOrchestrator {
             while (iteration < MAX_ITERATIONS) {
                 iteration++;
 
-                const response = await LLMService.generateWithTools(currentPrompt, {
-                    tools: agentToolDefinitions,
+                const response = await LLMService.generateText(currentPrompt, {
                     workflow: 'chat_orchestrator',
                     userId,
                 });
 
-                if (response.functionCalls && response.functionCalls.length > 0) {
-                    const toolOutputs = [];
-                    for (const call of response.functionCalls) {
-                        const fnName = call.name;
-                        const args = call.args;
-
-                        logger.info(`Agent executing tool: ${fnName}`, { userId, args });
-
-                        if (agentToolHandlers[fnName]) {
-                            try {
-                                const output = await agentToolHandlers[fnName](userId, args);
-                                toolOutputs.push({ name: fnName, output: output, status: 'success' });
-                            } catch (err: any) {
-                                toolOutputs.push({ name: fnName, error: err.message, status: 'error' });
-                            }
-                        } else {
-                            toolOutputs.push({ name: fnName, error: 'Tool not found', status: 'error' });
-                        }
-                    }
-
-                    currentPrompt += `\n\n[System] Tool Execution Results:\n`;
-                    for (const t of toolOutputs) {
-                        if (t.status === 'success') {
-                            currentPrompt += `Tool '${t.name}' (Success): ${JSON.stringify(t.output)}\n`;
-                        } else {
-                            currentPrompt += `Tool '${t.name}' (Error): ${t.error}\n`;
-                        }
-                    }
-                    currentPrompt += `\nBased on these results, please provide the final answer to the user or call another tool if needed.\n`;
-
-                } else if (response.text) {
-                    const finalAnswer = response.text;
+                if (response) {
+                    const finalAnswer = response;
                     if (options.onFinish) await options.onFinish(finalAnswer);
                     return finalAnswer;
                 } else {
@@ -161,4 +129,5 @@ export class ChatOrchestrator {
     }
 }
 
-export const chatOrchestrator = new ChatOrchestrator();
+export const chatOrchestratorService = new ChatOrchestrator();
+export const chatOrchestrator = chatOrchestratorService;

@@ -1,10 +1,10 @@
 import { Server as HttpServer } from 'http';
 import { Socket, Server as SocketServer } from 'socket.io';
+import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { cryptoService } from '../crypto/crypto.service';
 import { socketService } from './socket.service';
 import { SocketEvents } from './socket.types';
-import { config } from '../../config/env';
 
 
 export class SocketManager {
@@ -81,18 +81,19 @@ export class SocketManager {
     }
 
     private setupHandlers(): void {
-        this.io.on(SocketEvents.CONNECT, (socket: Socket) => {
+        this.io.on('connection', (socket: Socket) => {
             const { userId, role } = socket.data;
 
             // Join personal room
-            socket.join(`user:${userId}`);
+            const userIdStr = userId.toString();
+            socket.join(`user:${userIdStr}`);
 
             // Join role-based room
             if (role) {
                 socket.join(`role:${role}`);
             }
 
-            logger.info(`Socket connected: ${socket.id} (User: ${userId}, Role: ${role})`);
+            logger.info(`Socket connected: ${socket.id} (User: ${userIdStr}, Role: ${role})`);
 
             socket.on(SocketEvents.DISCONNECT, (reason) => {
                 logger.info(`Socket disconnected: ${socket.id}. Reason: ${reason}`);

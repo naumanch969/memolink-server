@@ -158,7 +158,7 @@ export class AnalyticsService implements IAnalyticsService {
     const shouldTrigger = !latestWeeklyTask || (Date.now() - new Date(latestWeeklyTask.completedAt).getTime() > SEVEN_DAYS_MS);
 
     if (shouldTrigger) {
-      const { agentService } = await import('../agent/agent.service');
+      const { agentService } = await import('../agent/services/agent.service');
       agentService.createTask(userId, 'WEEKLY_ANALYSIS' as any, {})
         .catch(err => logger.error('Failed to auto-trigger weekly analysis', err));
     }

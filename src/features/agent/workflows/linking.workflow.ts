@@ -1,55 +1,65 @@
-
 import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import Entry from '../../entry/entry.model';
 import { EdgeType, NodeType } from '../../graph/edge.model';
 import { graphService } from '../../graph/graph.service';
-import { AgentWorkflow } from '../agent.types';
+import { IAgentWorkflow } from '../agent.interfaces';
+import { IAgentTaskDocument } from '../agent.model';
+import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
 
-/**
- * Retroactive Linking Workflow:
- * Triggered when a new entity is created. Scans past entries for name matches
- * and creates graph associations without full AI re-extraction.
- */
-export const runRetroactiveLinking: AgentWorkflow = async (task) => {
-    const { entityId, userId, name, aliases = [] } = task.inputData;
-    if (!entityId || !name) throw new Error('entityId and name are required');
+export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
+    public readonly type = AgentTaskType.RETROACTIVE_LINKING;
 
-    // 1. Build search regex for name and aliases
-    const terms = [name, ...aliases].map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const combinedRegex = new RegExp(`\\b(${terms.join('|')})\\b`, 'i');
+    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+        const { entityId, userId, name, aliases = [] } = (task.inputData as any) || {};
 
-    // 2. Find entries that mention these terms but aren't currently linked to this entity
-    const entries = await Entry.find({
-        userId: new Types.ObjectId(userId),
-        content: { $regex: combinedRegex },
-        mentions: { $ne: new Types.ObjectId(entityId) }
-    }).limit(100); // Guardrails
+        if (!entityId || !name) {
+            return { status: 'failed', error: 'entityId and name are required' };
+        }
 
-    let linkedCount = 0;
-    for (const entry of entries) {
-        // Create Graph Association
-        await graphService.createAssociation({
-            fromId: entityId,
-            fromType: NodeType.ENTITY, // Default as ENTITY, or passed in
-            toId: entry._id.toString(),
-            toType: NodeType.CONTEXT,
-            relation: EdgeType.MENTIONED_IN,
-            metadata: { entryDate: entry.date, name, isRetroactive: true }
-        }).catch(err => logger.debug(`Retro-link failed for entry ${entry._id}`));
+        try {
+            // 1. Build search regex for name and aliases
+            const terms = [name, ...aliases].map(t => typeof t === 'string' ? t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '');
+            const combinedRegex = new RegExp(`\\b(${terms.filter(t => t).join('|')})\\b`, 'i');
 
-        // Update Entry Mentions
-        await Entry.findByIdAndUpdate(entry._id, {
-            $addToSet: { mentions: new Types.ObjectId(entityId) }
-        });
+            // 2. Find entries that mention these terms but aren't currently linked to this entity
+            const entries = await Entry.find({
+                userId: new Types.ObjectId(userId),
+                content: { $regex: combinedRegex },
+                mentions: { $ne: new Types.ObjectId(entityId) }
+            }).limit(100); // Guardrails
 
-        linkedCount++;
+            let linkedCount = 0;
+            for (const entry of entries) {
+                // Create Graph Association
+                await graphService.createAssociation({
+                    fromId: entityId,
+                    fromType: NodeType.ENTITY,
+                    toId: entry._id.toString(),
+                    toType: NodeType.CONTEXT,
+                    relation: EdgeType.MENTIONED_IN,
+                    metadata: { entryDate: entry.date, name, isRetroactive: true }
+                }).catch(err => logger.debug(`Retro-link failed for entry ${entry._id}`));
+
+                // Update Entry Mentions
+                await Entry.findByIdAndUpdate(entry._id, {
+                    $addToSet: { mentions: new Types.ObjectId(entityId) }
+                });
+
+                linkedCount++;
+            }
+
+            logger.info(`Retroactive Linking completed for ${name}. Linked ${linkedCount} past entries.`);
+
+            return {
+                status: 'completed',
+                result: { linkedCount }
+            };
+        } catch (error: any) {
+            logger.error(`Retroactive linking failed for ${name}`, error);
+            return { status: 'failed', error: error.message };
+        }
     }
+}
 
-    logger.info(`Retroactive Linking completed for ${name}. Linked ${linkedCount} past entries.`);
-
-    return {
-        status: 'completed',
-        result: { linkedCount }
-    };
-};
+export const retroactiveLinkingWorkflow = new RetroactiveLinkingWorkflow();

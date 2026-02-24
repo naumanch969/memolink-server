@@ -1,10 +1,9 @@
-
 import * as chrono from 'chrono-node';
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { logger } from '../../config/logger';
-import { LLMService } from '../../core/llm/llm.service';
-import { ChatMessage } from './agent.memory';
+import { logger } from '../../../config/logger';
+import { LLMService } from '../../../core/llm/llm.service';
+import { IAgentIntentService, IChatMessage, IIntentResult } from '../agent.interfaces';
 
 // 1. Define Intention Types
 export enum AgentIntentType {
@@ -52,18 +51,18 @@ export interface Intention {
     reasoning?: string;
 }
 
-export interface IntentResult {
+export interface IntentResult extends IIntentResult {
     intents: Intention[];
     summary: string;
 }
 
-export class AgentIntentClassifier {
+export class AgentIntentClassifier implements IAgentIntentService {
 
     /**
      * Unified Classification & Extraction
      * Performs intent classification and entity extraction in a single pass to reduce latency.
      */
-    async classify(userId: string | Types.ObjectId, text: string, history: ChatMessage[] = [], timezone?: string): Promise<IntentResult> {
+    async classify(userId: string | Types.ObjectId, text: string, history: IChatMessage[] = [], timezone?: string): Promise<IntentResult> {
         // 1. Prepare Context
         const historyText = history.slice(-3).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
 
@@ -147,4 +146,4 @@ export class AgentIntentClassifier {
         };
     }
 }
-export const agentIntent = new AgentIntentClassifier();
+export const agentIntentService = new AgentIntentClassifier();

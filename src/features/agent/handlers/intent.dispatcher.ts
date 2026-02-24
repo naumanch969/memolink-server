@@ -7,8 +7,8 @@ import { goalService } from '../../goal/goal.service';
 import { graphService } from '../../graph/graph.service';
 import reminderService from '../../reminder/reminder.service';
 import { NotificationTimeType, ReminderStatus } from '../../reminder/reminder.types';
-import { AgentIntentType, Intention, IntentResult } from '../agent.intent';
 import { AgentTaskType } from '../agent.types';
+import { AgentIntentType, Intention, IntentResult } from '../services/agent.intent.service';
 
 export interface ExecuteParams {
     userId: string | Types.ObjectId | Types.ObjectId;
@@ -30,7 +30,9 @@ export interface IntentionExecutionResult {
     summary?: string;
 }
 
-export class IntentDispatcher {
+import { IIntentDispatcher } from '../agent.interfaces';
+
+export class IntentDispatcher implements IIntentDispatcher {
 
     async dispatch(params: ExecuteParams): Promise<IntentionExecutionResult> {
         const { userId, text, entry, intentResult } = params;
@@ -44,7 +46,7 @@ export class IntentDispatcher {
             // Clarification check - if any intent needs it, we halt everything to avoid partial execution complexity
             if (intention.needsClarification) {
                 return {
-                    taskType: AgentTaskType.BRAIN_DUMP,
+                    taskType: AgentTaskType.INTENT_PROCESSING, // Or simply generic fallback
                     actions: [],
                     finalResult: entry,
                     earlyReturn: {
@@ -98,7 +100,7 @@ export class IntentDispatcher {
                         await entryService.updateEntry(entry._id.toString(), userId, { status: 'ready' });
                     }
                     return {
-                        taskType: AgentTaskType.BRAIN_DUMP,
+                        taskType: AgentTaskType.INTENT_PROCESSING,
                         actions: [],
                         finalResult: entry,
                         earlyReturn: {
@@ -112,7 +114,7 @@ export class IntentDispatcher {
         }
 
         return {
-            taskType: actions.length > 0 ? actions[0].taskType : AgentTaskType.BRAIN_DUMP,
+            taskType: actions.length > 0 ? actions[0].taskType : AgentTaskType.INTENT_PROCESSING,
             actions,
             finalResult,
             summary: intentResult.summary
@@ -321,3 +323,4 @@ export class IntentDispatcher {
 }
 
 export const intentDispatcher = new IntentDispatcher();
+export const intentDispatcherService = intentDispatcher;

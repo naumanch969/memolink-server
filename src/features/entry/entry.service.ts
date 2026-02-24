@@ -1,18 +1,18 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
+import { LLMService } from '../../core/llm/llm.service';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { PaginationUtil } from '../../shared/utils/pagination.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
-import { runEntryTagging } from '../agent/workflows/tagging.workflow';
+import { taggingWorkflow } from '../agent/workflows/tagging.workflow';
 import { moodService } from '../mood/mood.service';
 import { tagService } from '../tag/tag.service';
 import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
 import { Entry } from './entry.model';
 import { classifyMood } from './mood.config';
-import { LLMService } from '../../core/llm/llm.service';
 
 export class EntryService implements IEntryService {
 
@@ -404,6 +404,19 @@ export class EntryService implements IEntryService {
   // Self-Healing: Process entries that missed AI processing
   async selfHealEntries(limit: number = 10): Promise<number> {
     try {
+      // Heal stuck "processing" entries (> 5 mins old)
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const stuckEntries = await Entry.find({
+        status: 'processing',
+        updatedAt: { $lt: fiveMinsAgo }
+      });
+      for (const entry of stuckEntries) {
+        entry.status = 'failed';
+        entry.metadata = { ...entry.metadata, processingStep: 'timeout', error: 'AI processing timed out' };
+        await entry.save();
+        socketService.emitToUser(entry.userId.toString(), SocketEvents.ENTRY_UPDATED, entry);
+      }
+
       const untaggedEntries = await Entry.find({
         aiProcessed: { $ne: true },
         content: { $exists: true, $ne: '' },
@@ -415,10 +428,13 @@ export class EntryService implements IEntryService {
       let successCount = 0;
       for (const entry of untaggedEntries) {
         try {
-          await runEntryTagging(entry?.userId?.toString(), {
-            entryId: entry._id.toString(),
-            content: entry.content
-          });
+          await taggingWorkflow.execute({
+            userId: entry.userId,
+            inputData: {
+              entryId: entry._id.toString(),
+              content: entry.content
+            }
+          } as any);
           successCount++;
         } catch (err) {
           logger.error(`Self-Healing failed for entry ${entry._id}`, err);

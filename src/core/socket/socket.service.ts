@@ -45,12 +45,15 @@ class SocketService implements ISocketService {
                             this._io.emit(event, data);
                             break;
                         case 'user':
+                            logger.debug(`Relaying bridge event [${event}] to user room: user:${userId}`);
                             this._io.to(`user:${userId}`).emit(event, data);
                             break;
                         case 'role':
+                            logger.debug(`Relaying bridge event [${event}] to role room: role:${role}`);
                             this._io.to(`role:${role}`).emit(event, data);
                             break;
                         case 'room':
+                            logger.debug(`Relaying bridge event [${event}] to room: ${room}`);
                             this._io.to(room).emit(event, data);
                             break;
                     }
@@ -87,10 +90,13 @@ class SocketService implements ISocketService {
 
     // Emit to a specific user
     public emitToUser(userId: string | Types.ObjectId, event: SocketEvents, data: any): void {
+        const userIdStr = userId.toString();
         if (this._io) {
-            this._io.to(`user:${userId}`).emit(event, data);
+            logger.debug(`Emitting local event [${event}] to user room: user:${userIdStr}`);
+            this._io.to(`user:${userIdStr}`).emit(event, data);
         } else {
-            this.publish({ target: 'user', userId, event, data });
+            logger.debug(`Publishing bridge event [${event}] for user: ${userIdStr}`);
+            this.publish({ target: 'user', userId: userIdStr, event, data });
         }
     }
 

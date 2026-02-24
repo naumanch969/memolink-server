@@ -1,9 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { ChatMessage } from './agent.memory';
+import { IChatMessage } from '../agent.interfaces';
 
 export interface IChatMemory extends Document {
     userId: string;
-    messages: ChatMessage[];
+    messages: IChatMessage[];
     updatedAt: Date;
 }
 

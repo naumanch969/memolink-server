@@ -6,6 +6,8 @@ import { Helpers } from '../../shared/helpers';
 import { NodeType } from '../graph/edge.model';
 import { CreateEntityRequest, IEntityService, IKnowledgeEntity, UpdateEntityRequest } from './entity.interfaces';
 import { KnowledgeEntity } from './entity.model';
+import agentService from '../agent/services/agent.service';
+import { AgentTaskType } from '../agent/agent.types';
 
 export class EntityService implements IEntityService {
     private getRedisKey(userId: string | Types.ObjectId): string {
@@ -64,17 +66,12 @@ export class EntityService implements IEntityService {
             await this.registerInRedis(userId, entity._id.toString(), entity.name, entity.aliases);
 
             // Trigger Retroactive Linking (Async)
-            Promise.all([
-                import('../agent/agent.service'),
-                import('../agent/agent.types')
-            ]).then(([{ agentService }, { AgentTaskType }]) => {
-                agentService.createTask(userId, AgentTaskType.RETROACTIVE_LINKING, {
-                    entityId: entity._id.toString(),
-                    userId,
-                    name: entity.name,
-                    aliases: entity.aliases
-                }).catch(err => logger.error('Failed to trigger retroactive linking', err));
-            });
+            agentService.createTask(userId, AgentTaskType.RETROACTIVE_LINKING, {
+                entityId: entity._id.toString(),
+                userId,
+                name: entity.name,
+                aliases: entity.aliases
+            }).catch(err => logger.error('Failed to trigger retroactive linking', err));
         }
 
         logger.info(`Entity [${entity.otype}] created: ${entity.name}`, { userId, id: entity._id });

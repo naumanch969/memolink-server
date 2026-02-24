@@ -1,11 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { logger } from '../../config/logger';
-import { withRetry } from '../../core/utils/retry.utils';
-import { llmUsageService } from '../llm-usage/llm-usage.service';
+import { logger } from '../../../config/logger';
+import { withRetry } from '../../../core/utils/retry.utils';
+import { llmUsageService } from '../../llm-usage/llm-usage.service';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
-import { IAudioTranscriptionService } from './agent.interfaces';
+import { IAudioTranscriptionService } from '../agent.interfaces';
 
 /**
  * Audio Transcription Service

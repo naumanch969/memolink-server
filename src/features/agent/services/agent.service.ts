@@ -1,24 +1,23 @@
 import { Types } from 'mongoose';
-import { logger } from '../../config/logger';
-import { LLMService } from '../../core/llm/llm.service';
-import DateUtil from '../../shared/utils/date.utils';
-import { Entry } from '../entry/entry.model';
-import { entryService } from '../entry/entry.service';
-import { goalService } from '../goal/goal.service';
-import { graphService } from '../graph/graph.service';
-import reminderService from '../reminder/reminder.service';
-import webActivityService from '../web-activity/web-activity.service';
-import { AGENT_CONSTANTS } from './agent.constants';
-import { agentIntent, AgentIntentType, IntentResult } from './agent.intent';
-import { IAgentService } from './agent.interfaces';
-import { agentMemory } from './agent.memory';
-import { AgentTask, IAgentTaskDocument } from './agent.model';
-import { getAgentQueue } from './agent.queue';
-import { AgentTaskStatus, AgentTaskType } from './agent.types';
-import { intentDispatcher } from './handlers/intent.dispatcher';
-import { chatOrchestrator } from './orchestrators/chat.orchestrator';
-import { IUserPersonaDocument, UserPersona } from './persona.model';
-
+import { logger } from '../../../config/logger';
+import { LLMService } from '../../../core/llm/llm.service';
+import DateUtil from '../../../shared/utils/date.utils';
+import { Entry } from '../../entry/entry.model';
+import { entryService } from '../../entry/entry.service';
+import { goalService } from '../../goal/goal.service';
+import { graphService } from '../../graph/graph.service';
+import reminderService from '../../reminder/reminder.service';
+import webActivityService from '../../web-activity/web-activity.service';
+import { AGENT_CONSTANTS } from '../agent.constants';
+import { IAgentService } from '../agent.interfaces';
+import { AgentTask, IAgentTaskDocument } from '../agent.model';
+import { getAgentQueue } from '../agent.queue';
+import { AgentTaskInput, AgentTaskStatus, AgentTaskType } from '../agent.types';
+import { intentDispatcher } from '../handlers/intent.dispatcher';
+import { agentMemoryService } from '../memory/agent.memory';
+import { IUserPersonaDocument, UserPersona } from '../memory/persona.model';
+import { chatOrchestrator } from '../orchestrators/chat.orchestrator';
+import { agentIntentService, AgentIntentType, IntentResult } from '../services/agent.intent.service';
 export class AgentService implements IAgentService {
     /**
      * ==========================================
@@ -26,7 +25,7 @@ export class AgentService implements IAgentService {
      * ==========================================
      */
 
-    async createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: any): Promise<IAgentTaskDocument> {
+    async createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: AgentTaskInput): Promise<IAgentTaskDocument> {
         const task = await AgentTask.create({
             userId,
             type,
@@ -80,12 +79,10 @@ export class AgentService implements IAgentService {
         }
 
         try {
-            const history = await agentMemory.getHistory(userId);
-
-            // 2. AI Intent Analysis
+            const history = await agentMemoryService.getHistory(userId);
             let intentResult: IntentResult;
             try {
-                intentResult = await agentIntent.classify(userId, text, history, options.timezone);
+                intentResult = await agentIntentService.classify(userId, text, history, options.timezone);
             } catch (aiError) {
                 logger.warn("Intent analysis failed, falling back to journaling", aiError);
                 intentResult = {
@@ -101,7 +98,7 @@ export class AgentService implements IAgentService {
                 return { ...clarification, originalText: text, result: entry };
             }
 
-            await agentMemory.addMessage(userId, 'user', text);
+            await agentMemoryService.addMessage(userId, 'user', text);
 
             // 3. Dispatch Actions
             const dispatchResult = await intentDispatcher.dispatch({
@@ -133,7 +130,7 @@ export class AgentService implements IAgentService {
             }
 
             const summary = dispatchResult.summary || `Processed ${intentResult.intents.length} intentions.`;
-            await agentMemory.addMessage(userId, 'agent', summary);
+            await agentMemoryService.addMessage(userId, 'agent', summary);
 
             // Background Persona Sync
             this.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
@@ -197,10 +194,10 @@ export class AgentService implements IAgentService {
      */
 
     async chat(userId: string, message: string): Promise<string> {
-        await agentMemory.addMessage(userId, 'user', message);
+        await agentMemoryService.addMessage(userId, 'user', message);
         return await chatOrchestrator.chat(userId, message, {
             onFinish: async (finalAnswer) => {
-                await agentMemory.addMessage(userId, 'agent', finalAnswer);
+                await agentMemoryService.addMessage(userId, 'agent', finalAnswer);
                 this.triggerSynthesis(userId).catch(e => logger.error("Persona Synthesis trigger failed", e));
                 this.checkMemoryFlush(userId).catch(e => logger.error("Memory Flush check failed", e));
             }
@@ -214,15 +211,15 @@ export class AgentService implements IAgentService {
     }
 
     async clearHistory(userId: string): Promise<void> {
-        await agentMemory.clear(userId);
+        await agentMemoryService.clear(userId);
     }
 
     async getChatHistory(userId: string) {
-        return await agentMemory.getHistory(userId);
+        return await agentMemoryService.getHistory(userId);
     }
 
     private async checkMemoryFlush(userId: string) {
-        const history = await agentMemory.getHistory(userId);
+        const history = await agentMemoryService.getHistory(userId);
         if (history.length >= AGENT_CONSTANTS.FLUSH_THRESHOLD) {
             await this.createTask(userId, AgentTaskType.MEMORY_FLUSH, { count: AGENT_CONSTANTS.FLUSH_COUNT });
             await this.createTask(userId, AgentTaskType.COGNITIVE_CONSOLIDATION, { messageCount: AGENT_CONSTANTS.FLUSH_COUNT });
