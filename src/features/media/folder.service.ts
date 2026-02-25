@@ -1,8 +1,9 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
-import { CreateFolderRequest, IFolder, IFolderService, UpdateFolderRequest } from './folder.interfaces';
+import { IFolderService } from "./folder.interfaces";
 import { Folder } from './folder.model';
+import { CreateFolderRequest, IFolder, UpdateFolderRequest } from './folder.types';
 import { Media } from './media.model';
 
 export class FolderService implements IFolderService {

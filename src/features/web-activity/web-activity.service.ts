@@ -3,8 +3,9 @@ import { logger } from '../../config/logger';
 import DateUtil from '../../shared/utils/date.utils';
 import { ActivityDefinitions } from './activity-definitions.model';
 import { WebActivitySyncLog } from './web-activity-sync-log.model';
-import { ActivitySyncBatch, IWebActivity, IWebActivityService } from './web-activity.interfaces';
+import { IWebActivityService } from "./web-activity.interfaces";
 import { WebActivity } from './web-activity.model';
+import { ActivitySyncBatch, IWebActivity } from './web-activity.types';
 
 export class WebActivityService implements IWebActivityService {
     private static readonly DOT_REPLACEMENT = '__dot__';

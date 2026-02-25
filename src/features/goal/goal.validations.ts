@@ -1,6 +1,6 @@
 import { body, param } from 'express-validator';
 import { GOAL_STATUS } from '../../shared/constants';
-import { GoalPeriod, GoalTrackingType } from './goal.interfaces';
+import { GoalPeriod, GoalTrackingType } from './goal.types';
 
 export const createGoalValidation = [
     body('title')

@@ -10,7 +10,6 @@ import notificationService from '../../notification/notification.service';
 import { NotificationType } from '../../notification/notification.types';
 
 import { IAgentAccountabilityService } from '../agent.interfaces';
-import { string } from 'zod';
 
 export class AgentAccountability implements IAgentAccountabilityService {
     /**

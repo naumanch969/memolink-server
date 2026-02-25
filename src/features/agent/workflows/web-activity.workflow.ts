@@ -2,9 +2,8 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entryService } from '../../entry/entry.service';
 import { WebActivity } from '../../web-activity/web-activity.model';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
 export class WebActivityWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.WEB_ACTIVITY_SUMMARY;

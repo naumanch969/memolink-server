@@ -1,4 +1,4 @@
-import { ILogViewerService } from './monitoring.types';
+import { ILogViewerService } from './monitoring.interfaces';
 
 export interface LogEntry {
     timestamp: string;

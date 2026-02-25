@@ -3,9 +3,8 @@ import { logger } from '../../../config/logger';
 import Entry from '../../entry/entry.model';
 import { EdgeType, NodeType } from '../../graph/edge.model';
 import { graphService } from '../../graph/graph.service';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
 export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.RETROACTIVE_LINKING;

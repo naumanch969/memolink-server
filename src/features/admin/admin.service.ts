@@ -1,16 +1,12 @@
-import { S3Client, ListObjectsV2Command, GetObjectCommand, _Object } from '@aws-sdk/client-s3';
+import { GetObjectCommand, ListObjectsV2Command, S3Client, _Object } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 
-export interface BackupFile {
-    key: string;
-    size: number;
-    lastModified: Date;
-    downloadUrl?: string;
-}
+import { IAdminService } from './admin.interfaces';
+import { BackupFile, BackupRun } from './admin.types';
 
-class AdminService {
+class AdminService implements IAdminService {
     private s3Client: S3Client;
 
     constructor() {
@@ -106,7 +102,7 @@ class AdminService {
     /**
      * Get the recent backup workflow runs from GitHub
      */
-    async getBackupRuns(): Promise<any[]> {
+    async getBackupRuns(): Promise<BackupRun[]> {
         const url = `https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/actions/workflows/db-backup.yml/runs?per_page=10`;
 
         try {

@@ -3,10 +3,10 @@
  * Video validation, EXIF extraction, OCR support
  */
 
-import { VIDEO_LIMITS, FILE_UPLOAD, getMediaTypeFromMime } from '../../shared/constants';
 import { logger } from '../../config/logger';
-import { ExifData, MediaType } from './media.interfaces';
-import { AI_PROCESSING_CONFIG, VIDEO_CONFIG, GPS_REFERENCES } from './media.constants';
+import { FILE_UPLOAD, getMediaTypeFromMime, VIDEO_LIMITS } from '../../shared/constants';
+import { AI_PROCESSING_CONFIG, GPS_REFERENCES, VIDEO_CONFIG } from './media.constants';
+import { ExifData, MediaType } from './media.types';
 
 /**
  * Video Validation Error

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { ApiError } from '../../core/errors/api.error';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { WidgetService } from './widget.service';
 
 const widgetService = new WidgetService();

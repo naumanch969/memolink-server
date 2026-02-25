@@ -1,16 +1,16 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 
 export interface IWidgetItem {
     id: string;
     text: string;
     completed: boolean;
-    completedAt?: string; // ISO timestamp of when task was completed
+    completedAt?: string;
 }
 
 export interface IWidgetData {
+    [key: string]: any;
     tasks?: IWidgetItem[];
     content?: string;
-    [key: string]: any;
 }
 
 export interface IWidget extends Document {

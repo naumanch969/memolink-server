@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IFolder } from './folder.interfaces';
+import { IFolder } from './folder.types';
 
 const folderSchema = new Schema<IFolder>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },

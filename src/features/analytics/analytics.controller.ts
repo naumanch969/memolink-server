@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { AnalyticsRequest } from './analytics.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { analyticsService } from './analytics.service';
+import { AnalyticsRequest } from './analytics.types';
 
 export class AnalyticsController {
   static async getAnalytics(req: AuthenticatedRequest, res: Response) {

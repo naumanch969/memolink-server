@@ -6,7 +6,7 @@ import { Entry } from '../../entry/entry.model';
 import { Media } from '../../media/media.model';
 import { Tag } from '../../tag/tag.model';
 import { WebActivity } from '../../web-activity/web-activity.model';
-import { ExportRequest } from '../export.interfaces';
+import { ExportRequest } from '../export.types';
 import { ExportStrategy } from './export.strategy';
 
 export class JsonStrategy implements ExportStrategy {

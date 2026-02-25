@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { IWebActivity } from './web-activity.interfaces';
+import { IWebActivity } from './web-activity.types';
 
 const webActivitySchema = new Schema<IWebActivity>(
     {

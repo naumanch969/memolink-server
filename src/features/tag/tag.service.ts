@@ -2,8 +2,9 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
-import { CreateTagRequest, ITag, ITagService, UpdateTagRequest } from './tag.interfaces';
+import { ITagService } from "./tag.interfaces";
 import { Tag } from './tag.model';
+import { CreateTagRequest, ITag, UpdateTagRequest } from './tag.types';
 
 export class TagService implements ITagService {
 

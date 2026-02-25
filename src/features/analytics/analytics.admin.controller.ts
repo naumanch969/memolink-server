@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { analyticsAdminService } from './analytics.admin.service';
 
 export class AnalyticsAdminController {

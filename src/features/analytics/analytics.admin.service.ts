@@ -5,7 +5,8 @@ import { Entry } from '../entry/entry.model';
 import { Goal } from '../goal/goal.model';
 import { Media } from '../media/media.model';
 import { Tag } from '../tag/tag.model';
-import { ActiveUserStats, ContentGrowthData, FeatureStats, FeatureUsageBreakdown, IAnalyticsAdminService, PlatformStats, RetentionStats, UserAccountStats, UserGrowthData } from './analytics.interfaces';
+import { IAnalyticsAdminService } from "./analytics.interfaces";
+import { ActiveUserStats, ContentGrowthData, FeatureStats, FeatureUsageBreakdown, PlatformStats, RetentionStats, UserAccountStats, UserGrowthData } from './analytics.types';
 
 export class AnalyticsAdminService implements IAnalyticsAdminService {
 

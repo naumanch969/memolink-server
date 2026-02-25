@@ -1,9 +1,8 @@
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
 export class EntryEmbeddingWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.ENTRY_EMBEDDING;

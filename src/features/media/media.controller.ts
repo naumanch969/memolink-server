@@ -4,10 +4,10 @@ import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { getMediaTypeFromMime } from '../../shared/constants';
 import { Helpers } from '../../shared/helpers';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { mediaEvents, MediaEventType } from './media.events';
-import { CreateMediaRequest, MediaMetadata } from './media.interfaces';
 import { mediaService } from './media.service';
+import { CreateMediaRequest, MediaMetadata } from './media.types';
 import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCloudinaryExif, parseCloudinaryOcr, validateFileSize, validateVideo, } from './media.utils';
 import { storageService } from './storage.service';
 

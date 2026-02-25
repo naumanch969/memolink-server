@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IWidget } from './widget.interfaces';
+import { IWidget } from './widget.types';
 
 const widgetSchema = new Schema<IWidget>(
     {

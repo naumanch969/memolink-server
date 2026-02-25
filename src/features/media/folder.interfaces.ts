@@ -1,34 +1,6 @@
-import { Types } from 'mongoose';
-import { BaseEntity } from '../../shared/types';
+import { CreateFolderRequest, IFolder, UpdateFolderRequest } from "./folder.types";
 
 // Folder Types
-export interface IFolder extends BaseEntity {
-  userId: Types.ObjectId;
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  parentId?: Types.ObjectId;
-  path: string;
-  isDefault: boolean;
-  itemCount: number;
-}
-
-export interface CreateFolderRequest {
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  parentId?: string;
-}
-
-export interface UpdateFolderRequest {
-  name?: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  parentId?: string;
-}
 
 export interface IFolderService {
   createFolder(userId: string, folderData: CreateFolderRequest): Promise<IFolder>;

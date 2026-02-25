@@ -1,9 +1,10 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { CreateMoodRequest, IMoodService, MoodFilter } from './mood.interfaces';
-import Mood from './mood.model';
-import { classifyMood } from '../entry/mood.config';
 import Entry from '../entry/entry.model';
+import { classifyMood } from '../entry/mood.config';
+import { IMoodService } from "./mood.interfaces";
+import Mood from './mood.model';
+import { CreateMoodRequest, MoodFilter } from './mood.types';
 
 export class MoodService implements IMoodService {
     /**

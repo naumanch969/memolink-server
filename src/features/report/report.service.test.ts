@@ -1,9 +1,9 @@
 import { Types } from 'mongoose';
 import { AgentTask } from '../agent/agent.model';
 import { AgentTaskType } from '../agent/agent.types';
-import { ReportType } from './report.interfaces';
 import { Report } from './report.model';
 import { ReportService } from './report.service';
+import { ReportType } from './report.types';
 
 // Mock models
 jest.mock('./report.model');

@@ -1,7 +1,8 @@
 import { logger } from '../../config/logger';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
-import { GeminiCostsSummary, ILLMUsageService, LLMUsageEntry, LLMUsageLogDetail } from './llm-usage.interfaces';
+import { ILLMUsageService } from "./llm-usage.interfaces";
 import { LLMUsageLog } from './llm-usage.model';
+import { GeminiCostsSummary, LLMUsageEntry, LLMUsageLogDetail } from './llm-usage.types';
 
 // Gemini 2.5 Flash pricing (USD per token)
 const PRICING_PER_TOKEN = {

@@ -7,9 +7,8 @@ import { entityService } from '../../entity/entity.service';
 import Entry from '../../entry/entry.model';
 import { EdgeType, NodeType } from '../../graph/edge.model';
 import { graphService } from '../../graph/graph.service';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
 const nodeTypes = Object.values(NodeType);
 const edgeTypes = Object.values(EdgeType);

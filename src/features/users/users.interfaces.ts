@@ -1,19 +1,4 @@
-export interface UserListFilter {
-    page: number;
-    limit: number;
-    search?: string;
-    role?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    isVerified?: boolean;
-}
-
-export interface UserListResult {
-    users: any[]; // User objects from Mongo lean()
-    total: number;
-    page: number;
-    totalPages: number;
-}
+import { UserListFilter, UserListResult } from "./users.types";
 
 export interface IUsersAdminService {
     getUsers(filter: UserListFilter): Promise<UserListResult>;

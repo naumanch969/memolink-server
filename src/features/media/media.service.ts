@@ -4,8 +4,9 @@ import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
 import { mediaEvents, MediaEventType } from './media.events';
-import { CreateMediaRequest, IMedia, IMediaService, UpdateMediaRequest } from './media.interfaces';
+import { IMediaService } from "./media.interfaces";
 import { Media } from './media.model';
+import { CreateMediaRequest, IMedia, UpdateMediaRequest } from './media.types';
 import { storageService } from './storage.service';
 
 export class MediaService implements IMediaService {

@@ -8,7 +8,8 @@ import { Media } from '../media/media.model';
 import { Tag } from '../tag/tag.model';
 import { analyticsGraphService } from './analytics-graph.service';
 import { analyticsInsightsService } from './analytics-insights.service';
-import { AnalyticsData, AnalyticsRequest, IAnalyticsService } from './analytics.interfaces';
+import { IAnalyticsService } from "./analytics.interfaces";
+import { AnalyticsData, AnalyticsRequest } from './analytics.types';
 
 export class AnalyticsService implements IAnalyticsService {
   /**

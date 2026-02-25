@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IGraphEdge } from './graph.interfaces';
+import { IGraphEdge } from './graph.types';
 
 export enum EdgeType {
     // Core

@@ -2,16 +2,14 @@ import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { socketService } from '../../../core/socket/socket.service';
 import { SocketEvents } from '../../../core/socket/socket.types';
+import Entry from '../../entry/entry.model';
 import { entryService } from '../../entry/entry.service';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType } from '../agent.types';
+import { AgentTaskType, IAgentWorkflow } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
 import { entryEmbeddingWorkflow } from './embedding.workflow';
-import { entityExtractionWorkflow } from './extraction.workflow';
 import { taggingWorkflow } from './tagging.workflow';
-import Entry from '../../entry/entry.model';
 
 export class EnrichmentWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.ENTRY_ENRICHMENT;

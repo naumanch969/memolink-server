@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IMedia } from './media.interfaces';
+import { IMedia } from './media.types';
 
 const mediaSchema = new Schema<IMedia>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },

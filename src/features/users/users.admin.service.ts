@@ -12,7 +12,8 @@ import { reminderService } from '../reminder/reminder.service';
 import { tagService } from '../tag/tag.service';
 import { webActivityService } from '../web-activity/web-activity.service';
 
-import { IUsersAdminService, UserListFilter, UserListResult } from './users.interfaces';
+import { IUsersAdminService } from './users.interfaces';
+import { UserListFilter, UserListResult } from "./users.types";
 
 export class UsersAdminService implements IUsersAdminService {
 

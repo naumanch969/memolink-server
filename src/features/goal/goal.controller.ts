@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { CreateGoalParams, GetGoalsQuery, UpdateGoalParams, UpdateGoalProgressParams, } from './goal.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { goalService } from './goal.service';
+import { CreateGoalParams, GetGoalsQuery, UpdateGoalParams, UpdateGoalProgressParams } from './goal.types';
 
 export class GoalController {
 

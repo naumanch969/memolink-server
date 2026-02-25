@@ -3,7 +3,7 @@ import { logger } from '../../config/logger';
 import { eventStream } from '../../core/events/event.stream';
 import { EventType } from '../../core/events/event.types';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 
 export class EventsController {
     /**

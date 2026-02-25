@@ -4,13 +4,12 @@ import { redisConnection } from '../../../config/redis';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { NodeType } from '../../graph/edge.model';
-import { AGENT_CONSTANTS } from '../agent.constants';
-import agentService from '../services/agent.service';
-import { IAgentWorkflow } from '../agent.interfaces';
-import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
-import { agentMemoryService } from '../memory/agent.memory';
 import graphService from '../../graph/graph.service';
+import { AGENT_CONSTANTS } from '../agent.constants';
+import { IAgentTaskDocument } from '../agent.model';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { agentMemoryService } from '../memory/agent.memory';
+import agentService from '../services/agent.service';
 
 const flushSchema = z.object({
     observations: z.array(z.object({

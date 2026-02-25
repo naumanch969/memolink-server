@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { webActivityService } from './web-activity.service';
 
 export class WebActivityController {

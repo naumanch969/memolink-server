@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { COLLECTIONS, GOAL_STATUS } from '../../shared/constants';
-import { GoalPeriod, GoalTrackingType, IGoal } from './goal.interfaces';
+import { GoalPeriod, GoalTrackingType, IGoal } from './goal.types';
 
 
 const trackingScheduleSchema = new Schema(

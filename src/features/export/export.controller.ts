@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { ExportRequest } from './export.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { exportService } from './export.service';
+import { ExportRequest } from './export.types';
 
 export class ExportController {
   static async exportData(req: AuthenticatedRequest, res: Response) {

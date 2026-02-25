@@ -8,7 +8,7 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '../../config/logger';
-import { IMedia } from './media.interfaces';
+import { IMedia } from './media.types';
 
 // Event types for type safety
 export enum MediaEventType {

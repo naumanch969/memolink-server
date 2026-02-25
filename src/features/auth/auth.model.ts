@@ -1,6 +1,6 @@
 import mongoose, { HydratedDocument, Model, Schema } from 'mongoose';
 import { STORAGE_LIMITS, USER_ROLES } from '../../shared/constants';
-import { IUser } from './auth.interfaces';
+import { IUser } from './auth.types';
 
 // Interface for User model with static methods
 interface IUserModel extends Model<IUser> {

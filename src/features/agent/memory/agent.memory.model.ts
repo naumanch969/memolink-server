@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { IChatMessage } from '../agent.interfaces';
+import { IChatMessage } from '../agent.types';
 
 export interface IChatMemory extends Document {
     userId: string;

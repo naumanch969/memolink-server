@@ -1,8 +1,9 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
+import { INotificationService } from "./notification.interfaces";
 import { Notification } from './notification.model';
-import { CreateNotificationDTO, INotificationDocument, INotificationService } from './notification.types';
+import { CreateNotificationDTO, INotificationDocument } from './notification.types';
 
 export class NotificationService implements INotificationService {
 

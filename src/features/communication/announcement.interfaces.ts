@@ -1,15 +1,5 @@
-import { AnnouncementType, IAnnouncement } from './announcement.model';
-
-export interface CreateAnnouncementDto {
-    title: string;
-    content: string;
-    type: AnnouncementType;
-    target?: {
-        roles?: string[];
-    };
-    scheduledAt?: Date;
-    authorId: string;
-}
+import { IAnnouncement } from './announcement.model';
+import { CreateAnnouncementDto } from "./announcement.types";
 
 export interface IAnnouncementService {
     createAnnouncement(data: CreateAnnouncementDto): Promise<IAnnouncement>;

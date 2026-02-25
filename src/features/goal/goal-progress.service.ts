@@ -2,8 +2,9 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { GOAL_STATUS } from '../../shared/constants';
 import { StreakUtil } from '../../shared/utils/streak.utils';
-import { GoalPeriod, IGoal, IGoalProgressService, UpdateGoalProgressParams } from './goal.interfaces';
+import { IGoalProgressService } from "./goal.interfaces";
 import Goal from './goal.model';
+import { GoalPeriod, IGoal, UpdateGoalProgressParams } from './goal.types';
 
 export class GoalProgressService implements IGoalProgressService {
     /**

@@ -3,11 +3,12 @@ import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
-import { NodeType } from '../graph/edge.model';
-import { CreateEntityRequest, IEntityService, IKnowledgeEntity, UpdateEntityRequest } from './entity.interfaces';
-import { KnowledgeEntity } from './entity.model';
-import agentService from '../agent/services/agent.service';
 import { AgentTaskType } from '../agent/agent.types';
+import agentService from '../agent/services/agent.service';
+import { NodeType } from '../graph/edge.model';
+import { IEntityService } from "./entity.interfaces";
+import { KnowledgeEntity } from './entity.model';
+import { CreateEntityRequest, IKnowledgeEntity, UpdateEntityRequest } from './entity.types';
 
 export class EntityService implements IEntityService {
     private getRedisKey(userId: string | Types.ObjectId): string {

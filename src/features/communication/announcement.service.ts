@@ -7,8 +7,9 @@ import { validateEmailOrThrow } from '../../shared/email-validator';
 import { User } from '../auth/auth.model';
 import { getEmailQueue } from '../email/queue/email.queue';
 import { AnnouncementDeliveryLog, DeliveryStatus } from './announcement-delivery-log.model';
-import { CreateAnnouncementDto, IAnnouncementService } from './announcement.interfaces';
+import { IAnnouncementService } from "./announcement.interfaces";
 import { Announcement, AnnouncementStatus, AnnouncementType, IAnnouncement } from './announcement.model';
+import { CreateAnnouncementDto } from './announcement.types';
 
 export class AnnouncementService implements IAnnouncementService {
 

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { body, param } from 'express-validator';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
-import { FolderController } from './folder.controller';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
+import { FolderController } from './folder.controller';
 
 const router = Router();
 

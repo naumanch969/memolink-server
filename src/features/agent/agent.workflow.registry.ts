@@ -1,5 +1,5 @@
-import { IAgentWorkflow, IAgentWorkflowRegistry } from './agent.interfaces';
-import { AgentTaskType } from './agent.types';
+import { IAgentWorkflowRegistry } from "./agent.interfaces";
+import { AgentTaskType, IAgentWorkflow } from './agent.types';
 
 export class AgentWorkflowRegistry implements IAgentWorkflowRegistry {
     private workflows: Map<AgentTaskType, IAgentWorkflow> = new Map();

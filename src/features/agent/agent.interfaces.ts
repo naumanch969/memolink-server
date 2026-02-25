@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { IAgentTaskDocument } from './agent.model';
-import { AgentTaskInput, AgentTaskType } from './agent.types';
+import { AgentTaskInput, AgentTaskType, IAgentWorkflow, IChatMessage } from './agent.types';
 import { IUserPersonaDocument } from './memory/persona.model';
 
 export interface IAgentService {
@@ -31,12 +31,6 @@ export interface IAudioTranscriptionService {
     ): Promise<{ text: string; confidence: 'high' | 'medium' | 'low' }>;
 }
 
-export interface IChatMessage {
-    role: 'user' | 'agent' | 'system';
-    content: string;
-    timestamp: number;
-}
-
 export interface IAgentMemoryService {
     addMessage(userId: string | Types.ObjectId, role: 'user' | 'agent' | 'system', content: string): Promise<void>;
     getHistory(userId: string | Types.ObjectId): Promise<IChatMessage[]>;
@@ -52,11 +46,6 @@ export interface IAgentAccountabilityService {
 
 export interface IChatOrchestrator {
     chat(userId: string, message: string, options?: { onFinish?: (answer: string) => Promise<void> }): Promise<string>;
-}
-
-export interface IAgentWorkflow {
-    type: string;
-    execute(task: IAgentTaskDocument): Promise<any>;
 }
 
 export interface IAgentWorkflowRegistry {

@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { FileUploadMiddleware } from '../../core/middleware/upload.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { MediaController } from './media.controller';
 import { createMediaValidation, mediaIdValidation } from './media.validations';
-import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 
 const router = Router();
 

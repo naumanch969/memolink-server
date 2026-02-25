@@ -1,9 +1,9 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { Helpers } from '../../shared/helpers';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { CreateTagRequest, UpdateTagRequest } from './tag.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { tagService } from './tag.service';
+import { CreateTagRequest, UpdateTagRequest } from './tag.types';
 
 export class TagController {
   static async createTag(req: AuthenticatedRequest, res: Response) {

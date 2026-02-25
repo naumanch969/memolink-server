@@ -4,9 +4,8 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import { MOOD_METADATA } from '../../entry/mood.config';
 import { TagService } from '../../tag/tag.service';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
 // Output Schema
 const TaggingOutputSchema = z.object({

@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IReport, ReportStatus, ReportType } from './report.interfaces';
+import { IReport, ReportStatus, ReportType } from './report.types';
 
 const reportSchema = new Schema<IReport>({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },

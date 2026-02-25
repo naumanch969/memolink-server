@@ -2,9 +2,8 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
 

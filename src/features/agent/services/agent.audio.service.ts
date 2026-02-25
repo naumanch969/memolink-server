@@ -2,8 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../../../config/logger';
 import { withRetry } from '../../../core/utils/retry.utils';
 import { llmUsageService } from '../../llm-usage/llm-usage.service';
-import { IAudioTranscriptionService } from '../agent.interfaces';
 import { AGENT_CONSTANTS } from '../agent.constants';
+import { IAudioTranscriptionService } from '../agent.interfaces';
 
 /**
  * Audio Transcription Service

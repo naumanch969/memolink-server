@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
-import { ExportRequest, IExportService } from './export.interfaces';
+import { IExportService } from "./export.interfaces";
+import { ExportRequest } from './export.types';
 import { CsvStrategy } from './strategies/csv.strategy';
 import { ExportStrategy } from './strategies/export.strategy';
 import { JsonStrategy } from './strategies/json.strategy';

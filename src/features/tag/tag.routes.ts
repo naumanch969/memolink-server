@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { TagController } from './tag.controller';
 import { createTagValidation, tagIdValidation, updateTagValidation } from './tag.validations';
-import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 
 const router = Router();
 

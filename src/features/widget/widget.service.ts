@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { ApiError } from '../../core/errors/api.error';
-import { CreateWidgetParams, UpdateWidgetParams } from './widget.interfaces';
 import { Widget } from './widget.model';
+import { CreateWidgetParams, UpdateWidgetParams } from './widget.types';
 
 export class WidgetService {
     async createWidget(userId: string, params: CreateWidgetParams) {

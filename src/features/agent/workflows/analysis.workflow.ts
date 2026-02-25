@@ -4,9 +4,8 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
 import Goal from '../../goal/goal.model';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { AgentTask, IAgentTaskDocument } from '../agent.model';
-import { AgentTaskStatus, AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskStatus, AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
 // Output Schema for Weekly Analysis
 const WeeklyAnalysisOutputSchema = z.object({

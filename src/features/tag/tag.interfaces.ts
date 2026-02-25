@@ -1,14 +1,6 @@
-import { Types } from 'mongoose';
-import { BaseEntity } from '../../shared/types';
+import { CreateTagRequest, ITag, UpdateTagRequest } from "./tag.types";
 
 // Tag Types
-export interface ITag extends BaseEntity {
-  userId: Types.ObjectId;
-  name: string;
-  color?: string;
-  description?: string;
-  usageCount: number;
-}
 
 export interface ITagService {
   createTag(userId: string, tagData: CreateTagRequest): Promise<ITag>;
@@ -24,16 +16,4 @@ export interface ITagService {
   deleteTag(tagId: string, userId: string): Promise<void>;
   incrementUsage(userId: string, tagIds: string[]): Promise<void>;
   decrementUsage(userId: string, tagIds: string[]): Promise<void>;
-}
-
-export interface CreateTagRequest {
-  name: string;
-  color?: string;
-  description?: string;
-}
-
-export interface UpdateTagRequest {
-  name?: string;
-  color?: string;
-  description?: string;
 }

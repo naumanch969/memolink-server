@@ -7,8 +7,9 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from '../agent/agent.model';
 import { AgentTaskStatus, AgentTaskType } from '../agent/agent.types';
 import { agentService } from '../agent/services/agent.service';
-import { IReport, IReportService, ReportSearchRequest, ReportType } from './report.interfaces';
+import { IReportService } from "./report.interfaces";
 import Report from './report.model';
+import { IReport, ReportSearchRequest, ReportType } from './report.types';
 
 export class ReportService implements IReportService {
 

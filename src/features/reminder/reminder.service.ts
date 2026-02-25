@@ -8,8 +8,9 @@ import { EdgeType, NodeType } from '../graph/edge.model';
 import { graphService } from '../graph/graph.service';
 import { NotificationQueue } from '../notification/notification.model';
 import { NotificationStatus } from '../notification/notification.types';
+import { IReminderService } from "./reminder.interfaces";
 import { Reminder } from './reminder.model';
-import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, IReminderService, ReminderResponse, ReminderStatus, UpdateReminderRequest, } from './reminder.types';
+import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, ReminderResponse, ReminderStatus, UpdateReminderRequest } from './reminder.types';
 
 export class ReminderService implements IReminderService {
 

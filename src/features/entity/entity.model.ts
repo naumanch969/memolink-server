@@ -1,6 +1,6 @@
 import mongoose, { Model, Schema } from 'mongoose';
 import { NodeType } from '../graph/edge.model';
-import { IKnowledgeEntity } from './entity.interfaces';
+import { IKnowledgeEntity } from './entity.types';
 
 const knowledgeEntitySchema = new Schema<IKnowledgeEntity>(
     {

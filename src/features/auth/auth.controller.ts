@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.interfaces';
 import { authService } from './auth.service';
+import { AuthenticatedRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.types';
 
 export class AuthController {
   // Register new user

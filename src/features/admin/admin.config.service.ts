@@ -7,7 +7,9 @@ export const DEFAULT_CONFIGS = [
     { key: 'global_banner', value: '', category: 'communication', description: 'Global announcement banner text' },
 ];
 
-export class AdminConfigService {
+import { IAdminConfigService } from './admin.interfaces';
+
+export class AdminConfigService implements IAdminConfigService {
 
     /**
      * Initialize default configurations if they don't exist

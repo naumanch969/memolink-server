@@ -8,8 +8,9 @@ import { EdgeType, NodeType } from '../graph/edge.model';
 import { graphService } from '../graph/graph.service';
 import { goalProgressService } from './goal-progress.service';
 import { goalReminderService } from './goal-reminder.service';
-import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, IGoalService, UpdateGoalParams, UpdateGoalProgressParams } from './goal.interfaces';
+import { IGoalService } from "./goal.interfaces";
 import Goal from './goal.model';
+import { CreateGoalParams, GetGoalsQuery, GoalPeriod, IGoal, UpdateGoalParams, UpdateGoalProgressParams } from './goal.types';
 
 export class GoalService implements IGoalService {
     /**

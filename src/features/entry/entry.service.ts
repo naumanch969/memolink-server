@@ -8,10 +8,10 @@ import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { PaginationUtil } from '../../shared/utils/pagination.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
 import { taggingWorkflow } from '../agent/workflows/tagging.workflow';
-import { moodService } from '../mood/mood.service';
 import { tagService } from '../tag/tag.service';
-import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, IEntryService, UpdateEntryRequest } from './entry.interfaces';
+import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
+import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, UpdateEntryRequest } from "./entry.types";
 import { classifyMood } from './mood.config';
 
 export class EntryService implements IEntryService {

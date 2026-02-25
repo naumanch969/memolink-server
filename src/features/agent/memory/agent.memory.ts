@@ -3,7 +3,8 @@ import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { redisConnection } from '../../../config/redis';
 import { AGENT_CONSTANTS } from '../agent.constants';
-import { IAgentMemoryService, IChatMessage } from '../agent.interfaces';
+import { IAgentMemoryService } from '../agent.interfaces';
+import { IChatMessage } from "../agent.types";
 import { ChatMemory } from './agent.memory.model';
 
 export class AgentMemory implements IAgentMemoryService {

@@ -1,7 +1,7 @@
 import os from 'os';
 import { Counter, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 import { telemetryBus } from '../../core/telemetry/telemetry.bus';
-import { IMetricsService } from './monitoring.types';
+import { IMetricsService } from './monitoring.interfaces';
 
 // --- Prometheus Metrics Service ---
 

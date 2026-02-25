@@ -1,4 +1,4 @@
-import { JWTPayload } from '../../features/auth/auth.interfaces';
+import { JWTPayload } from '../../features/auth/auth.types';
 
 export interface ICryptoService {
     hashPassword(password: string): Promise<string>;

@@ -1,10 +1,10 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
 import PDFDocument from 'pdfkit';
-import { ExportStrategy } from './export.strategy';
-import { ExportRequest } from '../export.interfaces';
-import { Entry } from '../../entry/entry.model';
 import { Helpers } from '../../../shared/helpers';
+import { Entry } from '../../entry/entry.model';
+import { ExportRequest } from '../export.types';
+import { ExportStrategy } from './export.strategy';
 
 export class PdfStrategy implements ExportStrategy {
     async execute(res: Response, userId: string, options: ExportRequest): Promise<void> {

@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
-import { GlobalSearchRequest } from './search.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { searchService } from './search.service';
+import { GlobalSearchRequest } from './search.types';
 
 export class SearchController {
     static async globalSearch(req: AuthenticatedRequest, res: Response) {

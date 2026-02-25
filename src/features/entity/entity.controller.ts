@@ -1,11 +1,11 @@
 import { Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { Helpers } from '../../shared/helpers';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { EdgeType, GraphEdge, NodeType } from '../graph/edge.model';
 import { graphService } from '../graph/graph.service';
-import { CreateEntityRequest, UpdateEntityRequest } from './entity.interfaces';
 import { entityService } from './entity.service';
+import { CreateEntityRequest, UpdateEntityRequest } from './entity.types';
 
 export class EntityController {
     static async createEntity(req: AuthenticatedRequest, res: Response) {

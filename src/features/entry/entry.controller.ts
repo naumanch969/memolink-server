@@ -9,7 +9,7 @@ import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
 import { AgentTaskType } from '../agent/agent.types';
 import agentService from '../agent/services/agent.service';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import KnowledgeEntity from '../entity/entity.model';
 import { entityService } from '../entity/entity.service';
 import { EdgeType, NodeType } from '../graph/edge.model';

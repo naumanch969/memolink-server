@@ -5,8 +5,9 @@ import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { cryptoService } from '../../core/crypto/crypto.service';
 import { ApiError } from '../../core/errors/api.error';
-import { AuthResponse, ChangePasswordRequest, IAuthService, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.interfaces';
+import { IAuthService } from "./auth.interfaces";
 import { User } from './auth.model';
+import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from './auth.types';
 import { Otp } from './otp.model';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);

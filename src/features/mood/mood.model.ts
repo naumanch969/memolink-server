@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { IMoodDocument } from './mood.interfaces';
+import { IMoodDocument } from './mood.types';
 
 const moodSchema = new Schema<IMoodDocument>({
     userId: {

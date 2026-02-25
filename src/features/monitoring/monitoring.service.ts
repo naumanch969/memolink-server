@@ -7,7 +7,8 @@ import Entry from '../entry/entry.model';
 import { llmUsageService } from '../llm-usage/llm-usage.service';
 import { SystemMetric } from './metric.model';
 
-import { IMonitoringService, SystemHealth } from './monitoring.types';
+import { IMonitoringService } from './monitoring.interfaces';
+import { SystemHealth } from "./monitoring.types";
 
 export class MonitoringService implements IMonitoringService {
     /**

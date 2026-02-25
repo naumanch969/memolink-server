@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/env';
-import { JWTPayload } from '../../features/auth/auth.interfaces';
+import { JWTPayload } from '../../features/auth/auth.types';
 
 import { ICryptoService } from './crypto.interfaces';
 

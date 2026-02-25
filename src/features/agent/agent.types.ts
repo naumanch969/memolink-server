@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { IAgentTaskDocument } from "./agent.model";
 
 export enum AgentTaskType {
     LINKEDIN_PROFILE_PARSE = 'LINKEDIN_PROFILE_PARSE',
@@ -95,3 +96,14 @@ export type AgentWorkflowResult = {
 };
 
 export type AgentWorkflow = (task: IAgentTask) => Promise<AgentWorkflowResult>;
+
+export interface IChatMessage {
+    role: 'user' | 'agent' | 'system';
+    content: string;
+    timestamp: number;
+}
+
+export interface IAgentWorkflow {
+    type: string;
+    execute(task: IAgentTaskDocument): Promise<any>;
+}

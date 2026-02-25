@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.interfaces';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { moodService } from './mood.service';
 
 export class MoodController {

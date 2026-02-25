@@ -1,9 +1,8 @@
 import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { Entry } from '../../entry/entry.model';
-import { IAgentWorkflow } from '../agent.interfaces';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 import agentService from '../services/agent.service';
 
 export class SyncWorkflow implements IAgentWorkflow {

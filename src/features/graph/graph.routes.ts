@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { GraphController } from './graph.controller';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
+import { GraphController } from './graph.controller';
 
 const router = Router();
 
