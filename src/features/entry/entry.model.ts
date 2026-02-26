@@ -15,6 +15,7 @@ const entrySchema = new Schema<IEntry>({
   mentions: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', }],
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
+  collectionId: { type: Schema.Types.ObjectId, ref: 'Collection', index: true },
   isPrivate: { type: Boolean, default: false, },
   isImportant: { type: Boolean, default: false, },
   isFavorite: { type: Boolean, default: false, },
@@ -48,6 +49,7 @@ entrySchema.index({ userId: 1, type: 1 });
 entrySchema.index({ mentions: 1 });
 entrySchema.index({ tags: 1 });
 entrySchema.index({ media: 1 });
+entrySchema.index({ collectionId: 1 });
 entrySchema.index({ isPrivate: 1 });
 
 // Text search index

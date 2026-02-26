@@ -22,6 +22,7 @@ export enum AgentTaskType {
     TAGGING = 'TAGGING',
     ENTITY_EXTRACTION = 'ENTITY_EXTRACTION',
     ENTRY_EMBEDDING = 'ENTRY_EMBEDDING',
+    DAILY_REFLECTION = 'DAILY_REFLECTION',
 }
 
 export enum AgentTaskStatus {

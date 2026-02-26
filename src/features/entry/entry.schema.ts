@@ -14,6 +14,7 @@ const entryCommonSchema = {
     tags: z.array(z.string().min(1)).optional(),
     mentions: z.array(objectIdSchema).optional(),
     media: z.array(objectIdSchema).optional(),
+    collectionId: objectIdSchema.optional(),
 };
 
 export const createEntrySchema = z.object({
@@ -24,9 +25,7 @@ export const createEntrySchema = z.object({
 });
 
 export const updateEntrySchema = z.object({
-    params: z.object({
-        id: objectIdSchema
-    }),
+    params: z.object({ id: objectIdSchema }),
     body: z.object(entryCommonSchema)
 });
 
@@ -49,5 +48,6 @@ export const searchEntriesSchema = z.object({
         limit: z.string().regex(/^\d+$/).transform(v => parseInt(v, 10)).optional(),
         tags: z.string().optional().transform(v => v ? v.split(',') : undefined),
         entities: z.string().optional().transform(v => v ? v.split(',') : undefined),
+        collectionId: objectIdSchema.optional(),
     })
 });

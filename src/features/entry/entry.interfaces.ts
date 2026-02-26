@@ -5,7 +5,7 @@ export interface IEntryService {
   getEntryById(entryId: string, userId: string): Promise<IEntry>;
   getEntries(userId: string, query: GetEntriesRequest): Promise<GetEntriesResponse>;
   updateEntry(entryId: string, userId: string, updateData: UpdateEntryRequest): Promise<IEntry>;
-  deleteEntry(entryId: string, userId: string): Promise<void>;
+  deleteEntry(entryId: string, userId: string): Promise<IEntry>;
   getEntryStats(userId: string): Promise<EntryStats>;
   deleteUserData(userId: string): Promise<number>;
   toggleFavorite(entryId: string, userId: string): Promise<IEntry>;

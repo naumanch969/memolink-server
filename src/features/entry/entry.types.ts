@@ -9,6 +9,7 @@ export interface IEntry extends BaseEntity {
     mentions: Types.ObjectId[]; // KnowledgeEntity IDs
     tags: Types.ObjectId[]; // Tag IDs
     media: Types.ObjectId[]; // Media IDs
+    collectionId?: Types.ObjectId; // Collection ID
     isPrivate: boolean;
     isImportant?: boolean; // Mark special/memorable days
     kind?: 'entry' | 'document' | 'note';
@@ -44,6 +45,7 @@ export interface CreateEntryRequest {
     mentions?: string[];
     tags?: string[];
     media?: string[];
+    collectionId?: string;
     isPrivate?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
@@ -66,6 +68,7 @@ export interface UpdateEntryRequest {
     mentions?: string[];
     tags?: string[];
     media?: string[];
+    collectionId?: string;
     isPrivate?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
@@ -88,6 +91,7 @@ export interface GetEntriesRequest {
     isPrivate?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
+    collectionId?: string;
     mood?: string;
     location?: string;
     isFavorite?: boolean;

@@ -8,6 +8,7 @@ import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { PaginationUtil } from '../../shared/utils/pagination.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
 import { taggingWorkflow } from '../agent/workflows/tagging.workflow';
+import collectionService from '../collection/collection.service';
 import { tagService } from '../tag/tag.service';
 import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
@@ -40,11 +41,17 @@ export class EntryService implements IEntryService {
         mentions: entryData.mentions?.map(id => new Types.ObjectId(id)),
         tags: entryData.tags?.map(id => new Types.ObjectId(id)),
         media: entryData.media?.map(id => new Types.ObjectId(id)),
+        collectionId: entryData.collectionId ? new Types.ObjectId(entryData.collectionId) : undefined,
         moodMetadata: entryData.mood ? classifyMood(entryData.mood) : undefined,
       });
 
       await entry.save();
-      await entry.populate(['mentions', 'tags', 'media']);
+
+      if (entryData.collectionId) {
+        await collectionService.incrementEntryCount(entryData.collectionId);
+      }
+
+      await entry.populate(['mentions', 'tags', 'media', 'collectionId']);
 
       return entry;
     } catch (error) {
@@ -55,7 +62,7 @@ export class EntryService implements IEntryService {
 
   // Fetch a single entry by ID with populated relations
   async getEntryById(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
-    const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media']);
+    const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media', 'collectionId']);
     if (!entry) throw ApiError.notFound('Entry');
     return entry;
   }
@@ -100,7 +107,7 @@ export class EntryService implements IEntryService {
         }
 
         const entries = await Entry.find(filter)
-          .populate(['mentions', 'tags', 'media'])
+          .populate(['mentions', 'tags', 'media', 'collectionId'])
           .sort({ createdAt: -1, _id: -1 })
           .limit(limit + 1)
           .lean();
@@ -128,7 +135,7 @@ export class EntryService implements IEntryService {
 
       const [entries, total] = await Promise.all([
         Entry.find(filter, projection)
-          .populate(['mentions', 'tags', 'media'])
+          .populate(['mentions', 'tags', 'media', 'collectionId'])
           .sort(sort as any)
           .skip(skip)
           .limit(limit)
@@ -222,6 +229,7 @@ export class EntryService implements IEntryService {
     if (options.isImportant !== undefined) filter.isImportant = options.isImportant;
     if (options.isPrivate !== undefined) filter.isPrivate = options.isPrivate;
     if (options.kind) filter.kind = options.kind;
+    if (options.collectionId) filter.collectionId = new Types.ObjectId(options.collectionId);
     if (options.location) filter.location = new RegExp(options.location, 'i');
 
     if (options.dateFrom || options.dateTo) {
@@ -313,6 +321,7 @@ export class EntryService implements IEntryService {
       if (!existingEntry) throw ApiError.notFound('Entry');
 
       const oldTags = (existingEntry.tags || []).map(t => t.toString());
+      const oldCollectionId = existingEntry.collectionId?.toString();
 
       if (updateData.tags) {
         const resolvedTagIds: string[] = [];
@@ -332,14 +341,21 @@ export class EntryService implements IEntryService {
         {
           $set: {
             ...updateData,
+            collectionId: updateData.collectionId ? new Types.ObjectId(updateData.collectionId) : existingEntry.collectionId,
             isEdited: true,
             moodMetadata: updateData.mood ? classifyMood(updateData.mood) : existingEntry.moodMetadata
           }
         },
         { new: true, runValidators: true }
-      ).populate(['mentions', 'tags', 'media']);
+      ).populate(['mentions', 'tags', 'media', 'collectionId']);
 
       if (!entry) throw ApiError.notFound('Entry');
+
+      // Update collection counts if collectionId changed
+      if (updateData.collectionId !== undefined && updateData.collectionId !== oldCollectionId) {
+        if (oldCollectionId) await collectionService.decrementEntryCount(oldCollectionId);
+        if (updateData.collectionId) await collectionService.incrementEntryCount(updateData.collectionId);
+      }
 
       if (updateData.tags) {
         const newTags = updateData.tags;
@@ -359,7 +375,7 @@ export class EntryService implements IEntryService {
   }
 
   // Delete entry and update tag usage metrics
-  async deleteEntry(entryId: string, userId: string | Types.ObjectId): Promise<void> {
+  async deleteEntry(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
     try {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
       if (!entry) throw ApiError.notFound('Entry');
@@ -368,6 +384,12 @@ export class EntryService implements IEntryService {
         const tagIds = entry.tags.map(t => t.toString());
         await tagService.decrementUsage(userId, tagIds);
       }
+
+      if (entry.collectionId) {
+        await collectionService.decrementEntryCount(entry.collectionId.toString());
+      }
+
+      return entry as IEntry;
     } catch (error) {
       logger.error('Entry deletion failed:', error);
       throw error;

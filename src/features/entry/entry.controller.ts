@@ -152,8 +152,8 @@ export class EntryController {
   // Delete entry
   static async deleteEntry(req: AuthenticatedRequest, res: Response) {
     try {
-      await entryService.deleteEntry(req.params.id, req.user!._id.toString());
-      ResponseHelper.success(res, null, 'Entry deleted successfully');
+      const entry = await entryService.deleteEntry(req.params.id, req.user!._id.toString());
+      ResponseHelper.success(res, entry, 'Entry deleted successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to delete entry', 500, error);
     }
