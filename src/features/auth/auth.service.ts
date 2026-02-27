@@ -3,6 +3,8 @@ import { cloudinaryService } from '../../config/cloudinary.service';
 import { emailService } from '../../config/email.service';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
+import { CacheKeys } from '../../core/cache/cache.keys';
+import { cacheService } from '../../core/cache/cache.service';
 import { cryptoService } from '../../core/crypto/crypto.service';
 import { ApiError } from '../../core/errors/api.error';
 import { IAuthService } from "./auth.interfaces";
@@ -77,6 +79,7 @@ export class AuthService implements IAuthService {
       // Update last login
       user.lastLoginAt = new Date();
       await user.save();
+      await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
       logger.info('User logged in successfully', { userId: user._id, email: user.email, });
 
@@ -146,6 +149,7 @@ export class AuthService implements IAuthService {
       // Update last login
       user.lastLoginAt = new Date();
       await user.save();
+      await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
       return { user: user.toJSON(), accessToken, refreshToken };
     } catch (error) {
@@ -193,6 +197,7 @@ export class AuthService implements IAuthService {
       const hashedNewPassword = await cryptoService.hashPassword(newPassword);
       user.password = hashedNewPassword;
       await user.save();
+      await cacheService.del(CacheKeys.userProfile(userId));
 
       logger.info('Password changed successfully', { userId: user._id, email: user.email, });
     } catch (error) {
@@ -204,10 +209,17 @@ export class AuthService implements IAuthService {
   // Get user profile
   async getProfile(userId: string): Promise<IUser> {
     try {
-      const user = await User.findById(userId);
-      if (!user) {
-        throw ApiError.notFound('User');
-      }
+      const user = await cacheService.getOrSet<IUser>(
+        CacheKeys.userProfile(userId),
+        async () => {
+          const fetchedUser = await User.findById(userId);
+          if (!fetchedUser) {
+            throw ApiError.notFound('User');
+          }
+          return fetchedUser.toJSON() as IUser;
+        },
+        15 * 60 // 15 minutes TTL
+      );
 
       return user;
     } catch (error) {
@@ -223,6 +235,8 @@ export class AuthService implements IAuthService {
       if (!user) {
         throw ApiError.notFound('User');
       }
+
+      await cacheService.del(CacheKeys.userProfile(userId));
 
       logger.info('Profile updated successfully', { userId: user._id, email: user.email, });
 
@@ -276,6 +290,8 @@ export class AuthService implements IAuthService {
       user.avatar = avatarUrl;
       await user.save();
 
+      await cacheService.del(CacheKeys.userProfile(userId));
+
       logger.info('Avatar uploaded successfully', { userId: user._id, email: user.email });
 
       return user;
@@ -309,6 +325,8 @@ export class AuthService implements IAuthService {
       user.avatar = undefined;
       await user.save();
 
+      await cacheService.del(CacheKeys.userProfile(userId));
+
       logger.info('Avatar removed successfully', { userId: user._id, email: user.email });
 
       return user;
@@ -325,6 +343,8 @@ export class AuthService implements IAuthService {
       if (!user) {
         throw ApiError.notFound('User');
       }
+
+      await cacheService.del(CacheKeys.userProfile(userId));
 
       logger.info('User account deleted', { userId: user._id, email: user.email, });
     } catch (error) {
@@ -367,6 +387,7 @@ export class AuthService implements IAuthService {
       // Mark email as verified
       user.isEmailVerified = true;
       await user.save();
+      await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
       // Send welcome email
       const emailSent = await emailService.sendWelcomeEmail(user.email, user.name);
@@ -437,6 +458,7 @@ export class AuthService implements IAuthService {
       // Update user password
       user.password = hashedPassword;
       await user.save();
+      await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
       logger.info('Password reset successfully', { userId: user._id, email: user.email });
     } catch (error) {
@@ -502,6 +524,8 @@ export class AuthService implements IAuthService {
       user.securityConfig = securityConfig;
 
       await user.save();
+      await cacheService.del(CacheKeys.userProfile(userId));
+
       logger.info('Security config updated', { userId });
     } catch (error) {
       logger.error('Update security config failed', error);
@@ -549,6 +573,7 @@ export class AuthService implements IAuthService {
       await User.findByIdAndUpdate(userId, {
         lastLogoutAt: new Date()
       });
+      await cacheService.del(CacheKeys.userProfile(userId));
       logger.info('User logged out successfully', { userId });
     } catch (error) {
       logger.error('Logout failed', error);

@@ -6,6 +6,7 @@ export interface ICacheService {
     set(key: string, value: any, ttl?: number): Promise<void>;
     del(key: string): Promise<void>;
     getEmbeddingKey(text: string): string;
+    getOrSet<T>(key: string, fetcher: () => Promise<T>, ttl?: number): Promise<T>;
 }
 
 export class CacheService implements ICacheService {
@@ -40,6 +41,28 @@ export class CacheService implements ICacheService {
         } catch (error) {
             logger.error('Cache del error:', error);
         }
+    }
+
+    // get or set cache value
+    async getOrSet<T>(key: string, fetcher: () => Promise<T>, ttl: number = this.TTL): Promise<T> {
+        try {
+            const cached = await this.get<T>(key);
+            if (cached !== null) {
+                return cached;
+            }
+        } catch (error) {
+            logger.error('Cache getOrSet read error:', error);
+        }
+
+        const value = await fetcher();
+
+        try {
+            await this.set(key, value, ttl);
+        } catch (error) {
+            logger.error('Cache getOrSet write error:', error);
+        }
+
+        return value;
     }
 
     // generate a cache key for an embedding query
