@@ -80,20 +80,25 @@ export class TaggingWorkflow implements IAgentWorkflow {
 
                 if (!isAlreadyTagged) {
                     entry.tags = entry.tags || [];
-                    entry.tags.push(tag._id);
+                    entry.tags.push(tag._id as any);
                     await tagService.incrementUsage(userId, [tag._id.toString()]);
                 }
             }
 
-            if (!entry.mood) {
-                entry.mood = result.sentiment;
+            const updateData: any = { tags: entry.tags };
+
+            if (!entry.mood && result.sentiment) {
+                updateData.mood = result.sentiment;
             }
 
-            if (result.category) {
-                entry.moodMetadata = MOOD_METADATA[result.category as any];
+            if (!entry.moodMetadata && result.category) {
+                updateData.moodMetadata = MOOD_METADATA[result.category as any];
             }
 
-            await entry.save();
+            // Using un-validated updateOne specifically because the document retrieved from .findById 
+            // doesn't populate all required fields correctly (like strict 'userId' string vs ObjectId), 
+            // throwing a ValidationError on .save()
+            await Entry.updateOne({ _id: entryId }, { $set: updateData });
             logger.info(`Auto-tagged entry ${entryId} with: ${result.suggestedTags.join(', ')}`);
 
             return { status: 'completed', result };
