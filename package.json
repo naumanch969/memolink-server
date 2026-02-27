@@ -44,6 +44,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",
     "apminsight": "^5.2.1",
+    "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.66.5",
     "chrono-node": "^2.9.0",

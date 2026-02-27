@@ -10,6 +10,7 @@ import { StringUtil } from '../../shared/utils/string.utils';
 import { taggingWorkflow } from '../agent/workflows/tagging.workflow';
 import collectionService from '../collection/collection.service';
 import { tagService } from '../tag/tag.service';
+import { transcribeAudioEntry } from './audio-transcription.service';
 import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
 import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, UpdateEntryRequest } from "./entry.types";
@@ -52,6 +53,13 @@ export class EntryService implements IEntryService {
       }
 
       await entry.populate(['mentions', 'tags', 'media', 'collectionId']);
+
+      // If the entry contains audio media, kick off async transcription.
+      // The entry is already in 'processing' status from the model default when media is attached.
+      const hasAudioMedia = (entry.media as any[]).some((m: any) => m?.type === 'audio');
+      if (hasAudioMedia) {
+        setImmediate(() => transcribeAudioEntry(entry._id.toString(), userId.toString()));
+      }
 
       return entry;
     } catch (error) {
