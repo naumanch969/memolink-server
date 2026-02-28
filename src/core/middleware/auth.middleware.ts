@@ -18,13 +18,30 @@ export class AuthMiddleware {
         throw ApiError.unauthorized('Access token is required');
       }
 
-      const decoded = cryptoService.verifyToken(token);
+      let authUserId: string;
+
+      // Check if it's an API Key or a JWT Token
+      if (token.startsWith('mclk_')) {
+        // Handle persistent API Key
+        const { apiKeyService } = await import('../../features/api-key/api-key.service');
+        const resolvedUserId = await apiKeyService.verifyAndGetUser(token);
+
+        if (!resolvedUserId) {
+          throw ApiError.unauthorized('Invalid or revoked API Key');
+        }
+        authUserId = resolvedUserId.toString();
+
+      } else {
+        // Handle traditional JWT
+        const decoded = cryptoService.verifyToken(token);
+        authUserId = decoded.userId;
+      }
 
       // Fetch full profile from cache or database
       const userProfile = await cacheService.getOrSet(
-        CacheKeys.userProfile(decoded.userId),
+        CacheKeys.userProfile(authUserId),
         async () => {
-          const user = await User.findById(decoded.userId);
+          const user = await User.findById(authUserId);
           if (!user) {
             throw ApiError.unauthorized('User not found');
           }
@@ -36,12 +53,12 @@ export class AuthMiddleware {
       // Add user info to request object
       req.user = userProfile as any;
 
-      logger.debug('User authenticated:', { userId: decoded.userId, email: decoded.email, });
+      logger.debug('User authenticated:', { userId: authUserId });
 
       next();
     } catch (error) {
       logger.error('Authentication failed:', error);
-      ResponseHelper.unauthorized(res, 'Invalid or expired token');
+      ResponseHelper.unauthorized(res, 'Invalid or expired token/key');
     }
   };
 

@@ -22,7 +22,24 @@ export class ListService {
     }
 
     async getLists(userId: string) {
-        return List.find({ user: new Types.ObjectId(userId) }).sort({ order: 1 });
+        const lists = await List.find({ user: new Types.ObjectId(userId) }).sort({ order: 1 });
+        const hasBacklog = lists.some(l => l.isSystem && l.title === 'Backlog');
+
+        if (!hasBacklog) {
+            const backlog = await List.create({
+                user: new Types.ObjectId(userId),
+                type: 'tasks',
+                title: 'Backlog',
+                data: { tasks: [] },
+                order: -1,
+                group: 'System',
+                isPinned: true,
+                isSystem: true
+            });
+            lists.unshift(backlog);
+        }
+
+        return lists;
     }
 
     async updateList(userId: string, listId: string, params: UpdateListParams) {
@@ -51,14 +68,20 @@ export class ListService {
     }
 
     async deleteList(userId: string, listId: string) {
-        const result = await List.deleteOne({
+        const list = await List.findOne({
             _id: new Types.ObjectId(listId),
             user: new Types.ObjectId(userId),
         });
 
-        if (result.deletedCount === 0) {
+        if (!list) {
             throw ApiError.notFound('List');
         }
+
+        if (list.isSystem) {
+            throw ApiError.badRequest('Cannot delete system lists');
+        }
+
+        await List.deleteOne({ _id: list._id });
     }
 
     async reorderLists(userId: string, listIds: string[]) {
