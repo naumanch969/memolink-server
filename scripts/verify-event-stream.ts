@@ -47,17 +47,17 @@ async function main() {
             if (found.payload.reason === 'Procrastination') {
                 console.log("✨ Payload Integrity Checked: OK");
             } else {
-                console.error("❌ Payload Corruption Detected");
+                console.error("Payload Corruption Detected");
                 process.exit(1);
             }
 
         } else {
-            console.error("❌ Event lost in the stream!");
+            console.error("Event lost in the stream!");
             process.exit(1);
         }
 
     } catch (error) {
-        console.error("❌ Test Failed", error);
+        console.error("Test Failed", error);
         process.exit(1);
     } finally {
         redisConnection.disconnect();

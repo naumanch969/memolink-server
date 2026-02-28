@@ -47,12 +47,12 @@ async function main() {
         if (response.status === 200) {
             console.log("✅ API Accepted Events");
         } else {
-            console.error(`❌ API Error: ${response.status} ${JSON.stringify(response.data)}`);
+            console.error(`API Error: ${response.status} ${JSON.stringify(response.data)}`);
             process.exit(1);
         }
 
     } catch (err: any) {
-        console.error(`❌ Request Failed: ${err.message}`);
+        console.error(`Request Failed: ${err.message}`);
         if (err.response) console.error(err.response.data);
         process.exit(1);
     }
@@ -75,7 +75,7 @@ async function main() {
             console.log(JSON.stringify(edge.toJSON(), null, 2));
             console.log("🚀 E2E FLOW CONFIRMED: Client -> API -> Redis -> Worker -> Mongo");
         } else {
-            console.error("❌ Graph Edge NOT FOUND. Worker failed or too slow.");
+            console.error("Graph Edge NOT FOUND. Worker failed or too slow.");
             // Print out all edges for this user to see if something else happened
             const allEdges = await GraphEdge.find({ "from.id": new mongoose.Types.ObjectId(TEST_USER_ID) });
             console.log("Debug: All Edges for User:", JSON.stringify(allEdges, null, 2));
@@ -83,7 +83,7 @@ async function main() {
         }
 
     } catch (err) {
-        console.error("❌ DB Check Failed", err);
+        console.error("DB Check Failed", err);
         process.exit(1);
     } finally {
         await mongoose.disconnect();

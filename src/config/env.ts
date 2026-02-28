@@ -99,7 +99,7 @@ const validateEmailConfig = () => {
 
   if (missingVars.length > 0 && process.env.NODE_ENV !== 'test') {
     const errorMsg = `Missing required email environment variables: ${missingVars.join(', ')}`;
-    console.error(`❌ ${errorMsg}`);
+    console.error(`${errorMsg}`);
     console.error('Email functionality will not work without these variables.');
     console.error('Please set them in your .env file or environment.');
 

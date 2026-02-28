@@ -83,7 +83,7 @@ async function runTest() {
             console.log('   You should see an ORANGE edge labeled "AVOIDS".');
             console.log('   Click it to Resolve (Accept/Reject).');
         } else {
-            console.log('\n❌ FAILED. Edge status is:', result.status);
+            console.log('\nFAILED. Edge status is:', result.status);
         }
 
     } catch (error) {
