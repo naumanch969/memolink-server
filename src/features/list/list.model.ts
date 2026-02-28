@@ -1,7 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
-import { IWidget } from './widget.types';
+import { IList } from './list.types';
 
-const widgetSchema = new Schema<IWidget>(
+const listSchema = new Schema<IList>(
     {
         user: {
             type: Schema.Types.ObjectId,
@@ -19,7 +19,7 @@ const widgetSchema = new Schema<IWidget>(
             type: String,
             required: false,
             trim: true,
-            default: 'New Widget',
+            default: 'New List',
         },
         data: {
             type: Schema.Types.Mixed,
@@ -39,6 +39,10 @@ const widgetSchema = new Schema<IWidget>(
             type: Boolean,
             default: false,
         },
+        isSystem: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
@@ -46,6 +50,6 @@ const widgetSchema = new Schema<IWidget>(
 );
 
 // Index for efficient querying by user and order
-widgetSchema.index({ user: 1, order: 1 });
+listSchema.index({ user: 1, order: 1 });
 
-export const Widget = mongoose.model<IWidget>('Widget', widgetSchema);
+export const List = mongoose.model<IList>('List', listSchema);

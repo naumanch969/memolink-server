@@ -25,7 +25,7 @@ import reportRoutes from '../../features/report/report.routes';
 import searchRoutes from '../../features/search/search.routes';
 import tagRoutes from '../../features/tag/tag.routes';
 import webActivityRoutes from '../../features/web-activity/web-activity.routes';
-import widgetRoutes from '../../features/widget/widget.routes';
+import listRoutes from '../../features/list/list.routes';
 
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
@@ -65,7 +65,7 @@ router.use('/folders', folderRoutes);
 router.use('/storage', storageRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/export', exportRoutes);
-router.use('/widgets', widgetRoutes);
+router.use('/lists', listRoutes);
 router.use('/reminders', reminderRoutes);
 router.use('/moods', moodRoutes);
 router.use('/goals', goalRoutes);

@@ -1,40 +1,41 @@
 import { Document, Types } from "mongoose";
 
-export interface IWidgetItem {
+export interface IListItem {
     id: string;
     text: string;
     completed: boolean;
     completedAt?: string;
 }
 
-export interface IWidgetData {
+export interface IListData {
     [key: string]: any;
-    tasks?: IWidgetItem[];
+    tasks?: IListItem[];
     content?: string;
 }
 
-export interface IWidget extends Document {
+export interface IList extends Document {
     user: Types.ObjectId;
     type: 'tasks' | 'notes' | 'calendar' | 'custom';
     title: string;
-    data: IWidgetData;
+    data: IListData;
     order: number;
     group?: string;
     isPinned?: boolean;
+    isSystem?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
 
-export interface CreateWidgetParams {
+export interface CreateListParams {
     type: string;
     title: string;
-    data?: IWidgetData;
+    data?: IListData;
     order?: number;
 }
 
-export interface UpdateWidgetParams {
+export interface UpdateListParams {
     title?: string;
-    data?: IWidgetData;
+    data?: IListData;
     order?: number;
     group?: string;
     isPinned?: boolean;
