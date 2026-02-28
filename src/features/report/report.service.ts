@@ -7,6 +7,7 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from '../agent/agent.model';
 import { AgentTaskStatus, AgentTaskType } from '../agent/agent.types';
 import { agentService } from '../agent/services/agent.service';
+import { reportEmailService } from './report.email.service';
 import { IReportService } from "./report.interfaces";
 import Report from './report.model';
 import { IReport, ReportSearchRequest, ReportType } from './report.types';
@@ -57,8 +58,13 @@ export class ReportService implements IReportService {
 
             logger.info(`Report [${type}] ${report.isNew ? 'created' : 'updated'} for user ${userId} for period ${startDate.toISOString()}`);
 
-            // Broadcast update
+            // Broadcast realtime update
             socketService.emitToUser(userId, SocketEvents.REPORT_UPDATED, report);
+
+            // Fire email non-blocking — a failure here must never block report persistence
+            reportEmailService.sendReportReadyEmail(report).catch(err =>
+                logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
+            );
 
             return report;
         } catch (error: any) {

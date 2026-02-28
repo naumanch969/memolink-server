@@ -9,7 +9,7 @@ import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { AGENT_QUEUE_NAME } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
 import { agentWorkflowRegistry } from './agent.workflow.registry';
-import { weeklyAnalysisWorkflow } from './workflows/analysis.workflow';
+import { weeklyAnalysisWorkflow } from './workflows/weekly-analysis.workflow';
 import { cognitiveConsolidationWorkflow, entityConsolidationWorkflow } from './workflows/consolidation.workflow';
 import { entryEmbeddingWorkflow } from './workflows/embedding.workflow';
 import { enrichmentWorkflow } from './workflows/enrichment.workflow';

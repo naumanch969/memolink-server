@@ -5,14 +5,22 @@ import { Report } from './report.model';
 import { ReportService } from './report.service';
 import { ReportType } from './report.types';
 
-// Mock models
+// Mock models and services
 jest.mock('./report.model');
 jest.mock('../agent/agent.model');
 jest.mock('../../config/logger', () => ({
     logger: {
         info: jest.fn(),
         error: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
     },
+}));
+jest.mock('../../core/socket/socket.service', () => ({
+    socketService: { emitToUser: jest.fn() },
+}));
+jest.mock('../agent/services/agent.service', () => ({
+    agentService: { createTask: jest.fn().mockResolvedValue({ _id: 'task123' }) },
 }));
 
 describe('ReportService', () => {

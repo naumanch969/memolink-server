@@ -1,30 +1,105 @@
+import { endOfMonth, startOfMonth } from 'date-fns';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
-import { Entry } from '../../entry/entry.model';
-import Goal from '../../goal/goal.model';
-import { AgentTask, IAgentTaskDocument } from '../agent.model';
-import { AgentTaskStatus, AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { reportContextBuilder } from '../../report/report.context-builder';
+import { ReportType } from '../../report/report.types';
+import { IAgentTaskDocument } from '../agent.model';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
 
-// Output Schema for Monthly Analysis
+// ─── Output Schema ────────────────────────────────────────────────────────────
+
 const MonthlyAnalysisOutputSchema = z.object({
-    monthOverview: z.string().describe("A high-level synthesis of everything that happened this month."),
-    topThemes: z.array(z.string()).describe("3-5 recurring themes, habits, or topics that dominated the month."),
-    goalDeepDive: z.array(z.object({
+    // The Big Picture
+    monthTitle: z
+        .string()
+        .describe("One memorable sentence naming the month. E.g. 'The Month You Rebuilt The Foundation.'"),
+    executiveSummary: z
+        .string()
+        .describe('4-5 sentences. The month in full honesty — no sugarcoating.'),
+    overallScore: z
+        .number().min(1).max(100)
+        .describe('Overall alignment score for the month. 1-100.'),
+
+    // Longitudinal Mood Story
+    moodStory: z.object({
+        arc: z
+            .enum(['growth', 'decline', 'recovery', 'plateau', 'turbulent'])
+            .describe('The emotional arc across the 30-day period.'),
+        bestWeek: z.string().describe('Date label for the highest-energy week (e.g. "Feb 10–16").'),
+        hardestWeek: z.string().describe('Date label for the most difficult week.'),
+        dominantEmotionalTheme: z
+            .string()
+            .describe("The emotional theme that ran through the whole month, e.g. 'Strategic anxiety.'"),
+        sustainedPattern: z
+            .string()
+            .describe('A pattern only visible at 30-day view that would be invisible week-to-week.'),
+    }),
+
+    // Goal Reckoning (deep, quantified)
+    goalReckoning: z.array(z.object({
         goalTitle: z.string(),
-        progressReflection: z.string().describe("How much actual progress was made vs. the goal's intent."),
-        alignmentScore: z.number().min(1).max(10)
-    })).describe("A critical look at active goals."),
-    moodPattern: z.string().describe("Correlation between mood and specific activities or times of the month."),
-    hardTruths: z.array(z.string()).describe("3-5 blunt, non-sugarcoated observations about the user's behaviors, excuses, or stagnation points."),
-    achievements: z.array(z.string()).describe("Significant wins this month."),
-    missedOpportunities: z.array(z.string()).describe("Areas where the user could have acted but didn't, based on their own notes/intent."),
-    score: z.number().min(1).max(10).describe("Overall month alignment score."),
-    nextMonthStrategy: z.string().describe("A concrete, no-nonsense strategy for the upcoming month.")
+        periodLogs: z.number().describe('Total logs during this month.'),
+        streakHighWater: z.number().describe('Longest streak achieved.'),
+        streakCurrentEnd: z.number().describe('Streak at end of month.'),
+        milestonesHit: z.number(),
+        verdict: z.enum(['thriving', 'coasting', 'struggling', 'abandoned']),
+        hardTruth: z.string().describe('One blunt, specific, data-backed sentence about this goal.'),
+        nextMonthTarget: z.string().describe('A concrete, measurable target for next month.'),
+    })),
+
+    // Behavioral Fingerprint (persona-aware)
+    behavioralInsights: z.array(z.object({
+        pattern: z.string().describe('The observable behavior pattern from the data.'),
+        root: z.string().describe('Possible psychological or situational root cause.'),
+        leverage: z.string().describe('How to flip this pattern into an advantage next month.'),
+    })).describe('2-4 behavioral insights. Only include if evidence is strong.'),
+
+    // Hard Truths (max 4, unfiltered)
+    hardTruths: z.array(z.string())
+        .max(4)
+        .describe('Blunt, uncomfortable, data-backed truths. Not mean — just honest.'),
+
+    // Documented Wins
+    documentedWins: z.array(z.object({
+        win: z.string(),
+        evidence: z.string().describe("Concrete backing: 'You logged gym 18/30 days — a personal best.'"),
+    })).describe('Only include wins that have verifiable data backing.'),
+
+    // Month-over-month comparison
+    comparedToLastMonth: z.object({
+        scoreChange: z.number().describe('Change in overall score vs previous month. Positive = improvement.'),
+        narrative: z.string().describe("E.g. 'Up 12 points — strongest month in 3.'"),
+        breakoutArea: z.string().optional().describe('The area that improved most vs last month.'),
+        regressionArea: z.string().optional().describe('The area that declined most vs last month.'),
+    }).optional().describe('Omit if no previous month report exists.'),
+
+    // Forward Contract
+    nextMonthContract: z.object({
+        themeSentence: z.string().describe("E.g. 'March is about depth, not volume.'"),
+        topThreePriorities: z.array(z.string()).length(3),
+        oneThingToStop: z.string(),
+        oneThingToStart: z.string(),
+        successDefinition: z.string().describe("'You'll know March worked if...'"),
+    }),
+
+    // Raw stats for UI
+    stats: z.object({
+        totalEntries: z.number(),
+        totalWords: z.number(),
+        avgDailyMood: z.number(),
+        moodDataDays: z.number(),
+        goalsActive: z.number(),
+        milestonesCompleted: z.number(),
+        topTags: z.array(z.string()),
+        topEntities: z.array(z.string()),
+    }),
 });
 
 export type MonthlyAnalysisOutput = z.infer<typeof MonthlyAnalysisOutputSchema>;
+
+// ─── Workflow ─────────────────────────────────────────────────────────────────
 
 export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.MONTHLY_ANALYSIS;
@@ -44,100 +119,139 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
         logger.info(`Running Monthly Analysis for user ${userId}`);
 
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const start = startOfMonth(now);
+        const end = endOfMonth(now);
 
-        // 1. Fetch Weekly Analyses from the last month
-        const weeklyAnalyses = await AgentTask.find({
-            userId,
-            type: AgentTaskType.WEEKLY_ANALYSIS,
-            status: AgentTaskStatus.COMPLETED,
-            createdAt: { $gte: startOfMonth }
-        }).sort({ createdAt: 1 }).select('outputData createdAt');
+        const ctx = await reportContextBuilder.build(userId, start, end, ReportType.MONTHLY);
 
-        // 2. Fetch Active Goals
-        const goals = await Goal.find({ userId, status: 'active' }).select('title description milestones');
-
-        // 3. Fetch all entries for the month (for raw sentiment and tag analysis)
-        const entries = await Entry.find({
-            userId,
-            createdAt: { $gte: startOfMonth }
-        }).select('content mood tags createdAt').lean();
-
-        // 3.5 Guard
-        if (entries.length === 0 && weeklyAnalyses.length === 0) {
-            return {
-                monthOverview: "Not enough data recorded this month to generate a meaningful analysis.",
-                topThemes: ["Low engagement"],
-                goalDeepDive: [],
-                moodPattern: "Insufficient data.",
-                hardTruths: ["You haven't been logging your journey. Growth is hard to track in the dark."],
-                achievements: [],
-                missedOpportunities: ["Building a consistent reflection habit."],
-                score: 1,
-                nextMonthStrategy: "Start with one entry a day. No excuses."
-            };
+        if (ctx.totalEntries === 0 && ctx.goalSnapshots.length === 0) {
+            return this.emptyMonthFallback();
         }
 
-        // 4. Prepare Context
-        const weeklyContext = weeklyAnalyses.map(t => {
-            const d = t.outputData as any;
-            return `Week of ${t.createdAt.toDateString()}: ${d.periodSummary}\nScore: ${d.score}/10\nKey Achievements: ${d.keyAchievements?.join(', ')}`;
-        }).join('\n\n');
+        const moodTimelineText = ctx.moodTimeSeries.length > 0
+            ? ctx.moodTimeSeries.map(p => `${p.date}: ${p.score}/5`).join(', ')
+            : 'No dedicated mood records. Use entry moodMetadata for approximation.';
 
-        const goalsContext = goals.map(g => `- ${g.title}: ${g.description}`).join('\n');
+        const goalContext = ctx.goalSnapshots.map(g => [
+            `Goal: ${g.title}`,
+            `  Logs this month: ${g.periodLogs}`,
+            `  Current streak: ${g.streakCurrent} | Longest streak: ${g.streakLongest}`,
+            `  Milestones hit this month: ${g.milestonesHit}`,
+            g.why ? `  Motivation: "${g.why}"` : '',
+            g.deadline ? `  Deadline: ${new Date(g.deadline).toISOString().split('T')[0]}` : '',
+        ].filter(Boolean).join('\n')).join('\n\n') || 'No active goals.';
 
-        // Aggregate tags
-        const tagsFrequency: Record<string, number> = {};
-        entries.forEach(e => {
-            e.tags?.forEach(tag => {
-                const tagStr = tag.toString();
-                tagsFrequency[tagStr] = (tagsFrequency[tagStr] || 0) + 1;
-            });
-        });
-        const topTags = Object.entries(tagsFrequency)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 15)
-            .map(([tag, count]) => `${tag} (${count}x)`)
-            .join(', ');
+        const personaContext = ctx.personaMarkdown
+            ? `USER PERSONA (identity document — who this person fundamentally is):\n${ctx.personaMarkdown.substring(0, 2000)}`
+            : '';
+
+        const previousContext = ctx.previousReport
+            ? `PREVIOUS MONTH REPORT (for comparison):\nScore: ${ctx.previousReport.overallScore ?? ctx.previousReport.score ?? 'N/A'}/100\nSummary: ${ctx.previousReport.executiveSummary ?? ctx.previousReport.monthOverview ?? 'No summary'}`
+            : '';
+
+        const entityContext = ctx.topEntities.length > 0
+            ? `People/Places most mentioned this month: ${ctx.topEntities.join(', ')}`
+            : '';
+
+        const webContext = ctx.webActivitySummary
+            ? `Web Activity Summary: ${ctx.webActivitySummary}`
+            : '';
+
+        const totalMilestonesCompleted = ctx.goalSnapshots.reduce((s, g) => s + g.milestonesHit, 0);
 
         const prompt = `
-        You are Memolink, an uncompromising life coach and data-driven personal analyst. 
-        Perform a Monthly Analysis for the user.
-        
-        CRITICAL INSTRUCTION: 
-        Do NOT sugarcoat. If the user is being lazy, call it out. If they are making progress, acknowledge it but focus on the "next level". 
-        The user wants "Hard Truths" and "Meaningful Insight".
-        
-        Weekly Summaries for this Month:
-        ${weeklyContext || "No weekly analyses performed yet this month."}
-        
-        Active Goals:
-        ${goalsContext || "No active goals defined."}
-        
-        Total Entries this Month: ${entries.length}
-        Top Themes/Tags: ${topTags || "None recorded."}
-        
-        Task:
-        1. monthOverview: A synthesis of the monthly narrative.
-        2. topThemes: Recurring themes or habits identified.
-        3. goalDeepDive: Evaluate progress on active goals. Be critical if intent doesn't match action.
-        4. moodPattern: Identify what drives their mood up or down over this 30-day period.
-        5. hardTruths: BLUNT observations. What are they avoiding? What excuses are visible in their notes? (Array of strings)
-        6. achievements: Major wins.
-        7. missedOpportunities: Where did they fail to follow through?
-        8. score: 1-10 overall alignment score.
-        9. nextMonthStrategy: A specific, no-nonsense priority list for next month.
-        
-        Return ONLY valid JSON matching the schema.
-        `;
+You are Memolink — an uncompromising life coach and data-driven personal analyst.
+Perform the Monthly Analysis for the user. This is the most important report they receive.
 
-        const result = await LLMService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
+${personaContext}
+
+ENTRIES THIS MONTH: ${ctx.totalEntries} total | ~${ctx.totalWords} words written
+
+ENTRY NARRATIVE (chronological, last 30 days):
+${ctx.entryNarrative || 'No entries recorded.'}
+
+MOOD TIME-SERIES (dedicated tracker, 1-5 scale):
+${moodTimelineText}
+
+ACTIVE GOALS (with quantified progress):
+${goalContext}
+
+TOP TAGS THIS MONTH: ${ctx.topTags.slice(0, 15).join(', ') || 'None'}
+
+${entityContext}
+
+${webContext}
+
+${previousContext}
+
+CRITICAL INSTRUCTIONS:
+- monthTitle: Make it memorable. It should name the month in a way that sticks.
+- moodStory.sustainedPattern: This must be something only detectable at 30 days, NOT visible in a single week.
+- goalReckoning: Reference actual numbers (periodLogs, streakCurrent, milestonesHit). No vague language.
+- behavioralInsights: Root cause + leverage. This is the persona-aware layer. Use persona context to make it resonate.
+- hardTruths: Max 4. These must reference observable data, not moral judgements.
+- documentedWins: Only include wins with hard numbers. No participation awards.
+- comparedToLastMonth: ${ctx.previousReport ? 'REQUIRED — a previous month report exists above.' : 'OMIT — no previous report available.'}
+- nextMonthContract: Make it a real contract. Specific numbers and actions, not platitudes.
+- Do NOT sugarcoat stagnation, excuses, or low-effort weeks.
+- If the user is genuinely thriving, acknowledge it — but raise the bar.
+
+STATS FOR RENDERING (use exactly): 
+totalEntries=${ctx.totalEntries}, totalWords=${ctx.totalWords}, avgDailyMood=${ctx.avgMoodScore}, 
+moodDataDays=${ctx.moodTimeSeries.length}, goalsActive=${ctx.goalSnapshots.length}, 
+milestonesCompleted=${totalMilestonesCompleted}
+
+Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
+`;
+
+        return LLMService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
             temperature: 0.3,
             workflow: 'monthly_analysis',
             userId,
         });
+    }
 
-        return result;
+    private emptyMonthFallback(): MonthlyAnalysisOutput {
+        return {
+            monthTitle: "The Month That Left No Trace.",
+            executiveSummary: "No entries, no goal logs, no mood data. A month lived entirely off the record. Growth cannot be tracked — or accelerated — in the dark. This month is a baseline. The only direction is up.",
+            overallScore: 1,
+            moodStory: {
+                arc: 'plateau',
+                bestWeek: 'Unknown',
+                hardestWeek: 'Unknown',
+                dominantEmotionalTheme: 'Invisible — no data logged.',
+                sustainedPattern: 'The only sustained pattern is silence. Start logging.',
+            },
+            goalReckoning: [],
+            behavioralInsights: [{
+                pattern: 'Consistent non-logging.',
+                root: 'Possibly friction in the capture habit or low perceived value of journaling.',
+                leverage: 'Start with voice entries — 30 seconds at day-end. Lower the bar until the habit is automatic.',
+            }],
+            hardTruths: [
+                "You cannot improve what you don't measure. This month was unmeasured.",
+                "Reflection is not optional for someone serious about growth.",
+            ],
+            documentedWins: [],
+            nextMonthContract: {
+                themeSentence: "Next month is about one thing: showing up.",
+                topThreePriorities: ['Daily entry consistency', 'Activate at least one goal', 'Log mood every evening'],
+                oneThingToStop: 'Letting days pass unrecorded.',
+                oneThingToStart: 'A 9pm daily reflection ritual — even one sentence.',
+                successDefinition: "You'll know next month worked if you have at least 20 entries and 14 mood logs.",
+            },
+            stats: {
+                totalEntries: 0,
+                totalWords: 0,
+                avgDailyMood: 0,
+                moodDataDays: 0,
+                goalsActive: 0,
+                milestonesCompleted: 0,
+                topTags: [],
+                topEntities: [],
+            },
+        };
     }
 }
 
