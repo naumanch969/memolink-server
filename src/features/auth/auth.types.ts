@@ -9,6 +9,8 @@ export interface IUser extends BaseEntity {
     avatar?: string;
     role: string;
     whatsappNumber?: string;
+    whatsappLinkingCode?: string;
+    whatsappLinkingCodeExpires?: Date;
     isEmailVerified: boolean;
     isActive: boolean;
     lastLoginAt?: Date;

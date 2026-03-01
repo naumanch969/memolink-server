@@ -15,8 +15,12 @@ router.get('/google/callback', IntegrationController.handleGoogleCallback);
 router.get('/whatsapp/webhook', WhatsAppController.verify);
 router.post('/whatsapp/webhook', WhatsAppController.receive);
 
+// WhatsApp Linking
+router.get('/whatsapp/link-code', AuthMiddleware.authenticate, WhatsAppController.getLinkCode);
+
 // Management endpoints
 router.get('/', AuthMiddleware.authenticate, IntegrationController.listConnections);
+router.delete('/whatsapp', AuthMiddleware.authenticate, WhatsAppController.disconnect);
 router.delete('/:provider', AuthMiddleware.authenticate, IntegrationController.disconnect);
 
 export default router;

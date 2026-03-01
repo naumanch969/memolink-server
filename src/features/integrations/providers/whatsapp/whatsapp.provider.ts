@@ -7,6 +7,8 @@ import { User } from '../../../auth/auth.model';
 import { IWhatsAppProvider } from '../../whatsapp.interfaces';
 import { WhatsAppConfigSchema } from './whatsapp.schema';
 import { WhatsAppWebhookPayload } from './whatsapp.types';
+import { CacheKeys } from '../../../../core/cache/cache.keys';
+import cacheService from '../../../../core/cache/cache.service';
 
 export class WhatsAppProvider implements IWhatsAppProvider {
     private config;
@@ -21,7 +23,9 @@ export class WhatsAppProvider implements IWhatsAppProvider {
     }
 
     private get apiUrl() {
-        return `https://graph.facebook.com/v21.0/${this.config.phoneNumberId}`;
+        const url = `https://graph.facebook.com/v21.0/${this.config.phoneNumberId}`;
+        logger.info('WhatsApp API URL', { url });
+        return url;
     }
 
     /**
@@ -36,7 +40,45 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         if (!message) return;
 
         const from = message.from;
-        const user = await User.findOne({ whatsappNumber: from });
+        logger.info('WhatsApp Webhook message', { from, type: message.type });
+        let user = await User.findOne({ whatsappNumber: from });
+
+        if (!user) {
+            logger.info('User not found by whatsappNumber, checking for linking code', { from });
+        }
+
+        // If user not found, check for linking code (support "Verify: 123456" or "Verify 123456")
+        if (!user && message.type === 'text' && message.text?.body.toLowerCase().startsWith('verify')) {
+            const body = message.text.body;
+            // Extract code: "Verify: 123456" -> "123456", "Verify 123456" -> "123456"
+            const code = body.replace(/verify:?/i, '').trim();
+
+            logger.info('Attempting WhatsApp link with code', { code, from });
+
+            user = await User.findOne({
+                whatsappLinkingCode: code,
+                whatsappLinkingCodeExpires: { $gt: new Date() }
+            });
+
+            if (user) {
+                logger.info('Found user for linking code', { email: user.email, userId: user._id });
+                user.whatsappNumber = from;
+                user.whatsappLinkingCode = undefined;
+                user.whatsappLinkingCodeExpires = undefined;
+                await user.save();
+
+                // Invalidate cache
+                await cacheService.del(CacheKeys.userProfile(user._id.toString()));
+
+                logger.info('WhatsApp number linked successfully', { email: user.email, from });
+                await this.sendMessage(from, `✅ Success! Your WhatsApp number is now linked to ${user.email}. You can now send text or voice notes to capture memos.`);
+                return;
+            } else {
+                logger.warn('Linking code not found or expired', { code, from });
+                await this.sendMessage(from, `❌ Invalid or expired verification code. Please generate a new one in your settings.`);
+                return;
+            }
+        }
 
         if (!user) {
             logger.warn('WhatsApp message from unlinked number', { from });

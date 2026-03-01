@@ -92,6 +92,7 @@ export const config = {
   // WhatsApp Configuration
   WHATSAPP_API_TOKEN: process.env.WHATSAPP_API_TOKEN || '',
   WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+  WHATSAPP_DISPLAY_NUMBER: process.env.WHATSAPP_DISPLAY_NUMBER || '',
   WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
 } as const;
 
