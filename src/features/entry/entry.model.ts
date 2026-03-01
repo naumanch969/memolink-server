@@ -15,7 +15,7 @@ const entrySchema = new Schema<IEntry>({
   mentions: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', }],
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
-  collectionId: { type: Schema.Types.ObjectId, ref: 'Collection', index: true },
+  collectionId: { type: Schema.Types.ObjectId, ref: 'Collection' },
   isPrivate: { type: Boolean, default: false, },
   isImportant: { type: Boolean, default: false, },
   isFavorite: { type: Boolean, default: false, },

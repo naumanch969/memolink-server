@@ -88,6 +88,11 @@ export const config = {
 
   // Observability
   SENTRY_DSN_URL: process.env.SENTRY_DSN_URL || '',
+
+  // WhatsApp Configuration
+  WHATSAPP_API_TOKEN: process.env.WHATSAPP_API_TOKEN || '',
+  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
 } as const;
 
 export type Config = typeof config;

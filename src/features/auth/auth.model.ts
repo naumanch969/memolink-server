@@ -49,6 +49,7 @@ const userSchema = new Schema<IUser>({
     platform: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }
   }],
+  whatsappNumber: { type: String, trim: true },
 }, {
   timestamps: true,
   toJSON: {
@@ -61,6 +62,7 @@ const userSchema = new Schema<IUser>({
 
 // Indexes
 userSchema.index({ createdAt: -1 });
+userSchema.index({ whatsappNumber: 1 }, { sparse: true });
 
 // Virtual for user's full profile
 userSchema.virtual('profile').get(function () {

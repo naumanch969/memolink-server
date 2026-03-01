@@ -136,6 +136,7 @@ Output strictly valid JSON:
             'audio/x-m4a': 'audio/mp4',
             'audio/m4a': 'audio/mp4',
             'audio/x-caf': 'audio/mp4', // Best approximation for CAF
+            'audio/ogg; codecs=opus': 'audio/ogg',
         };
         return normalizations[mime] || mime;
     }
