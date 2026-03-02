@@ -354,7 +354,7 @@ export class AuthService implements IAuthService {
   }
 
   // Verify email with OTP
-  async verifyEmail(otp: string): Promise<void> {
+  async verifyEmail(otp: string): Promise<AuthResponse> {
     try {
       // Find user by OTP (we need to get the email from the OTP record)
       const otpRecord = await Otp.findOne({
@@ -374,10 +374,6 @@ export class AuthService implements IAuthService {
         throw ApiError.notFound('User not found');
       }
 
-      if (user.isEmailVerified) {
-        throw ApiError.conflict('Email is already verified');
-      }
-
       // Verify the OTP
       const isValid = await Otp.verifyOtp(otpRecord.email, otp, 'verification');
       if (!isValid) {
@@ -386,18 +382,62 @@ export class AuthService implements IAuthService {
 
       // Mark email as verified
       user.isEmailVerified = true;
+      user.lastLoginAt = new Date(); // Verification also counts as login here
       await user.save();
       await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
-      // Send welcome email
-      const emailSent = await emailService.sendWelcomeEmail(user.email, user.name);
-      if (!emailSent) {
-        logger.warn('Failed to send welcome email', { email: user.email });
-      }
+      // TODO: Send welcome email if first time
+      // ... logic could be added here if needed
 
       logger.info('Email verified successfully', { userId: user._id, email: user.email });
+
+      // Generate tokens
+      const accessToken = cryptoService.generateAccessToken({ userId: user._id.toString(), email: user.email, role: user.role });
+      const refreshToken = cryptoService.generateRefreshToken({ userId: user._id.toString(), email: user.email, role: user.role });
+
+      return {
+        user: user.toJSON(),
+        accessToken,
+        refreshToken
+      };
     } catch (error) {
       logger.error('Email verification failed:', error);
+      throw error;
+    }
+  }
+
+  // Request onboarding OTP (Unified Login/Signup)
+  async requestOnboardingOtp(email: string): Promise<{ otp?: string }> {
+    try {
+      const emailLower = email.toLowerCase().trim();
+      let user = await User.findByEmail(emailLower);
+
+      if (!user) {
+        // Create a placeholder user for onboarding
+        user = new User({
+          email: emailLower,
+          name: 'New Soul', // Temporary name
+          password: await cryptoService.hashPassword(Math.random().toString(36)), // Dummy password
+          isEmailVerified: false,
+        });
+        await user.save();
+        logger.info('Created placeholder user for onboarding', { email: emailLower });
+      }
+
+      // Generate OTP
+      const otp = await Otp.generateOtp(emailLower, 'verification');
+
+      // Send OTP
+      await emailService.sendVerificationEmail(emailLower, user.name, otp);
+
+      const response: { otp?: string } = {};
+      if (config.NODE_ENV === 'development') {
+        response.otp = otp;
+      }
+
+      return response;
+    } catch (error) {
+      logger.error('Request onboarding OTP failed:', error);
       throw error;
     }
   }

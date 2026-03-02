@@ -13,7 +13,8 @@ export interface IAuthService {
   getProfile(userId: string): Promise<IUser>;
   updateProfile(userId: string, updateData: Partial<IUser>): Promise<IUser>;
   deleteAccount(userId: string): Promise<void>;
-  verifyEmail(otp: string): Promise<void>;
+  verifyEmail(otp: string): Promise<AuthResponse>;
+  requestOnboardingOtp(email: string): Promise<{ otp?: string }>;
   forgotPassword(email: string): Promise<void>;
   resetPassword(otp: string, newPassword: string): Promise<void>;
   resendVerification(email: string): Promise<void>;

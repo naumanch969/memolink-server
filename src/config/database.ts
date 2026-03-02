@@ -31,7 +31,6 @@ class Database {
         socketTimeoutMS: 45000,
         bufferCommands: false,
       };
-
       await mongoose.connect(config.MONGODB_URI, options);
 
       this.isConnected = true;

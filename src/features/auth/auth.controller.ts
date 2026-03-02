@@ -129,10 +129,24 @@ export class AuthController {
   static async verifyEmail(req: Request, res: Response) {
     try {
       const { otp }: VerifyEmailRequest = req.body;
-      await authService.verifyEmail(otp);
-      ResponseHelper.success(res, null, 'Email verified successfully');
+      const result = await authService.verifyEmail(otp);
+      ResponseHelper.success(res, result, 'Email verified successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Email verification failed', 400, error);
+    }
+  }
+
+  // Request Onboarding OTP
+  static async requestOnboardingOtp(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return ResponseHelper.badRequest(res, 'Email is required');
+      }
+      const result = await authService.requestOnboardingOtp(email);
+      ResponseHelper.success(res, result, 'Verification code sent');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to send verification code', 500, error);
     }
   }
 

@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 
 dotenv.config();
-
 export const config = {
 
   // URLS
@@ -12,10 +11,10 @@ export const config = {
 
   // Server Configuration
   PORT: process.env.PORT || 3001,
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  NODE_ENV: process.env.NODE_ENV,
 
   // Database Configuration
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/memolink-dev',
+  MONGODB_URI: (process.env.NODE_ENV === 'production' ? process.env.MONGODB_PROD_URI : process.env.MONGODB_URI) || 'mongodb://localhost:27017/memolink-dev',
 
   // JWT Configuration
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',

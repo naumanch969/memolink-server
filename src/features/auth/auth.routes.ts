@@ -9,7 +9,7 @@ import { changePasswordValidation, forgotPasswordValidation, loginValidation, re
 const router = Router();
 
 // Strict limiter for sensitive auth endpoints
-const authLimiter = RateLimitMiddleware.limit({ zone: 'auth', maxRequests: 5, windowMs: 15 * 60 * 1000 });
+const authLimiter = RateLimitMiddleware.limit({ zone: 'auth', maxRequests: 15, windowMs: 15 * 60 * 1000 });
 
 // Public routes
 router.post('/register', authLimiter, registerValidation, ValidationMiddleware.validate, AuthController.register);
@@ -20,6 +20,7 @@ router.post('/forgot-password', authLimiter, forgotPasswordValidation, Validatio
 router.post('/reset-password', authLimiter, resetPasswordValidation, ValidationMiddleware.validate, AuthController.resetPassword);
 router.post('/verify-email', authLimiter, verifyEmailValidation, ValidationMiddleware.validate, AuthController.verifyEmail);
 router.post('/resend-verification', authLimiter, resendVerificationValidation, ValidationMiddleware.validate, AuthController.resendVerification);
+router.post('/onboard/otp', authLimiter, AuthController.requestOnboardingOtp);
 
 // Protected routes
 router.use(AuthMiddleware.authenticate); // All routes below require authentication
