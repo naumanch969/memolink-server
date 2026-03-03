@@ -116,7 +116,7 @@ export class EntryService implements IEntryService {
 
         const entries = await Entry.find(filter)
           .populate(['mentions', 'tags', 'media', 'collectionId'])
-          .sort({ createdAt: -1, _id: -1 })
+          .sort({ isPinned: -1, createdAt: -1, _id: -1 })
           .limit(limit + 1)
           .lean();
 
@@ -130,6 +130,10 @@ export class EntryService implements IEntryService {
       // OFFSET-BASED (Classic Search/Grid)
       const { page, skip } = PaginationUtil.getPaginationParams(options);
       let sort = PaginationUtil.getSortParams(options, 'createdAt');
+      // Always prioritize pinned entries in standard sorting
+      if (typeof sort === 'object' && !options.q) {
+        sort = { isPinned: -1, ...sort } as any;
+      }
       const projection: any = {};
 
       if (options.q && mode === 'instant') {
@@ -235,6 +239,7 @@ export class EntryService implements IEntryService {
     if (options.mood) filter.mood = new RegExp(options.mood, 'i');
     if (options.isFavorite !== undefined) filter.isFavorite = options.isFavorite;
     if (options.isImportant !== undefined) filter.isImportant = options.isImportant;
+    if (options.isPinned !== undefined) filter.isPinned = options.isPinned;
     if (options.isPrivate !== undefined) filter.isPrivate = options.isPrivate;
     if (options.kind) filter.kind = options.kind;
     if (options.collectionId) filter.collectionId = new Types.ObjectId(options.collectionId);
@@ -410,6 +415,16 @@ export class EntryService implements IEntryService {
     if (!entry) throw ApiError.notFound('Entry');
     entry.isFavorite = !entry.isFavorite;
     await entry.save();
+    return entry;
+  }
+
+  // Toggle pin status of an entry
+  async togglePin(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
+    const entry = await Entry.findOne({ _id: entryId, userId });
+    if (!entry) throw ApiError.notFound('Entry');
+    entry.isPinned = !entry.isPinned;
+    await entry.save();
+    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
     return entry;
   }
 

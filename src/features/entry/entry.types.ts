@@ -10,7 +10,9 @@ export interface IEntry extends BaseEntity {
     tags: Types.ObjectId[]; // Tag IDs
     media: Types.ObjectId[]; // Media IDs
     collectionId?: Types.ObjectId; // Collection ID
+    title?: string;
     isPrivate: boolean;
+    isPinned?: boolean;
     isImportant?: boolean; // Mark special/memorable days
     kind?: 'entry' | 'document' | 'note';
     mood?: string;
@@ -46,7 +48,9 @@ export interface CreateEntryRequest {
     tags?: string[];
     media?: string[];
     collectionId?: string;
+    title?: string;
     isPrivate?: boolean;
+    isPinned?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
     mood?: string;
@@ -69,7 +73,9 @@ export interface UpdateEntryRequest {
     tags?: string[];
     media?: string[];
     collectionId?: string;
+    title?: string;
     isPrivate?: boolean;
+    isPinned?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
     mood?: string;
@@ -95,6 +101,7 @@ export interface GetEntriesRequest {
     mood?: string;
     location?: string;
     isFavorite?: boolean;
+    isPinned?: boolean;
 
     // Pagination
     page?: number;

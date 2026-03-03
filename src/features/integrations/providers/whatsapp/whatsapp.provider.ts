@@ -1,25 +1,28 @@
 import axios from 'axios';
 import { config } from '../../../../config/env';
 import { logger } from '../../../../config/logger';
+import { CacheKeys } from '../../../../core/cache/cache.keys';
+import cacheService from '../../../../core/cache/cache.service';
 import { audioTranscriptionService } from '../../../agent/services/agent.audio.service';
 import { agentService } from '../../../agent/services/agent.service';
 import { User } from '../../../auth/auth.model';
 import { IWhatsAppProvider } from '../../whatsapp.interfaces';
-import { WhatsAppConfigSchema } from './whatsapp.schema';
 import { WhatsAppWebhookPayload } from './whatsapp.types';
-import { CacheKeys } from '../../../../core/cache/cache.keys';
-import cacheService from '../../../../core/cache/cache.service';
 
 export class WhatsAppProvider implements IWhatsAppProvider {
     private config;
 
     constructor() {
         // Validate config on initialization
-        this.config = WhatsAppConfigSchema.parse({
+        if (!config.WHATSAPP_API_TOKEN || !config.WHATSAPP_PHONE_NUMBER_ID || !config.WHATSAPP_VERIFY_TOKEN) {
+            throw new Error('WHATSAPP_API_TOKEN, WHATSAPP_PHONE_NUMBER_ID, and WHATSAPP_VERIFY_TOKEN are required');
+        }
+
+        this.config = {
             apiToken: config.WHATSAPP_API_TOKEN,
             phoneNumberId: config.WHATSAPP_PHONE_NUMBER_ID,
             verifyToken: config.WHATSAPP_VERIFY_TOKEN,
-        });
+        };
     }
 
     private get apiUrl() {

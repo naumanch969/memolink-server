@@ -169,6 +169,16 @@ export class EntryController {
     }
   }
 
+  // Toggle pin status
+  static async togglePin(req: AuthenticatedRequest, res: Response) {
+    try {
+      const entry = await entryService.togglePin(req.params.id, req.user!._id.toString());
+      ResponseHelper.success(res, entry, 'Entry pin status updated');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to update pin status', 500, error);
+    }
+  }
+
   // Get entries mostly for calendar view (minimal data)
   static async getCalendarEntries(req: AuthenticatedRequest, res: Response) {
     try {

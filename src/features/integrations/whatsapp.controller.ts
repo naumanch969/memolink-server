@@ -6,7 +6,6 @@ import { cacheService } from '../../core/cache/cache.service';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { User } from '../auth/auth.model';
 import { whatsappProvider } from './providers/whatsapp/whatsapp.provider';
-import { WhatsAppWebhookSchema } from './providers/whatsapp/whatsapp.schema';
 
 export class WhatsAppController {
     /**
@@ -30,11 +29,14 @@ export class WhatsAppController {
         try {
             logger.info('Received WhatsApp Webhook', { body: JSON.stringify(req.body, null, 2) });
             // Meta expects immediate 200 OK acknowledgment
-            // 1. Zod Validation
-            const validation = await WhatsAppWebhookSchema.safeParseAsync(req.body);
 
-            if (!validation.success) {
-                logger.warn('Invalid WhatsApp webhook payload', { errors: validation.error.format() });
+            // 1. Structural Validation (Simple check as Meta requires 200 ok even on structural mismatch)
+            const entry = req.body.entry?.[0];
+            const changes = entry?.changes?.[0];
+            const value = changes?.value;
+
+            if (!value || value.messaging_product !== 'whatsapp') {
+                logger.warn('Invalid WhatsApp webhook payload structure', { body: req.body });
                 // We still return 200 to WhatsApp to avoid retries on bad payloads
                 res.status(200).send('EVENT_RECEIVED');
                 return;
@@ -44,7 +46,7 @@ export class WhatsAppController {
             res.status(200).send('EVENT_RECEIVED');
 
             // 3. Background Processing
-            whatsappProvider.handleWebhook(validation.data as any).catch(err => {
+            whatsappProvider.handleWebhook(req.body).catch(err => {
                 logger.error('Error handling WhatsApp webhook', err);
             });
         } catch (error) {
