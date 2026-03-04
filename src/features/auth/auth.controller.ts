@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { authService } from './auth.service';
-import { AuthenticatedRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VerifyEmailRequest } from './auth.types';
+import { AuthenticatedRequest, ForgotPasswordRequest, GoogleLoginRequest, LoginRequest, RefreshTokenRequest, RegisterRequest, ResendVerificationRequest, ResetPasswordRequest, SecurityConfigRequest, VaultUnlockRequest, VerifyEmailRequest } from './auth.types';
 
 export class AuthController {
   // Register new user
@@ -219,6 +219,51 @@ export class AuthController {
       ResponseHelper.success(res, null, 'Account deleted successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to delete account', 500, error);
+    }
+  }
+
+  // Vault Status
+  static async getVaultStatus(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!._id.toString();
+      const status = await authService.getVaultStatus(userId);
+      ResponseHelper.success(res, status, 'Vault status retrieved');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to get vault status', 500, error);
+    }
+  }
+
+  // Unlock Vault
+  static async unlockVault(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!._id.toString();
+      const { securityAnswer }: VaultUnlockRequest = req.body;
+      await authService.unlockVault(userId, securityAnswer);
+      ResponseHelper.success(res, null, 'Vault unlocked successfully');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to unlock vault', 401, error);
+    }
+  }
+
+  // Recover Vault
+  static async recoverVault(req: Request, res: Response) {
+    try {
+      const { email, recoveryPhrase, newPassword } = req.body;
+      await authService.recoverVaultWithPhrase(email, recoveryPhrase, newPassword);
+      ResponseHelper.success(res, null, 'Vault recovered successfully');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to recover vault', 400, error);
+    }
+  }
+
+  // Setup Vault (Onboarding)
+  static async setupVault(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user!._id.toString();
+      await authService.setupVault(userId, req.body);
+      ResponseHelper.success(res, null, 'Vault initialized successfully');
+    } catch (error) {
+      ResponseHelper.error(res, 'Failed to setup vault', 400, error);
     }
   }
 }

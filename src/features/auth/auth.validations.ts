@@ -21,6 +21,16 @@ export const registerValidation = [
     .withMessage(`Name must be between 1 and ${VALIDATION.NAME_MAX_LENGTH} characters`)
     .matches(/^[a-zA-Z\s]+$/)
     .withMessage('Name can only contain letters and spaces'),
+
+  body('securityQuestion')
+    .trim()
+    .notEmpty()
+    .withMessage('Security question is required'),
+
+  body('securityAnswer')
+    .trim()
+    .notEmpty()
+    .withMessage('Security answer is required'),
 ];
 
 export const loginValidation = [
@@ -141,4 +151,29 @@ export const updateSecurityConfigValidation = [
 
 export const verifySecurityAnswerValidation = [
   body('answer').trim().notEmpty().withMessage('Answer is required'),
+];
+
+export const vaultUnlockValidation = [
+  body('securityAnswer')
+    .trim()
+    .notEmpty()
+    .withMessage('Security answer is required'),
+];
+
+export const vaultRecoverValidation = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+
+  body('recoveryPhrase')
+    .trim()
+    .notEmpty()
+    .withMessage('Recovery phrase is required'),
+
+  body('newPassword')
+    .isLength({ min: VALIDATION.PASSWORD_MIN_LENGTH, max: VALIDATION.PASSWORD_MAX_LENGTH })
+    .withMessage(`Password must be between ${VALIDATION.PASSWORD_MIN_LENGTH} and ${VALIDATION.PASSWORD_MAX_LENGTH} characters`)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
 ];

@@ -52,6 +52,20 @@ const userSchema = new Schema<IUser>({
   whatsappNumber: { type: String, trim: true },
   whatsappLinkingCode: { type: String, select: false },
   whatsappLinkingCodeExpires: { type: Date, select: false },
+
+  // Vault for MDK encryption
+  vault: {
+    passwordSalt: { type: String, select: false },
+    wrappedMDK_password: { type: String, select: false },
+    securityQuestion: { type: String },
+    securityAnswerSalt: { type: String, select: false },
+    wrappedMDK_securityAnswer: { type: String, select: false },
+    recoverySalt: { type: String, select: false },
+    wrappedMDK_recovery: { type: String, select: false },
+    encryptionVersion: { type: Number, default: 3 },
+    unlockAttempts: { type: Number, default: 0 },
+    unlockLockedUntil: { type: Date },
+  },
 }, {
   timestamps: true,
   toJSON: {

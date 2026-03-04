@@ -21,6 +21,7 @@ router.post('/reset-password', authLimiter, resetPasswordValidation, ValidationM
 router.post('/verify-email', authLimiter, verifyEmailValidation, ValidationMiddleware.validate, AuthController.verifyEmail);
 router.post('/resend-verification', authLimiter, resendVerificationValidation, ValidationMiddleware.validate, AuthController.resendVerification);
 router.post('/onboard/otp', authLimiter, AuthController.requestOnboardingOtp);
+router.post('/vault/recover', authLimiter, AuthController.recoverVault);
 
 // Protected routes
 router.use(AuthMiddleware.authenticate); // All routes below require authentication
@@ -34,5 +35,10 @@ router.put('/security-config', updateSecurityConfigValidation, ValidationMiddlew
 router.post('/verify-security', verifySecurityAnswerValidation, ValidationMiddleware.validate, AuthController.verifySecurityAnswer);
 router.delete('/account', AuthController.deleteAccount);
 router.post('/logout', AuthController.logout);
+
+// Vault routes
+router.get('/vault/status', AuthController.getVaultStatus);
+router.post('/vault/unlock', authLimiter, AuthController.unlockVault);
+router.post('/vault/setup', AuthController.setupVault);
 
 export default router;

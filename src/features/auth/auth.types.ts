@@ -42,6 +42,18 @@ export interface IUser extends BaseEntity {
         platform: string;
         createdAt: Date;
     }[];
+    vault?: {
+        passwordSalt: string;
+        wrappedMDK_password: string;
+        securityQuestion: string;
+        securityAnswerSalt: string;
+        wrappedMDK_securityAnswer: string;
+        recoverySalt: string;
+        wrappedMDK_recovery: string;
+        encryptionVersion: number;
+        unlockAttempts?: number;
+        unlockLockedUntil?: Date;
+    };
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -70,6 +82,13 @@ export interface AuthResponse {
     accessToken: string;
     refreshToken: string;
     otp?: string;
+    recoveryPhrase?: string; // One-time return for JIT migration
+    needsVaultSetup?: boolean; // True if legacy user missing security tiers
+}
+
+export interface RegisterResponse {
+    otp?: string;
+    recoveryPhrase?: string;
 }
 
 export interface GoogleLoginRequest {
@@ -85,6 +104,17 @@ export interface RegisterRequest {
     email: string;
     password: string;
     name: string;
+    securityQuestion: string;
+    securityAnswer: string;
+}
+
+export interface VaultUnlockRequest {
+    securityAnswer: string;
+}
+
+export interface VaultStatus {
+    isLocked: boolean;
+    securityQuestion?: string;
 }
 
 export interface RefreshTokenRequest {

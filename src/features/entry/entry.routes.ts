@@ -7,6 +7,7 @@ import { createEntryValidation, entryIdValidation, searchEntriesValidation, upda
 const router = Router();
 
 router.use(AuthMiddleware.authenticate);
+router.use(AuthMiddleware.requireVault);
 
 router.post('/', createEntryValidation, ValidationMiddleware.validate, EntryController.createEntry);
 router.get('/search', searchEntriesValidation, ValidationMiddleware.validate, EntryController.searchEntries);

@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../../features/auth/auth.types';
 import { CacheKeys } from '../cache/cache.keys';
 import { cacheService } from '../cache/cache.service';
 import { cryptoService } from '../crypto/crypto.service';
+import encryptionSessionService from '../encryption/encryption-session.service';
 import { ApiError } from '../errors/api.error';
 import { ResponseHelper } from '../utils/response.utils';
 
@@ -55,6 +56,11 @@ export class AuthMiddleware {
 
       logger.debug('User authenticated:', { userId: authUserId });
 
+      // Refresh Vault TTL (sliding window)
+      if (authUserId) {
+        await encryptionSessionService.refreshMDK(authUserId);
+      }
+
       next();
     } catch (error) {
       logger.error('Authentication failed:', error);
@@ -74,6 +80,32 @@ export class AuthMiddleware {
 
       next();
     };
+  };
+
+  /**
+   * Middleware to ensure the Encryption Vault is unlocked.
+   * Required for operations that need the Master Data Key (MDK).
+   */
+  static requireVault = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw ApiError.unauthorized('Authentication required');
+      }
+
+      const mdk = await encryptionSessionService.getMDK(req.user._id.toString());
+      if (!mdk) {
+        // We throw a specific error that the frontend can catch to show the lock screen
+        throw ApiError.forbidden('Vault is locked. Please unlock to proceed.', 'VAULT_LOCKED');
+      }
+
+      next();
+    } catch (error) {
+      if (error instanceof ApiError && error.errorCode === 'VAULT_LOCKED') {
+        ResponseHelper.error(res, error.message, error.statusCode, { errorCode: 'VAULT_LOCKED' });
+      } else {
+        ResponseHelper.error(res, 'Vault access denied', 403);
+      }
+    }
   };
 }
 

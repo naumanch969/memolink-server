@@ -1,13 +1,9 @@
-import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, SecurityConfigRequest } from "./auth.types";
-
-// User Types
-// Request Types
-// OTP Types
-// JWT Payload
+import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest } from "./auth.types";
 
 export interface IAuthService {
-  register(userData: RegisterRequest): Promise<{ otp?: string }>;
+  register(userData: RegisterRequest): Promise<RegisterResponse>;
   login(credentials: LoginRequest): Promise<AuthResponse>;
+  setupVault(userId: string, data: { password?: string; securityQuestion: string; securityAnswer: string }): Promise<void>;
   refreshToken(refreshToken: string): Promise<{ accessToken: string }>;
   changePassword(userId: string, passwordData: ChangePasswordRequest): Promise<void>;
   getProfile(userId: string): Promise<IUser>;
@@ -22,4 +18,9 @@ export interface IAuthService {
   verifySecurityAnswer(userId: string, answer: string): Promise<{ valid: boolean }>;
   googleLogin(idToken: string): Promise<AuthResponse>;
   logout(userId: string): Promise<void>;
+  uploadAvatar(userId: string, file: any): Promise<IUser>;
+  removeAvatar(userId: string): Promise<IUser>;
+  unlockVault(userId: string, securityAnswer: string): Promise<void>;
+  getVaultStatus(userId: string): Promise<{ isLocked: boolean; securityQuestion?: string }>;
+  recoverVaultWithPhrase(email: string, recoveryPhrase: string, newPassword: string): Promise<void>;
 }
