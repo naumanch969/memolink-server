@@ -5,22 +5,30 @@ import { ENRICHMENT_TAXONOMY, SYSTEM_PERSONAS } from '../enrichment.constants';
 import { IEnrichmentInterpreter } from '../enrichment.types';
 
 const activeEnrichmentSchema = z.object({
-    content: z.string(),
     metadata: z.object({
-        themes: z.array(z.enum(ENRICHMENT_TAXONOMY as any)).max(5),
+        themes: z.array(z.enum(ENRICHMENT_TAXONOMY as any)).max(3),
         emotions: z.array(z.object({
-            name: z.string(),
-            score: z.number().min(0).max(1),
-            icon: z.string()
+            label: z.string(),
+            intensity: z.number().min(0).max(1)
         })),
-        people: z.array(z.object({
+        entities: z.array(z.object({
             name: z.string(),
-            role: z.string(),
-            sentiment: z.number().min(-1).max(1)
+            type: z.enum(['person', 'place', 'concept', 'project', 'organization']),
+            confidence: z.number().min(0).max(1),
+            source: z.literal('extracted')
         })),
         sentimentScore: z.number().min(-1).max(1),
         energyLevel: z.enum(['low', 'medium', 'high'] as const),
         cognitiveLoad: z.enum(['focused', 'scattered', 'ruminating'] as const),
+    }),
+    narrative: z.object({
+        signal: z.string(),
+        coreThought: z.string(),
+        contradictions: z.array(z.string()),
+        openLoops: z.array(z.string()),
+        selfPerception: z.string(),
+        desires: z.array(z.string()),
+        fears: z.array(z.string()),
     }),
     extraction: z.object({
         confidenceScore: z.number().min(0).max(1),
@@ -36,18 +44,34 @@ export class ActiveInterpreter implements IEnrichmentInterpreter<string, IActive
 
 User Input: "${text}"
 
-Valid themes (use ONLY these): ${ENRICHMENT_TAXONOMY.join(', ')}
+Valid themes (use ONLY these, max 3): ${ENRICHMENT_TAXONOMY.join(', ')}
+Valid entity types: person, place, concept, project, organization
 
-Respond with ONLY a JSON object in this exact structure — no wrapper keys, no markdown, no explanation:
+### EXTRACTION DISCIPLINE:
+- **entities**: Extract significant people, locations, or concepts. Every entity MUST be mapped to one of the 5 valid types above.
+- **signal** and **coreThought** are MANDATORY and must always be provided.
+- For **contradictions**, **openLoops**, **desires**, and **fears**: ONLY extract if clearly present or strongly implied. If no evidence exists, return an empty array or string.
+- For **selfPerception**: ONLY extract if the user mentions themselves or their state. Otherwise, return an empty string "".
+- DO NOT hallucinate or force a psychological read where none exists.
+
+Respond with ONLY a JSON object in this structure:
 {
-  "content": "<condensed narrative of the input>",
   "metadata": {
-    "themes": ["<theme1>", "<theme2>"],
-    "emotions": [{ "name": "<emotion name>", "score": 0.8, "icon": "<single emoji>" }],
-    "people": [{ "name": "<name>", "role": "<role>", "sentiment": 0.5 }],
-    "sentimentScore": 0.3,
+    "themes": ["theme1", "theme2"],
+    "emotions": [{ "label": "joy", "intensity": 0.8 }],
+    "entities": [{ "name": "Ahmed", "type": "person", "confidence": 0.95, "source": "extracted" }],
+    "sentimentScore": 0.5,
     "energyLevel": "medium",
     "cognitiveLoad": "focused"
+  },
+  "narrative": {
+    "signal": "Psychological interpretation (3-5 sentences).",
+    "coreThought": "The distilled psychological center.",
+    "contradictions": [],
+    "openLoops": [],
+    "selfPerception": "",
+    "desires": [],
+    "fears": []
   },
   "extraction": {
     "confidenceScore": 0.9,

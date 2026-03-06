@@ -1,6 +1,7 @@
 import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
+import DateUtil from '../../shared/utils/date.utils';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
 import { enrichmentService } from '../enrichment/enrichment.service';
@@ -15,8 +16,8 @@ export class CaptureService implements ICaptureService {
 
     // 1. ACTIVE: Text/Voice/Manual Entry
     async captureEntry(userId: string, payload: any): Promise<any> {
-        const source = 'active-entry';
-        const sessionId = `${source}-session`;
+        const entryDate = payload.date || new Date();
+        const sessionId = DateUtil.getSessionId(entryDate);
 
         const content = payload.content || '';
 
@@ -41,7 +42,7 @@ export class CaptureService implements ICaptureService {
             content: content,
             status: 'capturing',
             type: method === 'voice' ? 'mixed' : 'text',
-            date: payload.date || new Date(),
+            date: entryDate,
             tags: tagIds,
             media: payload.media,
             collectionId: payload.collectionId,
@@ -68,15 +69,21 @@ export class CaptureService implements ICaptureService {
 
     // 2. PASSIVE: Web Extension Sync
     async captureWeb(userId: string, payload: any): Promise<void> {
-        // Implement web sync here without adapter flow
-        await webActivityService.syncActivity(userId, {
+        const activityData = {
             syncId: payload.syncId || `sync-${Date.now()}`,
             date: payload.date ? new Date(payload.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             totalSeconds: payload.totalSeconds || 0,
             productiveSeconds: payload.productiveSeconds || 0,
             distractingSeconds: payload.distractingSeconds || 0,
             domainMap: payload.domainMap || {}
-        });
+        };
+
+        // Sync daily activity (Legacy/Global Analytics)
+        await webActivityService.syncActivity(userId, activityData);
+
+        // Track session-level activity (Enrichment Engine Context)
+        await enrichmentService.trackSessionActivity(userId, activityData);
+
         logger.info(`CaptureService: Passive web data funneled [User: ${userId}]`);
     }
 
@@ -114,14 +121,22 @@ export class CaptureService implements ICaptureService {
             appMap[event.appName || event.bundleId] = (appMap[event.appName || event.bundleId] || 0) + (event.activeSeconds || 0);
         }
 
-        await webActivityService.syncActivity(userId, {
-            syncId: `sync-${Date.now()}`,
-            date: timestamp,
+        const activityData = {
             totalSeconds: totalActive,
             productiveSeconds: 0,
             distractingSeconds: 0,
-            domainMap: appMap // Reusing domain map for apps
+            domainMap: appMap
+        };
+
+        await webActivityService.syncActivity(userId, {
+            ...activityData,
+            syncId: `sync-${Date.now()}`,
+            date: timestamp,
         });
+
+        // Track session-level activity
+        await enrichmentService.trackSessionActivity(userId, activityData);
+
         logger.info(`CaptureService: Passive app activity funneled [User: ${userId}, Source: ${source}]`);
     }
 

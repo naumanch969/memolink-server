@@ -9,7 +9,6 @@ import { AgentTask, IAgentTaskDocument } from './agent.model';
 import { AGENT_QUEUE_NAME } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
 import { agentWorkflowRegistry } from './agent.workflow.registry';
-import { weeklyAnalysisWorkflow } from './workflows/weekly-analysis.workflow';
 import { cognitiveConsolidationWorkflow, entityConsolidationWorkflow } from './workflows/consolidation.workflow';
 import { entryEmbeddingWorkflow } from './workflows/embedding.workflow';
 import { enrichmentWorkflow } from './workflows/enrichment.workflow';
@@ -21,6 +20,7 @@ import { personaWorkflow } from './workflows/persona.workflow';
 import { syncWorkflow } from './workflows/sync.workflow';
 import { taggingWorkflow } from './workflows/tagging.workflow';
 import { webActivityWorkflow } from './workflows/web-activity.workflow';
+import { weeklyAnalysisWorkflow } from './workflows/weekly-analysis.workflow';
 
 /**
  * AGENT WORKFLOW REGISTRATION
@@ -114,7 +114,8 @@ const registerWorkflows = () => {
         AgentTaskType.REMINDER_CREATE,
         AgentTaskType.GOAL_CREATE,
         AgentTaskType.KNOWLEDGE_QUERY,
-        AgentTaskType.DAILY_BRIEFING
+        AgentTaskType.DAILY_BRIEFING,
+        AgentTaskType.DAILY_REFLECTION
     ].forEach(type => registry.register({ type, execute: syncNoOp }));
 };
 

@@ -9,29 +9,32 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
     inputMethod: { type: String, enum: ['text', 'voice', 'whatsapp', 'system'], required: true },
     processingStatus: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending', index: true },
 
-    content: { type: String, required: true },
-
     metadata: {
         themes: [{ type: String, index: true }],
         emotions: [{
-            name: { type: String },
-            score: { type: Number },
-            icon: { type: String }
-        }],
-        people: [{
-            name: { type: String },
-            role: { type: String },
-            sentiment: { type: Number }
+            label: { type: String },
+            intensity: { type: Number }
         }],
         entities: [{
             entityId: { type: Schema.Types.ObjectId, ref: 'KnowledgeEntity' },
             name: { type: String },
-            type: { type: String },
-            confidence: { type: Number }
+            type: { type: String, enum: ['person', 'place', 'concept', 'project', 'organization'] },
+            confidence: { type: Number },
+            source: { type: String, enum: ['user', 'extracted'] }
         }],
         sentimentScore: { type: Number, default: 0 },
         energyLevel: { type: String, enum: ['low', 'medium', 'high'] },
         cognitiveLoad: { type: String, enum: ['focused', 'scattered', 'ruminating'] }
+    },
+
+    narrative: {
+        signal: { type: String },
+        coreThought: { type: String },
+        contradictions: [{ type: String }],
+        openLoops: [{ type: String }],
+        selfPerception: { type: String },
+        desires: [{ type: String }],
+        fears: [{ type: String }]
     },
 
     extraction: {
@@ -47,7 +50,7 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
     },
 
     embedding: { type: [Number], select: false },
-    timestamp: { type: Date, default: Date.now, index: true }
+    timestamp: { type: Date, required: true, index: true }
 }, {
     timestamps: true
 });

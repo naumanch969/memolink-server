@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
+import { IEnrichmentMetadata, IEnrichmentNarrative } from '../enrichment/enrichment.types';
 
 // Entry Types
 export interface IEntry extends BaseEntity {
@@ -23,8 +24,19 @@ export interface IEntry extends BaseEntity {
     isMultiDay?: boolean; // Flag for collective entries
     isEdited?: boolean;
     isFavorite?: boolean;
-    status?: 'ready' | 'processing' | 'failed' | 'capturing';
-    metadata?: Record<string, any>;
+    status?: string;
+    inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
+    sessionId?: string;
+    metadata?: Record<string, any>; // System logs, processing steps, etc.
+    enrichment?: {
+        metadata: IEnrichmentMetadata;
+        narrative: IEnrichmentNarrative;
+        extraction?: {
+            confidenceScore: number;
+            modelVersion: string;
+            flags: string[];
+        };
+    };
 }
 
 export interface EntryResponse {

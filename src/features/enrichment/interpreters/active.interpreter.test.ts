@@ -6,14 +6,22 @@ jest.mock('../../../core/llm/llm.service');
 describe('ActiveInterpreter', () => {
     it('should call LLM and return structured result', async () => {
         const mockLLMResult = {
-            content: 'Better text',
             metadata: {
                 themes: ['identity'],
                 emotions: [{ label: 'curiosity', intensity: 0.8 }],
-                people: [],
+                entities: [],
                 sentimentScore: 0.5,
                 energyLevel: 'high',
                 cognitiveLoad: 'focused'
+            },
+            narrative: {
+                signal: 'Psychological interpretation',
+                coreThought: 'Dominant thought',
+                contradictions: [],
+                openLoops: [],
+                selfPerception: 'Capable',
+                desires: [],
+                fears: []
             },
             extraction: {
                 confidenceScore: 0.9,
@@ -25,7 +33,7 @@ describe('ActiveInterpreter', () => {
 
         const result = await activeInterpreter.process('My raw thought');
 
-        expect(result.content).toBe('Better text');
+        expect(result.narrative.signal).toBe('Psychological interpretation');
         expect(result.metadata.themes).toContain('identity');
         expect(LLMService.generateJSON).toHaveBeenCalled();
     });

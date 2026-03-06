@@ -13,11 +13,12 @@ export class DateUtil {
     }
 
     // Formats a Date object as YYYY-MM-DD
-    static formatDate(date: Date): string {
+    static formatDate(dateInput: Date | string): string {
+        const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
         try {
             return format(date, this.DAILY_FORMAT);
         } catch {
-            return date.toISOString().split('T')[0];
+            return (date instanceof Date ? date : new Date(date)).toISOString().split('T')[0];
         }
     }
 
@@ -120,6 +121,18 @@ export class DateUtil {
         if (!input) return new Date();
         const d = input instanceof Date ? input : parseISO(String(input));
         return this.normalizeToUTC(d);
+    }
+
+    /**
+     * Get the 4-hour window session ID for a given date.
+     * Sessions: 00-04 (s0), 04-08 (s1), 08-12 (s2), 12-16 (s3), 16-20 (s4), 20-24 (s5)
+     */
+    static getSessionId(dateInput: Date | string = new Date()): string {
+        const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+        const hour = date.getHours();
+        const sessionIndex = Math.floor(hour / 4);
+        const dateKey = this.formatDate(date);
+        return `${dateKey}-s${sessionIndex}`;
     }
 }
 

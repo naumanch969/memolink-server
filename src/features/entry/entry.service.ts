@@ -175,22 +175,23 @@ export class EntryService implements IEntryService {
     const enrichedEntries = await EnrichedEntry.find({
       referenceId: { $in: entryIds },
       userId: new Types.ObjectId(userId)
-    }).select('referenceId metadata').lean();
+    }).select('referenceId metadata narrative extraction').lean();
 
     const enrichedMap = new Map();
     enrichedEntries.forEach((ee: any) => {
       if (ee.referenceId) {
-        enrichedMap.set(ee.referenceId.toString(), ee.metadata);
+        enrichedMap.set(ee.referenceId.toString(), {
+          metadata: ee.metadata,
+          narrative: ee.narrative,
+          extraction: ee.extraction
+        });
       }
     });
 
     return entries.map(entry => {
-      const enrichedMetadata = enrichedMap.get(entry._id.toString());
-      if (enrichedMetadata) {
-        entry.metadata = {
-          ...(entry.metadata || {}),
-          ...enrichedMetadata
-        };
+      const enrichment = enrichedMap.get(entry._id.toString());
+      if (enrichment) {
+        entry.enrichment = enrichment;
       }
       return entry;
     });
