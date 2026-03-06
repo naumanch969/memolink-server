@@ -55,4 +55,19 @@ export class StringUtil {
 
         return Array.from(new Set(mentions)); // Return unique mentions
     }
+
+    /**
+     * Extracts tags (starting with #) from text
+     */
+    static extractTags(text: string): string[] {
+        const tagRegex = /#(\w+)/g;
+        const tags: string[] = [];
+        let match;
+
+        while ((match = tagRegex.exec(text)) !== null) {
+            tags.push(match[1]);
+        }
+
+        return Array.from(new Set(tags));
+    }
 }

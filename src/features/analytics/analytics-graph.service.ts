@@ -19,8 +19,7 @@ export class AnalyticsGraphService implements IAnalyticsGraphService {
                 KnowledgeEntity.find({ userId: userObjectId, isDeleted: false }).select('_id name avatar otype').lean(),
                 Tag.find({ userId: userObjectId }).select('_id name color').lean(),
                 Entry.find({ userId: userObjectId })
-                    .select('_id mentions tags')
-                    .populate('mentions', '_id name')
+                    .select('_id tags')
                     .populate('tags', '_id name')
                     .lean()
             ]);
@@ -46,7 +45,6 @@ export class AnalyticsGraphService implements IAnalyticsGraphService {
 
             entries.forEach(entry => {
                 const entitiesInEntry = [
-                    ...(entry.mentions || []).map((m: any) => m._id.toString()),
                     ...(entry.tags || []).map((t: any) => t._id.toString())
                 ];
 

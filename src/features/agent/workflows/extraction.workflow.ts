@@ -226,8 +226,7 @@ export class EntityExtractionWorkflow implements IAgentWorkflow {
                     }
                 }
 
-                // 4.5 Update Entry Mentions
-                entryDoc.mentions = Array.from(new Set([...(entryDoc.mentions || []), ...entityIds.map(id => new mongooseNative.Types.ObjectId(id))])) as any;
+                // 4.5 Save Entry Doc
                 await entryDoc.save({ session });
 
                 await session.commitTransaction();

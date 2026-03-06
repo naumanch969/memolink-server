@@ -8,10 +8,11 @@ export type EnergyLevel = 'low' | 'medium' | 'high';
 export type CognitiveLoad = 'focused' | 'scattered' | 'ruminating';
 
 export interface IEnrichmentMetadata {
-    themes: string[]; // STRICT 23-list taxonomy
-    emotions: Array<{ label: string; intensity: number }>;
+    themes: string[];
+    emotions: Array<{ name: string; score: number; icon: string }>;
     people: Array<{ name: string; role: string; sentiment: number }>;
-    sentimentScore: number; // -1.0 to 1.0
+    entities?: Array<{ entityId?: Types.ObjectId; name: string; type: string; confidence?: number }>;
+    sentimentScore: number;
     energyLevel: EnergyLevel;
     cognitiveLoad: CognitiveLoad;
 }
@@ -85,3 +86,9 @@ export interface IEnrichmentInterpreter<TInput, TOutput extends IEnrichmentResul
     process(input: TInput): Promise<TOutput>;
 }
 
+export interface EnrichmentJobData {
+    userId: string;
+    sourceType: 'active' | 'passive';
+    sessionId: string;
+    referenceId?: string;
+}

@@ -1,20 +1,13 @@
 import { Response } from 'express';
-import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { ENTRY_TYPES } from '../../shared/constants';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
-import { StringUtil } from '../../shared/utils/string.utils';
 import { AgentTaskType } from '../agent/agent.types';
 import agentService from '../agent/services/agent.service';
 import { AuthenticatedRequest } from '../auth/auth.types';
-import KnowledgeEntity from '../entity/entity.model';
-import { entityService } from '../entity/entity.service';
-import { EdgeType, NodeType } from '../graph/edge.model';
-import { graphService } from '../graph/graph.service';
-import { moodService } from '../mood/mood.service';
 import { tagService } from '../tag/tag.service';
 import { entryService } from './entry.service';
 
@@ -22,16 +15,8 @@ export class EntryController {
   // Create new entry
   static async createEntry(req: AuthenticatedRequest, res: Response) {
     try {
-      const { content, tags, mood, metadata, type } = req.body;
+      const { content, tags, metadata, type } = req.body;
       const userId = req.user!._id.toString();
-
-      // 1. EXTRACT MENTIONS
-      const mentionNames = StringUtil.extractMentions(content || '');
-      const mentionIds: string[] = [];
-      for (const name of mentionNames) {
-        const entity = await entityService.findOrCreateEntity(userId, name, NodeType.PERSON);
-        mentionIds.push(entity._id.toString());
-      }
 
       // 2. PROCESS TAGS (Resolve strings to IDs)
       const explicitTags = tags || [];
@@ -51,7 +36,6 @@ export class EntryController {
       // 4. CREATE ENTRY VIA SERVICE
       const entry = await entryService.createEntry(userId, {
         ...req.body,
-        mentions: mentionIds,
         tags: tagIds,
         status: needsAI ? 'processing' : 'ready'
       });
@@ -60,26 +44,6 @@ export class EntryController {
       // Update Tag Usage
       if (explicitTags.length > 0) {
         tagService.incrementUsage(userId, explicitTags).catch(e => logger.error('Tag usage increment failed', e));
-      }
-
-      // Update Entities & Graph
-      if (mentionIds.length > 0) {
-        KnowledgeEntity.updateMany(
-          { _id: { $in: mentionIds.map(id => new Types.ObjectId(id)) } },
-          { $inc: { interactionCount: 1 }, $set: { lastInteractionAt: new Date() } }
-        ).catch(e => logger.error('Entity interaction update failed', e));
-
-        for (const mId of mentionIds) {
-          graphService.createEdge({
-            fromId: mId,
-            fromType: NodeType.PERSON,
-            toId: entry._id.toString(),
-            toType: NodeType.CONTEXT,
-            relation: EdgeType.MENTIONED_IN,
-            weight: 1.0,
-            metadata: { entryDate: entry.date }
-          }).catch(err => logger.warn(`Failed to create MENTIONED_IN edge`, err));
-        }
       }
 
       // TRIGGER AGENT TASK
@@ -96,12 +60,6 @@ export class EntryController {
           });
           socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, failedEntry);
         });
-      }
-
-      // MOOD RECALCULATION
-      if (mood) {
-        moodService.recalculateDailyMoodFromEntries(userId, entry.date || new Date())
-          .catch(err => logger.error('Failed to auto-update daily mood', err));
       }
 
       ResponseHelper.created(res, entry, 'Entry created successfully');
@@ -132,16 +90,9 @@ export class EntryController {
     }
   }
 
-  // Update entry
   static async updateEntry(req: AuthenticatedRequest, res: Response) {
     try {
       const entry = await entryService.updateEntry(req.params.id, req.user!._id.toString(), req.body);
-
-      // MOOD RECALCULATION
-      if (req.body.mood) {
-        moodService.recalculateDailyMoodFromEntries(req.user!._id.toString(), entry.date || new Date())
-          .catch(err => logger.error('Failed to auto-update daily mood', err));
-      }
 
       ResponseHelper.success(res, entry, 'Entry updated successfully');
     } catch (error) {

@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { Entry } from '../../entry/entry.model';
-import { MOOD_METADATA } from '../../entry/mood.config';
 import { TagService } from '../../tag/tag.service';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
@@ -86,14 +85,6 @@ export class TaggingWorkflow implements IAgentWorkflow {
             }
 
             const updateData: any = { tags: entry.tags };
-
-            if (!entry.mood && result.sentiment) {
-                updateData.mood = result.sentiment;
-            }
-
-            if (!entry.moodMetadata && result.category) {
-                updateData.moodMetadata = MOOD_METADATA[result.category as any];
-            }
 
             // Using un-validated updateOne specifically because the document retrieved from .findById 
             // doesn't populate all required fields correctly (like strict 'userId' string vs ObjectId), 

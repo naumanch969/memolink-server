@@ -58,7 +58,12 @@ export class GeminiProvider implements ILLMProvider {
                     });
                     return result.response;
                 },
-                { operationName: 'Gemini.generateText' }
+                {
+                    operationName: 'Gemini.generateText',
+                    maxAttempts: 5,
+                    initialDelay: 2000,
+                    maxDelay: 60000 // up to 1 minute for rate limits
+                }
             );
 
             this.logUsage(response, AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, startTime, options);
@@ -131,7 +136,9 @@ export class GeminiProvider implements ILLMProvider {
                 }
             },
             {
-                maxAttempts: 2, // Fewer attempts for logic errors to save latency
+                maxAttempts: 4, // More attempts for hallucination or rate limits
+                initialDelay: 2000,
+                maxDelay: 60000,
                 shouldRetry: (err) => err.status === 429 || err.status >= 500 || err?.isTransientValidation,
                 operationName: 'Gemini.generateJSON'
             }

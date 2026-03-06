@@ -6,7 +6,6 @@ export interface IEntry extends BaseEntity {
     userId: Types.ObjectId;
     content: string;
     type: 'text' | 'media' | 'mixed';
-    mentions: Types.ObjectId[]; // KnowledgeEntity IDs
     tags: Types.ObjectId[]; // Tag IDs
     media: Types.ObjectId[]; // Media IDs
     collectionId?: Types.ObjectId; // Collection ID
@@ -15,7 +14,6 @@ export interface IEntry extends BaseEntity {
     isPinned?: boolean;
     isImportant?: boolean; // Mark special/memorable days
     kind?: 'entry' | 'document' | 'note';
-    mood?: string;
     location?: string;
     date: Date;
     startDate?: Date; // For multi-day entries
@@ -24,16 +22,8 @@ export interface IEntry extends BaseEntity {
     endTime?: string; // Format: HH:mm
     isMultiDay?: boolean; // Flag for collective entries
     isEdited?: boolean;
-    aiProcessed?: boolean;
     isFavorite?: boolean;
     status?: 'ready' | 'processing' | 'failed' | 'capturing';
-    embeddings?: number[];
-    moodMetadata?: {
-        category: string;
-        score: number;
-        color: string;
-        icon: string;
-    };
     metadata?: Record<string, any>;
 }
 
@@ -44,7 +34,6 @@ export interface EntryResponse {
 export interface CreateEntryRequest {
     content: string;
     type?: 'text' | 'media' | 'mixed';
-    mentions?: string[];
     tags?: string[];
     media?: string[];
     collectionId?: string;
@@ -53,7 +42,6 @@ export interface CreateEntryRequest {
     isPinned?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
-    mood?: string;
     location?: string;
     date?: Date;
     startDate?: Date;
@@ -61,7 +49,6 @@ export interface CreateEntryRequest {
     startTime?: string;
     endTime?: string;
     isMultiDay?: boolean;
-    aiProcessed?: boolean;
     status?: 'ready' | 'processing' | 'failed' | 'capturing';
     metadata?: Record<string, any>;
 }
@@ -69,7 +56,6 @@ export interface CreateEntryRequest {
 export interface UpdateEntryRequest {
     content?: string;
     type?: 'text' | 'media' | 'mixed';
-    mentions?: string[];
     tags?: string[];
     media?: string[];
     collectionId?: string;
@@ -78,10 +64,8 @@ export interface UpdateEntryRequest {
     isPinned?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
-    mood?: string;
     location?: string;
     date?: Date;
-    aiProcessed?: boolean;
     status?: 'ready' | 'processing' | 'failed' | 'capturing';
     metadata?: Record<string, any>;
 }
@@ -92,13 +76,11 @@ export interface GetEntriesRequest {
     dateFrom?: string;
     dateTo?: string;
     tags?: string[];
-    entities?: string[];
     mediaType?: string;
     isPrivate?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
     collectionId?: string;
-    mood?: string;
     location?: string;
     isFavorite?: boolean;
     isPinned?: boolean;

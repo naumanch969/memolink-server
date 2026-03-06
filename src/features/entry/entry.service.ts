@@ -7,14 +7,13 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { PaginationUtil } from '../../shared/utils/pagination.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
-import { taggingWorkflow } from '../agent/workflows/tagging.workflow';
 import collectionService from '../collection/collection.service';
+import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
 import { tagService } from '../tag/tag.service';
 import { transcribeAudioEntry } from './audio-transcription.service';
 import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
 import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, UpdateEntryRequest } from "./entry.types";
-import { classifyMood } from './mood.config';
 
 export class EntryService implements IEntryService {
 
@@ -38,12 +37,9 @@ export class EntryService implements IEntryService {
       const entry = new Entry({
         userId: new Types.ObjectId(userId),
         ...entryData,
-        // Ensure ObjectIds
-        mentions: entryData.mentions?.map(id => new Types.ObjectId(id)),
         tags: entryData.tags?.map(id => new Types.ObjectId(id)),
         media: entryData.media?.map(id => new Types.ObjectId(id)),
         collectionId: entryData.collectionId ? new Types.ObjectId(entryData.collectionId) : undefined,
-        moodMetadata: entryData.mood ? classifyMood(entryData.mood) : undefined,
       });
 
       await entry.save();
@@ -52,7 +48,7 @@ export class EntryService implements IEntryService {
         await collectionService.incrementEntryCount(entryData.collectionId);
       }
 
-      await entry.populate(['mentions', 'tags', 'media', 'collectionId']);
+      await entry.populate(['tags', 'media', 'collectionId']);
 
       // If the entry contains audio media, kick off async transcription.
       // The entry is already in 'processing' status from the model default when media is attached.
@@ -70,9 +66,10 @@ export class EntryService implements IEntryService {
 
   // Fetch a single entry by ID with populated relations
   async getEntryById(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
-    const entry = await Entry.findOne({ _id: entryId, userId }).populate(['mentions', 'tags', 'media', 'collectionId']);
+    const entry = await Entry.findOne({ _id: entryId, userId }).populate(['tags', 'media', 'collectionId']).lean();
     if (!entry) throw ApiError.notFound('Entry');
-    return entry;
+    const enrichedEntries = await this.attachEnrichedData([entry], userId);
+    return enrichedEntries[0] as IEntry;
   }
 
   /**
@@ -115,7 +112,7 @@ export class EntryService implements IEntryService {
         }
 
         const entries = await Entry.find(filter)
-          .populate(['mentions', 'tags', 'media', 'collectionId'])
+          .populate(['tags', 'media', 'collectionId'])
           .sort({ isPinned: -1, createdAt: -1, _id: -1 })
           .limit(limit + 1)
           .lean();
@@ -124,7 +121,8 @@ export class EntryService implements IEntryService {
         if (hasMore) entries.pop();
         const nextCursor = entries.length > 0 ? entries[entries.length - 1]._id.toString() : undefined;
 
-        return { entries: entries as any, nextCursor, hasMore };
+        const populatedEntries = await this.attachEnrichedData(entries, userId);
+        return { entries: populatedEntries as any, nextCursor, hasMore };
       }
 
       // OFFSET-BASED (Classic Search/Grid)
@@ -147,7 +145,7 @@ export class EntryService implements IEntryService {
 
       const [entries, total] = await Promise.all([
         Entry.find(filter, projection)
-          .populate(['mentions', 'tags', 'media', 'collectionId'])
+          .populate(['tags', 'media', 'collectionId'])
           .sort(sort as any)
           .skip(skip)
           .limit(limit)
@@ -155,8 +153,10 @@ export class EntryService implements IEntryService {
         Entry.countDocuments(filter),
       ]);
 
+      const populatedEntries = await this.attachEnrichedData(entries, userId);
+
       return {
-        entries,
+        entries: populatedEntries,
         total,
         page,
         limit,
@@ -168,6 +168,34 @@ export class EntryService implements IEntryService {
     }
   }
 
+  private async attachEnrichedData(entries: any[], userId: string | Types.ObjectId): Promise<any[]> {
+    if (!entries || entries.length === 0) return entries;
+
+    const entryIds = entries.map(e => e._id);
+    const enrichedEntries = await EnrichedEntry.find({
+      referenceId: { $in: entryIds },
+      userId: new Types.ObjectId(userId)
+    }).select('referenceId metadata').lean();
+
+    const enrichedMap = new Map();
+    enrichedEntries.forEach((ee: any) => {
+      if (ee.referenceId) {
+        enrichedMap.set(ee.referenceId.toString(), ee.metadata);
+      }
+    });
+
+    return entries.map(entry => {
+      const enrichedMetadata = enrichedMap.get(entry._id.toString());
+      if (enrichedMetadata) {
+        entry.metadata = {
+          ...(entry.metadata || {}),
+          ...enrichedMetadata
+        };
+      }
+      return entry;
+    });
+  }
+
   // Internal helper for semantic lookup
   private async performVectorSearch(userId: string | Types.ObjectId, options: GetEntriesRequest): Promise<any> {
     const { limit, skip } = PaginationUtil.getPaginationParams(options);
@@ -176,15 +204,25 @@ export class EntryService implements IEntryService {
     const pipeline: any[] = [
       {
         $vectorSearch: {
-          index: "vector_index",
-          path: "embeddings",
+          index: "enriched_vector_index", // Switch to enriched index
+          path: "embedding", // Embedding field in EnrichedEntry
           queryVector,
           numCandidates: 100,
           limit: 50,
           filter: { userId: new Types.ObjectId(userId) }
         }
       },
-      { $addFields: { score: { $meta: "vectorSearchScore" } } }
+      // Resolve reference to actual entry
+      {
+        $lookup: {
+          from: "entries",
+          localField: "referenceId",
+          foreignField: "_id",
+          as: "entry"
+        }
+      },
+      { $unwind: "$entry" },
+      { $replaceRoot: { newRoot: { $mergeObjects: ["$entry", { score: { $meta: "vectorSearchScore" } }, { metadata: { $mergeObjects: ["$entry.metadata", "$metadata"] } }] } } }
     ];
 
     const filter: any = {};
@@ -196,7 +234,7 @@ export class EntryService implements IEntryService {
 
     const entries = await Entry.aggregate(pipeline);
     await Entry.populate(entries, {
-      path: 'mentions tags media',
+      path: 'tags media',
       model: 'Entry'
     });
 
@@ -233,10 +271,8 @@ export class EntryService implements IEntryService {
     return { entries, total: entries.length, page: options.page || 1, limit, totalPages: 1 };
   }
 
-  // Unified logic for applying search filters
   private applyQueryFilters(filter: any, options: GetEntriesRequest) {
     if (options.type) filter.type = options.type;
-    if (options.mood) filter.mood = new RegExp(options.mood, 'i');
     if (options.isFavorite !== undefined) filter.isFavorite = options.isFavorite;
     if (options.isImportant !== undefined) filter.isImportant = options.isImportant;
     if (options.isPinned !== undefined) filter.isPinned = options.isPinned;
@@ -253,10 +289,6 @@ export class EntryService implements IEntryService {
 
     if (options.tags && options.tags.length > 0) {
       filter.tags = { $in: options.tags.map((id: string) => new Types.ObjectId(id)) };
-    }
-
-    if (options.entities && options.entities.length > 0) {
-      filter.mentions = { $in: options.entities.map((id: string) => new Types.ObjectId(id)) };
     }
   }
 
@@ -355,12 +387,11 @@ export class EntryService implements IEntryService {
           $set: {
             ...updateData,
             collectionId: updateData.collectionId ? new Types.ObjectId(updateData.collectionId) : existingEntry.collectionId,
-            isEdited: true,
-            moodMetadata: updateData.mood ? classifyMood(updateData.mood) : existingEntry.moodMetadata
+            isEdited: true
           }
         },
         { new: true, runValidators: true }
-      ).populate(['mentions', 'tags', 'media', 'collectionId']);
+      ).populate(['tags', 'media', 'collectionId']);
 
       if (!entry) throw ApiError.notFound('Entry');
 
@@ -379,8 +410,11 @@ export class EntryService implements IEntryService {
         if (removedTags.length > 0) await tagService.decrementUsage(userId, removedTags);
       }
 
-      socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
-      return entry;
+      const enrichedEntries = await this.attachEnrichedData([entry.toObject()], userId);
+      const finalEntry = enrichedEntries[0];
+
+      socketService.emitToUser(userId.toString(), SocketEvents.ENTRY_UPDATED, finalEntry);
+      return finalEntry as IEntry;
     } catch (error) {
       logger.error('Entry update failed:', error);
       throw error;
@@ -415,7 +449,10 @@ export class EntryService implements IEntryService {
     if (!entry) throw ApiError.notFound('Entry');
     entry.isFavorite = !entry.isFavorite;
     await entry.save();
-    return entry;
+
+    // We attach enriched data before returning
+    const enrichedEntries = await this.attachEnrichedData([entry.toObject()], userId);
+    return enrichedEntries[0] as IEntry;
   }
 
   // Toggle pin status of an entry
@@ -424,16 +461,17 @@ export class EntryService implements IEntryService {
     if (!entry) throw ApiError.notFound('Entry');
     entry.isPinned = !entry.isPinned;
     await entry.save();
-    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
-    return entry;
+    const enrichedEntries = await this.attachEnrichedData([entry.toObject()], userId);
+    const finalEntry = enrichedEntries[0];
+    socketService.emitToUser(userId.toString(), SocketEvents.ENTRY_UPDATED, finalEntry);
+    return finalEntry as IEntry;
   }
 
-  // Minimal data fetch for calendar views
   async getCalendarEntries(userId: string | Types.ObjectId, startDate: string, endDate: string): Promise<any[]> {
     return Entry.find({
       userId,
       date: { $gte: new Date(startDate), $lte: new Date(endDate) }
-    }).select('date mood type isImportant isFavorite title').sort({ date: 1 });
+    }).select('date type isImportant isFavorite title').sort({ date: 1 });
   }
 
   // Cascade delete all user entries
@@ -459,31 +497,7 @@ export class EntryService implements IEntryService {
         socketService.emitToUser(entry.userId.toString(), SocketEvents.ENTRY_UPDATED, entry);
       }
 
-      const untaggedEntries = await Entry.find({
-        aiProcessed: { $ne: true },
-        content: { $exists: true, $ne: '' },
-        $expr: { $gt: [{ $strLenCP: "$content" }, 20] }
-      }).sort({ createdAt: -1 }).limit(limit);
-
-      if (untaggedEntries.length === 0) return 0;
-
-      let successCount = 0;
-      for (const entry of untaggedEntries) {
-        try {
-          await taggingWorkflow.execute({
-            userId: entry.userId,
-            inputData: {
-              entryId: entry._id.toString(),
-              content: entry.content
-            }
-          } as any);
-          successCount++;
-        } catch (err) {
-          logger.error(`Self-Healing failed for entry ${entry._id}`, err);
-        }
-      }
-
-      return successCount;
+      return stuckEntries.length;
     } catch (error) {
       logger.error('Self-healing entries failed', error);
       return 0;

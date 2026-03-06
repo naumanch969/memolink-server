@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { captureController } from './capture.controller';
-import { captureValidation, ingestActivityValidation, ingestEntryValidation, ingestWebValidation, ingestWhatsAppValidation } from './capture.validations';
+import { ingestActivityValidation, ingestEntryValidation, ingestWebValidation, ingestWhatsAppValidation } from './capture.validations';
 
 const router = Router();
 
@@ -21,7 +21,5 @@ router.post('/whatsapp', ingestWhatsAppValidation, ValidationMiddleware.validate
 // 4. BEHAVIORAL: App Tracker (Mobile/Desktop)
 router.post('/activity', ingestActivityValidation, ValidationMiddleware.validate, captureController.captureActivity);
 
-// 5. Support Universal Terminal
-router.post('/', captureValidation, ValidationMiddleware.validate, captureController.capture);
 
 export default router;

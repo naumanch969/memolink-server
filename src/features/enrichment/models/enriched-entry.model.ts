@@ -14,13 +14,20 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
     metadata: {
         themes: [{ type: String, index: true }],
         emotions: [{
-            label: { type: String },
-            intensity: { type: Number }
+            name: { type: String },
+            score: { type: Number },
+            icon: { type: String }
         }],
         people: [{
             name: { type: String },
             role: { type: String },
             sentiment: { type: Number }
+        }],
+        entities: [{
+            entityId: { type: Schema.Types.ObjectId, ref: 'KnowledgeEntity' },
+            name: { type: String },
+            type: { type: String },
+            confidence: { type: Number }
         }],
         sentimentScore: { type: Number, default: 0 },
         energyLevel: { type: String, enum: ['low', 'medium', 'high'] },

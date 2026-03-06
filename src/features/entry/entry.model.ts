@@ -2,7 +2,6 @@ import mongoose, { Schema } from 'mongoose';
 import { ENTRY_TYPES } from '../../shared/constants';
 import '../media/media.model';
 import { IEntry } from './entry.types';
-import { classifyMood } from './mood.config';
 
 const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
@@ -12,7 +11,6 @@ const entrySchema = new Schema<IEntry>({
     default: ''
   },
   type: { type: String, enum: Object.values(ENTRY_TYPES), default: ENTRY_TYPES.TEXT, },
-  mentions: [{ type: Schema.Types.ObjectId, ref: 'KnowledgeEntity', }],
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
   collectionId: { type: Schema.Types.ObjectId, ref: 'Collection' },
@@ -22,7 +20,6 @@ const entrySchema = new Schema<IEntry>({
   isImportant: { type: Boolean, default: false, },
   isFavorite: { type: Boolean, default: false, },
   kind: { type: String, enum: ['entry', 'document', 'note'], default: 'entry' },
-  mood: { type: String, trim: true, maxlength: [50, 'Mood cannot exceed 50 characters'], },
   location: { type: String, trim: true, maxlength: [200, 'Location cannot exceed 200 characters'], },
   date: { type: Date, default: Date.now, index: true, },
   startDate: { type: Date, index: true, },
@@ -31,15 +28,7 @@ const entrySchema = new Schema<IEntry>({
   endTime: { type: String, trim: true, },
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
-  aiProcessed: { type: Boolean, default: false },
   status: { type: String, enum: ['ready', 'processing', 'failed', 'capturing'], default: 'ready', index: true },
-  embeddings: { type: [Number], select: false }, // Exclude by default due to size
-  moodMetadata: {
-    category: { type: String },
-    score: { type: Number },
-    color: { type: String },
-    icon: { type: String },
-  },
   metadata: { type: Object, default: {} },
 }, {
   timestamps: true,
@@ -48,14 +37,13 @@ const entrySchema = new Schema<IEntry>({
 // Indexes
 entrySchema.index({ userId: 1, createdAt: -1 });
 entrySchema.index({ userId: 1, type: 1 });
-entrySchema.index({ mentions: 1 });
 entrySchema.index({ tags: 1 });
 entrySchema.index({ media: 1 });
 entrySchema.index({ collectionId: 1 });
 entrySchema.index({ isPrivate: 1 });
 
 // Text search index
-entrySchema.index({ content: 'text', mood: 'text', location: 'text' });
+entrySchema.index({ content: 'text', location: 'text' });
 
 // Virtual for formatted content
 entrySchema.virtual('formattedContent').get(function () {
@@ -76,11 +64,6 @@ entrySchema.pre('save', function (this: any, next) {
     this.type = ENTRY_TYPES.TEXT;
   }
 
-  // Auto-classify mood if changed or missing metadata
-  if (this.mood && (!this.moodMetadata || this.isModified('mood'))) {
-    this.moodMetadata = classifyMood(this.mood);
-  }
-
   next();
 });
 
@@ -88,10 +71,6 @@ entrySchema.pre('save', function (this: any, next) {
 entrySchema.statics.findByUser = function (userId: string, options: any = {}) {
   const query = { userId, ...options };
   return this.find(query).sort({ createdAt: -1 });
-};
-
-entrySchema.statics.findByMention = function (entityId: string) {
-  return this.find({ mentions: entityId }).sort({ createdAt: -1 });
 };
 
 entrySchema.statics.findByTag = function (tagId: string) {

@@ -90,7 +90,6 @@ export class EnrichmentWorkflow implements IAgentWorkflow {
             entry = await entryService.getEntryById(entryId, userId); // Refresh final state
             entry = await entryService.updateEntry(entryId, userId, {
                 status: 'ready',
-                aiProcessed: true,
                 metadata: { ...entry.metadata, processingStep: 'completed' }
             });
 

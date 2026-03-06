@@ -1,7 +1,5 @@
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import Entry from '../entry/entry.model';
-import { classifyMood } from '../entry/mood.config';
 import { IMoodService } from "./mood.interfaces";
 import Mood from './mood.model';
 import { CreateMoodRequest, MoodFilter } from './mood.types';
@@ -91,22 +89,22 @@ export class MoodService implements IMoodService {
             const endOfDay = new Date(date);
             endOfDay.setUTCHours(23, 59, 59, 999);
 
-            const entries = await Entry.find({
+            const enrichedEntries = await mongoose.model('EnrichedEntry').find({
                 userId: new Types.ObjectId(userId),
-                date: { $gte: startOfDay, $lte: endOfDay },
-                mood: { $exists: true, $ne: '' }
-            }).select('mood');
+                timestamp: { $gte: startOfDay, $lte: endOfDay }
+            });
 
-            if (entries.length === 0) return;
+            if (enrichedEntries.length === 0) return;
 
             let totalScore = 0;
             let count = 0;
 
-            for (const entry of entries) {
-                if (!entry.mood) continue;
-                const config = classifyMood(entry.mood);
-                if (config && config.score > 0) {
-                    totalScore += config.score;
+            for (const entry of enrichedEntries) {
+                if (entry.metadata?.sentimentScore !== undefined) {
+                    // Map sentiment score (-1 to 1) to mood score (1 to 5)
+                    const sentiment = entry.metadata.sentimentScore;
+                    const mappedScore = Math.round(((sentiment + 1) / 2) * 4) + 1;
+                    totalScore += mappedScore;
                     count++;
                 }
             }

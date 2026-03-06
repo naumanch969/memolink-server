@@ -4,10 +4,12 @@ import { config } from './config/env';
 import { logger } from './config/logger';
 import redisConnection from './config/redis';
 import { queueService } from './core/queue/queue.service';
-import { initAgentWorker } from './features/agent/agent.worker';
-import { initEmailWorker } from './features/email/queue/email.worker';
-import { getEmailQueue } from './features/email/queue/email.queue';
 import { getAgentQueue } from './features/agent/agent.queue';
+import { initAgentWorker } from './features/agent/agent.worker';
+import { getEmailQueue } from './features/email/queue/email.queue';
+import { initEmailWorker } from './features/email/queue/email.worker';
+import { getEnrichmentQueue } from './features/enrichment/enrichment.queue';
+import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -37,6 +39,7 @@ async function startWorker() {
         // 3. Register Workers Here
         initAgentWorker();
         initEmailWorker();
+        initEnrichmentWorker();
 
         const { graphWorker } = await import('./workers/graph.worker');
         const { notificationWorker } = await import('./features/notification/notification.worker');
@@ -50,6 +53,7 @@ async function startWorker() {
 
             const emailQueue = getEmailQueue();
             const agentQueue = getAgentQueue();
+            const enrichmentQueue = getEnrichmentQueue();
 
             await emailQueue.drain();
             await emailQueue.clean(0, 5000, 'delayed');
@@ -60,6 +64,11 @@ async function startWorker() {
             await agentQueue.clean(0, 5000, 'delayed');
             await agentQueue.clean(0, 5000, 'wait');
             await agentQueue.clean(0, 5000, 'active');
+
+            await enrichmentQueue.drain();
+            await enrichmentQueue.clean(0, 5000, 'wait');
+            await enrichmentQueue.clean(0, 5000, 'active');
+
             logger.info('Queues drained');
         }
 

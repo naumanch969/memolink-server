@@ -30,6 +30,7 @@ import webActivityRoutes from '../../features/web-activity/web-activity.routes';
 
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
+import captureRoutes from '../../features/capture/capture.routes';
 import integrationRoutes from '../../features/integrations/integration.routes';
 
 const router = Router();
@@ -85,6 +86,7 @@ router.use('/api-keys', apiKeyRoutes);
 router.use('/events', eventsRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/monitoring', monitoringRoutes);
+router.use('/capture', captureRoutes);
 
 
 export default router;

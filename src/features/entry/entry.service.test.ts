@@ -90,10 +90,11 @@ describe('EntryService', () => {
 
             (Entry.countDocuments as jest.Mock).mockResolvedValue(1);
 
-            const result = await entryService.getEntries(userId, { page: 1, limit: 10 });
+            const result = await entryService.getEntries(userId, { limit: 10 });
 
             expect(result.entries).toEqual(mockEntries);
-            expect(result.total).toBe(1);
+            expect(result.hasMore).toBe(false);
+            expect(result.nextCursor).toBe('entry1');
             expect(Entry.find).toHaveBeenCalledWith(expect.objectContaining({ userId: expect.anything() }));
         });
     });
