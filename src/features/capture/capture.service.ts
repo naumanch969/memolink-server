@@ -3,14 +3,9 @@ import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
-import { MongoUtil } from '../../shared/utils/mongo.utils';
-import { StringUtil } from '../../shared/utils/string.utils';
 import { enrichmentService } from '../enrichment/enrichment.service';
-import { entityService } from '../entity/entity.service';
 import entryService from '../entry/entry.service';
 import { CreateEntryRequest, IEntry } from '../entry/entry.types';
-import { NodeType } from '../graph/edge.model';
-import { tagService } from '../tag/tag.service';
 import webActivityService from '../web-activity/web-activity.service';
 import { ActivitySyncBatch } from '../web-activity/web-activity.types';
 import { ICapturePayload, ICaptureService, WhatsAppPayload } from './capture.interfaces';
@@ -23,12 +18,6 @@ export class CaptureService implements ICaptureService {
         const sessionId = DateUtil.getSessionId(entryDate);
         const content = payload.content || '';
 
-        // Resolve Intelligence (Mentions/Tags) into IDs
-        const { mentionIds, tagIds } = await this.resolveIntelligence(userId, {
-            content,
-            providedTags: payload.tags || [],
-            providedMentions: payload.metadata?.mentions || []
-        });
 
         // Determine input method
         const isMediaOrVoice = payload.type === 'media' || payload.type === 'voice' || payload.metadata?.isVoice;
@@ -51,7 +40,7 @@ export class CaptureService implements ICaptureService {
             isPrivate: payload.isPrivate,
             isPinned: payload.isPinned,
             isImportant: payload.isImportant,
-            tags: tagIds,
+            tags: payload.tags,
             media: payload.media,
             collectionId: payload.collectionId,
             title: payload.title,
@@ -61,8 +50,7 @@ export class CaptureService implements ICaptureService {
                 ...payload.metadata,
                 sessionId,
                 referenceId: payload._id,
-                originalType: payload.type,
-                mentions: mentionIds
+                originalType: payload.type
             }
         };
 
@@ -71,7 +59,7 @@ export class CaptureService implements ICaptureService {
         // Inform client immediately
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
 
-        // Queue enrichment asynchronously
+        // Queue enrichment asynchronously (this will now also resolve intelligence)
         await enrichmentService.enqueueActiveEnrichment(userId, entry._id.toString(), sessionId);
 
         logger.info(`CaptureService: Active entry captured [User: ${userId}, Entry: ${entry._id}]`);
@@ -119,48 +107,6 @@ export class CaptureService implements ICaptureService {
         await this.captureEntry(userId, entryPayload);
     }
 
-    private async resolveIntelligence(
-        userId: string,
-        params: { content: string, providedTags: string[], providedMentions: string[] }
-    ): Promise<{ mentionIds: string[], tagIds: string[] }> {
-        const { content, providedTags, providedMentions } = params;
-
-        const mentionIds = await this.resolveMentions(userId, content, providedMentions);
-        const tagIds = await this.resolveTags(userId, content, providedTags);
-
-        return { mentionIds, tagIds };
-    }
-
-    private async resolveMentions(userId: string, content: string, provided: string[]): Promise<string[]> {
-        const mentionIdSet = new Set<string>(provided);
-        const extracted = StringUtil.extractMentions(content);
-
-        await Promise.all(extracted.map(async (name) => {
-            const entity = await entityService.findOrCreateEntity(userId, name, NodeType.PERSON);
-            mentionIdSet.add(entity._id.toString());
-        }));
-
-        return Array.from(mentionIdSet);
-    }
-
-    private async resolveTags(userId: string, content: string, provided: string[]): Promise<string[]> {
-        const tagIdentifierSet = new Set<string>(provided);
-        const extracted = StringUtil.extractTags(content);
-        extracted.forEach(t => tagIdentifierSet.add(t));
-
-        const tagIds = await Promise.all(
-            Array.from(tagIdentifierSet).map(async (tagIdentifier) => {
-                if (MongoUtil.isValidObjectId(tagIdentifier)) {
-                    return tagIdentifier;
-                } else {
-                    const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
-                    return tag._id.toString();
-                }
-            })
-        );
-
-        return tagIds;
-    }
 }
 
 export const captureService: ICaptureService = new CaptureService();

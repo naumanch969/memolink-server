@@ -8,6 +8,12 @@ export type InputMethod = 'text' | 'voice' | 'whatsapp' | 'system';
 export type ProcessingStatus = 'pending' | 'completed' | 'failed';
 export type EnergyLevel = 'low' | 'medium' | 'high';
 export type CognitiveLoad = 'focused' | 'scattered' | 'ruminating';
+export enum ProcessingStep {
+    ANALYZING_INTENT = 'analyzing_intent',
+    INDEXING = 'indexing',
+    RESOLVING_ENTITIES = 'resolving_entities',
+    STORING_MEMORY = 'storing_memory'
+}
 
 // --- Zod Schemas (Source of Truth) ---
 

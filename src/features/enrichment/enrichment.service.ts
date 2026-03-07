@@ -1,11 +1,22 @@
 import { Types } from 'mongoose';
-import { logger } from '../../config/logger';
+import logger from '../../config/logger';
+import { LLMService } from '../../core/llm/llm.service';
+import { socketService } from '../../core/socket/socket.service';
+import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
+import { AGENT_CONSTANTS } from '../agent/agent.constants';
+import entityService from '../entity/entity.service';
+import { Entry } from '../entry/entry.model';
+import entryService from '../entry/entry.service';
+import { NodeType } from '../graph/edge.model';
 import { WebActivity } from '../web-activity/web-activity.model';
-import { calculateSessionSignificance, SIGNIFICANCE_GATE_SCORE } from './enrichment.constants';
 import { IEnrichmentService } from './enrichment.interfaces';
 import { getEnrichmentQueue } from './enrichment.queue';
+import { ProcessingStep } from './enrichment.types';
+import { activeInterpreter } from './interpreters/active.interpreter';
+import { passiveInterpreter } from './interpreters/passive.interpreter';
 import { EnrichedEntry } from './models/enriched-entry.model';
+import { calculateSessionSignificance, SIGNIFICANCE_GATE_SCORE } from './enrichment.constants';
 
 export class EnrichmentService implements IEnrichmentService {
     async enqueueActiveEnrichment(userId: string, entryId: string, sessionId: string): Promise<void> {
@@ -62,6 +73,183 @@ export class EnrichmentService implements IEnrichmentService {
         } catch (error) {
             logger.error(`Enrichment Service: Failed to enqueue passive enrichment for ${sessionId}`, error);
         }
+    }
+
+    async processActiveEnrichment(userId: string, entryId: string, sessionId: string): Promise<void> {
+        try {
+            const entry = await Entry.findByIdAndUpdate(entryId, {
+                status: 'processing',
+                'metadata.processingStep': ProcessingStep.ANALYZING_INTENT
+            }, { new: true });
+
+            if (!entry) throw new Error(`Entry ${entryId} not found`);
+
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                status: 'processing',
+                metadata: { processingStep: ProcessingStep.ANALYZING_INTENT }
+            });
+
+            const result = await activeInterpreter.process(entry.content);
+
+            // Phase: Indexing
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.INDEXING }
+            });
+            const embedding = await LLMService.generateEmbeddings(entry.content);
+
+            // Phase: Entity Resolution
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.RESOLVING_ENTITIES }
+            });
+
+            const resolvedEntities = await Promise.all(
+                (result.metadata.entities || []).map(async (ent: any) => {
+                    try {
+                        let otype = NodeType.ENTITY;
+                        if (ent.type === 'person') otype = NodeType.PERSON;
+                        else if (ent.type === 'organization') otype = NodeType.ORGANIZATION;
+                        else if (ent.type === 'project') otype = NodeType.PROJECT;
+
+                        const entity = await entityService.findOrCreateEntity(userId, ent.name, otype as any);
+                        return {
+                            entityId: entity._id,
+                            name: ent.name,
+                            type: ent.type,
+                            confidence: ent.confidence,
+                            source: 'extracted' as const
+                        };
+                    } catch (err) {
+                        return { name: ent.name, type: ent.type, confidence: ent.confidence, source: 'extracted' as const };
+                    }
+                })
+            );
+
+            // Phase: Storage
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.STORING_MEMORY }
+            });
+
+            await EnrichedEntry.findOneAndUpdate(
+                { userId, sessionId, sourceType: 'active' },
+                {
+                    $set: {
+                        userId,
+                        sessionId,
+                        referenceId: entryId,
+                        sourceType: 'active',
+                        inputMethod: (entry as any).inputMethod || (entry.type === 'mixed' ? 'voice' : 'text'),
+                        processingStatus: 'completed',
+                        metadata: {
+                            ...result.metadata,
+                            entities: resolvedEntities
+                        },
+                        narrative: result.narrative,
+                        extraction: {
+                            ...result.extraction,
+                            modelVersion: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL
+                        },
+                        analytics: {
+                            totalDuration: entry.metadata?.duration || 0,
+                            significanceScore: 100
+                        },
+                        embedding,
+                        timestamp: entry.date || entry.createdAt || new Date()
+                    }
+                },
+                { upsert: true }
+            );
+
+            await Entry.findByIdAndUpdate(entryId, { status: 'completed' });
+            const fullEntry = await entryService.getEntryById(entryId, userId);
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, fullEntry);
+
+            logger.info(`Enrichment complete for active session ${sessionId}`);
+        } catch (error: any) {
+            await this.handleEnrichmentFailure(userId, entryId, error);
+            throw error;
+        }
+    }
+
+    async processPassiveEnrichment(userId: string, sessionId: string): Promise<void> {
+        try {
+            const alreadyDone = await EnrichedEntry.exists({ userId, sessionId, sourceType: 'passive' });
+            if (alreadyDone) throw new Error('Passive enrichment already completed for this session');
+
+            const stats = await WebActivity.findOne({ userId, date: sessionId });
+            if (!stats) throw new Error(`Stats for ${sessionId} not found`);
+
+            const domainEntries = stats.domainMap instanceof Map ? stats.domainMap.entries() : Object.entries(stats.domainMap || {});
+            const domainSummary = Array.from(domainEntries)
+                .map(([domain, seconds]) => {
+                    const cleanDomain = domain.replace(/__dot__/g, '.');
+                    return `${cleanDomain}: ${Math.round(Number(seconds) / 60)}m`;
+                })
+                .join(', ');
+
+            const behavioralLog = `Duration: ${Math.round(stats.totalSeconds / 60)}m. Activity: ${domainSummary}`;
+            const result = await passiveInterpreter.process(behavioralLog);
+            const { score, minActive } = calculateSessionSignificance(stats.totalSeconds);
+
+            const embedding = await LLMService.generateEmbeddings(behavioralLog);
+
+            await EnrichedEntry.findOneAndUpdate(
+                { userId, sessionId, sourceType: 'passive' },
+                {
+                    $set: {
+                        userId,
+                        sessionId,
+                        sourceType: 'passive',
+                        inputMethod: 'system',
+                        processingStatus: 'completed',
+                        metadata: result.metadata,
+                        narrative: result.narrative,
+                        extraction: {
+                            ...result.extraction,
+                            flags: [...result.extraction.flags, 'passive_inference'],
+                            modelVersion: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL
+                        },
+                        analytics: {
+                            totalDuration: minActive,
+                            significanceScore: score
+                        },
+                        embedding,
+                        timestamp: new Date(stats.date)
+                    }
+                },
+                { upsert: true }
+            );
+
+            const summary = await EnrichedEntry.findOne({ userId, sessionId, sourceType: 'passive' }).lean();
+            socketService.emitToUser(userId, SocketEvents.PASSIVE_SUMMARY_UPDATED, summary);
+
+            logger.info(`Enrichment complete for passive session ${sessionId}`);
+        } catch (error: any) {
+            logger.error(`Passive enrichment failed for ${sessionId}`, error);
+            throw error;
+        }
+    }
+
+    private async handleEnrichmentFailure(userId: string, entryId: string | undefined, error: any): Promise<void> {
+        logger.error(`Enrichment failed`, error);
+        if (!entryId) return;
+
+        const isQuotaError = error.status === 429 || error.message?.includes('429') || error.message?.includes('quota');
+        const errorMessage = isQuotaError ? 'Daily AI quota exceeded. Please try again later.' : (error.message || 'Internal processing error');
+
+        await Entry.findByIdAndUpdate(entryId, {
+            status: 'failed',
+            'metadata.error': errorMessage
+        }).catch(() => { });
+
+        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+            _id: entryId,
+            status: 'failed',
+            metadata: { error: errorMessage }
+        });
     }
 }
 

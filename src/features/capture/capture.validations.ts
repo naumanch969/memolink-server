@@ -1,6 +1,6 @@
 import { body } from 'express-validator';
 
-// 1. ACTIVE: Manual Human Intent
+// 1. ACTIVE: Text/Voice/Manual Entry
 export const ingestEntryValidation = [
     body('content').optional().isString(),
     body('type').optional().isString(),
@@ -10,21 +10,22 @@ export const ingestEntryValidation = [
     body('collectionId').optional().isMongoId(),
 ];
 
-// 2. PASSIVE: Web Activity Sync
+// 2. PASSIVE: Web Activity Sync (Browser Extension)
 export const ingestWebValidation = [
     body('syncId').notEmpty().withMessage('syncId is required'),
-    body('date').isISO8601().withMessage('Invalid date format'),
+    body('date').notEmpty().withMessage('date is required'),
     body('totalSeconds').isInt({ min: 0 }),
     body('productiveSeconds').optional().isInt({ min: 0 }),
     body('distractingSeconds').optional().isInt({ min: 0 }),
     body('domainMap').isObject().withMessage('domainMap must be an object'),
 ];
 
-// 3. SOCIAL: WhatsApp
+// 3. SOCIAL/WEBHOOK: WhatsApp Bridge
 export const ingestWhatsAppValidation = [
     body('from').notEmpty(),
     body('body').notEmpty(),
     body('senderName').optional().isString(),
     body('isVoice').optional().isBoolean(),
     body('mediaUrl').optional().isURL(),
+    body('timestamp').optional(),
 ];

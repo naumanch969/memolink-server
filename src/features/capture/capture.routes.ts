@@ -9,10 +9,10 @@ const router = Router();
 // All capture routes require authentication
 router.use(AuthMiddleware.authenticate);
 
-// 1. ACTIVE: Manual Human Intent
+// 1. ACTIVE: Text/Voice/Manual Entry
 router.post('/entry', ingestEntryValidation, ValidationMiddleware.validate, captureController.captureEntry);
 
-// 2. PASSIVE: Web Extension Sync
+// 2. PASSIVE: Web Activity Sync (Browser Extension)
 router.post('/web', ingestWebValidation, ValidationMiddleware.validate, captureController.captureWeb);
 
 // 3. SOCIAL/WEBHOOK: WhatsApp Bridge
