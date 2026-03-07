@@ -85,6 +85,7 @@ export interface IEnrichedEntry extends BaseEntity {
     };
 
     embedding: number[];
+    healingAttempts: number;
     timestamp: Date;
 }
 

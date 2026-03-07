@@ -17,6 +17,7 @@ router.get('/', searchEntriesValidation, ValidationMiddleware.validate, EntryCon
 router.get('/:id', entryIdValidation, ValidationMiddleware.validate, EntryController.getEntryById);
 router.patch('/:id/favorite', entryIdValidation, ValidationMiddleware.validate, EntryController.toggleFavorite);
 router.patch('/:id/pin', entryIdValidation, ValidationMiddleware.validate, EntryController.togglePin);
+router.post('/:id/heal', entryIdValidation, ValidationMiddleware.validate, EntryController.healEntry);
 router.put('/:id', updateEntryValidation, ValidationMiddleware.validate, EntryController.updateEntry);
 router.delete('/:id', entryIdValidation, ValidationMiddleware.validate, EntryController.deleteEntry);
 

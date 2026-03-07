@@ -10,13 +10,13 @@ import { Entry } from '../entry/entry.model';
 import entryService from '../entry/entry.service';
 import { NodeType } from '../graph/edge.model';
 import { WebActivity } from '../web-activity/web-activity.model';
+import { calculateSessionSignificance, HEALING_BATCH_SIZE, HEALING_STALENESS_THRESHOLD_MS, MAX_HEALING_ATTEMPTS, SIGNIFICANCE_GATE_SCORE } from './enrichment.constants';
 import { IEnrichmentService } from './enrichment.interfaces';
 import { getEnrichmentQueue } from './enrichment.queue';
 import { ProcessingStep } from './enrichment.types';
 import { activeInterpreter } from './interpreters/active.interpreter';
 import { passiveInterpreter } from './interpreters/passive.interpreter';
 import { EnrichedEntry } from './models/enriched-entry.model';
-import { calculateSessionSignificance, SIGNIFICANCE_GATE_SCORE } from './enrichment.constants';
 
 export class EnrichmentService implements IEnrichmentService {
     async enqueueActiveEnrichment(userId: string, entryId: string, sessionId: string): Promise<void> {
@@ -230,6 +230,66 @@ export class EnrichmentService implements IEnrichmentService {
         } catch (error: any) {
             logger.error(`Passive enrichment failed for ${sessionId}`, error);
             throw error;
+        }
+    }
+
+    async runEnrichmentHealingBatch(limit: number = HEALING_BATCH_SIZE): Promise<void> {
+        const oneHourAgo = new Date(Date.now() - HEALING_STALENESS_THRESHOLD_MS);
+
+        try {
+            // Find entries with incomplete or failed enrichment
+            const candidates = await EnrichedEntry.find({
+                $or: [
+                    { processingStatus: { $in: ['failed', 'pending'] } },
+                    { 'narrative.coreThought': { $in: [null, ''] } },
+                    { 'narrative.signal': { $in: [null, ''] } },
+                    { 'metadata.themes': { $size: 0 } }
+                ],
+                healingAttempts: { $lt: MAX_HEALING_ATTEMPTS },
+                createdAt: { $lt: oneHourAgo }
+            })
+                .sort({ createdAt: -1 })
+                .limit(limit);
+
+            if (candidates.length === 0) {
+                return;
+            }
+
+            logger.info(`Enrichment Healing: Found ${candidates.length} candidates for re-enrichment`);
+
+            for (const enrichedEntry of candidates) {
+                try {
+                    // Increment healing attempt count
+                    enrichedEntry.healingAttempts += 1;
+                    await enrichedEntry.save();
+
+                    // Active enrichment requires the original entry
+                    if (enrichedEntry.sourceType === 'active' && enrichedEntry.referenceId) {
+                        logger.info(`Enrichment Healing: Re-processing active entry ${enrichedEntry.referenceId}`);
+                        await this.processActiveEnrichment(
+                            enrichedEntry.userId.toString(),
+                            enrichedEntry.referenceId.toString(),
+                            enrichedEntry.sessionId
+                        );
+                    } else if (enrichedEntry.sourceType === 'passive') {
+                        logger.info(`Enrichment Healing: Re-processing passive session ${enrichedEntry.sessionId}`);
+                        await this.processPassiveEnrichment(
+                            enrichedEntry.userId.toString(),
+                            enrichedEntry.sessionId
+                        );
+                    }
+
+                    // Prevent API rate limiting (Gemini) by adding a small gap between processing
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                } catch (err: any) {
+                    logger.error(`Enrichment Healing: Failed to heal ${enrichedEntry._id}`, err);
+                    // We don't throw here to allow the loop to continue with other candidates
+                }
+            }
+
+            logger.info('Enrichment Healing: Batch completed');
+        } catch (error) {
+            logger.error('Enrichment Healing: Batch failed', error);
         }
     }
 

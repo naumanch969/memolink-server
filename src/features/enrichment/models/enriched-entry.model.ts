@@ -50,6 +50,7 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
     },
 
     embedding: { type: [Number], select: false },
+    healingAttempts: { type: Number, default: 0, index: true },
     timestamp: { type: Date, required: true, index: true }
 }, {
     timestamps: true

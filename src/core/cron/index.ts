@@ -2,15 +2,16 @@
 import cron from 'node-cron';
 import { logger } from '../../config/logger';
 import { AgentTaskType } from '../../features/agent/agent.types';
+import { agentAccountabilityService } from '../../features/agent/services/agent.accountability.service';
 import { agentService } from '../../features/agent/services/agent.service';
 import { User } from '../../features/auth/auth.model';
+import { enrichmentService } from '../../features/enrichment/enrichment.service';
 import { entryService } from '../../features/entry/entry.service';
 import { storageService } from '../../features/media/storage.service';
 import { initNotificationProcessor } from '../../features/notification/notification.cron';
 import { notificationService } from '../../features/notification/notification.service';
 import { WebActivity } from '../../features/web-activity/web-activity.model';
 import DateUtil from '../../shared/utils/date.utils';
-import { agentAccountabilityService } from '../../features/agent/services/agent.accountability.service';
 
 export const initCronJobs = () => {
 
@@ -21,6 +22,16 @@ export const initCronJobs = () => {
     cron.schedule('*/30 * * * *', async () => {
         logger.info('Running self-healing tagging cron job...');
         await entryService.selfHealEntries(20);
+    });
+
+    // Deep Enrichment Self-Healing: Every hour
+    cron.schedule('0 * * * *', async () => {
+        logger.info('Running enrichment self-healing batch job...');
+        try {
+            await enrichmentService.runEnrichmentHealingBatch(20);
+        } catch (err) {
+            logger.error('Enrichment self-healing cron job failed', err);
+        }
     });
 
     // Notification Cleanup: Daily at 4 AM

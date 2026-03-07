@@ -8,6 +8,8 @@ import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { AgentTaskType } from '../agent/agent.types';
 import agentService from '../agent/services/agent.service';
 import { AuthenticatedRequest } from '../auth/auth.types';
+import { HEALING_STALENESS_THRESHOLD_MS } from '../enrichment/enrichment.constants';
+import { enrichmentService } from '../enrichment/enrichment.service';
 import { tagService } from '../tag/tag.service';
 import { entryService } from './entry.service';
 
@@ -174,6 +176,39 @@ export class EntryController {
       ResponseHelper.success(res, stats, 'Entry stats retrieved successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to retrieve entry stats', 500, error);
+    }
+  }
+
+  // Heal entry manually
+  static async healEntry(req: AuthenticatedRequest, res: Response) {
+    try {
+      const entry = await entryService.getEntryById(req.params.id, req.user!._id.toString());
+      if (!entry) {
+        ResponseHelper.notFound(res, 'Entry not found');
+        return;
+      }
+
+      const createdAtTime = (entry as any).createdAt ? new Date((entry as any).createdAt).getTime() : new Date(entry.date).getTime();
+      const isOldEnough = Date.now() - createdAtTime >= HEALING_STALENESS_THRESHOLD_MS;
+
+      if (!isOldEnough) {
+        ResponseHelper.badRequest(res, 'Entry must be at least one hour old to retry enrichment.');
+        return;
+      }
+
+      if (!entry.sessionId) {
+        ResponseHelper.badRequest(res, 'Entry missing sessionId');
+        return;
+      }
+
+      // Trigger active enrichment asynchronously
+      enrichmentService.processActiveEnrichment(req.user!._id.toString(), req.params.id, entry.sessionId)
+        .catch(e => logger.error(`Manual healing failed for entry ${req.params.id}:`, e));
+
+      ResponseHelper.success(res, null, 'Enrichment retry triggered');
+    } catch (error) {
+      logger.error('Manual heal entry failed:', error);
+      ResponseHelper.error(res, 'Failed to retry enrichment', 500, error);
     }
   }
 }

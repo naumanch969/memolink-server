@@ -1,5 +1,9 @@
 import { SourceType } from "./enrichment.types";
 
+export const HEALING_BATCH_SIZE = 20;
+export const MAX_HEALING_ATTEMPTS = 3;
+export const HEALING_STALENESS_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
+
 export const ENRICHMENT_TAXONOMY = [
   'identity',
   'meaning',
