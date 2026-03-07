@@ -26,6 +26,7 @@ export enum SocketEvents {
 
     // Web Activity
     WEB_ACTIVITY_UPDATED = 'web_activity:updated',
+    PASSIVE_SUMMARY_UPDATED = 'web_activity:summary_updated',
 
     // Reports
     REPORT_UPDATED = 'report:updated',

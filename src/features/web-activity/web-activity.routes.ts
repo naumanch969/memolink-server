@@ -12,6 +12,7 @@ router.use(AuthMiddleware.authenticate);
 // Activity routes
 router.post('/sync', syncActivityValidation, ValidationMiddleware.validate, WebActivityController.sync);
 router.get('/today', WebActivityController.getToday);
+router.get('/summary/:date?', WebActivityController.getSummary);
 router.get('/range', getActivityRangeValidation, ValidationMiddleware.validate, WebActivityController.getRange);
 router.get('/weekly', WebActivityController.getWeekly);
 router.get('/monthly', WebActivityController.getMonthly);

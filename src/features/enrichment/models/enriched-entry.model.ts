@@ -57,7 +57,7 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
 
 // Compound Indexes for fast retrieval
 enrichedEntrySchema.index({ userId: 1, timestamp: -1 });
-enrichedEntrySchema.index({ userId: 1, sessionId: 1 });
+enrichedEntrySchema.index({ userId: 1, sessionId: 1, sourceType: 1 }, { unique: true });
 enrichedEntrySchema.index({ userId: 1, sourceType: 1, timestamp: -1 });
 
 // Vector Search Index placeholder (Index to be created in MongoDB Atlas)

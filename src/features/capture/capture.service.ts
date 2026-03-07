@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
@@ -7,47 +8,55 @@ import { StringUtil } from '../../shared/utils/string.utils';
 import { enrichmentService } from '../enrichment/enrichment.service';
 import { entityService } from '../entity/entity.service';
 import entryService from '../entry/entry.service';
+import { CreateEntryRequest, IEntry } from '../entry/entry.types';
 import { NodeType } from '../graph/edge.model';
 import { tagService } from '../tag/tag.service';
 import webActivityService from '../web-activity/web-activity.service';
-import { ICaptureService, MobileActivityPayload, WhatsAppPayload } from './capture.interfaces';
+import { ActivitySyncBatch } from '../web-activity/web-activity.types';
+import { ICapturePayload, ICaptureService, WhatsAppPayload } from './capture.interfaces';
 
 export class CaptureService implements ICaptureService {
 
     // 1. ACTIVE: Text/Voice/Manual Entry
-    async captureEntry(userId: string, payload: any): Promise<any> {
-        const entryDate = payload.date || new Date();
+    async captureEntry(userId: string, payload: ICapturePayload): Promise<IEntry> {
+        const entryDate = payload.date ? new Date(payload.date) : new Date();
         const sessionId = DateUtil.getSessionId(entryDate);
-
         const content = payload.content || '';
-
-        // Extract Tags & Mentions from text
-        const extractedMentions = StringUtil.extractMentions(content);
-        const extractedTags = StringUtil.extractTags(content);
 
         // Resolve Intelligence (Mentions/Tags) into IDs
         const { mentionIds, tagIds } = await this.resolveIntelligence(userId, {
-            tags: payload.tags || [],
-            extractedMentions,
-            extractedTags,
-            mentions: payload.metadata?.mentions || []
+            content,
+            providedTags: payload.tags || [],
+            providedMentions: payload.metadata?.mentions || []
         });
 
-        // Determine input type
-        let method = 'text';
-        if (payload.type === 'media' || payload.metadata?.isVoice) method = 'voice';
+        // Determine input method
+        const isMediaOrVoice = payload.type === 'media' || payload.type === 'voice' || payload.metadata?.isVoice;
+        const method = isMediaOrVoice ? 'voice' : 'text';
+        const inputMethodValue = payload.metadata?.source === 'whatsapp' ? 'whatsapp' : method;
 
         // Create Entry synchronously
-        const entry = await entryService.createEntry(userId, {
+        const entryData: CreateEntryRequest = {
             content: content,
             status: 'capturing',
             type: method === 'voice' ? 'mixed' : 'text',
+            inputMethod: inputMethodValue,
             date: entryDate,
+            startDate: payload.startDate ? new Date(payload.startDate) : undefined,
+            endDate: payload.endDate ? new Date(payload.endDate) : undefined,
+            startTime: payload.startTime,
+            endTime: payload.endTime,
+            isMultiDay: payload.isMultiDay,
+            kind: payload.kind,
+            isPrivate: payload.isPrivate,
+            isPinned: payload.isPinned,
+            isImportant: payload.isImportant,
             tags: tagIds,
             media: payload.media,
             collectionId: payload.collectionId,
             title: payload.title,
             location: payload.location,
+            mood: payload.mood,
             metadata: {
                 ...payload.metadata,
                 sessionId,
@@ -55,7 +64,9 @@ export class CaptureService implements ICaptureService {
                 originalType: payload.type,
                 mentions: mentionIds
             }
-        });
+        };
+
+        const entry = await entryService.createEntry(userId, entryData);
 
         // Inform client immediately
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
@@ -68,9 +79,9 @@ export class CaptureService implements ICaptureService {
     }
 
     // 2. PASSIVE: Web Extension Sync
-    async captureWeb(userId: string, payload: any): Promise<void> {
+    async captureWeb(userId: string, payload: ActivitySyncBatch): Promise<void> {
         const activityData = {
-            syncId: payload.syncId || `sync-${Date.now()}`,
+            syncId: payload.syncId || `sync-${crypto.randomUUID()}`,
             date: payload.date ? new Date(payload.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             totalSeconds: payload.totalSeconds || 0,
             productiveSeconds: payload.productiveSeconds || 0,
@@ -78,11 +89,11 @@ export class CaptureService implements ICaptureService {
             domainMap: payload.domainMap || {}
         };
 
-        // Sync daily activity (Legacy/Global Analytics)
+        // Sync daily activity
         await webActivityService.syncActivity(userId, activityData);
 
-        // Track session-level activity (Enrichment Engine Context)
-        await enrichmentService.trackSessionActivity(userId, activityData);
+        // Trigger passive enrichment evaluation logic (WebActivity based)
+        await enrichmentService.evaluatePassiveGate(userId, activityData.date);
 
         logger.info(`CaptureService: Passive web data funneled [User: ${userId}]`);
     }
@@ -98,8 +109,7 @@ export class CaptureService implements ICaptureService {
             source: 'whatsapp'
         };
 
-        // Reuse the same flow as captureEntry, supplying the normalized payload
-        const entryPayload = {
+        const entryPayload: ICapturePayload = {
             content: payload.body,
             type: payload.isVoice ? 'media' : 'text',
             date: payload.timestamp ? new Date(payload.timestamp) : new Date(),
@@ -109,65 +119,47 @@ export class CaptureService implements ICaptureService {
         await this.captureEntry(userId, entryPayload);
     }
 
-    // 4. App Logging (Mobile / Desktop bounds)
-    async captureAppActivity(userId: string, source: 'mobile-app' | 'desktop-app', payload: MobileActivityPayload | MobileActivityPayload[]): Promise<void> {
-        const timestamp = new Date().toISOString().split('T')[0];
-        const rawEvents = Array.isArray(payload) ? payload : [payload];
-        let totalActive = 0;
-        const appMap: Record<string, number> = {};
+    private async resolveIntelligence(
+        userId: string,
+        params: { content: string, providedTags: string[], providedMentions: string[] }
+    ): Promise<{ mentionIds: string[], tagIds: string[] }> {
+        const { content, providedTags, providedMentions } = params;
 
-        for (const event of rawEvents) {
-            totalActive += event.activeSeconds || 0;
-            appMap[event.appName || event.bundleId] = (appMap[event.appName || event.bundleId] || 0) + (event.activeSeconds || 0);
-        }
+        const mentionIds = await this.resolveMentions(userId, content, providedMentions);
+        const tagIds = await this.resolveTags(userId, content, providedTags);
 
-        const activityData = {
-            totalSeconds: totalActive,
-            productiveSeconds: 0,
-            distractingSeconds: 0,
-            domainMap: appMap
-        };
-
-        await webActivityService.syncActivity(userId, {
-            ...activityData,
-            syncId: `sync-${Date.now()}`,
-            date: timestamp,
-        });
-
-        // Track session-level activity
-        await enrichmentService.trackSessionActivity(userId, activityData);
-
-        logger.info(`CaptureService: Passive app activity funneled [User: ${userId}, Source: ${source}]`);
+        return { mentionIds, tagIds };
     }
 
-    private async resolveIntelligence(userId: string, metadata: any): Promise<{ mentionIds: string[], tagIds: string[] }> {
-        // Resolve Mentions
-        const mentionIds = [...(metadata.mentions || [])];
-        const extractedMentions = metadata.extractedMentions || [];
-        for (const name of extractedMentions) {
+    private async resolveMentions(userId: string, content: string, provided: string[]): Promise<string[]> {
+        const mentionIdSet = new Set<string>(provided);
+        const extracted = StringUtil.extractMentions(content);
+
+        await Promise.all(extracted.map(async (name) => {
             const entity = await entityService.findOrCreateEntity(userId, name, NodeType.PERSON);
-            mentionIds.push(entity._id.toString());
-        }
+            mentionIdSet.add(entity._id.toString());
+        }));
 
-        // Resolve Tags
-        const tagSet = new Set<string>();
-        if (metadata.tags) metadata.tags.forEach((t: string) => tagSet.add(t));
-        if (metadata.extractedTags) metadata.extractedTags.forEach((t: string) => tagSet.add(t));
+        return Array.from(mentionIdSet);
+    }
 
-        const tagIds: string[] = [];
-        for (const tagIdentifier of Array.from(tagSet)) {
-            if (MongoUtil.isValidObjectId(tagIdentifier)) {
-                tagIds.push(tagIdentifier);
-            } else {
-                const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
-                tagIds.push(tag._id.toString());
-            }
-        }
+    private async resolveTags(userId: string, content: string, provided: string[]): Promise<string[]> {
+        const tagIdentifierSet = new Set<string>(provided);
+        const extracted = StringUtil.extractTags(content);
+        extracted.forEach(t => tagIdentifierSet.add(t));
 
-        return {
-            mentionIds: Array.from(new Set(mentionIds)),
-            tagIds: Array.from(new Set(tagIds))
-        };
+        const tagIds = await Promise.all(
+            Array.from(tagIdentifierSet).map(async (tagIdentifier) => {
+                if (MongoUtil.isValidObjectId(tagIdentifier)) {
+                    return tagIdentifier;
+                } else {
+                    const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
+                    return tag._id.toString();
+                }
+            })
+        );
+
+        return tagIds;
     }
 }
 

@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
 import { IEnrichmentMetadata, IEnrichmentNarrative } from '../enrichment/enrichment.types';
 
+export type EntryStatus = 'capturing' | 'processing' | 'completed' | 'failed' | 'queued' | 'ready';
+
 // Entry Types
 export interface IEntry extends BaseEntity {
     userId: Types.ObjectId;
@@ -24,7 +26,7 @@ export interface IEntry extends BaseEntity {
     isMultiDay?: boolean; // Flag for collective entries
     isEdited?: boolean;
     isFavorite?: boolean;
-    status?: string;
+    status: EntryStatus;
     inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
     sessionId?: string;
     metadata?: Record<string, any>; // System logs, processing steps, etc.
@@ -54,6 +56,7 @@ export interface CreateEntryRequest {
     isPinned?: boolean;
     isImportant?: boolean;
     kind?: 'entry' | 'document' | 'note';
+    mood?: string;
     location?: string;
     date?: Date;
     startDate?: Date;
@@ -63,6 +66,7 @@ export interface CreateEntryRequest {
     isMultiDay?: boolean;
     status?: 'ready' | 'processing' | 'failed' | 'capturing';
     metadata?: Record<string, any>;
+    inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
 }
 
 export interface UpdateEntryRequest {
@@ -75,11 +79,14 @@ export interface UpdateEntryRequest {
     isPrivate?: boolean;
     isPinned?: boolean;
     isImportant?: boolean;
+    isFavorite?: boolean;
     kind?: 'entry' | 'document' | 'note';
+    mood?: string;
     location?: string;
     date?: Date;
-    status?: 'ready' | 'processing' | 'failed' | 'capturing';
+    status?: EntryStatus;
     metadata?: Record<string, any>;
+    inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
 }
 
 export interface GetEntriesRequest {

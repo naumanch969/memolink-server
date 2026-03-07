@@ -1,10 +1,10 @@
 import { Types } from 'mongoose';
+import { WebActivity } from '../web-activity/web-activity.model';
 import { getEnrichmentQueue } from './enrichment.queue';
 import { enrichmentService } from './enrichment.service';
 import { EnrichedEntry } from './models/enriched-entry.model';
-import { UsageStats } from './models/usage-stats.model';
 
-jest.mock('./models/usage-stats.model');
+jest.mock('../web-activity/web-activity.model');
 jest.mock('./models/enriched-entry.model');
 jest.mock('./enrichment.queue');
 
@@ -17,67 +17,55 @@ describe('EnrichmentService', () => {
         (getEnrichmentQueue as jest.Mock).mockReturnValue(mockQueue);
     });
 
-    describe('trackSessionActivity', () => {
+    describe('evaluatePassiveGate', () => {
         it('should trigger passive enrichment if significance score >= 40', async () => {
             const userId = new Types.ObjectId().toString();
+            const date = '2026-03-07';
 
-            // Simulating high activity for high score
+            // High activity
             const mockStats = {
-                totalSeconds: 3600, // 60 mins -> 60/240 * 60 = 15 score
-                appStats: []
+                totalSeconds: 3600, // 60 mins -> 15 score
+                domainMap: new Map()
             };
 
-            (UsageStats.findOneAndUpdate as jest.Mock).mockResolvedValue(mockStats);
+            (WebActivity.findOne as jest.Mock).mockResolvedValue(mockStats);
             (EnrichedEntry.exists as jest.Mock).mockResolvedValue(false);
 
-            // Using explicit interaction count to boost score: 
-            // (15) + (40/50 * 40) = 15 + 32 = 47 (Crosses 40 gate)
-            await enrichmentService.trackSessionActivity(userId, {
-                totalSeconds: 3600,
-                productiveSeconds: 3000,
-                distractingSeconds: 600,
-                interactions: 40
-            });
+            await enrichmentService.evaluatePassiveGate(userId, date);
 
             expect(mockQueue.add).toHaveBeenCalledWith('process-passive', expect.objectContaining({
                 userId,
+                sessionId: date,
                 sourceType: 'passive'
             }));
         });
 
         it('should NOT trigger passive enrichment if significance score < 40', async () => {
             const userId = new Types.ObjectId().toString();
+            const date = '2026-03-07';
 
-            // Simulating low activity
+            // Low activity
             const mockStats = {
-                totalSeconds: 600, // 10 mins -> (10/240 * 60) = 2.5 score
-                appStats: []
+                totalSeconds: 600, // 10 mins -> ~2.5 score + 10 proxy = 12.5 < 40
+                domainMap: new Map()
             };
 
-            (UsageStats.findOneAndUpdate as jest.Mock).mockResolvedValue(mockStats);
+            (WebActivity.findOne as jest.Mock).mockResolvedValue(mockStats);
 
-            // Score will be ~2.5 + 8 (proxy) = 10.5 (< 40)
-            await enrichmentService.trackSessionActivity(userId, {
-                totalSeconds: 600,
-                productiveSeconds: 0,
-                distractingSeconds: 600
-            });
+            await enrichmentService.evaluatePassiveGate(userId, date);
 
             expect(mockQueue.add).not.toHaveBeenCalled();
         });
 
         it('should NOT trigger twice if already enriched', async () => {
             const userId = new Types.ObjectId().toString();
-            const mockStats = { totalSeconds: 8000 }; // High activity
+            const date = '2026-03-07';
+            const mockStats = { totalSeconds: 8000 };
 
-            (UsageStats.findOneAndUpdate as jest.Mock).mockResolvedValue(mockStats);
-            (EnrichedEntry.exists as jest.Mock).mockResolvedValue(true); // Already enriched
+            (WebActivity.findOne as jest.Mock).mockResolvedValue(mockStats);
+            (EnrichedEntry.exists as jest.Mock).mockResolvedValue(true);
 
-            await enrichmentService.trackSessionActivity(userId, {
-                totalSeconds: 8000,
-                productiveSeconds: 0,
-                distractingSeconds: 0
-            });
+            await enrichmentService.evaluatePassiveGate(userId, date);
 
             expect(mockQueue.add).not.toHaveBeenCalled();
         });

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { captureController } from './capture.controller';
-import { ingestActivityValidation, ingestEntryValidation, ingestWebValidation, ingestWhatsAppValidation } from './capture.validations';
+import { ingestEntryValidation, ingestWebValidation, ingestWhatsAppValidation } from './capture.validations';
 
 const router = Router();
 
@@ -17,9 +17,6 @@ router.post('/web', ingestWebValidation, ValidationMiddleware.validate, captureC
 
 // 3. SOCIAL/WEBHOOK: WhatsApp Bridge
 router.post('/whatsapp', ingestWhatsAppValidation, ValidationMiddleware.validate, captureController.captureWhatsApp);
-
-// 4. BEHAVIORAL: App Tracker (Mobile/Desktop)
-router.post('/activity', ingestActivityValidation, ValidationMiddleware.validate, captureController.captureActivity);
 
 
 export default router;

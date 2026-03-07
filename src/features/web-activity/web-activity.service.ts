@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import DateUtil from '../../shared/utils/date.utils';
+import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
 import { ActivityDefinitions } from './activity-definitions.model';
 import { WebActivitySyncLog } from './web-activity-sync-log.model';
 import { IWebActivityService } from "./web-activity.interfaces";
@@ -9,6 +10,24 @@ import { ActivitySyncBatch, IWebActivity } from './web-activity.types';
 
 export class WebActivityService implements IWebActivityService {
     private static readonly DOT_REPLACEMENT = '__dot__';
+
+    /**
+     * Get passive enrichment summary for a specific day
+     */
+    async getPassiveSummary(userId: string, date: string): Promise<any | null> {
+        try {
+            const summary = await EnrichedEntry.findOne({
+                userId: new Types.ObjectId(userId),
+                sessionId: date,
+                sourceType: 'passive'
+            }).select('metadata narrative analytics timestamp').lean();
+
+            return summary;
+        } catch (error) {
+            logger.error('Get passive summary failed:', error);
+            throw error;
+        }
+    }
 
     /**
      * Sync activity for a specific day using atomic increments
@@ -187,8 +206,8 @@ export class WebActivityService implements IWebActivityService {
         const limits = definitions.domainLimits
             .filter(l => l.enabled)
             .map(limit => {
-                // Look up usage - domain key uses _ instead of . in domainMap
-                const domainKey = limit.domain.replace(/\./g, '_');
+                // Look up usage - domain key uses DOT_REPLACEMENT instead of . in domainMap
+                const domainKey = limit.domain.replace(/\./g, WebActivityService.DOT_REPLACEMENT);
                 const usedSeconds = (domainMap instanceof Map ? domainMap.get(domainKey) : (domainMap as Record<string, number>)[domainKey]) || 0;
                 const usedMinutes = Math.round(usedSeconds / 60);
                 const percentUsed = limit.dailyLimitMinutes > 0 ? Math.round((usedMinutes / limit.dailyLimitMinutes) * 100) : 0;

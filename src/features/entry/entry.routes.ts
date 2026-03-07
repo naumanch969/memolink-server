@@ -2,14 +2,14 @@ import { Router } from 'express';
 import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { EntryController } from './entry.controller';
-import { createEntryValidation, entryIdValidation, searchEntriesValidation, updateEntryValidation } from './entry.validation';
+import { entryIdValidation, searchEntriesValidation, updateEntryValidation } from './entry.validation';
 
 const router = Router();
 
 router.use(AuthMiddleware.authenticate);
 router.use(AuthMiddleware.requireVault);
 
-router.post('/', createEntryValidation, ValidationMiddleware.validate, EntryController.createEntry);
+// POST / replaced by /capture/entry to correctly route through intelligence enrichment.
 router.get('/search', searchEntriesValidation, ValidationMiddleware.validate, EntryController.searchEntries);
 router.get('/stats', EntryController.getEntryStats);
 router.get('/feed', EntryController.getFeed);

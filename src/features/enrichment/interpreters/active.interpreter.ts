@@ -1,46 +1,11 @@
-import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { ENRICHMENT_TAXONOMY, SYSTEM_PERSONAS } from '../enrichment.constants';
-import { IEnrichmentInterpreter } from '../enrichment.types';
+import { EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
-const activeEnrichmentSchema = z.object({
-    metadata: z.object({
-        themes: z.array(z.enum(ENRICHMENT_TAXONOMY as any)).max(3),
-        emotions: z.array(z.object({
-            label: z.string(),
-            intensity: z.number().min(0).max(1)
-        })),
-        entities: z.array(z.object({
-            name: z.string(),
-            type: z.enum(['person', 'place', 'concept', 'project', 'organization']),
-            confidence: z.number().min(0).max(1),
-            source: z.literal('extracted')
-        })),
-        sentimentScore: z.number().min(-1).max(1),
-        energyLevel: z.enum(['low', 'medium', 'high'] as const),
-        cognitiveLoad: z.enum(['focused', 'scattered', 'ruminating'] as const),
-    }),
-    narrative: z.object({
-        signal: z.string(),
-        coreThought: z.string(),
-        contradictions: z.array(z.string()),
-        openLoops: z.array(z.string()),
-        selfPerception: z.string(),
-        desires: z.array(z.string()),
-        fears: z.array(z.string()),
-    }),
-    extraction: z.object({
-        confidenceScore: z.number().min(0).max(1),
-        flags: z.array(z.string())
-    })
-});
-
-export type IActiveEnrichmentResult = z.infer<typeof activeEnrichmentSchema>;
-
-export class ActiveInterpreter implements IEnrichmentInterpreter<string, IActiveEnrichmentResult> {
-    async process(text: string): Promise<IActiveEnrichmentResult> {
-        const prompt = `${SYSTEM_PERSONAS.ACTIVE}
+export class ActiveInterpreter implements IEnrichmentInterpreter<string, IEnrichmentResult> {
+    async process(text: string): Promise<IEnrichmentResult> {
+        const prompt = `${SYSTEM_PERSONAS.active}
 
 User Input: "${text}"
 
@@ -80,7 +45,7 @@ Respond with ONLY a JSON object in this structure:
 }`;
 
         try {
-            const result = await LLMService.generateJSON(prompt, activeEnrichmentSchema);
+            const result = await LLMService.generateJSON(prompt, EnrichmentResultSchema);
             return result;
         } catch (error) {
             logger.error('Active Interpreter failed', error);
@@ -89,4 +54,4 @@ Respond with ONLY a JSON object in this structure:
     }
 }
 
-export const activeInterpreter: IEnrichmentInterpreter<string, IActiveEnrichmentResult> = new ActiveInterpreter();
+export const activeInterpreter: IEnrichmentInterpreter<string, IEnrichmentResult> = new ActiveInterpreter();

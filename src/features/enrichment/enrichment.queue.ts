@@ -3,11 +3,13 @@ import { logger } from '../../config/logger';
 import { queueService } from '../../core/queue/queue.service';
 import { EnrichmentJobData } from './enrichment.types';
 
-export const ENRICHMENT_QUEUE_NAME = 'enrichment-queue';
+const ENRICHMENT_QUEUE_NAME = 'enrichment-queue';
 
-export let enrichmentQueue: Queue<EnrichmentJobData>;
+let enrichmentQueue: Queue<EnrichmentJobData>;
 
 export const initEnrichmentQueue = () => {
+    if (enrichmentQueue) return enrichmentQueue;
+
     enrichmentQueue = queueService.registerQueue<EnrichmentJobData>(ENRICHMENT_QUEUE_NAME, {
         defaultJobOptions: {
             attempts: 3,
@@ -26,7 +28,9 @@ export const initEnrichmentQueue = () => {
 
 export const getEnrichmentQueue = () => {
     if (!enrichmentQueue) {
-        initEnrichmentQueue();
+        return initEnrichmentQueue();
     }
     return enrichmentQueue;
 };
+
+export { ENRICHMENT_QUEUE_NAME };

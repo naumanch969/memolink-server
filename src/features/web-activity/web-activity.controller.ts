@@ -46,6 +46,21 @@ export class WebActivityController {
     }
 
     /**
+     * GET /api/activity/summary/:date
+     */
+    static async getSummary(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const date = req.params.date || new Date().toISOString().split('T')[0];
+            const summary = await webActivityService.getPassiveSummary(userId, date);
+
+            ResponseHelper.success(res, summary, 'Passive summary retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
+
+    /**
      * GET /api/activity/range?from=YYYY-MM-DD&to=YYYY-MM-DD
      */
     static async getRange(req: AuthenticatedRequest, res: Response) {

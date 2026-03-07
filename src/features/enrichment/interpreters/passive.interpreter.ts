@@ -1,40 +1,11 @@
-import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { ENRICHMENT_TAXONOMY, SYSTEM_PERSONAS } from '../enrichment.constants';
-import { IEnrichmentInterpreter } from '../enrichment.types';
+import { EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
-const passiveEnrichmentSchema = z.object({
-    metadata: z.object({
-        themes: z.array(z.enum(ENRICHMENT_TAXONOMY as any)).max(3),
-        emotions: z.array(z.object({
-            label: z.string(),
-            intensity: z.number().min(0).max(1)
-        })),
-        sentimentScore: z.number().min(-1).max(1),
-        energyLevel: z.enum(['low', 'medium', 'high'] as const),
-        cognitiveLoad: z.enum(['focused', 'scattered', 'ruminating'] as const),
-    }),
-    narrative: z.object({
-        signal: z.string(),
-        coreThought: z.string(),
-        contradictions: z.array(z.string()),
-        openLoops: z.array(z.string()),
-        selfPerception: z.string(),
-        desires: z.array(z.string()),
-        fears: z.array(z.string()),
-    }),
-    extraction: z.object({
-        confidenceScore: z.number().min(0).max(1),
-        flags: z.array(z.string())
-    })
-});
-
-export type IPassiveEnrichmentResult = z.infer<typeof passiveEnrichmentSchema>;
-
-export class PassiveInterpreter implements IEnrichmentInterpreter<string, IPassiveEnrichmentResult> {
-    async process(logs: string): Promise<IPassiveEnrichmentResult> {
-        const prompt = `${SYSTEM_PERSONAS.PASSIVE}
+export class PassiveInterpreter implements IEnrichmentInterpreter<string, IEnrichmentResult> {
+    async process(logs: string): Promise<IEnrichmentResult> {
+        const prompt = `${SYSTEM_PERSONAS.passive}
 
 Behavioral Logs:
 "${logs}"
@@ -48,12 +19,14 @@ Valid themes (use ONLY these, max 3): ${ENRICHMENT_TAXONOMY.join(', ')}
 - **narrative.coreThought**: Identify a "psychological theme" or "behavioral center" (e.g., "Deep flow work" or "Fragmented leisure").
 - **metadata.emotions**: Always neutral unless behavior is erratic (e.g., rapid context switching after a long day).
 - **metadata.cognitiveLoad**: focused = single-threaded, scattered = high switching, ruminating = returning to same site repeatedly without clear progress.
+- **metadata.entities**: Only extract if the behavioral logs mentions specific projects, entities, or people (e.g. from app names or page titles). 
 
 Respond with ONLY a JSON object in this structure:
 {
   "metadata": {
     "themes": ["work", "creativity"],
     "emotions": [{ "label": "neutral", "intensity": 1.0 }],
+    "entities": [],
     "sentimentScore": 0,
     "energyLevel": "high",
     "cognitiveLoad": "focused"
@@ -74,7 +47,7 @@ Respond with ONLY a JSON object in this structure:
 }`;
 
         try {
-            const result = await LLMService.generateJSON(prompt, passiveEnrichmentSchema);
+            const result = await LLMService.generateJSON(prompt, EnrichmentResultSchema);
             return result;
         } catch (error) {
             logger.error('Passive Interpreter failed', error);
@@ -83,4 +56,4 @@ Respond with ONLY a JSON object in this structure:
     }
 }
 
-export const passiveInterpreter: IEnrichmentInterpreter<string, IPassiveEnrichmentResult> = new PassiveInterpreter();
+export const passiveInterpreter: IEnrichmentInterpreter<string, IEnrichmentResult> = new PassiveInterpreter();

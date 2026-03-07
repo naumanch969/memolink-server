@@ -15,6 +15,8 @@ export const ingestWebValidation = [
     body('syncId').notEmpty().withMessage('syncId is required'),
     body('date').isISO8601().withMessage('Invalid date format'),
     body('totalSeconds').isInt({ min: 0 }),
+    body('productiveSeconds').optional().isInt({ min: 0 }),
+    body('distractingSeconds').optional().isInt({ min: 0 }),
     body('domainMap').isObject().withMessage('domainMap must be an object'),
 ];
 
@@ -25,20 +27,4 @@ export const ingestWhatsAppValidation = [
     body('senderName').optional().isString(),
     body('isVoice').optional().isBoolean(),
     body('mediaUrl').optional().isURL(),
-];
-
-// 4. BEHAVIORAL: App Activity
-export const ingestActivityValidation = [
-    body('platform').optional().isIn(['mobile', 'desktop']),
-    // Logic handles both single object and array, we just check existence
-    body().custom((value) => {
-        if (!value || typeof value !== 'object') throw new Error('Invalid payload');
-        return true;
-    })
-];
-
-// Legacy / Universal
-export const captureValidation = [
-    body('source').isIn(['active-entry', 'web-extension', 'whatsapp', 'mobile-app', 'desktop-app']),
-    body('payload').notEmpty().withMessage('payload is required')
 ];

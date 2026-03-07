@@ -28,6 +28,8 @@ const entrySchema = new Schema<IEntry>({
   endTime: { type: String, trim: true, },
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
+  inputMethod: { type: String, enum: ['text', 'voice', 'whatsapp', 'system'], default: 'text' },
+  sessionId: { type: String, index: true },
   status: { type: String, enum: ['ready', 'processing', 'failed', 'capturing'], default: 'ready', index: true },
   metadata: { type: Object, default: {} },
 }, {
