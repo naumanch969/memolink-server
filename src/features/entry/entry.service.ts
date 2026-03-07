@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { LLMService } from '../../core/llm/llm.service';
@@ -7,8 +7,10 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { PaginationUtil } from '../../shared/utils/pagination.utils';
 import { StringUtil } from '../../shared/utils/string.utils';
+import { AgentTask } from '../agent/agent.model';
 import collectionService from '../collection/collection.service';
 import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
+import { GraphEdge } from '../graph/edge.model';
 import { tagService } from '../tag/tag.service';
 import { transcribeAudioEntry } from './audio-transcription.service';
 import { IEntryService } from './entry.interfaces';
@@ -424,23 +426,41 @@ export class EntryService implements IEntryService {
 
   // Delete entry and update tag usage metrics
   async deleteEntry(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
-      const entry = await Entry.findOneAndDelete({ _id: entryId, userId });
+      const entry = await Entry.findOneAndDelete({ _id: entryId, userId }).session(session);
       if (!entry) throw ApiError.notFound('Entry');
 
-      if (entry.tags && entry.tags.length > 0) {
-        const tagIds = entry.tags.map(t => t.toString());
-        await tagService.decrementUsage(userId, tagIds);
-      }
+      // ACID: Cascade delete associated documents
+      await EnrichedEntry.deleteMany({ referenceId: entryId, userId }).session(session);
+      await GraphEdge.deleteMany({ sourceEntryId: entryId }).session(session);
+      await AgentTask.deleteMany({ userId, 'inputData.entryId': entryId }).session(session);
 
-      if (entry.collectionId) {
-        await collectionService.decrementEntryCount(entry.collectionId.toString());
+      await session.commitTransaction();
+
+      // Statistics updates (run after successful commit)
+      try {
+        if (entry.tags && entry.tags.length > 0) {
+          const tagIds = entry.tags.map(t => t.toString());
+          await tagService.decrementUsage(userId, tagIds);
+        }
+
+        if (entry.collectionId) {
+          await collectionService.decrementEntryCount(entry.collectionId.toString());
+        }
+      } catch (statError) {
+        logger.error('Failed to update stats after entry deletion:', statError);
       }
 
       return entry as IEntry;
     } catch (error) {
+      await session.abortTransaction();
       logger.error('Entry deletion failed:', error);
       throw error;
+    } finally {
+      session.endSession();
     }
   }
 

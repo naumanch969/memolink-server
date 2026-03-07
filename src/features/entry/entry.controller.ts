@@ -4,6 +4,7 @@ import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { ENTRY_TYPES } from '../../shared/constants';
+import DateUtil from '../../shared/utils/date.utils';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
 import { AgentTaskType } from '../agent/agent.types';
 import agentService from '../agent/services/agent.service';
@@ -196,13 +197,13 @@ export class EntryController {
         return;
       }
 
-      if (!entry.sessionId) {
-        ResponseHelper.badRequest(res, 'Entry missing sessionId');
-        return;
+      let sessionId = entry.sessionId;
+      if (!sessionId) {
+        sessionId = DateUtil.getSessionId((entry as any).createdAt || entry.date);
       }
 
       // Trigger active enrichment asynchronously
-      enrichmentService.processActiveEnrichment(req.user!._id.toString(), req.params.id, entry.sessionId)
+      enrichmentService.processActiveEnrichment(req.user!._id.toString(), req.params.id, sessionId)
         .catch(e => logger.error(`Manual healing failed for entry ${req.params.id}:`, e));
 
       ResponseHelper.success(res, null, 'Enrichment retry triggered');
