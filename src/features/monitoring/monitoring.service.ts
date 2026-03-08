@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 import os from 'os';
 import { logger } from '../../config/logger';
+import { queueService } from '../../core/queue/queue.service';
 import { bufferManager } from '../../core/telemetry/buffer.manager';
-import { getEmailQueue } from '../email/queue/email.queue';
 import Entry from '../entry/entry.model';
 import { llmUsageService } from '../llm-usage/llm-usage.service';
 import { SystemMetric } from './metric.model';
@@ -318,19 +318,75 @@ export class MonitoringService implements IMonitoringService {
 
 
     async getJobQueues() {
-        try {
-            const emailQ = getEmailQueue();
-            const counts = await emailQ.getJobCounts();
-            return [{
-                name: 'Email Delivery',
-                active: counts.active,
-                pending: counts.waiting,
-                failed: counts.failed,
-                completed: counts.completed
-            }];
-        } catch (err) {
-            return [];
-        }
+        const queues = queueService.getRegisteredQueues();
+        const results = await Promise.all(
+            Array.from(queues.entries()).map(async ([name, queue]) => {
+                try {
+                    const counts = await queue.getJobCounts();
+                    return {
+                        name,
+                        active: counts.active,
+                        pending: counts.waiting,
+                        delayed: counts.delayed,
+                        failed: counts.failed,
+                        completed: counts.completed,
+                        paused: counts.paused > 0,
+                    };
+                } catch {
+                    return { name, active: 0, pending: 0, delayed: 0, failed: 0, completed: 0, paused: false };
+                }
+            })
+        );
+        return results;
+    }
+
+    async getJobList(queueName: string, statuses: string[], page: number, limit: number) {
+        const queues = queueService.getRegisteredQueues();
+        const queue = queues.get(queueName);
+        if (!queue) throw new Error(`Queue '${queueName}' not found`);
+
+        const validStatuses = ['waiting', 'active', 'completed', 'failed', 'delayed', 'paused'] as const;
+        const types = (statuses.length > 0 ? statuses : [...validStatuses]) as (typeof validStatuses[number])[];
+
+        const start = (page - 1) * limit;
+        const end = start + limit - 1;
+
+        const jobs = await queue.getJobs(types, start, end);
+        return jobs.map((job) => ({
+            id: job.id,
+            name: job.name,
+            data: job.data,
+            state: job.finishedOn ? (job.failedReason ? 'failed' : 'completed') : (job.processedOn ? 'active' : 'waiting'),
+            attemptsMade: job.attemptsMade,
+            failedReason: job.failedReason,
+            processedOn: job.processedOn,
+            finishedOn: job.finishedOn,
+            timestamp: job.timestamp,
+        }));
+    }
+
+    async retryJob(queueName: string, jobId: string) {
+        const queues = queueService.getRegisteredQueues();
+        const queue = queues.get(queueName);
+        if (!queue) throw new Error(`Queue '${queueName}' not found`);
+
+        const job = await queue.getJob(jobId);
+        if (!job) throw new Error(`Job '${jobId}' not found in queue '${queueName}'`);
+
+        await job.retry();
+        logger.info(`Job ${jobId} in queue [${queueName}] retried by admin`);
+    }
+
+    async removeJob(queueName: string, jobId: string) {
+        const queues = queueService.getRegisteredQueues();
+        const queue = queues.get(queueName);
+        if (!queue) throw new Error(`Queue '${queueName}' not found`);
+
+        const job = await queue.getJob(jobId);
+        if (!job) throw new Error(`Job '${jobId}' not found in queue '${queueName}'`);
+
+        await job.remove();
+        logger.info(`Job ${jobId} in queue [${queueName}] removed by admin`);
     }
 
     // Helper methods

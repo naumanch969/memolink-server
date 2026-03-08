@@ -13,6 +13,7 @@ export interface IQueueDefinition<T = any> {
 export interface IQueueService {
     registerQueue<T>(name: string, options?: Omit<QueueOptions, 'connection'>): Queue<T>;
     registerWorker<T>(name: string, processor: Processor<T>, options?: Omit<WorkerOptions, 'connection'>): Worker<T>;
+    getRegisteredQueues(): Map<string, Queue>;
     close(): Promise<void>;
 }
 
@@ -94,6 +95,10 @@ export class QueueService implements IQueueService {
         this.workers.set(name, worker);
         logger.info(`Worker for queue [${name}] started`);
         return worker;
+    }
+
+    getRegisteredQueues(): Map<string, Queue> {
+        return this.queues;
     }
 
     // Gracefully close all queues and workers

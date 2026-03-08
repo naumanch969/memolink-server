@@ -69,4 +69,39 @@ export class MonitoringController {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
         }
     }
+
+    static async getJobList(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const { queueName } = req.params;
+            const statusParam = (req.query.status as string) || '';
+            const page = Math.max(1, parseInt(req.query.page as string) || 1);
+            const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
+            const statuses = statusParam ? statusParam.split(',').map(s => s.trim()) : [];
+
+            const jobs = await monitoringService.getJobList(queueName, statuses, page, limit);
+            ResponseHelper.success(res, jobs, 'Job list retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
+        }
+    }
+
+    static async retryJob(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const { queueName, jobId } = req.params;
+            await monitoringService.retryJob(queueName, jobId);
+            ResponseHelper.success(res, null, `Job ${jobId} re-queued successfully`);
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
+        }
+    }
+
+    static async removeJob(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const { queueName, jobId } = req.params;
+            await monitoringService.removeJob(queueName, jobId);
+            ResponseHelper.success(res, null, `Job ${jobId} removed successfully`);
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);
+        }
+    }
 }

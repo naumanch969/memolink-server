@@ -21,6 +21,9 @@ monitoringRouter.get('/dashboard', MonitoringController.getDashboard);
 monitoringRouter.get('/health', MonitoringController.getSystemHealth);
 monitoringRouter.get('/database', MonitoringController.getDatabaseStats);
 monitoringRouter.get('/jobs', MonitoringController.getJobQueueStats);
+monitoringRouter.get('/jobs/:queueName/list', MonitoringController.getJobList);
+monitoringRouter.post('/jobs/:queueName/:jobId/retry', MonitoringController.retryJob);
+monitoringRouter.delete('/jobs/:queueName/:jobId', MonitoringController.removeJob);
 monitoringRouter.get('/platform', MonitoringController.getInfrastructureStats);
 
 // 3. Logs
