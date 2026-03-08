@@ -31,6 +31,7 @@ const entrySchema = new Schema<IEntry>({
   inputMethod: { type: String, enum: ['text', 'voice', 'whatsapp', 'system'], default: 'text' },
   sessionId: { type: String, index: true },
   status: { type: String, enum: ['ready', 'processing', 'failed', 'capturing'], default: 'ready', index: true },
+  signalTier: { type: String, enum: ['noise', 'log', 'signal', 'deep_signal'], index: true },
   metadata: { type: Object, default: {} },
 }, {
   timestamps: true,

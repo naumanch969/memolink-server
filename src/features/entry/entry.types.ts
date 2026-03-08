@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
-import { IEnrichmentMetadata, IEnrichmentNarrative } from '../enrichment/enrichment.types';
+import { IEnrichmentMetadata, IEnrichmentNarrative, SignalTier } from '../enrichment/enrichment.types';
 
 export type EntryStatus = 'capturing' | 'processing' | 'completed' | 'failed' | 'queued' | 'ready';
 
@@ -29,6 +29,7 @@ export interface IEntry extends BaseEntity {
     status: EntryStatus;
     inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
     sessionId?: string;
+    signalTier?: SignalTier;
     metadata?: Record<string, any>; // System logs, processing steps, etc.
     enrichment?: {
         metadata: IEnrichmentMetadata;
@@ -65,6 +66,7 @@ export interface CreateEntryRequest {
     endTime?: string;
     isMultiDay?: boolean;
     status?: 'ready' | 'processing' | 'failed' | 'capturing';
+    signalTier?: SignalTier;
     metadata?: Record<string, any>;
     inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
 }

@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { BaseEntity } from '../../shared/types';
 import { ENRICHMENT_TAXONOMY } from './enrichment.constants';
 
+export type SignalTier = 'noise' | 'log' | 'signal' | 'deep_signal';
 export type SourceType = 'active' | 'passive';
 export type InputMethod = 'text' | 'voice' | 'whatsapp' | 'system';
-export type ProcessingStatus = 'pending' | 'completed' | 'failed';
+export type ProcessingStatus = 'pending' | 'completed' | 'failed' | 'noise';
 export type EnergyLevel = 'low' | 'medium' | 'high';
 export type CognitiveLoad = 'focused' | 'scattered' | 'ruminating';
 export enum ProcessingStep {
@@ -68,6 +69,7 @@ export interface IEnrichedEntry extends BaseEntity {
     sourceType: SourceType;
     inputMethod: InputMethod;
     processingStatus: ProcessingStatus;
+    signalTier: SignalTier;
 
     metadata: IEnrichmentMetadata;
     narrative: IEnrichmentNarrative;
@@ -102,6 +104,7 @@ export interface EnrichmentJobData {
     sourceType: SourceType;
     sessionId: string;
     referenceId?: string;
+    signalTier?: SignalTier;
 }
 
 export interface EnrichmentStrategyInput {

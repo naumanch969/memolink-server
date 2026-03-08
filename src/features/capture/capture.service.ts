@@ -3,7 +3,9 @@ import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
+import { entryClassifier } from '../enrichment/enrichment.classifier';
 import { enrichmentService } from '../enrichment/enrichment.service';
+import { Entry } from '../entry/entry.model';
 import entryService from '../entry/entry.service';
 import { CreateEntryRequest, IEntry } from '../entry/entry.types';
 import webActivityService from '../web-activity/web-activity.service';
@@ -56,11 +58,17 @@ export class CaptureService implements ICaptureService {
 
         const entry = await entryService.createEntry(userId, entryData);
 
-        // Inform client immediately
-        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entry);
+        // Classify signal tier
+        const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice);
 
-        // Queue enrichment asynchronously (this will now also resolve intelligence)
-        await enrichmentService.enqueueActiveEnrichment(userId, entry._id.toString(), sessionId);
+        // Update entry with tier
+        await Entry.findByIdAndUpdate(entry._id, { signalTier: tier });
+
+        // Inform client immediately
+        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { ...entry, signalTier: tier });
+
+        // Queue enrichment asynchronously with tier information
+        await enrichmentService.enqueueActiveEnrichment(userId, entry._id.toString(), sessionId, tier);
 
         logger.info(`CaptureService: Active entry captured [User: ${userId}, Entry: ${entry._id}]`);
         return entry;

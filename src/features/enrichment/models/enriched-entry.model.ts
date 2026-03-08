@@ -7,7 +7,8 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
     sessionId: { type: String, required: true, index: true },
     sourceType: { type: String, enum: ['active', 'passive'], required: true, index: true },
     inputMethod: { type: String, enum: ['text', 'voice', 'whatsapp', 'system'], required: true },
-    processingStatus: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending', index: true },
+    processingStatus: { type: String, enum: ['pending', 'completed', 'failed', 'noise'], default: 'pending', index: true },
+    signalTier: { type: String, enum: ['noise', 'log', 'signal', 'deep_signal'], index: true },
 
     metadata: {
         themes: [{ type: String, index: true }],

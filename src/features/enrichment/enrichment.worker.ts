@@ -10,11 +10,11 @@ import { EnrichmentJobData } from './enrichment.types';
  * This worker now strictly orchestrates calls to the EnrichmentService logic.
  */
 const processJob = async (job: Job<EnrichmentJobData>) => {
-    const { userId, sourceType, referenceId, sessionId } = job.data;
+    const { userId, sourceType, referenceId, sessionId, signalTier } = job.data;
 
     try {
         if (sourceType === 'active' && referenceId) {
-            await enrichmentService.processActiveEnrichment(userId, referenceId, sessionId);
+            await enrichmentService.processActiveEnrichment(userId, referenceId, sessionId, signalTier);
         } else if (sourceType === 'passive') {
             await enrichmentService.processPassiveEnrichment(userId, sessionId);
         } else {

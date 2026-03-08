@@ -17,14 +17,33 @@ describe('EnrichmentService', () => {
         (getEnrichmentQueue as jest.Mock).mockReturnValue(mockQueue);
     });
 
+    describe('enqueueActiveEnrichment', () => {
+        it('should add job to queue with signalTier', async () => {
+            const userId = new Types.ObjectId().toString();
+            const entryId = new Types.ObjectId().toString();
+            const sessionId = 'session-123';
+            const signalTier = 'signal';
+
+            await enrichmentService.enqueueActiveEnrichment(userId, entryId, sessionId, signalTier as any);
+
+            expect(mockQueue.add).toHaveBeenCalledWith('process-active', {
+                userId,
+                sourceType: 'active',
+                sessionId,
+                referenceId: entryId,
+                signalTier
+            });
+        });
+    });
+
     describe('evaluatePassiveGate', () => {
         it('should trigger passive enrichment if significance score >= 40', async () => {
             const userId = new Types.ObjectId().toString();
             const date = '2026-03-07';
 
-            // High activity
+            // High activity (4 hours)
             const mockStats = {
-                totalSeconds: 3600, // 60 mins -> 15 score
+                totalSeconds: 14400, // 4 hours -> 60 score
                 domainMap: new Map()
             };
 
@@ -35,7 +54,7 @@ describe('EnrichmentService', () => {
 
             expect(mockQueue.add).toHaveBeenCalledWith('process-passive', expect.objectContaining({
                 userId,
-                sessionId: date,
+                sessionId: `${date}-s1`,
                 sourceType: 'passive'
             }));
         });
