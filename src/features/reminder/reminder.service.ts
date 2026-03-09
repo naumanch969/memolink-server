@@ -11,6 +11,7 @@ import { NotificationStatus } from '../notification/notification.types';
 import { IReminderService } from "./reminder.interfaces";
 import { Reminder } from './reminder.model';
 import { CreateReminderRequest, GetRemindersQuery, GetRemindersResponse, IReminderDocument, ReminderResponse, ReminderStatus, UpdateReminderRequest } from './reminder.types';
+import { calculateNextOccurrence } from './reminder.utils';
 
 export class ReminderService implements IReminderService {
 
@@ -331,7 +332,6 @@ export class ReminderService implements IReminderService {
 
             // HANDLE RECURRENCE
             if (reminder.recurring?.enabled) {
-                const { calculateNextOccurrence } = await import('./reminder.utils');
                 const nextDate = calculateNextOccurrence(
                     reminder.date,
                     reminder.recurring.frequency,
@@ -423,7 +423,6 @@ export class ReminderService implements IReminderService {
             await this.cancelNotifications(reminderId);
 
             // Cleanup Graph
-            const { graphService } = await import('../graph/graph.service');
             await graphService.removeNodeEdges(reminderId).catch(err => logger.error(`[ReminderService] Graph cleanup failed`, err));
         } catch (error: any) {
             if (error instanceof ApiError) throw error;

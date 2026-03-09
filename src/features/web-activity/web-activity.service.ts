@@ -2,11 +2,13 @@ import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import DateUtil from '../../shared/utils/date.utils';
 import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
-import { ActivityDefinitions } from './activity-definitions.model';
+import { ActivityDefinitions, IActivityDefinitions } from './activity-definitions.model';
+import { passiveAnalysisService } from './passive-analysis.service';
+import { IPassiveSession, PassiveSession } from './passive-session.model';
 import { WebActivitySyncLog } from './web-activity-sync-log.model';
 import { IWebActivityService } from "./web-activity.interfaces";
 import { WebActivity } from './web-activity.model';
-import { ActivitySyncBatch, IWebActivity } from './web-activity.types';
+import { ActivityLimitCheckResult, ActivitySummaryResult, ActivitySyncBatch, BehavioralCluster, IWebActivity, MonthlyActivitySummaryResult, WebActivityDefinitionsDTO, WebActivityDomainLimit } from './web-activity.types';
 
 export class WebActivityService implements IWebActivityService {
     private static readonly DOT_REPLACEMENT = '__dot__';
@@ -14,7 +16,7 @@ export class WebActivityService implements IWebActivityService {
     /**
      * Get passive enrichment summary for a specific day
      */
-    async getPassiveSummary(userId: string, date: string): Promise<any | null> {
+    async getPassiveSummary(userId: string, date: string): Promise<Partial<any> | null> {
         try {
             const summary = await EnrichedEntry.findOne({
                 userId: new Types.ObjectId(userId),
@@ -80,6 +82,14 @@ export class WebActivityService implements IWebActivityService {
                 syncId
             });
 
+            // 5. Process granular passive events if provided
+            if (batch.events && batch.events.length > 0) {
+                // Determine analysis asynchronously to not block the fast sync path
+                passiveAnalysisService.processEvents(userId, date, batch.events).catch(err => {
+                    logger.error('Background passive event analysis failed:', err);
+                });
+            }
+
             logger.info('Web activity synced successfully', {
                 userId,
                 date,
@@ -90,6 +100,18 @@ export class WebActivityService implements IWebActivityService {
             return activity;
         } catch (error) {
             logger.error('Web activity sync failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get chronologically ordered passive sessions for a day
+     */
+    async getSessionsByDate(userId: string, date: string): Promise<IPassiveSession[]> {
+        try {
+            return await (PassiveSession as any).find({ userId, date }).sort({ startTime: 1 }).lean();
+        } catch (error) {
+            logger.error('Failed to fetch passive sessions:', error);
             throw error;
         }
     }
@@ -120,58 +142,55 @@ export class WebActivityService implements IWebActivityService {
     }
 
     /**
-     * Get user-specific activity definitions (productive/distracting domains + limits)
+     * Get or create definitions
      */
-    async getDefinitions(userId: string) {
-        const definitions = await ActivityDefinitions.findOne({ userId: new Types.ObjectId(userId) });
-        return {
-            productiveDomains: definitions?.productiveDomains || [],
-            distractingDomains: definitions?.distractingDomains || [],
-            domainLimits: definitions?.domainLimits || []
-        };
+    async getDefinitions(userId: string): Promise<IActivityDefinitions> {
+        let definitions = await ActivityDefinitions.findOne({
+            userId: new Types.ObjectId(userId)
+        });
+
+        if (!definitions) {
+            definitions = await ActivityDefinitions.create({
+                userId: new Types.ObjectId(userId),
+                productiveDomains: [],
+                distractingDomains: [],
+                domainLimits: []
+            });
+        }
+
+        return definitions;
     }
 
     /**
      * Add or update a domain limit
      */
-    async upsertDomainLimit(userId: string, data: { domain: string; dailyLimitMinutes: number; action: 'nudge' | 'block'; enabled?: boolean }) {
-        const userObjId = new Types.ObjectId(userId);
-        const { domain, dailyLimitMinutes, action, enabled = true } = data;
+    async upsertDomainLimit(userId: string, data: WebActivityDomainLimit): Promise<IActivityDefinitions> {
+        let definitions = await this.getDefinitions(userId);
 
-        // Check if limit for this domain already exists
-        const existing = await ActivityDefinitions.findOne({
-            userId: userObjId,
-            'domainLimits.domain': domain
-        });
+        const existingIndex = definitions.domainLimits.findIndex(l => l.domain === data.domain);
 
-        if (existing) {
-            // Update existing limit
-            await ActivityDefinitions.updateOne(
-                { userId: userObjId, 'domainLimits.domain': domain },
-                {
-                    $set: {
-                        'domainLimits.$.dailyLimitMinutes': dailyLimitMinutes,
-                        'domainLimits.$.action': action,
-                        'domainLimits.$.enabled': enabled
-                    }
-                }
-            );
+        if (existingIndex >= 0) {
+            definitions.domainLimits[existingIndex].dailyLimitMinutes = data.dailyLimitMinutes;
+            definitions.domainLimits[existingIndex].action = data.action;
+            if (data.enabled !== undefined) {
+                definitions.domainLimits[existingIndex].enabled = data.enabled;
+            }
+            await definitions.save();
         } else {
-            // Add new limit
-            await ActivityDefinitions.findOneAndUpdate(
-                { userId: userObjId },
-                { $push: { domainLimits: { domain, dailyLimitMinutes, action, enabled } } },
+            definitions = await ActivityDefinitions.findOneAndUpdate(
+                { userId: new Types.ObjectId(userId) },
+                { $push: { domainLimits: { domain: data.domain, dailyLimitMinutes: data.dailyLimitMinutes, action: data.action, enabled: data.enabled ?? true } } },
                 { upsert: true, new: true }
-            );
+            ) as IActivityDefinitions;
         }
 
-        return this.getDefinitions(userId);
+        return definitions;
     }
 
     /**
      * Remove a domain limit
      */
-    async removeDomainLimit(userId: string, domain: string) {
+    async removeDomainLimit(userId: string, domain: string): Promise<IActivityDefinitions> {
         await ActivityDefinitions.updateOne(
             { userId: new Types.ObjectId(userId) },
             { $pull: { domainLimits: { domain } } }
@@ -183,16 +202,7 @@ export class WebActivityService implements IWebActivityService {
      * Check limits against current usage for a specific date.
      * Returns which domains have exceeded or are approaching their limits.
      */
-    async checkLimits(userId: string, date?: string): Promise<{
-        limits: Array<{
-            domain: string;
-            dailyLimitMinutes: number;
-            usedMinutes: number;
-            action: 'nudge' | 'block';
-            exceeded: boolean;
-            percentUsed: number;
-        }>;
-    }> {
+    async checkLimits(userId: string, date?: string): Promise<ActivityLimitCheckResult> {
         const d = date || (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; })();
         const definitions = await this.getDefinitions(userId);
         const activity = await this.getStatsByDate(userId, d);
@@ -248,12 +258,7 @@ export class WebActivityService implements IWebActivityService {
     /**
      * Get weekly summary (7 days ending on provided date)
      */
-    async getWeeklySummary(userId: string, endDate: string): Promise<{
-        activities: IWebActivity[];
-        totalTime: number;
-        avgProductivePercent: number;
-        topDomains: Array<{ domain: string; seconds: number }>;
-    }> {
+    async getWeeklySummary(userId: string, endDate: string): Promise<ActivitySummaryResult> {
         try {
             // Calculate start date (7 days before end date)
             const end = new Date(endDate);
@@ -312,14 +317,7 @@ export class WebActivityService implements IWebActivityService {
     /**
      * Get monthly summary
      */
-    async getMonthlySummary(userId: string, year: number, month: number): Promise<{
-        activities: IWebActivity[];
-        totalTime: number;
-        avgProductivePercent: number;
-        mostProductiveDay: string | null;
-        leastProductiveDay: string | null;
-        topDomains: Array<{ domain: string; seconds: number }>;
-    }> {
+    async getMonthlySummary(userId: string, year: number, month: number): Promise<MonthlyActivitySummaryResult> {
         try {
             // Get first and last day of month
             // Note: Month is 1-indexed in argument but Date ctor expects 0-indexed month
@@ -352,27 +350,30 @@ export class WebActivityService implements IWebActivityService {
                 totalProductive += activity.productiveSeconds;
 
                 // Track most/least productive days
-                if (!mostProductiveDay || activity.productiveSeconds > mostProductiveDay.seconds) {
+                if (activity.productiveSeconds > (mostProductiveDay?.seconds || 0)) {
                     mostProductiveDay = { date: activity.date, seconds: activity.productiveSeconds };
                 }
-                if (!leastProductiveDay || (activity.productiveSeconds < leastProductiveDay.seconds && activity.totalSeconds > 0)) {
+                if (!leastProductiveDay || activity.productiveSeconds < leastProductiveDay.seconds) {
                     leastProductiveDay = { date: activity.date, seconds: activity.productiveSeconds };
                 }
 
                 // Merge domain maps
                 if (activity.domainMap) {
-                    const entries = activity.domainMap instanceof Map ? activity.domainMap.entries() : Object.entries(activity.domainMap);
+                    // Handle Mongoose Map
+                    const entries = activity.domainMap instanceof Map
+                        ? Array.from(activity.domainMap.entries())
+                        : Object.entries(activity.domainMap);
+
                     for (const [domain, seconds] of entries) {
-                        const safeDomain = domain.replace(/__dot__/g, '.');
-                        domainAggregates[safeDomain] = (domainAggregates[safeDomain] || 0) + (seconds as number);
+                        const originalDomain = domain.replace(new RegExp(WebActivityService.DOT_REPLACEMENT, 'g'), '.');
+                        domainAggregates[originalDomain] = (domainAggregates[originalDomain] || 0) + (seconds as number);
                     }
                 }
             });
 
-            const avgProductivePercent = totalTime > 0
-                ? Math.round((totalProductive / totalTime) * 100)
-                : 0;
+            const avgProductivePercent = totalTime > 0 ? (totalProductive / totalTime) * 100 : 0;
 
+            // Sort top domains
             const topDomains = Object.entries(domainAggregates)
                 .map(([domain, seconds]) => ({ domain, seconds }))
                 .sort((a, b) => b.seconds - a.seconds)
@@ -393,9 +394,67 @@ export class WebActivityService implements IWebActivityService {
     }
 
     /**
+     * Map-Reduce / Clustering jobs mapping chronological sessions into behavioral insights (Phase 4)
+     * e.g., mapping productive vs distracting behavior across days of the week and hours of the day
+     */
+    async getBehavioralClusters(userId: string, fromDate: string, toDate: string): Promise<BehavioralCluster[]> {
+        try {
+            const pipeline = [
+                {
+                    $match: {
+                        userId: new Types.ObjectId(userId),
+                        date: { $gte: fromDate, $lte: toDate }
+                    }
+                },
+                {
+                    $project: {
+                        dayOfWeek: { $dayOfWeek: "$startTime" },
+                        hourOfDay: { $hour: "$startTime" },
+                        category: "$primaryCategory",
+                        totalActiveTime: "$metrics.totalActiveTime",
+                        flowDuration: "$metrics.flowDuration",
+                        contextSwitches: "$metrics.contextSwitchCount"
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            dayOfWeek: "$dayOfWeek",
+                            hourOfDay: "$hourOfDay",
+                            category: "$category"
+                        },
+                        sessionCount: { $sum: 1 },
+                        totalTime: { $sum: "$totalActiveTime" },
+                        avgFlowState: { $avg: "$flowDuration" },
+                        totalContextSwitches: { $sum: "$contextSwitches" }
+                    }
+                },
+                {
+                    $sort: { "_id.dayOfWeek": 1, "_id.hourOfDay": 1 }
+                }
+            ];
+
+            const clusters = await PassiveSession.aggregate(pipeline as any);
+
+            return clusters.map(c => ({
+                dayOfWeek: c._id.dayOfWeek,
+                hourOfDay: c._id.hourOfDay,
+                category: c._id.category,
+                sessionCount: c.sessionCount,
+                totalTimeMins: Math.round(c.totalTime / 60),
+                avgFlowStateMins: Math.round(c.avgFlowState / 60),
+                totalContextSwitches: c.totalContextSwitches
+            }));
+        } catch (error) {
+            logger.error('Failed to generate behavioral clusters:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Update user-specific activity definitions
      */
-    async updateDefinitions(userId: string, data: { productiveDomains?: string[], distractingDomains?: string[], domainLimits?: Array<{ domain: string; dailyLimitMinutes: number; action: 'nudge' | 'block'; enabled?: boolean }> }) {
+    async updateDefinitions(userId: string, data: WebActivityDefinitionsDTO): Promise<IActivityDefinitions | null> {
         const setFields: Record<string, unknown> = {};
         if (data.productiveDomains) setFields.productiveDomains = data.productiveDomains;
         if (data.distractingDomains) setFields.distractingDomains = data.distractingDomains;

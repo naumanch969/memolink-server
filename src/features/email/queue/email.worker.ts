@@ -4,8 +4,11 @@ import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
 import { queueService } from '../../../core/queue/queue.service';
 import { validateEmailOrThrow } from '../../../shared/email-validator';
-import { EMAIL_QUEUE_NAME } from './email.queue';
+import { EMAIL_QUEUE_NAME, getEmailDLQ } from './email.queue';
 import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData } from './email.types';
+import { USER_ROLES } from '../../../shared/constants';
+import { SocketEvents } from '../../../core/socket/socket.types';
+import { socketService } from '../../../core/socket/socket.service';
 
 const emailProvider = EmailProvider.getInstance();
 
@@ -85,7 +88,6 @@ export const initEmailWorker = () => {
             logger.error(`Job ${job.id} permanently failed after ${job.attemptsMade} attempts. Moving to DLQ.`);
 
             try {
-                const { getEmailDLQ } = await import('./email.queue');
                 const dlq = getEmailDLQ();
 
                 await dlq.add('failed-email', {
@@ -201,10 +203,6 @@ async function updateAnnouncementStats(jobName: string | undefined, status: 'sen
         if (!announcement) return;
 
         // 4. Emit socket events
-        const { socketService } = await import('../../../core/socket/socket.service');
-        const { SocketEvents } = await import('../../../core/socket/socket.types');
-        const { USER_ROLES } = await import('../../../shared/constants');
-
         socketService.emitToRole(USER_ROLES.ADMIN, SocketEvents.ANNOUNCEMENT_DISPATCH_PROGRESS, {
             announcementId: announcement._id,
             stats: announcement.stats

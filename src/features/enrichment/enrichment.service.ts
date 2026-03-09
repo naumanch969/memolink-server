@@ -9,6 +9,7 @@ import entityService from '../entity/entity.service';
 import { Entry } from '../entry/entry.model';
 import entryService from '../entry/entry.service';
 import { NodeType } from '../graph/edge.model';
+import { PassiveSession } from '../web-activity/passive-session.model';
 import { WebActivity } from '../web-activity/web-activity.model';
 import { calculateSessionSignificance, HEALING_BATCH_SIZE, HEALING_STALENESS_THRESHOLD_MS, MAX_HEALING_ATTEMPTS, SIGNIFICANCE_GATE_SCORE } from './enrichment.constants';
 import { IEnrichmentService } from './enrichment.interfaces';
@@ -243,22 +244,27 @@ export class EnrichmentService implements IEnrichmentService {
     async processPassiveEnrichment(userId: string, sessionId: string): Promise<void> {
         try {
             const alreadyDone = await EnrichedEntry.exists({ userId, sessionId, sourceType: 'passive' });
-            if (alreadyDone) throw new Error('Passive enrichment already completed for this session');
+            if (alreadyDone) {
+                logger.info(`Enrichment already completed for passive session ${sessionId}, skipping.`);
+                return;
+            }
 
-            const stats = await WebActivity.findOne({ userId, date: sessionId });
-            if (!stats) throw new Error(`Stats for ${sessionId} not found`);
+            const session = await PassiveSession.findById(sessionId);
+            if (!session) throw new Error(`Passive session ${sessionId} not found`);
 
-            const domainEntries = stats.domainMap instanceof Map ? stats.domainMap.entries() : Object.entries(stats.domainMap || {});
-            const domainSummary = Array.from(domainEntries)
-                .map(([domain, seconds]) => {
-                    const cleanDomain = domain.replace(/__dot__/g, '.');
-                    return `${cleanDomain}: ${Math.round(Number(seconds) / 60)}m`;
-                })
-                .join(', ');
+            const durationMins = Math.round(session.metrics.totalActiveTime / 60);
 
-            const behavioralLog = `Duration: ${Math.round(stats.totalSeconds / 60)}m. Activity: ${domainSummary}`;
+            // Reconstruct timeline representation from chronological logs
+            const timeline = session.rawLogs
+                .map((log: any) => `${log.domain} (${Math.round(log.duration / 60)}m)`)
+                .join(' -> ');
+
+            const behavioralLog = `Duration: ${durationMins}m. Category: ${session.primaryCategory}. Flow State Max: ${Math.round(session.metrics.flowDuration / 60)}m. Timeline: ${timeline}`;
+
             const result = await passiveInterpreter.process(behavioralLog);
-            const { score, minActive } = calculateSessionSignificance(stats.totalSeconds);
+
+            // Re-apply tier significance to the analytic metadata
+            const score = session.signalTier === 'deep_signal' ? 85 : session.signalTier === 'signal' ? 65 : 40;
 
             const embedding = await LLMService.generateEmbeddings(behavioralLog);
 
@@ -279,11 +285,11 @@ export class EnrichmentService implements IEnrichmentService {
                             modelVersion: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL
                         },
                         analytics: {
-                            totalDuration: minActive,
+                            totalDuration: session.metrics.totalActiveTime,
                             significanceScore: score
                         },
                         embedding,
-                        timestamp: new Date(stats.date)
+                        timestamp: new Date(session.startTime)
                     }
                 },
                 { upsert: true }

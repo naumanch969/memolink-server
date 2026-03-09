@@ -16,7 +16,9 @@ const processJob = async (job: Job<EnrichmentJobData>) => {
         if (sourceType === 'active' && referenceId) {
             await enrichmentService.processActiveEnrichment(userId, referenceId, sessionId, signalTier);
         } else if (sourceType === 'passive') {
-            await enrichmentService.processPassiveEnrichment(userId, sessionId);
+            if (job.name === 'process-passive-enrichment') {
+                await enrichmentService.processPassiveEnrichment(userId, sessionId);
+            }
         } else {
             logger.warn(`Unknown source type or missing referenceId: ${sourceType}`);
         }

@@ -90,8 +90,6 @@ export class ReportService implements IReportService {
 
     // Manually triggers a report generation task
     async generateOnDemand(userId: string, type: ReportType): Promise<{ taskId: string }> {
-        const { AgentTask } = await import('../agent/agent.model');
-        const { AgentTaskStatus, AgentTaskType } = await import('../agent/agent.types');
 
         const taskType = type === ReportType.WEEKLY
             ? AgentTaskType.WEEKLY_ANALYSIS

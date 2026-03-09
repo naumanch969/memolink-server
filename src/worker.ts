@@ -10,6 +10,8 @@ import { getEmailQueue } from './features/email/queue/email.queue';
 import { initEmailWorker } from './features/email/queue/email.worker';
 import { getEnrichmentQueue } from './features/enrichment/enrichment.queue';
 import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
+import notificationWorker from './features/notification/notification.worker';
+import { graphWorker } from './workers/graph.worker';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -40,9 +42,6 @@ async function startWorker() {
         initAgentWorker();
         initEmailWorker();
         initEnrichmentWorker();
-
-        const { graphWorker } = await import('./workers/graph.worker');
-        const { notificationWorker } = await import('./features/notification/notification.worker');
 
         graphWorker.start();
         notificationWorker.start();
@@ -78,7 +77,6 @@ async function startWorker() {
         const shutdown = async (signal: string) => {
             logger.info(`${signal} received. Shutting down worker...`);
             try {
-                const { notificationWorker } = await import('./features/notification/notification.worker');
                 await notificationWorker.stop();
 
                 await queueService.close();

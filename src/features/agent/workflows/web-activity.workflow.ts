@@ -1,6 +1,8 @@
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entryService } from '../../entry/entry.service';
+import { tagService } from '../../tag/tag.service';
+import { PassiveSession } from '../../web-activity/passive-session.model';
 import { WebActivity } from '../../web-activity/web-activity.model';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
@@ -26,7 +28,10 @@ export class WebActivityWorkflow implements IAgentWorkflow {
                 return { status: 'completed', result: { skipped: true, reason: 'no_activity' } };
             }
 
-            // 2. Format data for LLM
+            // 2. Fetch PassiveSessions for deeper cognitive insights
+            const sessions = await PassiveSession.find({ userId, date }).sort({ startTime: 1 }).lean();
+
+            // 3. Format data for LLM
             // Convert map to array and sort by time
             const topDomains = Object.entries(activity.domainMap || {})
                 .map(([domain, seconds]) => ({ domain: domain.replace(/__dot__/g, '.'), seconds }))
@@ -45,7 +50,12 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             const totalDistraction = formatSeconds(activity.distractingSeconds);
             const totalTime = formatSeconds(activity.totalSeconds);
 
-            // 3. Generate Narrative
+            const contextSwitches = sessions.reduce((acc: number, s: any) => acc + (s.metrics?.contextSwitchCount || 0), 0);
+            const maxFlow = formatSeconds(
+                sessions.reduce((acc: number, s: any) => Math.max(acc, s.metrics?.flowDuration || 0), 0)
+            );
+
+            // 4. Generate Narrative
             const prompt = `
             You are the "Personal Growth Librarian" for MemoLink.
             The user has spent time on the web today (${date}). 
@@ -55,6 +65,8 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             - Total Time Tracked: ${totalTime}
             - Deep Work / Productive: ${totalFocus}
             - Distraction / Entertainment: ${totalDistraction}
+            - Context Switches: ${contextSwitches}
+            - Longest Flow State: ${maxFlow}
             
             TOP DOMAINS:
             ${domainList}
@@ -72,18 +84,31 @@ export class WebActivityWorkflow implements IAgentWorkflow {
                 userId,
             });
 
-            // 4. Create Journal Entry
-            const entryContent = `### 🌐 Web Activity Summary: ${date}\n\n${summary}\n\n**Quick Stats:**\n- ⚡ **Deep Work:** ${totalFocus}\n- 🍿 **Distractions:** ${totalDistraction}\n- 🕒 **Total Session:** ${totalTime}`;
+            // 4. Resolve Tags first
+            const tag1 = await tagService.findOrCreateTag(userId, 'web-activity');
+            const tag2 = await tagService.findOrCreateTag(userId, 'automatic-summary');
 
+            // 5. Create Journal Entry
             await entryService.createEntry(userId, {
-                content: entryContent,
+                content: summary,
                 type: 'text',
                 date: new Date(date),
-                tags: ['web-activity', 'automatic-summary'],
+                tags: [tag1._id.toString(), tag2._id.toString()],
                 isPrivate: true,
+                metadata: {
+                    isPassiveSummary: true,
+                    stats: {
+                        totalTime,
+                        totalFocus,
+                        totalDistraction,
+                        contextSwitches,
+                        maxFlow
+                    },
+                    topDomains
+                }
             });
 
-            // 5. Mark as processed
+            // 6. Mark as processed
             activity.summaryCreated = true;
             await activity.save();
 

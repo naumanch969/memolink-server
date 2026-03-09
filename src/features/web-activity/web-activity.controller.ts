@@ -46,6 +46,21 @@ export class WebActivityController {
     }
 
     /**
+     * GET /api/activity/sessions/:date
+     */
+    static async getSessions(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const date = req.params.date || new Date().toISOString().split('T')[0];
+            const sessions = await webActivityService.getSessionsByDate(userId, date);
+
+            ResponseHelper.success(res, sessions, 'Sessions retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
+
+    /**
      * GET /api/activity/summary/:date
      */
     static async getSummary(req: AuthenticatedRequest, res: Response) {
@@ -82,6 +97,26 @@ export class WebActivityController {
 
             const activities = await webActivityService.getActivityRange(userId, from, to);
             ResponseHelper.success(res, activities, 'Activity range retrieved successfully');
+        } catch (error) {
+            ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
+
+    /**
+     * GET /api/activity/clusters?from=YYYY-MM-DD&to=YYYY-MM-DD
+     */
+    static async getClusters(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { from, to } = req.query;
+
+            if (!from || !to || typeof from !== 'string' || typeof to !== 'string') {
+                ResponseHelper.badRequest(res, 'from and to dates are required (YYYY-MM-DD)');
+                return;
+            }
+
+            const clusters = await webActivityService.getBehavioralClusters(userId, from, to);
+            ResponseHelper.success(res, clusters, 'Behavioral clusters retrieved successfully');
         } catch (error) {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
         }

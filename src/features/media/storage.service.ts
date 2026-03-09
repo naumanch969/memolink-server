@@ -60,6 +60,7 @@ export interface CleanupSuggestion {
 }
 
 import { IStorageService } from './media.interfaces';
+import Entry from '../entry/entry.model';
 
 export class StorageService implements IStorageService {
   // In-memory reservation tracking (consider Redis for distributed systems)
@@ -359,8 +360,6 @@ export class StorageService implements IStorageService {
    * Find orphaned media (not linked to any entry or folder)
    */
   async findOrphanedMedia(userId: string): Promise<OrphanMedia[]> {
-    // Import Entry model dynamically to avoid circular deps
-    const { Entry } = await import('../entry/entry.model');
 
     // Get all media IDs that are referenced in entries
     const entriesWithMedia = await Entry.find({ userId, media: { $exists: true, $ne: [] } }).select('media');
