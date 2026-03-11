@@ -1,8 +1,8 @@
 import { Types } from 'mongoose';
 import { passiveAnalysisService } from './passive-analysis.service';
+import { WebActivitySyncLog } from './web-activity-sync-log.model';
 import { WebActivity } from './web-activity.model';
 import { webActivityService } from './web-activity.service';
-import { WebActivitySyncLog } from './web-activity-sync-log.model';
 
 jest.mock('./web-activity.model');
 jest.mock('./passive-analysis.service', () => ({
@@ -83,7 +83,7 @@ describe('WebActivityService', () => {
         };
 
         // Mock that the idempotency lookup finds an existing log
-        WebActivitySyncLog.findOne.mockResolvedValueOnce({ _id: 'duplicate-id' });
+        (WebActivitySyncLog.findOne as jest.Mock).mockResolvedValueOnce({ _id: 'duplicate-id' });
 
         await webActivityService.syncActivity(userId, batch);
 

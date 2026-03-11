@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Socket, Server as SocketServer } from 'socket.io';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
+import { agentService } from '../../features/agent/services/agent.service';
 import { cryptoService } from '../crypto/crypto.service';
 import { socketService } from './socket.service';
 import { SocketEvents } from './socket.types';
@@ -108,6 +109,29 @@ export class SocketManager {
             socket.on('leave', (room: string) => {
                 socket.leave(room);
                 logger.debug(`Socket ${socket.id} left room: ${room}`);
+            });
+
+            // Partner AI Chat
+            socket.on('partner:message', async (data: { message: string }) => {
+                try {
+                    const { message } = data;
+                    if (!message) return;
+
+                    // Notify start
+                    socket.emit(SocketEvents.PARTNER_RESPONSE_START);
+
+                    // Call agent service
+                    await agentService.chatStream(userIdStr, message, (chunk) => {
+                        socket.emit(SocketEvents.PARTNER_RESPONSE_CHUNK, { chunk });
+                    });
+
+                    // Notify end
+                    socket.emit(SocketEvents.PARTNER_RESPONSE_END);
+
+                } catch (error) {
+                    logger.error('Socket partner:message failed', error);
+                    socket.emit('error', { message: 'Failed to process AI response' });
+                }
             });
         });
     }

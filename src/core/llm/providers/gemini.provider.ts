@@ -200,6 +200,37 @@ export class GeminiProvider implements ILLMProvider {
         }
     }
 
+    async generateStream(prompt: string, options?: LLMGenerativeOptions): Promise<AsyncIterable<string>> {
+        try {
+            const modelToUse = options?.systemInstruction
+                ? this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, systemInstruction: options.systemInstruction })
+                : this.model;
+
+            const generationConfig = {
+                temperature: options?.temperature ?? 0.7,
+                maxOutputTokens: options?.maxOutputTokens,
+            };
+
+            const result = await modelToUse.generateContentStream({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig,
+            });
+
+            // Return an async iterable that yields text chunks
+            return (async function* () {
+                for await (const chunk of result.stream) {
+                    const chunkText = chunk.text();
+                    if (chunkText) {
+                        yield chunkText;
+                    }
+                }
+            })();
+        } catch (error) {
+            logger.error('Gemini generateStream error:', error);
+            throw error;
+        }
+    }
+
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         try {
             const startTime = Date.now();

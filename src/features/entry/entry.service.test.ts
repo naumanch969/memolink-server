@@ -18,6 +18,17 @@ jest.mock('./entry.model', () => {
     };
 });
 
+jest.mock('../enrichment/enrichment.model', () => {
+    return {
+        EnrichedEntry: {
+            find: jest.fn().mockImplementation(() => ({
+                select: jest.fn().mockReturnThis(),
+                lean: jest.fn().mockResolvedValue([]),
+            })),
+        },
+    };
+});
+
 // Mock dependencies
 jest.mock('../entity/entity.service', () => ({
     entityService: {
@@ -60,23 +71,14 @@ describe('EntryService', () => {
             const saveMock = jest.fn().mockResolvedValue(true);
             const populateMock = jest.fn().mockResolvedValue(true);
 
-            // We need to mock the constructor of Entry model 
-            // But since we mocked the whole module, we need to handle the class interaction
-            // This is complex with Jest automocking classes, so we often spy on prototype or just
-            // focus on the static methods if possible.
-            // Ideally, integration tests with mongodb-memory-server are better.
-            // But for quick unit checks:
-
-            // Let's create a partial mock for the Entry instance. 
-            // This part is tricky without a real DB or sophisticated DI.
-            // For now, let's skip the deep save test and test a read method which is easier to mock.
         });
     });
 
     describe('getUserEntries', () => {
         it('should fetch entries for a user', async () => {
             const userId = '507f1f77bcf86cd799439011';
-            const mockEntries = [{ _id: 'entry1', content: 'hello' }];
+            const entryId = '507f1f77bcf86cd799439012';
+            const mockEntries = [{ _id: entryId, content: 'hello' }];
 
             const chainMock = {
                 populate: jest.fn().mockReturnThis(),
@@ -87,14 +89,13 @@ describe('EntryService', () => {
             };
 
             (Entry.find as jest.Mock).mockReturnValue(chainMock);
-
             (Entry.countDocuments as jest.Mock).mockResolvedValue(1);
 
             const result = await entryService.getEntries(userId, { limit: 10 });
 
             expect(result.entries).toEqual(mockEntries);
             expect(result.hasMore).toBe(false);
-            expect(result.nextCursor).toBe('entry1');
+            expect(result.nextCursor).toBe(entryId);
             expect(Entry.find).toHaveBeenCalledWith(expect.objectContaining({ userId: expect.anything() }));
         });
     });

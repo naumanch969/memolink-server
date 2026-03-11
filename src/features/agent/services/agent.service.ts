@@ -170,6 +170,21 @@ export class AgentService implements IAgentService {
         });
     }
 
+    async chatStream(userId: string, message: string, onChunk: (chunk: string) => void): Promise<string> {
+        await agentMemoryService.addMessage(userId, 'user', message);
+
+        const finalResponse = await chatOrchestrator.chatStream(userId, message, onChunk);
+
+        // Save full message to history after stream finishes
+        await agentMemoryService.addMessage(userId, 'agent', finalResponse);
+
+        // Background housekeeping
+        this.triggerSynthesis(userId).catch(e => logger.error("Persona Synthesis trigger failed", e));
+        this.checkMemoryFlush(userId).catch(e => logger.error("Memory Flush check failed", e));
+
+        return finalResponse;
+    }
+
     async goalArchitect(userId: string, message: string, history: Array<{ role: string, content: string }>): Promise<string> {
         const historyText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
         const prompt = `You are a Goal Architect AI. Help the user operationalize ambitions into Goals.\nHistory: ${historyText}\nUSER: ${message}`;

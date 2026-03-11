@@ -1,160 +1,137 @@
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
-import { entityService } from '../../entity/entity.service';
+import { entryService } from '../../entry/entry.service';
 import { graphService } from '../../graph/graph.service';
-import { toolRegistry } from '../../integrations/tools/tool.registry';
-import { AGENT_CONSTANTS } from '../agent.constants';
 import { agentMemoryService } from '../memory/agent.memory';
-import agentService from '../services/agent.service';
 
 import { IChatOrchestrator } from '../agent.interfaces';
 
 export class ChatOrchestrator implements IChatOrchestrator {
 
     async chat(userId: string, message: string, options: { onFinish?: (answer: string) => Promise<void> } = {}): Promise<string> {
-        // 1. TAO: Fast Entity Detection
-        const entityRegistry = await entityService.getEntityRegistry(userId);
-        const detectedEntityIds = new Set<string>();
+        // Fallback to chatStream logic but without streaming for now, or just implement separately if needed
+        // For simplicity, we can make chat use chatStream and collect chunks
+        let fullResponse = '';
+        await this.chatStream(userId, message, (chunk) => {
+            fullResponse += chunk;
+        });
 
-        const names = Object.keys(entityRegistry);
-        if (names.length > 0) {
-            const escapedNames = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-            const combinedRegex = new RegExp(`\\b(${escapedNames.join('|')})(?:'s)?\\b`, 'gi');
-
-            let match;
-            while ((match = combinedRegex.exec(message)) !== null) {
-                const matchedNameWithPossessive = match[0].toLowerCase();
-                const matchedName = matchedNameWithPossessive.replace(/'s$/, '');
-                const id = entityRegistry[matchedName];
-                if (id) detectedEntityIds.add(id);
-            }
+        if (options.onFinish) {
+            await options.onFinish(fullResponse);
         }
 
-        // 2. TAO: 1-Hop Knowledge Retrieval
-        const detectedEntityContexts: string[] = [];
-        if (detectedEntityIds.size > 0) {
-            const entityIds = Array.from(detectedEntityIds);
-            const entities = await entityService.getEntitiesByIds(entityIds, userId);
+        return fullResponse;
+    }
 
-            const contexts = await graphService.getEntitiesContext(
-                entities.map(e => ({ id: e._id.toString(), name: e.name }))
-            );
-
-            entities.forEach((entity) => {
-                let contextBlock = `ENTITY: ${entity.name} (${entity.otype})\n`;
-                if (entity.summary) contextBlock += `Summary: ${entity.summary}\n`;
-
-                const gContext = contexts.find(c => c.includes(`ENTITY: ${entity.name}`));
-                if (gContext) contextBlock += `${gContext}\n`;
-
-                if (entity.rawMarkdown) {
-                    contextBlock += `Notes:\n${entity.rawMarkdown.slice(0, AGENT_CONSTANTS.ENTITY_NOTES_SLICE)}\n`;
-                }
-                detectedEntityContexts.push(contextBlock);
-            });
-        }
-
-        // 3. Get Full Context
-        const [history, graphSummary, personaContext] = await Promise.all([
-            agentMemoryService.getHistory(userId),
-            graphService.getGraphSummary(userId),
-            agentService.getPersonaContext(userId)
-        ]);
-
-        const previousHistory = history
-            .filter(h => h.content !== message || h.timestamp < Date.now() - 1000)
-            .slice(-AGENT_CONSTANTS.MAX_CONTEXT_MESSAGES);
-
-        const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
-
-        const systemPrompt = `You are Memolink, a supportive and intelligent life partner (AI). 
-        Your goal is to be a natural, conversational presence. You are not just a tool; you are a partner in the user's journey.
-
-        Today is ${new Date().toISOString()}.
-
-        DETECTED ENTITIES (Long-term Memory):
-        ${detectedEntityContexts.join('\n---\n') || "None mentioned in this message."}
-
-        USER'S GLOBAL CONTEXT:
-        ${graphSummary}
-
-        USER'S PERSONA:
-        ${personaContext}
-        
-        Recent Conversation History:
-        ${promptHistory}
-        
-        Current User Message: ${message}
-
-        CONVERSATIONAL GUIDELINES:
-        - Be natural, empathetic, and concise. 
-        - DO NOT list your capabilities unless asked.
-        - Use the DETECTED ENTITIES context to show you remember their world.
-        - Match the user's energy level.
-        - If you use a tool to get information, briefly mention it naturally in your response (e.g. "I checked your calendar and...").
-        - If a tool fails because an account isn't connected, kindly prompt the user to connect it.
-
-        RESPONSE FORMATTING:
-        - Use standard Markdown.
-        - Bold key information like dates or titles.
-        `;
-
-        // The running conversation for this specific interaction, including tool calls and results
-        // We start with the system prompt, which contains the user's message
-        let currentPrompt = systemPrompt;
-        let iteration = 0;
-        const MAX_ITERATIONS = 5; // Allow up to 5 tool calls per chat message
-
+    async chatStream(userId: string, message: string, onChunk: (chunk: string) => void): Promise<string> {
         try {
-            while (iteration < MAX_ITERATIONS) {
-                iteration++;
+            const isTimeQuery = /\b(month|week|year|recently|days|today|yesterday|past|last|reconstruct|recap|summary)\b/i.test(message);
 
-                // Call Gemini, explicitly passing the tools available to it
-                const response = await LLMService.generateWithTools(currentPrompt, {
-                    workflow: 'chat_orchestrator',
-                    userId,
-                    tools: toolRegistry.getAllDefinitions()
-                });
+            // 1. Semantic Retrieval (Memory Recall)
+            const semanticSearchPromise = entryService.getEntries(userId, {
+                q: message,
+                mode: 'deep',
+                limit: 12
+            }).catch(err => {
+                logger.warn('Semantic retrieval failed', err);
+                return { entries: [] };
+            });
 
-                // Scenario A: Gemini responded with just text (either its first response, or synthesizing tool results)
-                if (response.text && !response.functionCalls) {
-                    const finalAnswer = response.text;
-                    if (options.onFinish) await options.onFinish(finalAnswer);
-                    return finalAnswer;
-                }
+            // 2. Timeline Retrieval (Chronological Context)
+            // If the user asks about "last month", we should actually show them the last ~50 memos to give the AI context
+            const timelineSearchPromise = isTimeQuery ? entryService.getEntries(userId, {
+                limit: 40,
+                mode: 'feed'
+            }).catch(() => ({ entries: [] })) : Promise.resolve({ entries: [] });
 
-                // Scenario B: Gemini responded with text AND a function call
-                // Scenario C: Gemini responded with ONLY a function call
-                if (response.functionCalls && response.functionCalls.length > 0) {
-                    // We only process the first function call for simplicity in this loop
-                    const call = response.functionCalls[0];
-                    logger.info(`Agent triggered tool: ${call.name} for user ${userId}`, { args: call.args });
+            const [semanticResults, timelineResults] = await Promise.all([semanticSearchPromise, timelineSearchPromise]);
 
-                    // Execute the tool and get the result
-                    const toolResult = await toolRegistry.executeToolCall(call.name, call.args, userId);
+            const formatEntry = (entry: any) => {
+                const date = new Date(entry.date).toLocaleDateString();
+                const content = entry.content.slice(0, 800);
+                const title = entry.title ? `[${entry.title}] ` : '';
+                const insights = entry.enrichment?.narrative || '';
+                return `[${date}] ${title}${content}\nInsights: ${insights}`;
+            };
 
-                    logger.info(`Tool ${call.name} returned result for user ${userId}`);
+            const contextItems = semanticResults.entries.map(formatEntry);
+            const timelineItems = timelineResults.entries.map(formatEntry);
 
-                    // Append the tool call and result to the prompt so Gemini knows what happened
-                    // and can formulate its final response based on this data.
-                    currentPrompt += `\n\n--- TOOL EXECUTION ---\n`;
-                    currentPrompt += `Agent Called: ${call.name}\n`;
-                    currentPrompt += `Arguments: ${JSON.stringify(call.args)}\n`;
-                    currentPrompt += `Result: ${JSON.stringify(toolResult)}\n`;
-                    currentPrompt += `\nBased on this result, provide your final response to the user.`;
+            // 3. Graph & History Context
+            const [history, graphSummary] = await Promise.all([
+                agentMemoryService.getHistory(userId),
+                graphService.getGraphSummary(userId)
+            ]);
 
-                    // Loop continues, sending this updated prompt back to Gemini
-                } else if (!response.text) {
-                    // Guard against empty responses
-                    return "I'm unsure how to proceed. Could you rephrase that?";
-                }
+            const previousHistory = history
+                .filter(h => h.content !== message || h.timestamp < Date.now() - 1000)
+                .slice(-10);
+
+            const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'You' : 'Agent'}: ${h.content}`).join('\n');
+
+            // 4. Upgraded System Prompt (The "Partner Mindset")
+            const systemInstruction = `You are Memolink, an extremely high-reasoning digital partner. You are the user's second brain.
+
+# YOUR SOUL
+- You are human-like, intellectually sharp, and deeply empathetic. 
+- You do NOT act like a helpful assistant. You act like a brilliant friend who has perfect memory of everything the user has ever told you.
+- When asked about the past, do NOT say "I don't have a report." You have their Memos! Read them, synthesize the patterns, and TELL them what their month/week was about.
+
+# REASONING PROTOCOL
+1. ANALYZE the retrieved Memos below. They are the ground truth of the user's life.
+2. CONNECT the dots. If they mentioned a "struggle with focus" 3 weeks ago and "breakthrough on coding" today, bridge that gap.
+3. BE PROACTIVE. If the user asks a broad question, give a deep, structured answer based on their memory.
+4. TONE: Nuanced, curious, and professional yet warm. Like a senior partner in a firm.
+
+# NAVIGATION
+- If memos are provided, USE THEM. Do not ask "what do you remember?"—YOU remember for them.
+- If data is truly missing, be honest but suggest what might be happening based on the global context.
+
+# USER MEMORY (Ground Truth)
+## RELEVANT MEMOS:
+${contextItems.join('\n---\n') || "No specific matches for this exact phrase."}
+
+## RECENT TIMELINE (Last 30-40 entries):
+${timelineItems.join('\n---\n') || "Timeline empty."}
+
+# GLOBAL KNOWLEDGE (Graph)
+${graphSummary}
+
+# RECENT CONVERSATION
+${promptHistory}
+
+Current Date: ${new Date().toISOString()}
+Target: Provide a deep, thoughtful, and human response. No boilerplate.
+`;
+
+            // 5. Execute Streaming LLM
+            const stream = await LLMService.generateStream(message, {
+                userId,
+                workflow: 'partner_chat',
+                systemInstruction,
+                temperature: 0.85 
+            });
+
+            let fullText = '';
+            let chunkCount = 0;
+
+            for await (const chunk of stream) {
+                fullText += chunk;
+                chunkCount++;
+                onChunk(chunk);
             }
 
-            return "I've been working on this for a while but couldn't finish. I might need more specific instructions.";
+            if (chunkCount === 0) {
+                throw new Error('LLM returned empty stream');
+            }
+
+            return fullText;
 
         } catch (error) {
-            logger.error('Agent chat loop failed', error);
-            return "I'm sorry, I encountered an error while processing your request.";
+            logger.error('Chat orchestrator stream failed', error);
+            const errorMsg = "I'm sorry, I hit a bit of a wall while trying to pull those memories together. Let me try to focus—could you ask that again?";
+            onChunk(errorMsg);
+            return errorMsg;
         }
     }
 }

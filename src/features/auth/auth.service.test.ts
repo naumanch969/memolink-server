@@ -10,6 +10,9 @@ jest.mock('./otp.model');
 jest.mock('./vault.service');
 jest.mock('../../config/email.service');
 jest.mock('../../core/crypto/crypto.service');
+jest.mock('../../core/encryption/encryption.service');
+jest.mock('../../core/encryption/encryption-session.service');
+jest.mock('../../core/cache/cache.service');
 jest.mock('../../config/logger');
 
 describe('AuthService', () => {

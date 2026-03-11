@@ -11,6 +11,7 @@ export interface IAgentService {
     findSimilarEntries(userId: string, text: string, limit?: number): Promise<any[]>;
     cleanText(userId: string, text: string): Promise<string>;
     chat(userId: string, message: string): Promise<string>;
+    chatStream(userId: string, message: string, onChunk: (chunk: string) => void): Promise<string>;
     goalArchitect(userId: string, message: string, history: Array<{ role: string, content: string }>): Promise<string>;
     clearHistory(userId: string): Promise<void>;
     getChatHistory(userId: string): Promise<any>;
@@ -46,6 +47,7 @@ export interface IAgentAccountabilityService {
 
 export interface IChatOrchestrator {
     chat(userId: string, message: string, options?: { onFinish?: (answer: string) => Promise<void> }): Promise<string>;
+    chatStream(userId: string, message: string, onChunk: (chunk: string) => void): Promise<string>;
 }
 
 export interface IAgentWorkflowRegistry {

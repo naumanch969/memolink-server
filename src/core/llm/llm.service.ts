@@ -36,6 +36,16 @@ class LLMServiceClass implements ILLMService {
         return this.provider.generateWithTools(prompt, options);
     }
 
+    /**
+     * Generate content as a stream of text chunks
+     */
+    async generateStream(prompt: string, options?: LLMGenerativeOptions): Promise<AsyncIterable<string>> {
+        if (!this.provider.generateStream) {
+            throw new Error(`Current provider ${this.provider.name} does not support streaming`);
+        }
+        return this.provider.generateStream(prompt, options);
+    }
+
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         try {
             if (!this.provider.generateEmbeddings) {

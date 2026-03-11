@@ -31,8 +31,13 @@ export enum SocketEvents {
     // Reports
     REPORT_UPDATED = 'report:updated',
 
-    // Entries
+    // Entries Events
     ENTRY_UPDATED = 'entry:updated',
+
+    // Partner Events
+    PARTNER_RESPONSE_START = 'partner:response_start',
+    PARTNER_RESPONSE_CHUNK = 'partner:response_chunk',
+    PARTNER_RESPONSE_END = 'partner:response_end',
 
     // System
     SYSTEM_HEALTH_UPDATE = 'system:health_update'

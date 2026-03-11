@@ -29,8 +29,8 @@ describe('EncryptionService', () => {
 
         it('should throw error on invalid kek for unwrap', async () => {
             const mdk = encryptionService.generateMDK();
-            const kek1 = await encryptionService.deriveKEK('pass1', 'salt1'.repeat(10));
-            const kek2 = await encryptionService.deriveKEK('pass2', 'salt1'.repeat(10));
+            const kek1 = await encryptionService.deriveKEK('pass1', '1234567890abcdef'.repeat(4));
+            const kek2 = await encryptionService.deriveKEK('pass2', '1234567890abcdef'.repeat(4));
 
             const wrapped = encryptionService.wrapKey(mdk, kek1);
             expect(() => encryptionService.unwrapKey(wrapped, kek2)).toThrow('KEY_UNWRAP_FAILED');
