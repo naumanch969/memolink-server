@@ -190,8 +190,9 @@ export class AuthController {
       const config: SecurityConfigRequest = req.body;
       await authService.updateSecurityConfig(userId, config);
       ResponseHelper.success(res, null, 'Security settings updated');
-    } catch (error) {
-      ResponseHelper.error(res, 'Failed to update security settings', 500, error);
+    } catch (error: any) {
+      const statusCode = error.statusCode || 500;
+      ResponseHelper.error(res, error.message || 'Failed to update security settings', statusCode, error);
     }
   }
 

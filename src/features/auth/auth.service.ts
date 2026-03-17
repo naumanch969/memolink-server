@@ -388,7 +388,37 @@ export class AuthService implements IAuthService {
       const user = await User.findById(userId).select('+securityConfig.answerHash');
       if (!user) throw ApiError.notFound('User');
 
-      const securityConfig: any = { question, timeoutMinutes, isEnabled, maskEntries };
+      const wasEnabled = user.securityConfig?.isEnabled;
+      const isActivating = isEnabled && !wasEnabled;
+      const isQuestionChanging = question && user.securityConfig?.question && question !== user.securityConfig.question;
+
+      // Logic:
+      // 1. If it WAS enabled, we MUST verify the current answer to allow ANY change (disable, maskEntries, etc.)
+      // 2. If it WAS NOT enabled, but is being ACTIVATED (isEnabled: true), we MUST have an answer to set it.
+      // 3. If it WAS NOT enabled, and is staying DISABLED (isEnabled: false), we can change maskEntries/timeout without answer.
+
+      if (wasEnabled || isActivating) {
+        if (!answer || !answer.trim()) {
+          throw ApiError.badRequest('Security answer is required to update security configuration');
+        }
+
+        if (isActivating && (!question || !question.trim())) {
+          throw ApiError.badRequest('Security question is required when enabling security');
+        }
+
+        if (wasEnabled) {
+          // Verify current identity
+          const isMatch = await cryptoService.comparePassword(answer.trim().toLowerCase(), user.securityConfig!.answerHash!);
+          if (!isMatch) throw ApiError.unauthorized('Invalid security answer');
+        }
+      }
+
+      const securityConfig: any = { 
+        question: question || user.securityConfig?.question, 
+        timeoutMinutes: timeoutMinutes ?? user.securityConfig?.timeoutMinutes ?? 5, 
+        isEnabled: isEnabled ?? wasEnabled ?? false, 
+        maskEntries: maskEntries ?? user.securityConfig?.maskEntries ?? false 
+      };
 
       if (answer && answer.trim()) {
         securityConfig.answerHash = await cryptoService.hashPassword(answer.trim().toLowerCase());
@@ -399,7 +429,7 @@ export class AuthService implements IAuthService {
           const answerSalt = crypto.randomBytes(32).toString('hex');
           const kek = await encryptionService.deriveKEK(answer.toLowerCase().trim(), answerSalt);
           const wrapped = encryptionService.wrapKey(mdk, kek);
-          user.vault.securityQuestion = question;
+          user.vault.securityQuestion = question || user.securityConfig?.question;
           user.vault.securityAnswerSalt = answerSalt;
           user.vault.wrappedMDK_securityAnswer = wrapped;
         }

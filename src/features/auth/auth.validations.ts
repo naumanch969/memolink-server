@@ -142,10 +142,10 @@ export const userIdValidation = [
 ];
 
 export const updateSecurityConfigValidation = [
-  body('question').trim().notEmpty().withMessage('Question is required'),
-  body('answer').trim().notEmpty().withMessage('Answer is required'),
-  body('timeoutMinutes').isInt({ min: 1 }).withMessage('Timeout must be at least 1 minute'),
-  body('isEnabled').isBoolean().withMessage('Enabled status is required'),
+  body('question').optional().trim().isString().withMessage('Question must be a string'),
+  body('answer').optional().trim().isString().withMessage('Answer must be a string'),
+  body('timeoutMinutes').optional().isInt({ min: 1 }).withMessage('Timeout must be at least 1 minute'),
+  body('isEnabled').optional().isBoolean().withMessage('Enabled status must be a boolean'),
   body('maskEntries').optional().isBoolean().withMessage('Mask entries preference must be a boolean'),
 ];
 
