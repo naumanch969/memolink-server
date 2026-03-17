@@ -9,7 +9,7 @@ export class MonitoringController {
     static async getSystemHealth(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const health = await monitoringService.getFullHealth();
-            const status = health.status === 'healthy' ? 200 : 503;
+            const status = health.status === 'unhealthy' ? 503 : 200;
             ResponseHelper.success(res, health, 'System health retrieved successfully', status);
         } catch (error) {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error', 500, error);

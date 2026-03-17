@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import mongoose from 'mongoose';
 import os from 'os';
 import { logger } from '../../config/logger';
@@ -185,13 +186,33 @@ export class MonitoringService implements IMonitoringService {
         // Dynamic import to avoid circular dependency if needed
         const redisConnection = (await import('../../config/redis')).default;
         const redisStatus = redisConnection.status;
-        const redisConnected = redisStatus === 'ready' || redisStatus === 'connect';
+        let redisConnected = redisStatus === 'ready' || redisStatus === 'connect';
+
+        // Perform actual PING to catch rate limits (Upstash)
+        if (redisConnected) {
+            try {
+                await redisConnection.ping();
+            } catch (err) {
+                logger.error('Redis Ping failed', err);
+                redisConnected = false;
+            }
+        }
 
         // Use Process Memory for "Used" to reflect App footprint, not System total (which includes OS cache)
         const usedMem = memUsage.rss;
 
+        let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+        if (!dbConnected) {
+            status = 'unhealthy';
+            Sentry.captureMessage('Fatal: Database Disconnected', { level: 'fatal' });
+        } else if (!redisConnected) {
+            status = 'degraded';
+            // Only alert once per failure period (handled by Sentry deduplication usually, but good to be explicit in logs)
+            logger.warn('System Degraded: Redis Disconnected');
+        }
+
         return {
-            status: (dbConnected && redisConnected) ? 'healthy' : 'unhealthy',
+            status,
             uptime: {
                 seconds: uptime,
                 formatted: this.formatUptime(uptime),

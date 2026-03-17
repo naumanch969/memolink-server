@@ -1,5 +1,5 @@
 export interface SystemHealth {
-    status: 'healthy' | 'unhealthy';
+    status: 'healthy' | 'degraded' | 'unhealthy';
     uptime: {
         seconds: number;
         formatted: string;

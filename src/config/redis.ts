@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import IORedis from 'ioredis';
 import { MetricsService } from '../features/monitoring/metrics.service';
 import { config } from './env';
@@ -20,8 +21,15 @@ redisConnection.on('error', (err) => {
     logger.error('Redis connection error:', err);
     // Track errors as a metric
     MetricsService.increment('redis:errors');
+
     if (err.message?.includes('max requests limit exceeded')) {
         MetricsService.increment('redis:limit_hits');
+        Sentry.captureMessage('Redis Rate Limit Exceeded (Upstash)', {
+            level: 'fatal',
+            extra: { originalError: err.message }
+        });
+    } else {
+        Sentry.captureException(err);
     }
 });
 

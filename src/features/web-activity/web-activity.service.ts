@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import DateUtil from '../../shared/utils/date.utils';
+import { decodeDomain } from '../../shared/utils/web-activity.utils';
 import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
 import { ActivityDefinitions, IActivityDefinitions } from './activity-definitions.model';
 import { passiveAnalysisService } from './passive-analysis.service';
@@ -158,6 +159,13 @@ export class WebActivityService implements IWebActivityService {
             });
         }
 
+        definitions.productiveDomains = definitions.productiveDomains.map(decodeDomain);
+        definitions.distractingDomains = definitions.distractingDomains.map(decodeDomain);
+        definitions.domainLimits = definitions.domainLimits.map((limit: any) => ({
+            ...limit,
+            domain: decodeDomain(limit.domain)
+        }));
+
         return definitions;
     }
 
@@ -285,8 +293,8 @@ export class WebActivityService implements IWebActivityService {
                     // If it's a Map
                     const entries = activity.domainMap instanceof Map ? activity.domainMap.entries() : Object.entries(activity.domainMap);
                     for (const [domain, seconds] of entries) {
-                        const safeDomain = domain.replace(/__dot__/g, '.');
-                        domainAggregates[safeDomain] = (domainAggregates[safeDomain] || 0) + (seconds as number);
+                        const decoded = decodeDomain(domain);
+                        domainAggregates[decoded] = (domainAggregates[decoded] || 0) + (seconds as number);
                     }
                 }
             });
@@ -365,8 +373,8 @@ export class WebActivityService implements IWebActivityService {
                         : Object.entries(activity.domainMap);
 
                     for (const [domain, seconds] of entries) {
-                        const originalDomain = domain.replace(new RegExp(WebActivityService.DOT_REPLACEMENT, 'g'), '.');
-                        domainAggregates[originalDomain] = (domainAggregates[originalDomain] || 0) + (seconds as number);
+                        const decoded = decodeDomain(domain);
+                        domainAggregates[decoded] = (domainAggregates[decoded] || 0) + (seconds as number);
                     }
                 }
             });

@@ -8,8 +8,8 @@ export const syncActivityValidation = [
 ];
 
 export const getActivityRangeValidation = [
-    query('startDate').isISO8601().withMessage('startDate is required'),
-    query('endDate').isISO8601().withMessage('endDate is required'),
+    query('from').isISO8601().withMessage('from date is required (YYYY-MM-DD)'),
+    query('to').isISO8601().withMessage('to date is required (YYYY-MM-DD)'),
 ];
 
 export const upsertLimitValidation = [
