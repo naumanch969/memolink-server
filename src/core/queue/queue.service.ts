@@ -69,6 +69,8 @@ export class QueueService implements IQueueService {
         const worker = new Worker<T>(name, processor, {
             connection: redisConnection as any,
             concurrency: 1, // Default to 1 job at a time per worker instance
+            drainDelay: 5, // 5 seconds wait before polling again if empty
+            stalledInterval: 300000, // 5 minutes (reduces background checks)
             ...options,
         });
 

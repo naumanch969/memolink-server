@@ -155,7 +155,6 @@ export const initAgentWorker = () => {
     }, {
         concurrency: 5, // Allow multiple tasks to be processed in parallel
         lockDuration: 300000, // 5 minutes to prevent "could not renew lock" errors
-        stalledInterval: 60000, // 60 seconds
     });
 };
 

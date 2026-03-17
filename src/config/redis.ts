@@ -13,6 +13,29 @@ export const redisConnection = new IORedis(config.REDIS_URL, {
     },
 });
 
+// Optimization: Atomic Rate Limiter to save commands on Upstash
+redisConnection.defineCommand('rateLimit', {
+    numberOfKeys: 1,
+    lua: `
+        local current = redis.call('INCR', KEYS[1])
+        if current == 1 then
+            redis.call('PEXPIRE', KEYS[1], ARGV[1])
+        end
+        return current
+    `,
+});
+
+// Optimization: Atomic History Management to save commands on Upstash (rpush + ltrim + expire)
+redisConnection.defineCommand('pushToHistory', {
+    numberOfKeys: 1,
+    lua: `
+        redis.call('RPUSH', KEYS[1], ARGV[1])
+        redis.call('LTRIM', KEYS[1], ARGV[2], -1)
+        redis.call('EXPIRE', KEYS[1], ARGV[3])
+        return 1
+    `,
+});
+
 redisConnection.on('connect', () => {
     logger.info('Redis connection established');
 });

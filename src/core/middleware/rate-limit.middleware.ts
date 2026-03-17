@@ -5,6 +5,8 @@ import { redisConnection } from '../../config/redis';
 import { MetricsService } from '../../features/monitoring/metrics.service';
 import { cryptoService } from '../crypto/crypto.service';
 import { ResponseHelper } from '../utils/response.utils';
+import { USER_ROLES } from '../../shared/constants';
+import { IUser } from '../../features/auth/auth.types';
 
 export class RateLimitMiddleware {
     /**
@@ -18,7 +20,6 @@ export class RateLimitMiddleware {
         zone?: string;
     } = {}) {
         const windowMs = options.windowMs || config.RATE_LIMIT_WINDOW_MS;
-        const maxRequests = options.maxRequests || config.RATE_LIMIT_MAX_REQUESTS;
         const zone = options.zone || 'global';
 
         return async (req: Request, res: Response, next: NextFunction) => {
@@ -26,8 +27,9 @@ export class RateLimitMiddleware {
                 // Skip rate limiting in test environment if needed
                 if (config.NODE_ENV === 'test') return next();
 
-                // Identify by UserId (even if AuthMiddleware hasn't run yet) or IP
                 let userId = (req as any).user?._id?.toString();
+                const user: IUser | undefined = (req as any).user;
+                let userRole = user?.role;
 
                 if (!userId) {
                     const token = cryptoService.extractTokenFromHeader(req.headers.authorization);
@@ -35,22 +37,23 @@ export class RateLimitMiddleware {
                         try {
                             const decoded = cryptoService.verifyToken(token);
                             userId = decoded.userId;
+                            userRole = (decoded as any).role;
                         } catch (e) {
                             // Invalid token, fallback to IP
                         }
                     }
                 }
 
+                // Determine applicable limit
+                const isSystem = userRole === USER_ROLES.ADMIN;
+                const maxRequests = options.maxRequests || 
+                    (isSystem ? config.RATE_LIMIT_MAX_REQUESTS : config.USER_RATE_LIMIT_MAX_REQUESTS);
+
                 const identifier = userId || req.ip;
                 const redisKey = `rl:${identifier}:${zone}`;
 
-                // Increment request count
-                const current = await redisConnection.incr(redisKey);
-
-                // Set expiry on first request in the window
-                if (current === 1) {
-                    await redisConnection.pexpire(redisKey, windowMs);
-                }
+                // Atomic increment and expiry set
+                const current = await (redisConnection as any).rateLimit(redisKey, windowMs);
 
                 // Set standard rate limit headers
                 const remaining = Math.max(0, maxRequests - current);

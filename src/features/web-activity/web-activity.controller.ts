@@ -96,7 +96,7 @@ export class WebActivityController {
             }
 
             const activities = await webActivityService.getActivityRange(userId, from, to);
-            ResponseHelper.success(res, activities, 'Activity range retrieved successfully');
+            ResponseHelper.success(res, { activities }, 'Activity range retrieved successfully');
         } catch (error) {
             ResponseHelper.error(res, error instanceof Error ? error.message : 'Internal server error');
         }

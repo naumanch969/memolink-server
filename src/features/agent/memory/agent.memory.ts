@@ -34,9 +34,12 @@ export class AgentMemory implements IAgentMemoryService {
 
         // 2. Try Redis for performance
         try {
-            await redisConnection.rpush(key, JSON.stringify(message));
-            await redisConnection.ltrim(key, -AGENT_CONSTANTS.MAX_HISTORY, -1);
-            await redisConnection.expire(key, AGENT_CONSTANTS.MEMORY_TTL);
+            await (redisConnection as any).pushToHistory(
+                key,
+                JSON.stringify(message),
+                -AGENT_CONSTANTS.MAX_HISTORY,
+                AGENT_CONSTANTS.MEMORY_TTL
+            );
         } catch (error: any) {
             // Check if it's a Redis specific error like limit exceeded
             if (error.message?.includes('max requests limit exceeded')) {

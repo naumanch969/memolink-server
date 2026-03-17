@@ -102,7 +102,7 @@ export class EventStream {
     async readGroup(groupName: string, consumerName: string, count: number = 10): Promise<{ streamId: string, event: MemolinkEvent }[]> {
         try {
             // '>' means only new messages that haven't been delivered to other consumers in the group
-            const result = await (this.redis as any).xreadgroup('GROUP', groupName, consumerName, 'BLOCK', '30000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, '>');
+            const result = await (this.redis as any).xreadgroup('GROUP', groupName, consumerName, 'BLOCK', '60000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, '>');
 
             if (!result || result.length === 0) return [];
 

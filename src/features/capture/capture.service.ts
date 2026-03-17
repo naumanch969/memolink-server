@@ -82,7 +82,8 @@ export class CaptureService implements ICaptureService {
             totalSeconds: payload.totalSeconds || 0,
             productiveSeconds: payload.productiveSeconds || 0,
             distractingSeconds: payload.distractingSeconds || 0,
-            domainMap: payload.domainMap || {}
+            domainMap: payload.domainMap || {},
+            events: payload.events || []
         };
 
         // Sync daily activity

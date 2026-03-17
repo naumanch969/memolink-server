@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { Server as SocketServer } from 'socket.io';
 import { logger } from '../../config/logger';
+import { config } from '../../config/env';
 import redisConnection from '../../config/redis';
 import { ISocketService, SocketEvents, UserRoleType } from './socket.types';
 
@@ -65,6 +66,8 @@ class SocketService implements ISocketService {
     }
 
     private publish(payload: any): void {
+        if (!config.REDIS_BRIDGE_ENABLED) return;
+
         redisConnection.publish(this.REDIS_CHANNEL, JSON.stringify(payload)).catch(err => {
             logger.error('Failed to publish to socket bridge', err);
         });

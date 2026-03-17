@@ -27,7 +27,9 @@ export class SocketManager {
         socketService.setIo(this.io);
 
         // Setup Redis Bridge for cross-process communication (Workers -> Server)
-        this.initRedisBridge();
+        if (config.REDIS_BRIDGE_ENABLED) {
+            this.initRedisBridge();
+        }
 
         // Setup middleware
         this.setupMiddleware();

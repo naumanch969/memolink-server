@@ -29,7 +29,8 @@ export const config = {
   // Security Configuration
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS || '12'),
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000'),
+  RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000'), // System limit
+  USER_RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.USER_RATE_LIMIT_MAX_REQUESTS || '300'), // User limit
 
   // File Upload Configuration
   MAX_FILE_SIZE: parseInt(process.env.MAX_FILE_SIZE || '10485760'), // 10MB
@@ -77,6 +78,7 @@ export const config = {
 
   // Redis Configuration
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  REDIS_BRIDGE_ENABLED: process.env.REDIS_BRIDGE_ENABLED !== 'false',
 
   // AI Configuration
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
