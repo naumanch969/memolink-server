@@ -15,6 +15,9 @@ export class EmailProvider {
 
     private constructor() {
         this.transporter = nodemailer.createTransport({
+            pool: true,
+            maxConnections: 5,
+            maxMessages: 100,
             host: config.EMAIL_HOST || 'smtp.gmail.com',
             port: parseInt(config.EMAIL_PORT || '587'),
             secure: config.EMAIL_SECURE === 'true', // true for 465, false for other ports
@@ -24,7 +27,10 @@ export class EmailProvider {
             },
         });
 
-        this.verifyConnection();
+        // Fire and forget verification, but catch errors to prevent unhandled rejections
+        this.verifyConnection().catch(err => {
+            logger.error('EmailProvider failed to establish initial connection:', err);
+        });
     }
 
     public static getInstance(): EmailProvider {

@@ -51,7 +51,10 @@ export const config = {
   CORS_ORIGIN: process.env.CORS_ORIGIN?.split(',') || [
     'http://localhost:3000',
     'http://localhost:5000',
-    'https://memolink-server.fly.dev'
+    'https://memolink-server.fly.dev',
+    'http://localhost:1420',
+    'tauri://localhost',
+    'http://tauri.localhost'
   ],
 
   // Logging Configuration

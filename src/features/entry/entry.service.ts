@@ -35,11 +35,24 @@ export class EntryService implements IEntryService {
         return this.getEntryById(existing._id.toString(), userId);
       }
 
-      // 2. Create Entry object
+      // 2. Resolve Tags (handle both IDs and Names)
+      const resolvedTagIds: Types.ObjectId[] = [];
+      if (entryData.tags && entryData.tags.length > 0) {
+        for (const tagIdentifier of entryData.tags) {
+          if (MongoUtil.isValidObjectId(tagIdentifier)) {
+            resolvedTagIds.push(new Types.ObjectId(tagIdentifier));
+          } else {
+            const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
+            resolvedTagIds.push(tag._id as Types.ObjectId);
+          }
+        }
+      }
+
+      // 3. Create Entry object
       const entry = new Entry({
         userId: new Types.ObjectId(userId),
         ...entryData,
-        tags: entryData.tags?.map(id => new Types.ObjectId(id)),
+        tags: resolvedTagIds,
         media: entryData.media?.map(id => new Types.ObjectId(id)),
         collectionId: entryData.collectionId ? new Types.ObjectId(entryData.collectionId) : undefined,
       });
@@ -48,6 +61,11 @@ export class EntryService implements IEntryService {
 
       if (entryData.collectionId) {
         await collectionService.incrementEntryCount(entryData.collectionId);
+      }
+      
+      // Update tag usage counts if we resolved any tags
+      if (resolvedTagIds.length > 0) {
+        await tagService.incrementUsage(userId, resolvedTagIds.map(t => t.toString()));
       }
 
       await entry.populate(['tags', 'media', 'collectionId']);

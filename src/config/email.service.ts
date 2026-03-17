@@ -1,5 +1,7 @@
 import { getEmailQueue } from '../features/email/queue/email.queue';
 import { validateEmailOrThrow } from '../shared/email-validator';
+import { EmailProvider } from '../core/email/email.provider';
+import { getVerificationEmailTemplate, getPasswordResetEmailTemplate, getSecurityAlertTemplate } from '../core/email/templates/auth.templates';
 import { config } from './env';
 import { logger } from './logger';
 
@@ -42,17 +44,18 @@ class EmailService implements IEmailService {
   async sendVerificationEmail(email: string, name: string, otp: string): Promise<boolean> {
     try {
       validateEmailOrThrow(email, 'verification email');
-      await getEmailQueue().add('verification-email', {
-        type: 'VERIFICATION',
-        data: {
-          to: email,
-          name,
-          otp
-        }
+
+      const { subject, html, text } = getVerificationEmailTemplate(name, otp);
+      await EmailProvider.getInstance().sendEmail({
+        to: email,
+        subject,
+        html,
+        text
       });
+
       return true;
     } catch (error) {
-      logger.error('Failed to queue verification email:', error);
+      logger.error('Failed to send verification email (sync):', error);
       return false;
     }
   }
@@ -60,18 +63,20 @@ class EmailService implements IEmailService {
   async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<boolean> {
     try {
       validateEmailOrThrow(email, 'password reset email');
-      await getEmailQueue().add('password-reset-email', {
-        type: 'PASSWORD_RESET',
-        data: {
-          to: email,
-          name,
-          resetToken,
-          frontendUrl: config.FRONTEND_URL
-        }
+
+      const resetUrl = `${config.FRONTEND_URL}/reset-password?token=${resetToken}`;
+      const { subject, html, text } = getPasswordResetEmailTemplate(name, resetUrl);
+
+      await EmailProvider.getInstance().sendEmail({
+        to: email,
+        subject,
+        html,
+        text
       });
+
       return true;
     } catch (error) {
-      logger.error('Failed to queue password reset email:', error);
+      logger.error('Failed to send password reset email (sync):', error);
       return false;
     }
   }
@@ -97,17 +102,18 @@ class EmailService implements IEmailService {
   async sendSecurityAlert(email: string, name: string, wrongAnswer: string): Promise<boolean> {
     try {
       validateEmailOrThrow(email, 'security alert email');
-      await getEmailQueue().add('security-alert-email', {
-        type: 'SECURITY_ALERT',
-        data: {
-          to: email,
-          name,
-          wrongAnswer
-        }
+
+      const { subject, html, text } = getSecurityAlertTemplate(name, wrongAnswer);
+      await EmailProvider.getInstance().sendEmail({
+        to: email,
+        subject,
+        html,
+        text
       });
+
       return true;
     } catch (error) {
-      logger.error('Failed to queue security alert email:', error);
+      logger.error('Failed to send security alert email (sync):', error);
       return false;
     }
   }
