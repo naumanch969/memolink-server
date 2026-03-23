@@ -14,7 +14,6 @@ export class AuthMiddleware {
     try {
 
       const token = cryptoService.extractTokenFromHeader(req.headers.authorization);
-
       if (!token) {
         throw ApiError.unauthorized('Access token is required');
       }
@@ -22,7 +21,10 @@ export class AuthMiddleware {
       let authUserId: string;
 
       // Check if it's an API Key or a JWT Token
-      if (token.startsWith('mclk_')) {
+      const IS_API_KEY = token.startsWith('mclk_');
+      
+      if (IS_API_KEY) {
+        logger.info('Handling as Persistent API Key');
         // Handle persistent API Key
         const { apiKeyService } = await import('../../features/api-key/api-key.service');
         const resolvedUserId = await apiKeyService.verifyAndGetUser(token);

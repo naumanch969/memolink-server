@@ -97,7 +97,7 @@ export async function transcribeAudioEntry(entryId: string, userId: string): Pro
             entryId,
             { content: finalContent, status: 'ready', aiProcessed: true },
             { new: true }
-        ).populate(['mentions', 'tags', 'media', 'collectionId']);
+        ).populate(['mentions', 'tags', 'media', 'collectionId']).lean();
 
         // Push live update to client
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);

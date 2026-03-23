@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { Types } from 'mongoose';
 import { cryptoService } from '../../core/crypto/crypto.service';
+import { encryptionSessionService } from '../../core/encryption/encryption-session.service';
+import { encryptionService } from '../../core/encryption/encryption.service';
 import { ApiError } from '../../core/errors/api.error';
 import { IApiKeyService } from './api-key.interfaces';
 import { ApiKey } from './api-key.model';
@@ -27,12 +29,28 @@ export class ApiKeyService implements IApiKeyService {
             expiresAt.setDate(expiresAt.getDate() + dto.expiresInDays);
         }
 
+        let wrappedMDK: string | undefined;
+        let vaultSalt: string | undefined;
+
+        // If includeVault is true, try to get current session MDK and wrap it with the API key
+        if (dto.includeVault) {
+            const mdk = await encryptionSessionService.getMDK(userId.toString());
+            if (mdk) {
+                vaultSalt = crypto.randomBytes(32).toString('hex');
+                // Use the rawSecret as the key to derive a KEK for wrapping the MDK
+                const kek = await encryptionService.deriveKEK(rawSecret, vaultSalt);
+                wrappedMDK = encryptionService.wrapKey(mdk, kek);
+            }
+        }
+
         const newKey = await ApiKey.create({
             userId,
             name: dto.name,
             hashedKey,
             prefix: KEY_PREFIX,
             expiresAt,
+            wrappedMDK,
+            vaultSalt,
         });
 
         return {
@@ -65,16 +83,29 @@ export class ApiKeyService implements IApiKeyService {
     async verifyAndGetUser(rawKey: string): Promise<Types.ObjectId | null> {
         if (!rawKey.startsWith(KEY_PREFIX)) return null;
 
+        const rawSecret = rawKey.substring(KEY_PREFIX.length);
         const hashedIncomingKey = crypto.createHash('sha256').update(rawKey).digest('hex');
 
         const apiKeyData = await ApiKey.findOne({
             hashedKey: hashedIncomingKey,
             isActive: true,
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
-        });
+        }).select('+hashedKey +wrappedMDK +vaultSalt');
 
         if (!apiKeyData || !apiKeyData.userId) {
             return null;
+        }
+
+        // If the key has a wrapped MDK, unseal it and put it in session
+        if (apiKeyData.wrappedMDK && apiKeyData.vaultSalt) {
+            try {
+                const kek = await encryptionService.deriveKEK(rawSecret, apiKeyData.vaultSalt);
+                const mdk = encryptionService.unwrapKey(apiKeyData.wrappedMDK, kek);
+                await encryptionSessionService.storeMDK(apiKeyData.userId.toString(), mdk);
+            } catch (error) {
+                // Silently fail unsealing - request will fail at requireVault if needed
+                console.error('Failed to unseal MDK with API Key:', error);
+            }
         }
 
         // Update last used asynchronously (floating promise)

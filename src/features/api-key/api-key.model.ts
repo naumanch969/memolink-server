@@ -7,6 +7,8 @@ const apiKeySchema = new Schema<IApiKeyDocument>(
         name: { type: String, required: true, trim: true, maxlength: 100 },
         hashedKey: { type: String, required: true, select: false },
         prefix: { type: String, required: true },
+        wrappedMDK: { type: String, select: false },
+        vaultSalt: { type: String, select: false },
         lastUsedAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
         isActive: { type: Boolean, default: true },

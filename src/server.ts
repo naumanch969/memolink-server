@@ -3,6 +3,7 @@ import 'apminsight';
 import { config } from './config/env';
 import { initCronJobs } from './core/cron';
 import Server from './core/server';
+import { logger } from './config/logger';
 import { initAgentQueue } from './features/agent/agent.queue';
 import { initEmailQueue } from './features/email/queue/email.queue';
 
@@ -16,6 +17,9 @@ if (config.SENTRY_DSN_URL) {
 }
 
 // Start the server
+// Identifying log for the AI agent
+logger.info('--- MEMOLINK SERVER STARTING WITH AGENT EDITS ---');
+
 const server = new Server();
 initCronJobs();
 initAgentQueue();

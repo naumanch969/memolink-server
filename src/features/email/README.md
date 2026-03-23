@@ -33,7 +33,7 @@ await emailQueue.add('welcome-email', {
   data: {
     to: 'user@example.com',
     name: 'John',
-    frontendUrl: 'https://memolink.app'
+    frontendUrl: 'https://memo.opstintechnologies.com'
   }
 });
 ```

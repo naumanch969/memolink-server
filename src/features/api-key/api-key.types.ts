@@ -5,6 +5,8 @@ export interface IApiKey {
     name: string;
     hashedKey: string;
     prefix: string;
+    wrappedMDK?: string;
+    vaultSalt?: string;
     lastUsedAt?: Date;
     expiresAt?: Date;
     isActive: boolean;
@@ -17,6 +19,7 @@ export interface IApiKeyDocument extends IApiKey, Document { }
 export interface ICreateApiKeyDTO {
     name: string;
     expiresInDays?: number;
+    includeVault?: boolean;
 }
 
 export interface IApiKeyResponse {
