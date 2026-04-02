@@ -1,13 +1,13 @@
 {
   "name": "memolink-server",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
     "worker": "nodemon --exec ts-node src/worker.ts",
     "build": "tsc",
     "deploy": "npm run build && fly deploy",
-    "start": "node dist/index.js",
+    "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "test": "jest",
     "clean": "rm -rf dist",
