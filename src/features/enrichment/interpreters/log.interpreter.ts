@@ -4,12 +4,12 @@ import { ENRICHMENT_TAXONOMY } from '../enrichment.constants';
 import { EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
 export class LogInterpreter implements IEnrichmentInterpreter<string, IEnrichmentResult> {
-    /**
-     * Processes a log entry.
-     * Light path: Extracts themes and entities only. No narrative narrative.
-     */
-    async process(text: string): Promise<IEnrichmentResult> {
-        const prompt = `You are the "Activity Logger". Your goal is to extract factual data from a brief activity log entry.
+  /**
+   * Processes a log entry.
+   * Light path: Extracts themes and entities only. No narrative narrative.
+   */
+  async process(text: string): Promise<IEnrichmentResult> {
+    const prompt = `You are the "Activity Logger". Your goal is to extract factual data from a brief activity log entry.
 Do NOT generate a psychological narrative. Do NOT infer deeper meaning.
 
 User Input: "${text}"
@@ -42,14 +42,14 @@ Respond with ONLY a JSON object in this structure:
   }
 }`;
 
-        try {
-            const result = await LLMService.generateJSON(prompt, EnrichmentResultSchema);
-            return result;
-        } catch (error) {
-            logger.error('Log Interpreter failed', error);
-            throw error;
-        }
+    try {
+      const result = await LLMService.generateJSON(prompt, EnrichmentResultSchema);
+      return result;
+    } catch (error) {
+      logger.error('Log Interpreter failed', error);
+      throw error;
     }
+  }
 }
 
 export const logInterpreter: IEnrichmentInterpreter<string, IEnrichmentResult> = new LogInterpreter();

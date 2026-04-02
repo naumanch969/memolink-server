@@ -98,6 +98,7 @@ export const config = {
   WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
   WHATSAPP_DISPLAY_NUMBER: process.env.WHATSAPP_DISPLAY_NUMBER || '',
   WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
+  CLAUDE_CLIENT_SECRET: process.env.CLAUDE_CLIENT_SECRET || 'claude_secret_memolink_2025',
 } as const;
 
 export type Config = typeof config;

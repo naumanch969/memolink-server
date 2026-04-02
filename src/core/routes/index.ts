@@ -32,6 +32,8 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
 import captureRoutes from '../../features/capture/capture.routes';
 import integrationRoutes from '../../features/integrations/integration.routes';
+import oauthRoutes from '../../features/oauth/oauth.routes';
+
 
 const router = Router();
 
@@ -87,6 +89,8 @@ router.use('/events', eventsRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/monitoring', monitoringRoutes);
 router.use('/capture', captureRoutes);
+router.use('/oauth', oauthRoutes);
+
 
 
 export default router;

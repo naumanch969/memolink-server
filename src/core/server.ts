@@ -8,6 +8,7 @@ import { startDailyRollupJob } from '../features/monitoring/rollup.job';
 import app from './app';
 import { SocketManager } from './socket/socket.manager';
 import { bufferManager } from './telemetry/buffer.manager';
+import oauthService from '../features/oauth/oauth.service';
 
 class Server {
   private server: HttpServer;
@@ -22,6 +23,10 @@ class Server {
       // Connect to database
       await database.connect();
       await verifyMetricsIndexes();
+
+      // Seed OAuth Clients
+      await oauthService.seedClaudeClient(config.CLAUDE_CLIENT_SECRET);
+
 
       // Initialize Sockets
       this.socketManager = new SocketManager(this.server);

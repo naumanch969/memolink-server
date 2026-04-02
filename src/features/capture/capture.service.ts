@@ -59,7 +59,7 @@ export class CaptureService implements ICaptureService {
         const entry = await entryService.createEntry(userId, entryData);
 
         // Classify signal tier
-        const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice);
+        const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice); // noise, log, signal, deep_signal
 
         // Update entry with tier
         await Entry.findByIdAndUpdate(entry._id, { signalTier: tier });

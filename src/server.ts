@@ -7,7 +7,9 @@ import { logger } from './config/logger';
 import { initAgentQueue } from './features/agent/agent.queue';
 import { initEmailQueue } from './features/email/queue/email.queue';
 
+
 // Initialize Sentry
+
 if (config.SENTRY_DSN_URL) {
   Sentry.init({
     dsn: config.SENTRY_DSN_URL,
