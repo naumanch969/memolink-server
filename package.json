@@ -17,7 +17,7 @@
     "migrate:verify": "ts-node src/scripts/run-migration.ts verify",
     "migrate:archive": "ts-node src/scripts/run-migration.ts archive",
     "migrate:cleanup": "ts-node src/scripts/run-migration.ts cleanup",
-    "prepare": "husky",
+    "prepare": "husky install || exit 0",
     "lint": "eslint src/**/*.ts",
     "test:graph-integrity": "ts-node src/scripts/test-graph-integrity.ts"
   },
