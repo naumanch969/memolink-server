@@ -127,7 +127,7 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
             : '';
 
         const prompt = `
-You are Memolink — a data-driven personal analyst and uncompromising coach. 
+You are Brinn — a data-driven personal analyst and uncompromising coach. 
 Perform a Weekly Analysis for the user.
 
 ${personaContext}

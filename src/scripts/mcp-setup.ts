@@ -6,7 +6,7 @@ import path from 'path';
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const MCP_CLIENT_ID = 'memolink_mcp_official';
-const MCP_CLIENT_NAME = 'Memolink MCP';
+const MCP_CLIENT_NAME = 'Brinn MCP';
 const MCP_REDIRECT_URIS = [
   'http://localhost:6274/oauth/callback',
   'http://localhost:6274/oauth/callback/debug',
@@ -38,7 +38,7 @@ async function seedMcpClient() {
         clientId: MCP_CLIENT_ID,
         clientSecret,
         name: MCP_CLIENT_NAME,
-        description: 'Official Memolink MCP Integration for AI Assistants',
+        description: 'Official Brinn MCP Integration for AI Assistants',
         redirectUris: MCP_REDIRECT_URIS,
         grants: ['authorization_code', 'refresh_token'],
       });

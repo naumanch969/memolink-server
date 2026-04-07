@@ -12,7 +12,7 @@ const TEXT_PRIMARY = '#F8F8FF';
 const TEXT_MUTED = '#888899';
 
 function baseLayout(title: string, preheader: string, body: string): string {
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -39,7 +39,7 @@ function baseLayout(title: string, preheader: string, body: string): string {
 
   <!-- Header -->
   <div style="text-align:center;margin-bottom:24px;">
-    <span style="font-size:22px;font-weight:900;color:${BRAND_COLOR};letter-spacing:-0.5px;">Memolink</span>
+    <span style="font-size:22px;font-weight:900;color:${BRAND_COLOR};letter-spacing:-0.5px;">Brinn</span>
   </div>
 
   ${body}
@@ -54,15 +54,15 @@ function baseLayout(title: string, preheader: string, body: string): string {
 }
 
 function buildWeeklyEmailHtml(content: any, period: string, frontendUrl: string): string {
-    const headline = content?.headline ?? 'Your Weekly Report is Ready';
-    const summary = (content?.periodNarrative ?? content?.periodSummary ?? '').substring(0, 300);
-    const score = content?.alignmentScore ?? content?.score ?? null;
-    const singleBestBet = content?.singleBestBet ?? content?.nextWeekFocus ?? '';
-    const hardTruth = content?.hardTruths?.[0] ?? content?.areasForImprovement?.[0] ?? '';
-    const topTags = (content?.stats?.topTags ?? []).slice(0, 5).join('  ·  ');
-    const reportUrl = `${frontendUrl}/reports/weekly`;
+  const headline = content?.headline ?? 'Your Weekly Report is Ready';
+  const summary = (content?.periodNarrative ?? content?.periodSummary ?? '').substring(0, 300);
+  const score = content?.alignmentScore ?? content?.score ?? null;
+  const singleBestBet = content?.singleBestBet ?? content?.nextWeekFocus ?? '';
+  const hardTruth = content?.hardTruths?.[0] ?? content?.areasForImprovement?.[0] ?? '';
+  const topTags = (content?.stats?.topTags ?? []).slice(0, 5).join('  ·  ');
+  const reportUrl = `${frontendUrl}/reports/weekly`;
 
-    const body = `
+  const body = `
   <div class="card">
     <div class="label">${period}</div>
     <h1 style="font-size:22px;font-weight:900;margin:12px 0 6px;line-height:1.3;">${headline}</h1>
@@ -88,31 +88,31 @@ function buildWeeklyEmailHtml(content: any, period: string, frontendUrl: string)
     <a href="${reportUrl}" class="cta">Read Full Report →</a>
   </div>`;
 
-    return baseLayout(headline, `${headline} · Score ${score ?? ''}`, body).replace('{{FRONTEND_URL}}', frontendUrl);
+  return baseLayout(headline, `${headline} · Score ${score ?? ''}`, body).replace('{{FRONTEND_URL}}', frontendUrl);
 }
 
 function buildMonthlyEmailHtml(content: any, period: string, frontendUrl: string): string {
-    const monthTitle = content?.monthTitle ?? 'Your Monthly Report is Ready';
-    const summary = (content?.executiveSummary ?? content?.monthOverview ?? '').substring(0, 400);
-    const score = content?.overallScore ?? content?.score ?? null;
-    const hardTruths: string[] = (content?.hardTruths ?? []).slice(0, 2);
-    const topWin = content?.documentedWins?.[0]?.win ?? content?.achievements?.[0] ?? '';
-    const topWinEvidence = content?.documentedWins?.[0]?.evidence ?? '';
-    const contract = content?.nextMonthContract;
-    const reportUrl = `${frontendUrl}/reports/monthly`;
+  const monthTitle = content?.monthTitle ?? 'Your Monthly Report is Ready';
+  const summary = (content?.executiveSummary ?? content?.monthOverview ?? '').substring(0, 400);
+  const score = content?.overallScore ?? content?.score ?? null;
+  const hardTruths: string[] = (content?.hardTruths ?? []).slice(0, 2);
+  const topWin = content?.documentedWins?.[0]?.win ?? content?.achievements?.[0] ?? '';
+  const topWinEvidence = content?.documentedWins?.[0]?.evidence ?? '';
+  const contract = content?.nextMonthContract;
+  const reportUrl = `${frontendUrl}/reports/monthly`;
 
-    const hardTruthsHtml = hardTruths.map(t => `<div class="truth">${t}</div>`).join('');
-    const winHtml = topWin ? `
+  const hardTruthsHtml = hardTruths.map(t => `<div class="truth">${t}</div>`).join('');
+  const winHtml = topWin ? `
     <div class="label" style="margin-bottom:8px;color:#10B981;">Top Win This Month</div>
     <div class="win">${topWin}${topWinEvidence ? `<br/><span style="font-size:12px;opacity:0.7;margin-top:4px;display:block;">${topWinEvidence}</span>` : ''}</div>` : '';
 
-    const contractHtml = contract?.themeSentence ? `
+  const contractHtml = contract?.themeSentence ? `
     <hr class="divider"/>
     <div class="label" style="margin-bottom:8px;">Your Contract for Next Month</div>
     <p style="font-size:16px;font-weight:700;color:${TEXT_PRIMARY};font-style:italic;line-height:1.5;">"${contract.themeSentence}"</p>
     ` : '';
 
-    const body = `
+  const body = `
   <div class="card">
     <div class="label">${period} · Monthly Synthesis</div>
     <h1 style="font-size:24px;font-weight:900;margin:12px 0 6px;line-height:1.25;">${monthTitle}</h1>
@@ -135,66 +135,66 @@ function buildMonthlyEmailHtml(content: any, period: string, frontendUrl: string
     <a href="${reportUrl}" class="cta">Read Full Report →</a>
   </div>`;
 
-    return baseLayout(monthTitle, `${monthTitle} · Your ${period} Reckoning`, body).replace('{{FRONTEND_URL}}', frontendUrl);
+  return baseLayout(monthTitle, `${monthTitle} · Your ${period} Reckoning`, body).replace('{{FRONTEND_URL}}', frontendUrl);
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export class ReportEmailService {
 
-    async sendReportReadyEmail(report: IReport): Promise<void> {
-        const userId = report.userId.toString();
-        const user = await User.findById(userId).select('email name preferences').lean();
-        if (!user?.email) {
-            logger.debug(`[ReportEmailService] No email for user ${userId} — skipping`);
-            return;
-        }
-
-        // Respect notification preferences
-        if (user.preferences?.notifications === false) {
-            logger.debug(`[ReportEmailService] Email notifications disabled for user ${userId}`);
-            return;
-        }
-
-        const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.memolink.ai';
-        const period = this.formatPeriod(report.startDate, report.endDate);
-
-        let subject: string;
-        let html: string;
-
-        if (report.type === ReportType.WEEKLY) {
-            const score = report.content?.alignmentScore ?? report.content?.score ?? null;
-            const headline = report.content?.headline ?? 'Your Weekly Report is Ready';
-            subject = score !== null
-                ? `📊 ${headline} — Score: ${score}/100`
-                : `📊 ${headline}`;
-            html = buildWeeklyEmailHtml(report.content, period, frontendUrl);
-        } else {
-            const monthTitle = report.content?.monthTitle ?? "Your Monthly Reckoning is Ready";
-            const score = report.content?.overallScore ?? report.content?.score ?? null;
-            subject = score !== null
-                ? `📅 ${monthTitle} — Score: ${score}/100`
-                : `📅 ${monthTitle}`;
-            html = buildMonthlyEmailHtml(report.content, period, frontendUrl);
-        }
-
-        try {
-            const queue = getEmailQueue();
-            await queue.add(`report-email-${report.type}-${userId}-${Date.now()}`, {
-                type: 'GENERIC',
-                data: { to: user.email, subject, html },
-            });
-            logger.info(`[ReportEmailService] ${report.type} email queued for user ${userId}`);
-        } catch (error) {
-            // Non-fatal: log and continue — report is already saved
-            logger.error(`[ReportEmailService] Failed to queue email for user ${userId}`, error);
-        }
+  async sendReportReadyEmail(report: IReport): Promise<void> {
+    const userId = report.userId.toString();
+    const user = await User.findById(userId).select('email name preferences').lean();
+    if (!user?.email) {
+      logger.debug(`[ReportEmailService] No email for user ${userId} — skipping`);
+      return;
     }
 
-    private formatPeriod(startDate: Date, endDate: Date): string {
-        const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        return `${fmt(new Date(startDate))} – ${fmt(new Date(endDate))}`;
+    // Respect notification preferences
+    if (user.preferences?.notifications === false) {
+      logger.debug(`[ReportEmailService] Email notifications disabled for user ${userId}`);
+      return;
     }
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.memolink.ai';
+    const period = this.formatPeriod(report.startDate, report.endDate);
+
+    let subject: string;
+    let html: string;
+
+    if (report.type === ReportType.WEEKLY) {
+      const score = report.content?.alignmentScore ?? report.content?.score ?? null;
+      const headline = report.content?.headline ?? 'Your Weekly Report is Ready';
+      subject = score !== null
+        ? `📊 ${headline} — Score: ${score}/100`
+        : `📊 ${headline}`;
+      html = buildWeeklyEmailHtml(report.content, period, frontendUrl);
+    } else {
+      const monthTitle = report.content?.monthTitle ?? "Your Monthly Reckoning is Ready";
+      const score = report.content?.overallScore ?? report.content?.score ?? null;
+      subject = score !== null
+        ? `📅 ${monthTitle} — Score: ${score}/100`
+        : `📅 ${monthTitle}`;
+      html = buildMonthlyEmailHtml(report.content, period, frontendUrl);
+    }
+
+    try {
+      const queue = getEmailQueue();
+      await queue.add(`report-email-${report.type}-${userId}-${Date.now()}`, {
+        type: 'GENERIC',
+        data: { to: user.email, subject, html },
+      });
+      logger.info(`[ReportEmailService] ${report.type} email queued for user ${userId}`);
+    } catch (error) {
+      // Non-fatal: log and continue — report is already saved
+      logger.error(`[ReportEmailService] Failed to queue email for user ${userId}`, error);
+    }
+  }
+
+  private formatPeriod(startDate: Date, endDate: Date): string {
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${fmt(new Date(startDate))} – ${fmt(new Date(endDate))}`;
+  }
 }
 
 export const reportEmailService = new ReportEmailService();

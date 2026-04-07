@@ -70,7 +70,7 @@ export class ChatOrchestrator implements IChatOrchestrator {
             const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'You' : 'Agent'}: ${h.content}`).join('\n');
 
             // 4. Upgraded System Prompt (The "Partner Mindset")
-            const systemInstruction = `You are Memolink, an extremely high-reasoning digital partner. You are the user's second brain.
+            const systemInstruction = `You are Brinn, an extremely high-reasoning digital partner. You are the user's second brain.
 
 # YOUR SOUL
 - You are human-like, intellectually sharp, and deeply empathetic. 
@@ -109,7 +109,7 @@ Target: Provide a deep, thoughtful, and human response. No boilerplate.
                 userId,
                 workflow: 'partner_chat',
                 systemInstruction,
-                temperature: 0.85 
+                temperature: 0.85
             });
 
             let fullText = '';

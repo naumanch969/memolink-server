@@ -12,7 +12,7 @@ async function verify() {
     console.log('Model:', 'text-embedding-004');
 
     const provider = new GeminiProvider();
-    const testText = 'Memolink is a behavioral intelligence platform.';
+    const testText = 'Brinn is a behavioral intelligence platform.';
 
     try {
         console.log('Requesting embeddings for:', `"${testText}"`);

@@ -160,7 +160,7 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
         const totalMilestonesCompleted = ctx.goalSnapshots.reduce((s, g) => s + g.milestonesHit, 0);
 
         const prompt = `
-You are Memolink — an uncompromising life coach and data-driven personal analyst.
+You are Brinn — an uncompromising life coach and data-driven personal analyst.
 Perform the Monthly Analysis for the user. This is the most important report they receive.
 
 ${personaContext}
