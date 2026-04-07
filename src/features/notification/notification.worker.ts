@@ -1,7 +1,7 @@
 import os from 'os';
 import { logger } from '../../config/logger';
 import { eventStream } from '../../core/events/event.stream';
-import { EventType, MemolinkEvent } from '../../core/events/event.types';
+import { EventType, BrinnEvent } from '../../core/events/event.types';
 import notificationDispatcher from './notification.dispatcher';
 import { NotificationType } from './notification.types';
 
@@ -53,7 +53,7 @@ export class NotificationWorker {
         }
     }
 
-    private async processEvent(event: MemolinkEvent) {
+    private async processEvent(event: BrinnEvent) {
         logger.debug(`[NotificationWorker] Processing: ${event.type} for ${event.userId}`);
 
         switch (event.type) {

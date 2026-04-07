@@ -21,7 +21,7 @@ export class CaptureController {
      * Returns the new Media document's string ID.
      */
     private async uploadFile(userId: string, file: Express.Multer.File): Promise<string> {
-        const cloudinaryResult = await cloudinaryService.uploadFile(file, 'memolink', {
+        const cloudinaryResult = await cloudinaryService.uploadFile(file, 'brinn', {
             extractExif: true,
             enableOcr: false,
             enableAiTagging: false,

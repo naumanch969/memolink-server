@@ -5,7 +5,7 @@ import path from 'path';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const MCP_CLIENT_ID = 'memolink_mcp_official';
+const MCP_CLIENT_ID = 'brinn_mcp_official';
 const MCP_CLIENT_NAME = 'Brinn MCP';
 const MCP_REDIRECT_URIS = [
   'http://localhost:6274/oauth/callback',

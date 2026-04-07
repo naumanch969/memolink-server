@@ -30,7 +30,7 @@ If the primary database is corrupted or lost, follow these steps to restore from
 
 ### 1. Download Backup
 1.  Log in to your **Cloudflare Dashboard**.
-2.  Navigate to **R2** -> **Buckets** -> `memolink-backups`.
+2.  Navigate to **R2** -> **Buckets** -> `brinn-backups`.
 3.  Find the file you want to restore (e.g., `backup-2024-03-20-00-00-00.gz`).
 4.  Download it to your local machine.
 
@@ -60,7 +60,7 @@ To make this work, the following **Repository Secrets** must be set in GitHub:
 | `R2_ACCOUNT_ID`        | Cloudflare Account ID (found in R2 sidebar)                                 |
 | `R2_ACCESS_KEY_ID`     | R2 API Token ID (Permission: Object Read & Write)                          |
 | `R2_SECRET_ACCESS_KEY` | R2 API Token Secret                                                         |
-| `R2_BUCKET_NAME`       | Exact name of your bucket (e.g., `memolink-backups`)                        |
+| `R2_BUCKET_NAME`       | Exact name of your bucket (e.g., `brinn-backups`)                        |
 
 ---
 

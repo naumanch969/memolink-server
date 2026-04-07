@@ -24,12 +24,12 @@ export class MetricsService implements IMetricsService {
         this.registry = new Registry();
         collectDefaultMetrics({
             register: this.registry,
-            prefix: 'memolink_',
+            prefix: 'brinn_',
         });
 
         // Initialize Prometheus Metrics
         this.httpRequestDuration = new Histogram({
-            name: 'memolink_http_request_duration_seconds',
+            name: 'brinn_http_request_duration_seconds',
             help: 'Duration of HTTP requests in seconds',
             labelNames: ['method', 'route', 'status_code'],
             buckets: [0.1, 0.5, 1, 2, 5],
@@ -37,35 +37,35 @@ export class MetricsService implements IMetricsService {
         });
 
         this.httpRequestTotal = new Counter({
-            name: 'memolink_http_requests_total',
+            name: 'brinn_http_requests_total',
             help: 'Total number of HTTP requests',
             labelNames: ['method', 'route', 'status_code'],
             registers: [this.registry],
         });
 
         this.httpRequestErrors = new Counter({
-            name: 'memolink_http_request_errors_total',
+            name: 'brinn_http_request_errors_total',
             help: 'Total number of HTTP request errors',
             labelNames: ['method', 'route', 'error_type'],
             registers: [this.registry],
         });
 
         this.dbQueryDuration = new Histogram({
-            name: 'memolink_db_query_duration_seconds',
+            name: 'brinn_db_query_duration_seconds',
             help: 'Duration of database queries in seconds',
             labelNames: ['operation', 'collection'],
             registers: [this.registry],
         });
 
         this.dbQueryTotal = new Counter({
-            name: 'memolink_db_queries_total',
+            name: 'brinn_db_queries_total',
             help: 'Total number of database queries',
             labelNames: ['operation', 'collection'],
             registers: [this.registry],
         });
 
         this.entriesCreated = new Counter({
-            name: 'memolink_entries_created_total',
+            name: 'brinn_entries_created_total',
             help: 'Total number of entries created',
             registers: [this.registry],
         });

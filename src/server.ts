@@ -20,7 +20,7 @@ if (config.SENTRY_DSN_URL) {
 
 // Start the server
 // Identifying log for the AI agent
-logger.info('--- MEMOLINK SERVER STARTING WITH AGENT EDITS ---');
+logger.info('--- BRINN SERVER STARTING WITH AGENT EDITS ---');
 
 const server = new Server();
 initCronJobs();

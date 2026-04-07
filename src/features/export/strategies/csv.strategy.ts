@@ -15,7 +15,7 @@ export class CsvStrategy implements ExportStrategy {
         if (to) filter.createdAt = { ...filter.createdAt, $lte: to };
         if (!options.includePrivate) filter.isPrivate = false;
 
-        const filename = `memolink-export-${new Date().toISOString().split('T')[0]}.csv`;
+        const filename = `brinn-export-${new Date().toISOString().split('T')[0]}.csv`;
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 

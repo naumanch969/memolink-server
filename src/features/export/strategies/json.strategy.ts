@@ -21,7 +21,7 @@ export class JsonStrategy implements ExportStrategy {
         if (!options.includePrivate) filter.isPrivate = false;
 
         // Set headers for download
-        const filename = `memolink-export-${new Date().toISOString().split('T')[0]}.json`;
+        const filename = `brinn-export-${new Date().toISOString().split('T')[0]}.json`;
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 

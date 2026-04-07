@@ -5,7 +5,7 @@ import { redisConnection } from '../src/config/redis';
 async function debug() {
     try {
         console.log('Connecting to DB...');
-        await mongoose.connect('mongodb://localhost:27017/memolink');
+        await mongoose.connect('mongodb://localhost:27017/brinn');
         console.log('DB Connected.');
 
         const edges = await GraphEdge.find();
@@ -15,7 +15,7 @@ async function debug() {
         }
 
         console.log('Checking Redis Stream...');
-        const streamInfo = await redisConnection.xrange('memolink:events:v1', '-', '+', 'COUNT', 5);
+        const streamInfo = await redisConnection.xrange('brinn:events:v1', '-', '+', 'COUNT', 5);
         console.log('REDIS_STREAM_SAMPLE_SIZE:', streamInfo.length);
         if (streamInfo.length > 0) {
             console.log('FIRST_STREAM_EVENT:', streamInfo[0]);

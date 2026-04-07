@@ -31,7 +31,7 @@ export interface AccessContext {
     version: string;
 }
 
-export interface MemolinkEvent<T = any> {
+export interface BrinnEvent<T = any> {
     id: string;           // UUIDv4
     type: EventType;
     timestamp: number;    // UTC Epoch

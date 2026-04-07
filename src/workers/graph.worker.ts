@@ -1,7 +1,7 @@
 import os from 'os';
 import { logger } from '../config/logger';
 import { eventStream } from '../core/events/event.stream';
-import { EventType, MemolinkEvent } from '../core/events/event.types';
+import { EventType, BrinnEvent } from '../core/events/event.types';
 import { EdgeType, NodeType } from '../features/graph/edge.model';
 import { graphService } from '../features/graph/graph.service';
 import { Types } from 'mongoose';
@@ -64,7 +64,7 @@ export class GraphWorker {
         }
     }
 
-    private async processEvent(event: MemolinkEvent) {
+    private async processEvent(event: BrinnEvent) {
         logger.info(`[GraphWorker] Processing: ${event.type} (User: ${event.userId})`);
 
         switch (event.type) {
@@ -80,7 +80,7 @@ export class GraphWorker {
         }
     }
 
-    private async handleTaskCreated(event: MemolinkEvent) {
+    private async handleTaskCreated(event: BrinnEvent) {
         const { userId, payload } = event;
         const taskId = payload.taskId;
         const isValidId = (id: string) => id && id.length === 24 && /^[0-9a-fA-F]+$/.test(id);
@@ -100,7 +100,7 @@ export class GraphWorker {
         });
     }
 
-    private async handleTaskRescheduled(event: MemolinkEvent) {
+    private async handleTaskRescheduled(event: BrinnEvent) {
         const { userId, payload } = event;
         const taskId = payload.taskId;
         const isValidId = (id: string) => id && id.length === 24 && /^[0-9a-fA-F]+$/.test(id);

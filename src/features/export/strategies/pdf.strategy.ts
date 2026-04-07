@@ -16,7 +16,7 @@ export class PdfStrategy implements ExportStrategy {
         if (to) filter.createdAt = { ...filter.createdAt, $lte: to };
         if (!options.includePrivate) filter.isPrivate = false;
 
-        const filename = `memolink-export-${new Date().toISOString().split('T')[0]}.pdf`;
+        const filename = `brinn-export-${new Date().toISOString().split('T')[0]}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
@@ -30,7 +30,7 @@ export class PdfStrategy implements ExportStrategy {
         // (Though 'includePrivate' flag handles the query filter already)
 
         // --- Header Page ---
-        doc.fontSize(25).text('MemoLink Journal Export', { align: 'center' });
+        doc.fontSize(25).text('Brinn Journal Export', { align: 'center' });
         doc.moveDown();
         doc.fontSize(12).text(`Generated: ${new Date().toLocaleDateString()}`, { align: 'center' });
 

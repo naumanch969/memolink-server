@@ -3,7 +3,7 @@ import { GraphEdge } from '../src/features/graph/edge.model';
 import { config } from '../src/config/env';
 
 async function check() {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/memolink');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/brinn');
     const count = await GraphEdge.countDocuments();
     console.log('Total Graph Edges:', count);
     const edges = await GraphEdge.find().limit(5);

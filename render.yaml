@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: memolink-server
+    name: brinn-server
     env: node
     plan: standard
     buildCommand: npm install && npm run build

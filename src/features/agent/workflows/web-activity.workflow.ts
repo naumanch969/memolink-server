@@ -57,7 +57,7 @@ export class WebActivityWorkflow implements IAgentWorkflow {
 
             // 4. Generate Narrative
             const prompt = `
-            You are the "Personal Growth Librarian" for MemoLink.
+            You are the "Personal Growth Librarian" for Brinn.
             The user has spent time on the web today (${date}). 
             Your job is to write a concise (2-3 sentences) but insightful summary for their journal.
             

@@ -145,7 +145,7 @@ export class ChunkedUploadController {
         chunks,
         session.mimeType,
         session.fileName,
-        'memolink',
+        'brinn',
         {
           extractExif: true,
           enableOcr: enableOcr === 'true' || enableOcr === true,

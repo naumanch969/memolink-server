@@ -15,12 +15,12 @@ export class MarkdownStrategy implements ExportStrategy {
         if (to) filter.createdAt = { ...filter.createdAt, $lte: to };
         if (!options.includePrivate) filter.isPrivate = false;
 
-        const filename = `memolink-export-${new Date().toISOString().split('T')[0]}.md`;
+        const filename = `brinn-export-${new Date().toISOString().split('T')[0]}.md`;
         res.setHeader('Content-Type', 'text/markdown');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
         // Write Metadata
-        res.write(`# MemoLink Export\n\n`);
+        res.write(`# Brinn Export\n\n`);
         res.write(`**Exported:** ${new Date().toISOString()}\n`);
         res.write(`**Date Range:** ${options.dateFrom || 'All time'} - ${options.dateTo || 'Present'}\n\n`);
         res.write(`---\n\n`);

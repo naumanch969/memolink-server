@@ -5,14 +5,14 @@ const swaggerOptions: swaggerJSDoc.Options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'MemoLink API',
+            title: 'Brinn API',
             version: '1.0.0',
-            description: 'API documentation for MemoLink personal journaling and life tracking application',
+            description: 'API documentation for Brinn personal journaling and life tracking application',
         },
         servers: [
             {
                 url: config.NODE_ENV === 'production'
-                    ? 'https://memolink-server.fly.dev'
+                    ? 'https://brinn-server.fly.dev'
                     : `http://localhost:${config.PORT || 8080}`,
                 description: config.NODE_ENV === 'production' ? 'Production server' : 'Development server',
             },

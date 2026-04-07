@@ -85,7 +85,7 @@ export class WhatsAppProvider implements IWhatsAppProvider {
 
         if (!user) {
             logger.warn('WhatsApp message from unlinked number', { from });
-            await this.sendMessage(from, "Your phone number is not linked to any MemoLink account. Please link it in your settings.");
+            await this.sendMessage(from, "Your phone number is not linked to any Brinn account. Please link it in your settings.");
             return;
         }
 

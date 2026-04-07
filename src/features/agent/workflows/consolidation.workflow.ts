@@ -113,7 +113,7 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
 
             // 2. LLM Analysis
             const prompt = `
-            You are a Cognitive Psychologist and Persona Engineer for MemoLink.
+            You are a Cognitive Psychologist and Persona Engineer for Brinn.
             Your goal is to analyze the recent chat history and update the user's "Persona Document".
             
             CURRENT PERSONA:

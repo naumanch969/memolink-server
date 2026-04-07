@@ -7,7 +7,7 @@ import { graphService } from '../features/graph/graph.service';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/memolink';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/brinn';
 
 async function runTest() {
     try {

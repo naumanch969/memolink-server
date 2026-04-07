@@ -53,7 +53,7 @@ export class CloudinaryService implements ICloudinaryService {
   // Upload file to Cloudinary with enhanced metadata extraction
   async uploadFile(
     file: Express.Multer.File,
-    folder: string = 'memolink',
+    folder: string = 'brinn',
     options: {
       extractExif?: boolean;
       enableOcr?: boolean;
@@ -135,7 +135,7 @@ export class CloudinaryService implements ICloudinaryService {
     chunks: Buffer[],
     mimeType: string,
     filename: string,
-    folder: string = 'memolink',
+    folder: string = 'brinn',
     options: {
       extractExif?: boolean;
       enableOcr?: boolean;

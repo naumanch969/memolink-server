@@ -60,7 +60,7 @@ export class MediaController {
       // Upload to Cloudinary with metadata extraction options
       let cloudinaryResult;
       try {
-        cloudinaryResult = await cloudinaryService.uploadFile(req.file, 'memolink', {
+        cloudinaryResult = await cloudinaryService.uploadFile(req.file, 'brinn', {
           extractExif: true,
           enableOcr: shouldEnableOcr,
           enableAiTagging: shouldEnableAiTagging,

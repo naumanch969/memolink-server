@@ -1,4 +1,4 @@
-# MemoLink — Privacy & Encryption Architecture (v3.3)
+# Brinn — Privacy & Encryption Architecture (v3.3)
 
 **Version:** 3.3  
 **Status:** Implementation Guide  
@@ -10,7 +10,7 @@
 
 "We value your privacy" is marketing. Privacy is architecture.
 
-MemoLink stores the most sensitive data a person can generate — fears, relationships, unfiltered thoughts. A breach here doesn't just lose customers. It destroys people's lives and ends the company.
+Brinn stores the most sensitive data a person can generate — fears, relationships, unfiltered thoughts. A breach here doesn't just lose customers. It destroys people's lives and ends the company.
 
 **The core decision:** Two-tier encryption. Raw entries are user-owned — we cannot read them. Enrichments are service-encrypted — we can process them freely. Maximum privacy where it matters most. Zero operational friction everywhere else.
 
@@ -268,7 +268,7 @@ export class EncryptionService {
   // --- BLIND INDEX (syntactic search) ---
 
   static generateBlindIndex(term: string, mdk: Buffer): string {
-    const searchKey = crypto.createHmac('sha256', mdk).update('memolink-search-v1').digest()
+    const searchKey = crypto.createHmac('sha256', mdk).update('brinn-search-v1').digest()
     return crypto
       .createHmac('sha256', searchKey)
       .update(term.toLowerCase().replace(/[^a-z0-9]/g, '').trim())

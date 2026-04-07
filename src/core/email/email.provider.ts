@@ -75,7 +75,7 @@ export class EmailProvider {
     async sendEmail(options: EmailOptions): Promise<void> {
         try {
             const mailOptions = {
-                from: `"MemoLink" <${config.EMAIL_USER}>`,
+                from: `"Brinn" <${config.EMAIL_USER}>`,
                 to: options.to,
                 subject: options.subject,
                 html: options.html,

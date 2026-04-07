@@ -17,7 +17,7 @@ paths:
                 events:
                   type: array
                   items:
-                    $ref: '#/components/schemas/MemolinkEvent'
+                    $ref: '#/components/schemas/BrinnEvent'
       responses:
         200:
           description: Events ingested
@@ -45,7 +45,7 @@ paths:
 
 components:
   schemas:
-    MemolinkEvent:
+    BrinnEvent:
       type: object
       required:
         - type

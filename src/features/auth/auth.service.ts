@@ -413,11 +413,11 @@ export class AuthService implements IAuthService {
         }
       }
 
-      const securityConfig: any = { 
-        question: question || user.securityConfig?.question, 
-        timeoutMinutes: timeoutMinutes ?? user.securityConfig?.timeoutMinutes ?? 5, 
-        isEnabled: isEnabled ?? wasEnabled ?? false, 
-        maskEntries: maskEntries ?? user.securityConfig?.maskEntries ?? false 
+      const securityConfig: any = {
+        question: question || user.securityConfig?.question,
+        timeoutMinutes: timeoutMinutes ?? user.securityConfig?.timeoutMinutes ?? 5,
+        isEnabled: isEnabled ?? wasEnabled ?? false,
+        maskEntries: maskEntries ?? user.securityConfig?.maskEntries ?? false
       };
 
       if (answer && answer.trim()) {
@@ -477,9 +477,9 @@ export class AuthService implements IAuthService {
         } catch (e) { logger.warn('Old avatar delete failed', e); }
       }
 
-      const result = await cloudinaryService.uploadFile(file, 'memolink/avatars');
+      const result = await cloudinaryService.uploadFile(file, 'brinn/avatars');
       user.avatar = cloudinaryService.getOptimizedUrl(result.public_id, { width: 256, height: 256, crop: 'fill' });
-      
+
       await user.save();
       await cacheService.del(CacheKeys.userProfile(userId));
       return user;

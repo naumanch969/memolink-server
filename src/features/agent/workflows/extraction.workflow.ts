@@ -92,7 +92,7 @@ export class EntityExtractionWorkflow implements IAgentWorkflow {
             // 3.5 THE CRITIC PASS (Verification Loop)
             if (entitiesData.length > 0) {
                 const criticPrompt = `
-                You are the "Intelligence Critic" for MemoLink. Review the following extraction from a journal entry.
+                You are the "Intelligence Critic" for Brinn. Review the following extraction from a journal entry.
                 Source Text: "${entry.content}"
                 ${negativeContext}
                 

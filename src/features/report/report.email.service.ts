@@ -156,7 +156,7 @@ export class ReportEmailService {
       return;
     }
 
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.memolink.ai';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.brinn.ai';
     const period = this.formatPeriod(report.startDate, report.endDate);
 
     let subject: string;

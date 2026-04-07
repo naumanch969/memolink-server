@@ -1,5 +1,5 @@
 {
-  "name": "memolink-server",
+  "name": "brinn-server",
   "version": "1.0.0",
   "main": "dist/server.js",
   "scripts": {
@@ -34,7 +34,7 @@
   ],
   "author": "",
   "license": "ISC",
-  "description": "Backend server for MemoLink - Personal journaling and life tracking application",
+  "description": "Backend server for Brinn - Personal journaling and life tracking application",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.968.0",
     "@aws-sdk/s3-request-presigner": "^3.968.0",

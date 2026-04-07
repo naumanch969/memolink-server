@@ -92,7 +92,7 @@ app.use('/api', routes);
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'MemoLink API',
+    message: 'Brinn API',
     version: '1.0.0',
     status: 'running',
     timestamp: new Date().toISOString(),

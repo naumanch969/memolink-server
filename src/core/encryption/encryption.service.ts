@@ -109,7 +109,7 @@ export class EncryptionService implements IEncryptionService {
     // --- BLIND INDEX (syntactic search) ---
 
     generateBlindIndex(term: string, mdk: Buffer): string {
-        const searchKey = crypto.createHmac('sha256', mdk).update('memolink-search-v1').digest();
+        const searchKey = crypto.createHmac('sha256', mdk).update('brinn-search-v1').digest();
         return crypto
             .createHmac('sha256', searchKey)
             .update(term.toLowerCase().replace(/[^a-z0-9]/g, '').trim())

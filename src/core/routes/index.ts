@@ -51,7 +51,7 @@ router.get('/health', (req, res) => {
 // API documentation
 router.use('/docs', swaggerUi.serve);
 router.get('/docs', swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: 'MemoLink API Docs',
+  customSiteTitle: 'Brinn API Docs',
   swaggerOptions: {
     persistAuthorization: true,
   },

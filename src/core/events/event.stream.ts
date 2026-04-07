@@ -2,12 +2,12 @@ import { Redis } from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
-import { AccessContext, EventType, MemolinkEvent } from './event.types';
+import { AccessContext, EventType, BrinnEvent } from './event.types';
 import { Types } from 'mongoose';
 
 export class EventStream {
     private redis: Redis;
-    private readonly STREAM_KEY = 'memolink:events:v1';
+    private readonly STREAM_KEY = 'brinn:events:v1';
 
     constructor() {
         this.redis = redisConnection;
@@ -27,7 +27,7 @@ export class EventStream {
         source: AccessContext = { deviceId: 'server', platform: 'server', version: '1.0.0' },
         meta: any = {}
     ): Promise<string> {
-        const event: MemolinkEvent<T> = {
+        const event: BrinnEvent<T> = {
             id: uuidv4(),
             type,
             timestamp: Date.now(),
@@ -59,7 +59,7 @@ export class EventStream {
      * @param lastId The ID of the last processed event
      * @param count Batch size
      */
-    async read(lastId: string = '$', count: number = 100): Promise<{ streamId: string, event: MemolinkEvent }[]> {
+    async read(lastId: string = '$', count: number = 100): Promise<{ streamId: string, event: BrinnEvent }[]> {
         try {
             const result = await (this.redis as any).xread('BLOCK', '30000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, lastId);
 
@@ -99,7 +99,7 @@ export class EventStream {
     /**
      * Reads events from a consumer group.
      */
-    async readGroup(groupName: string, consumerName: string, count: number = 10): Promise<{ streamId: string, event: MemolinkEvent }[]> {
+    async readGroup(groupName: string, consumerName: string, count: number = 10): Promise<{ streamId: string, event: BrinnEvent }[]> {
         try {
             // '>' means only new messages that haven't been delivered to other consumers in the group
             const result = await (this.redis as any).xreadgroup('GROUP', groupName, consumerName, 'BLOCK', '60000', 'COUNT', count.toString(), 'STREAMS', this.STREAM_KEY, '>');

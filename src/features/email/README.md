@@ -1,6 +1,6 @@
 # Email Feature Module
 
-This module handles all email-related functionality for MemoLink.
+This module handles all email-related functionality for Brinn.
 
 ## Architecture
 

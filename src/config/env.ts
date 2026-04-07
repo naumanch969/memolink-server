@@ -14,7 +14,7 @@ export const config = {
   NODE_ENV: process.env.NODE_ENV,
 
   // Database Configuration
-  MONGODB_URI: (process.env.NODE_ENV === 'production' ? process.env.MONGODB_PROD_URI : process.env.MONGODB_URI) || 'mongodb://localhost:27017/memolink-dev',
+  MONGODB_URI: (process.env.NODE_ENV === 'production' ? process.env.MONGODB_PROD_URI : process.env.MONGODB_URI) || 'mongodb://localhost:27017/brinn-dev',
 
   // JWT Configuration
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
@@ -51,7 +51,7 @@ export const config = {
   CORS_ORIGIN: process.env.CORS_ORIGIN?.split(',') || [
     'http://localhost:3000',
     'http://localhost:5000',
-    'https://memolink-server.fly.dev',
+    'https://brinn-server.fly.dev',
     'http://localhost:1420',
     'tauri://localhost',
     'http://tauri.localhost'
@@ -98,7 +98,7 @@ export const config = {
   WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
   WHATSAPP_DISPLAY_NUMBER: process.env.WHATSAPP_DISPLAY_NUMBER || '',
   WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
-  CLAUDE_CLIENT_SECRET: process.env.CLAUDE_CLIENT_SECRET || 'claude_secret_memolink_2025',
+  CLAUDE_CLIENT_SECRET: process.env.CLAUDE_CLIENT_SECRET || 'claude_secret_brinn_2025',
 } as const;
 
 export type Config = typeof config;
