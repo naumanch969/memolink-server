@@ -67,6 +67,7 @@ export const config = {
   EMAIL_PASS: process.env.EMAIL_PASS,
   EMAIL_FROM: process.env.EMAIL_FROM,
   EMAIL_SECURE: process.env.EMAIL_SECURE,
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'company@opstintechnologies.com',
 
   // Cloudflare R2 Configuration
   R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID || '',

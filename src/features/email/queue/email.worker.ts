@@ -2,10 +2,11 @@ import { Job } from 'bullmq';
 import { logger } from '../../../config/logger';
 import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
+import { getWaitlistConfirmationEmailTemplate, getWaitlistAdminEmailTemplate } from '../../../core/email/templates/waitlist.templates';
 import { queueService } from '../../../core/queue/queue.service';
 import { validateEmailOrThrow } from '../../../shared/email-validator';
 import { EMAIL_QUEUE_NAME, getEmailDLQ } from './email.queue';
-import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData } from './email.types';
+import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData, WaitlistConfirmationEmailJobData, WaitlistAdminAlertEmailJobData } from './email.types';
 import { USER_ROLES } from '../../../shared/constants';
 import { SocketEvents } from '../../../core/socket/socket.types';
 import { socketService } from '../../../core/socket/socket.service';
@@ -49,6 +50,16 @@ const processEmailJob = async (job: Job<EmailJob>) => {
                     html: d.html,
                     text: d.text
                 };
+                break;
+            }
+            case 'WAITLIST_CONFIRMATION': {
+                const d = data as WaitlistConfirmationEmailJobData;
+                emailContent = getWaitlistConfirmationEmailTemplate(d.email);
+                break;
+            }
+            case 'WAITLIST_ADMIN_ALERT': {
+                const d = data as WaitlistAdminAlertEmailJobData;
+                emailContent = getWaitlistAdminEmailTemplate(d.email);
                 break;
             }
             default:

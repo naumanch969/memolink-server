@@ -27,6 +27,7 @@ import reportRoutes from '../../features/report/report.routes';
 import searchRoutes from '../../features/search/search.routes';
 import tagRoutes from '../../features/tag/tag.routes';
 import webActivityRoutes from '../../features/web-activity/web-activity.routes';
+import waitlistRoutes from '../../features/waitlist/waitlist.routes';
 
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
@@ -90,6 +91,7 @@ router.use('/announcements', announcementRoutes);
 router.use('/monitoring', monitoringRoutes);
 router.use('/capture', captureRoutes);
 router.use('/oauth', oauthRoutes);
+router.use('/waitlist', waitlistRoutes);
 
 
 
