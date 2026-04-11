@@ -35,13 +35,12 @@ app.use(cors({
     if (!origin) return callback(null, true);
 
     const allowedOrigins = config.CORS_ORIGIN;
-    const isAllowed = allowedOrigins.some(ao => origin === ao) ||
-      origin.startsWith('chrome-extension://');
+    const isAllowed = allowedOrigins.some(ao => origin === ao) || origin.startsWith('chrome-extension://');
 
     if (isAllowed) {
       callback(null, true);
     } else {
-      logger.warn('CORS blocked origin:', { origin });
+      logger.warn('CORS blocked origin:', { origin, allowedOrigins });
       callback(new Error('Not allowed by CORS'));
     }
   },
