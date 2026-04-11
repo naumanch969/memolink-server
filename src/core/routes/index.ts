@@ -34,6 +34,8 @@ import { swaggerSpec } from '../../config/swagger.config';
 import captureRoutes from '../../features/capture/capture.routes';
 import integrationRoutes from '../../features/integrations/integration.routes';
 import oauthRoutes from '../../features/oauth/oauth.routes';
+import supportRoutes from '../../features/support/support.routes';
+
 
 
 const router = Router();
@@ -92,6 +94,8 @@ router.use('/monitoring', monitoringRoutes);
 router.use('/capture', captureRoutes);
 router.use('/oauth', oauthRoutes);
 router.use('/waitlist', waitlistRoutes);
+router.use('/support', supportRoutes);
+
 
 
 
