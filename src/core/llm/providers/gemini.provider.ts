@@ -136,8 +136,8 @@ export class GeminiProvider implements ILLMProvider {
                 }
             },
             {
-                maxAttempts: 4, // More attempts for hallucination or rate limits
-                initialDelay: 2000,
+                maxAttempts: 6, // Increased attempts for heavy load
+                initialDelay: 3000,
                 maxDelay: 60000,
                 shouldRetry: (err) => err.status === 429 || err.status >= 500 || err?.isTransientValidation,
                 operationName: 'Gemini.generateJSON'

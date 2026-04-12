@@ -442,10 +442,15 @@ export class EntryService implements IEntryService {
     }
   }
 
-  // Delete entry and update tag usage metrics
+  // Delete entry and update tag usage metrics with optional transaction support
   async deleteEntry(entryId: string, userId: string | Types.ObjectId): Promise<IEntry> {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const useTransactions = await MongoUtil.supportsTransactions();
+    let session: mongoose.ClientSession | null = null;
+
+    if (useTransactions) {
+      session = await mongoose.startSession();
+      session.startTransaction();
+    }
 
     try {
       const entry = await Entry.findOneAndDelete({ _id: entryId, userId }).session(session);
@@ -453,10 +458,14 @@ export class EntryService implements IEntryService {
 
       // ACID: Cascade delete associated documents
       await EnrichedEntry.deleteMany({ referenceId: entryId, userId }).session(session);
-      await GraphEdge.deleteMany({ sourceEntryId: entryId }).session(session);
+      await GraphEdge.deleteMany({ 
+        $or: [{ sourceEntryId: entryId }, { targetEntryId: entryId }] 
+      }).session(session);
       await AgentTask.deleteMany({ userId, 'inputData.entryId': entryId }).session(session);
 
-      await session.commitTransaction();
+      if (session) {
+        await session.commitTransaction();
+      }
 
       // Statistics updates (run after successful commit)
       try {
@@ -474,11 +483,15 @@ export class EntryService implements IEntryService {
 
       return entry as IEntry;
     } catch (error) {
-      await session.abortTransaction();
+      if (session) {
+        await session.abortTransaction();
+      }
       logger.error('Entry deletion failed:', error);
       throw error;
     } finally {
-      session.endSession();
+      if (session) {
+        session.endSession();
+      }
     }
   }
 

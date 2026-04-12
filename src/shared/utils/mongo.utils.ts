@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 
 export class MongoUtil {
     /**
@@ -20,6 +20,20 @@ export class MongoUtil {
      */
     static isMongoError(error: any): boolean {
         return error.name === 'MongoError' || error.name === 'MongoServerError';
+    }
+
+    /**
+     * Checks if the current MongoDB connection supports transactions
+     */
+    static async supportsTransactions(): Promise<boolean> {
+        try {
+            const admin = mongoose.connection.db?.admin();
+            if (!admin) return false;
+            const status = await admin.serverStatus();
+            return !!status.repl;
+        } catch (error) {
+            return false;
+        }
     }
 
     /**
