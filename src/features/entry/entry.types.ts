@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
 import { IEnrichmentMetadata, IEnrichmentNarrative, SignalTier } from '../enrichment/enrichment.types';
 
+// TODO: transform this into enum. and use at all places
 export type EntryStatus = 'capturing' | 'processing' | 'completed' | 'failed' | 'queued' | 'ready';
 
 // Entry Types

@@ -43,18 +43,18 @@ export const EMAIL_DLQ_JOB_OPTIONS = {
 // ─── WORKER CONFIG ────────────────────────────────────────────────────────────
 
 export const ENRICHMENT_WORKER_CONFIG = {
-    concurrency: 5,
-    lockDuration: 60_000,   // 60s — enough for LLM completion
+    concurrency: 10,
+    lockDuration: 300_000,  // 5m — increased to prevent lock errors during long LLM tasks
     lockRenewTime: 15_000,  // renew every 15s to prevent stale-lock eviction
-    limiter: { max: 20, duration: 60_000 },
+    // limiter: { max: 20, duration: 60_000 }, // Throttling disabled for faster response
 };
 
 export const AGENT_WORKER_CONFIG = {
-    concurrency: 5,
+    concurrency: 10,
     lockDuration: 300_000,  // 5 min — agent workflows can be long-running
 };
 
 export const EMAIL_WORKER_CONFIG = {
-    concurrency: 5,
+    concurrency: 10,
     limiter: { max: 10, duration: 1_000 },  // 10 emails/sec
 };

@@ -11,7 +11,8 @@ import { initEmailWorker } from './features/email/queue/email.worker';
 import { getEnrichmentQueue } from './features/enrichment/enrichment.queue';
 import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
 import notificationWorker from './features/notification/notification.worker';
-import { graphWorker } from './workers/graph.worker';
+// import { graphWorker } from './workers/graph.worker';
+import enrichmentService from './features/enrichment/enrichment.service';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -38,15 +39,7 @@ async function startWorker() {
             logger.info('Redis connection ready for workers');
         });
 
-        // 3. Register Workers Here
-        initAgentWorker();
-        initEmailWorker();
-        initEnrichmentWorker();
-
-        graphWorker.start();
-        notificationWorker.start();
-
-        // DEV ONLY: Clear queues on startup to prevent zombie jobs
+        // 3. DEV ONLY: Clear queues on startup to prevent zombie jobs
         if (config.NODE_ENV === 'development') {
             logger.info('Development mode detected: Cleaning queues...');
 
@@ -54,22 +47,35 @@ async function startWorker() {
             const agentQueue = getAgentQueue();
             const enrichmentQueue = getEnrichmentQueue();
 
+            // Clear statistics
+            const counts = await enrichmentQueue.getJobCounts();
+            logger.info('Enrichment Queue Status Before Clear:', counts);
+
+            // drain() clears wait, delayed, and paused
             await emailQueue.drain();
-            await emailQueue.clean(0, 5000, 'delayed');
-            await emailQueue.clean(0, 5000, 'wait');
-            await emailQueue.clean(0, 5000, 'active');
-
             await agentQueue.drain();
-            await agentQueue.clean(0, 5000, 'delayed');
-            await agentQueue.clean(0, 5000, 'wait');
-            await agentQueue.clean(0, 5000, 'active');
-
-            await enrichmentQueue.drain();
-            await enrichmentQueue.clean(0, 5000, 'wait');
-            await enrichmentQueue.clean(0, 5000, 'active');
-
-            logger.info('Queues drained');
+            
+            // For enrichment, we want a clean slate in dev to fix lock errors
+            // DISABLED: obliterate is too destructive and wipes valid waiting jobs on restart
+            // await enrichmentQueue.obliterate({ force: true });
+            // logger.info('Enrichment Queue cleanup skipped for safety');
         }
+
+        // 4. Register Workers Here
+        initAgentWorker();
+        initEmailWorker();
+        initEnrichmentWorker();
+
+        // 5. Trigger Immediate Healing for existing entries
+        setImmediate(async () => {
+            logger.info('Starting initial Enrichment Healing batch...');
+            await enrichmentService.runEnrichmentHealingBatch(20).catch(err => {
+                logger.error('Initial enrichment healing failed:', err);
+            });
+        });
+
+        // graphWorker.start();
+        notificationWorker.start();
 
         logger.info('Worker service initialized. Waiting for jobs...');
 

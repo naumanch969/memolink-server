@@ -34,6 +34,11 @@ export class EnrichmentService implements IEnrichmentService {
                 referenceId: entryId,
                 signalTier: signalTier as any,
             });
+            console.log('number of jobs: ', await queue.getJobCounts())
+            // Set status to queued so UI can show it
+            await Entry.findByIdAndUpdate(entryId, { status: 'queued' }).catch(() => { });
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { _id: entryId, status: 'queued' });
+
             logger.info(`Enrichment Service: Enqueued task for entry ${entryId}`);
         } catch (error) {
             logger.error(`Enrichment Service: Failed to enqueue for ${entryId}`, error);
@@ -91,20 +96,34 @@ export class EnrichmentService implements IEnrichmentService {
                 return;
             }
 
-            const entry = await Entry.findByIdAndUpdate(entryId, {
-                status: 'processing',
-                'metadata.processingStep': ProcessingStep.ANALYZING_INTENT,
-                signalTier: signalTier as any,
-            }, { new: true });
+            // Get Entry
+            let entry = await Entry.findById(entryId);
+            if (!entry) {
+                logger.warn(`Enrichment Service: Entry ${entryId} not found immediately. Retrying in 500ms...`);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                entry = await Entry.findById(entryId);
+            }
+            if (!entry) throw new Error(`Entry ${entryId} not found after retry. It might have been deleted or the ID is invalid.`);
 
-            if (!entry) throw new Error(`Entry ${entryId} not found`);
 
+            // Update Entry to processing status
+            entry.status = 'processing';
+            entry.metadata = {
+                ...entry.metadata,
+                processingStep: ProcessingStep.ANALYZING_INTENT
+            };
+            if (signalTier) entry.signalTier = signalTier as any;
+            await entry.save();
+
+            // Let the UI know the entry is being processed
             socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
                 _id: entryId,
                 status: 'processing',
                 metadata: { processingStep: ProcessingStep.ANALYZING_INTENT },
                 signalTier: entry.signalTier,
             });
+
+            logger.info(`Enrichment Process [${entryId}]: Starting enrichment (Tier: ${entry.signalTier})`);
 
             // ─── TIER 0: NOISE ────────────────────────────────────────────────────
             if (entry.signalTier === 'noise') {
@@ -157,11 +176,12 @@ export class EnrichmentService implements IEnrichmentService {
             }
 
             // ─── TIER 1: LOG / TIER 2+3: SIGNAL / DEEP SIGNAL ───────────────────
-            // FIX: run interpreter + embeddings in parallel (was serial — wasted 1-2s)
             let interpreterPromise: Promise<any>;
             if (entry.signalTier === 'log') {
+                logger.debug(`Enrichment Process [${entryId}]: Using log interpreter`);
                 interpreterPromise = logInterpreter.process(entry.content);
             } else {
+                logger.debug(`Enrichment Process [${entryId}]: Using active interpreter`);
                 interpreterPromise = activeInterpreter.process(entry.content);
             }
 
@@ -176,6 +196,8 @@ export class EnrichmentService implements IEnrichmentService {
                 LLMService.generateEmbeddings(entry.content),
             ]);
 
+            logger.info(`Enrichment Process [${entryId}]: Interpreter & Embeddings complete`);
+
             if (entry.signalTier === 'deep_signal') {
                 result.extraction.flags.push('deep_signal');
             }
@@ -186,8 +208,12 @@ export class EnrichmentService implements IEnrichmentService {
                 metadata: { processingStep: ProcessingStep.RESOLVING_ENTITIES },
             });
 
+            logger.debug(`Enrichment Process [${entryId}]: Resolving ${result.metadata.entities?.length || 0} entities`);
+
             const resolvedEntities = await Promise.all(
-                (result.metadata.entities || []).map(async (ent: any) => {
+                (result.metadata.entities || [])
+                    .filter((ent: any) => ent.type === 'person')
+                    .map(async (ent: any) => {
                     try {
                         let otype = NodeType.ENTITY;
                         if (ent.type === 'person') otype = NodeType.PERSON;
@@ -249,7 +275,7 @@ export class EnrichmentService implements IEnrichmentService {
             const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: 'completed' }, { new: true, lean: true });
             socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, completedEntry);
 
-            logger.info(`Enrichment complete for active session ${sessionId} (Tier: ${entry.signalTier})`);
+            logger.info(`Enrichment Process [${entryId}]: Enrichment fully complete for session ${sessionId}`);
         } catch (error: any) {
             await this.handleEnrichmentFailure(userId, entryId, error);
             throw error;
@@ -325,9 +351,32 @@ export class EnrichmentService implements IEnrichmentService {
         const oneHourAgo = new Date(Date.now() - HEALING_STALENESS_THRESHOLD_MS);
 
         try {
-            // Find entries with incomplete or failed enrichment
+            // ─── PHASE 1: STUCK ENTRIES (Missing from EnrichedEntry) ───────
+            const stuckEntries = await Entry.find({
+                $or: [
+                    { 'metadata.enrichmentPending': true },
+                    { status: { $in: ['capturing', 'processing', 'failed'] } }
+                ],
+                updatedAt: { $lt: oneHourAgo } // Only heal after a period of inactivity
+            }).limit(limit);
+
+            if (stuckEntries.length > 0) {
+                logger.info(`Enrichment Healing: Found ${stuckEntries.length} stuck entries to re-enqueue`);
+                for (const entry of stuckEntries) {
+                    await this.enqueueActiveEnrichment(
+                        entry.userId.toString(),
+                        entry._id.toString(),
+                        entry.sessionId || '',
+                        entry.signalTier || 'signal'
+                    );
+                    // Clear the pending flag once re-enqueued
+                    await Entry.findByIdAndUpdate(entry._id, { $unset: { 'metadata.enrichmentPending': "" } });
+                }
+            }
+
+            // ─── PHASE 2: INCOMPLETE ENRICHED ENTRIES ───────────────────
             const candidates = await EnrichedEntry.find({
-                signalTier: { $nin: ['noise', 'log'] }, // Skip noise/log tiers as they don't have full narratives
+                signalTier: { $nin: ['noise', 'log'] },
                 $or: [
                     { processingStatus: { $in: ['failed', 'pending'] } },
                     { 'narrative.coreThought': { $in: [null, ''] } },
@@ -340,39 +389,38 @@ export class EnrichmentService implements IEnrichmentService {
                 .sort({ createdAt: -1 })
                 .limit(limit);
 
-            if (candidates.length === 0) return;
+            if (candidates.length === 0 && stuckEntries.length === 0) return;
 
-            logger.info(`Enrichment Healing: Found ${candidates.length} candidates for re-enrichment`);
+            if (candidates.length > 0) {
+                logger.info(`Enrichment Healing: Found ${candidates.length} candidates for re-enrichment`);
 
-            for (const enrichedEntry of candidates) {
-                try {
-                    // Increment healing attempt count
-                    enrichedEntry.healingAttempts += 1;
-                    await enrichedEntry.save();
+                for (const enrichedEntry of candidates) {
+                    try {
+                        enrichedEntry.healingAttempts += 1;
+                        await enrichedEntry.save();
 
-                    // Active enrichment requires the original entry
-                    if (enrichedEntry.sourceType === 'active' && enrichedEntry.referenceId) {
-                        logger.info(`Enrichment Healing: Re-processing active entry ${enrichedEntry.referenceId}`);
-                        await this.processActiveEnrichment(
-                            enrichedEntry.userId.toString(),
-                            enrichedEntry.referenceId.toString(),
-                            enrichedEntry.sessionId,
-                            enrichedEntry.signalTier
-                        );
-                    } else if (enrichedEntry.sourceType === 'passive') {
-                        logger.info(`Enrichment Healing: Re-processing passive session ${enrichedEntry.sessionId}`);
-                        await this.processPassiveEnrichment(
-                            enrichedEntry.userId.toString(),
-                            enrichedEntry.sessionId
-                        );
+                        if (enrichedEntry.sourceType === 'active' && enrichedEntry.referenceId) {
+                            logger.info(`Enrichment Healing: Re-enqueuing active entry ${enrichedEntry.referenceId}`);
+                            await this.enqueueActiveEnrichment(
+                                enrichedEntry.userId.toString(),
+                                enrichedEntry.referenceId.toString(),
+                                enrichedEntry.sessionId,
+                                enrichedEntry.signalTier
+                            );
+                        } else if (enrichedEntry.sourceType === 'passive') {
+                            logger.info(`Enrichment Healing: Re-enqueuing passive session ${enrichedEntry.sessionId}`);
+                            await this.enqueuePassiveEnrichment(
+                                enrichedEntry.userId.toString(),
+                                enrichedEntry.sessionId
+                            );
+                        }
+                    } catch (err: any) {
+                        logger.error(`Enrichment Healing: Failed to heal enriched entry ${enrichedEntry._id}`, err);
                     }
-                } catch (err: any) {
-                    logger.error(`Enrichment Healing: Failed to heal ${enrichedEntry._id}`, err);
-                    // We don't throw here to allow the loop to continue with other candidates
                 }
             }
 
-            logger.info('Enrichment Healing: Batch completed');
+            logger.info('Enrichment Healing: Completed all phases');
         } catch (error) {
             logger.error('Enrichment Healing: Batch failed', error);
         }

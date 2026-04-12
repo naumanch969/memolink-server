@@ -262,7 +262,7 @@ export const SIGNAL_SCORING_WEIGHTS = {
 
 export const SIGNAL_TIER_THRESHOLDS = {
   NOISE_MAX: -5,    // score <= -5 → noise
-  LOG_MAX: 9,       // score -4 to 9 → log
-  SIGNAL_MAX: 20,   // score 10 to 20 → signal
+  LOG_MAX: 5,       // score -4 to 5 → log
+  SIGNAL_MAX: 20,   // score 6 to 20 → signal
   // score > 20 → deep_signal
 } as const;

@@ -10,10 +10,10 @@ export class ActiveInterpreter implements IEnrichmentInterpreter<string, IEnrich
 User Input: "${text}"
 
 Valid themes (use ONLY these, max 3): ${ENRICHMENT_TAXONOMY.join(', ')}
-Valid entity types: person, place, concept, project, organization
+Valid entity types: person
 
 ### EXTRACTION DISCIPLINE:
-- **entities**: Extract significant people, locations, or concepts. Every entity MUST be mapped to one of the 5 valid types above.
+- **entities**: Extract significant people mentioned in the text. Ignore locations, concepts, projects, or organizations. Every entity MUST be typed as "person".
 - **signal** and **coreThought** are MANDATORY and must always be provided.
 - For **contradictions**, **openLoops**, **desires**, and **fears**: ONLY extract if clearly present or strongly implied. If no evidence exists, return an empty array or string.
 - For **selfPerception**: ONLY extract if the user mentions themselves or their state. Otherwise, return an empty string "".

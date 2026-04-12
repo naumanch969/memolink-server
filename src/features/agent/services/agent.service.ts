@@ -145,7 +145,7 @@ export class AgentService implements IAgentService {
 
     async cleanText(userId: string, text: string): Promise<string> {
         try {
-            const prompt = `Clean raw/fragmented text into polished format while preserving meaning, tone, tags, and mentions.\nInput: "${text}"\nCleaned Text:`;
+            const prompt = `Clean raw/fragmented text into polished format while preserving meaning, tone, tags, and mentions. Dont add any extra text/information. \nInput: "${text}"\nCleaned Text:`;
             return (await LLMService.generateText(prompt, { workflow: 'text_cleaning', userId, temperature: 0.3 })).trim();
         } catch (error) {
             logger.error('Text cleaning failed', error);

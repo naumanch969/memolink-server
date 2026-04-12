@@ -76,6 +76,9 @@ export class EntryController {
         });
       }
 
+      // 6. EMIT CREATION EVENT
+      socketService.emitToUser(userId, SocketEvents.ENTRY_CREATED, entry);
+
       ResponseHelper.created(res, entry, 'Entry created successfully');
     } catch (error) {
       logger.error('Entry creation controller failed:', error);
