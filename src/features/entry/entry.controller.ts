@@ -14,6 +14,8 @@ import { enrichmentService } from '../enrichment/enrichment.service';
 import { tagService } from '../tag/tag.service';
 import { entryService } from './entry.service';
 
+import { entryClassifier } from '../enrichment/enrichment.classifier';
+
 export class EntryController {
   // Create new entry
   static async createEntry(req: AuthenticatedRequest, res: Response) {
@@ -33,6 +35,10 @@ export class EntryController {
         }
       }
 
+      // Classify signal tier
+      const isMediaOrVoice = type === 'media' || type === 'voice' || metadata?.isVoice;
+      const { tier } = entryClassifier.classify(content || '', req.body.isImportant ?? false, isMediaOrVoice);
+
       // 3. DETERMINE AI NEEDS
       const needsAI = req.body.status === 'processing' || (content && (content.length > 20 || type === ENTRY_TYPES.MEDIA));
 
@@ -40,7 +46,8 @@ export class EntryController {
       const entry = await entryService.createEntry(userId, {
         ...req.body,
         tags: tagIds,
-        status: needsAI ? 'processing' : 'ready'
+        status: needsAI ? 'processing' : 'ready',
+        signalTier: tier
       });
 
       // 5. POST-CREATE SIDE EFFECTS (Fire and forget | background tasks)
@@ -49,14 +56,18 @@ export class EntryController {
         tagService.incrementUsage(userId, explicitTags).catch(e => logger.error('Tag usage increment failed', e));
       }
 
-      // TRIGGER AGENT TASK
+      // TRIGGER ACTIVE ENRICHMENT
       if (needsAI) {
-        agentService.createTask(userId, AgentTaskType.ENTRY_ENRICHMENT, {
-          entryId: entry._id.toString(),
-          text: entry.content,
-          options: { timezone: metadata?.timezone }
-        }).catch(async (err) => {
-          logger.error('Failed to trigger entry enrichment', err);
+        const dateForSession = (entry as any).createdAt || entry.date || new Date();
+        const sessionId = DateUtil.getSessionId(dateForSession);
+
+        enrichmentService.enqueueActiveEnrichment(
+          userId,
+          entry._id.toString(),
+          sessionId,
+          tier
+        ).catch(async (err) => {
+          logger.error('Failed to enqueue enrichment', err);
           const failedEntry = await entryService.updateEntry(entry._id.toString(), userId, {
             status: 'failed',
             metadata: { ...entry.metadata, error: 'Failed to enqueue AI task' }
@@ -190,12 +201,14 @@ export class EntryController {
       }
 
       const createdAtTime = (entry as any).createdAt ? new Date((entry as any).createdAt).getTime() : new Date(entry.date).getTime();
-      const isOldEnough = Date.now() - createdAtTime >= HEALING_STALENESS_THRESHOLD_MS;
 
-      if (!isOldEnough) {
-        ResponseHelper.badRequest(res, 'Entry must be at least one hour old to retry enrichment.');
-        return;
-      }
+      // TODO: this check is removed for MVP
+      // const isOldEnough = Date.now() - createdAtTime >= HEALING_STALENESS_THRESHOLD_MS;
+
+      // if (!isOldEnough) {
+      //   ResponseHelper.badRequest(res, 'Entry must be at least one hour old to retry enrichment.');
+      //   return;
+      // }
 
       let sessionId = entry.sessionId;
       if (!sessionId) {

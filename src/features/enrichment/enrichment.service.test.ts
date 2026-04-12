@@ -1,11 +1,10 @@
 import { Types } from 'mongoose';
 import { WebActivity } from '../web-activity/web-activity.model';
+import { ENRICHMENT_JOB_ACTIVE, ENRICHMENT_JOB_PASSIVE } from '../../core/queue/queue.constants';
 import { getEnrichmentQueue } from './enrichment.queue';
 import { enrichmentService } from './enrichment.service';
-import { EnrichedEntry } from './models/enriched-entry.model';
 
 jest.mock('../web-activity/web-activity.model');
-jest.mock('./models/enriched-entry.model');
 jest.mock('./enrichment.queue');
 
 describe('EnrichmentService', () => {
@@ -18,7 +17,7 @@ describe('EnrichmentService', () => {
     });
 
     describe('enqueueActiveEnrichment', () => {
-        it('should add job to queue with signalTier', async () => {
+        it('should add job to queue with correct job name and data', async () => {
             const userId = new Types.ObjectId().toString();
             const entryId = new Types.ObjectId().toString();
             const sessionId = 'session-123';
@@ -26,12 +25,12 @@ describe('EnrichmentService', () => {
 
             await enrichmentService.enqueueActiveEnrichment(userId, entryId, sessionId, signalTier as any);
 
-            expect(mockQueue.add).toHaveBeenCalledWith('process-active', {
+            expect(mockQueue.add).toHaveBeenCalledWith(ENRICHMENT_JOB_ACTIVE, {
                 userId,
                 sourceType: 'active',
                 sessionId,
                 referenceId: entryId,
-                signalTier
+                signalTier,
             });
         });
     });
@@ -41,32 +40,29 @@ describe('EnrichmentService', () => {
             const userId = new Types.ObjectId().toString();
             const date = '2026-03-07';
 
-            // High activity (4 hours)
             const mockStats = {
-                totalSeconds: 14400, // 4 hours -> 60 score
-                domainMap: new Map()
+                totalSeconds: 14400, // 4 hours → score ~60
+                domainMap: new Map(),
             };
 
             (WebActivity.findOne as jest.Mock).mockResolvedValue(mockStats);
-            (EnrichedEntry.exists as jest.Mock).mockResolvedValue(false);
 
             await enrichmentService.evaluatePassiveGate(userId, date);
 
-            expect(mockQueue.add).toHaveBeenCalledWith('process-passive', expect.objectContaining({
-                userId,
-                sessionId: `${date}-s1`,
-                sourceType: 'passive'
-            }));
+            expect(mockQueue.add).toHaveBeenCalledWith(
+                ENRICHMENT_JOB_PASSIVE,
+                expect.objectContaining({ userId, sourceType: 'passive' }),
+                expect.objectContaining({ jobId: expect.stringContaining(userId) })
+            );
         });
 
         it('should NOT trigger passive enrichment if significance score < 40', async () => {
             const userId = new Types.ObjectId().toString();
             const date = '2026-03-07';
 
-            // Low activity
             const mockStats = {
-                totalSeconds: 600, // 10 mins -> ~2.5 score + 10 proxy = 12.5 < 40
-                domainMap: new Map()
+                totalSeconds: 600, // 10 mins → score < 40
+                domainMap: new Map(),
             };
 
             (WebActivity.findOne as jest.Mock).mockResolvedValue(mockStats);
@@ -76,17 +72,17 @@ describe('EnrichmentService', () => {
             expect(mockQueue.add).not.toHaveBeenCalled();
         });
 
-        it('should NOT trigger twice if already enriched', async () => {
+        it('should use jobId deduplication to prevent duplicate passive jobs', async () => {
             const userId = new Types.ObjectId().toString();
             const date = '2026-03-07';
             const mockStats = { totalSeconds: 8000 };
 
             (WebActivity.findOne as jest.Mock).mockResolvedValue(mockStats);
-            (EnrichedEntry.exists as jest.Mock).mockResolvedValue(true);
 
             await enrichmentService.evaluatePassiveGate(userId, date);
 
-            expect(mockQueue.add).not.toHaveBeenCalled();
+            const [, , options] = (mockQueue.add as jest.Mock).mock.calls[0];
+            expect(options.jobId).toMatch(`passive:${userId}:`);
         });
     });
 });

@@ -1,47 +1,29 @@
 import { Queue } from 'bullmq';
 import { queueService } from '../../../core/queue/queue.service';
+import { EMAIL_DLQ_JOB_OPTIONS, EMAIL_DLQ_NAME, EMAIL_JOB_OPTIONS, EMAIL_QUEUE_NAME } from '../../../core/queue/queue.constants';
 import { EmailJob } from './email.types';
 
-export const EMAIL_QUEUE_NAME = 'email-delivery';
-export const EMAIL_DLQ_NAME = 'email-delivery-dlq';
-
-export let emailQueue: Queue<EmailJob>;
-export let emailDLQ: Queue<any>;
+let emailQueue: Queue<EmailJob>;
+let emailDLQ: Queue<any>;
 
 export const initEmailQueue = () => {
     emailQueue = queueService.registerQueue(EMAIL_QUEUE_NAME, {
-        defaultJobOptions: {
-            attempts: 5,
-            backoff: {
-                type: 'exponential',
-                delay: 2000, // Start with 2s delay, then 4s, 8s, etc.
-            },
-            removeOnComplete: 1000,
-            removeOnFail: 5000,
-        },
+        defaultJobOptions: EMAIL_JOB_OPTIONS,
     });
 
-    // Initialize Dead Letter Queue for permanently failed emails
     emailDLQ = queueService.registerQueue(EMAIL_DLQ_NAME, {
-        defaultJobOptions: {
-            removeOnComplete: false, // Keep all DLQ entries
-            removeOnFail: false,
-        },
+        defaultJobOptions: EMAIL_DLQ_JOB_OPTIONS,
     });
 
     return emailQueue;
 };
 
 export const getEmailQueue = () => {
-    if (!emailQueue) {
-        initEmailQueue();
-    }
+    if (!emailQueue) initEmailQueue();
     return emailQueue;
 };
 
 export const getEmailDLQ = () => {
-    if (!emailDLQ) {
-        initEmailQueue();
-    }
+    if (!emailDLQ) initEmailQueue();
     return emailDLQ;
 };

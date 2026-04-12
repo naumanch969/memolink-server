@@ -1,12 +1,12 @@
 import { Job } from 'bullmq';
 import { logger } from '../../config/logger';
+import { AGENT_QUEUE_NAME, AGENT_WORKER_CONFIG } from '../../core/queue/queue.constants';
 import { queueService } from '../../core/queue/queue.service';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import entryService from '../entry/entry.service';
 import reportService from '../report/report.service';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
-import { AGENT_QUEUE_NAME } from './agent.queue';
 import { AgentTaskStatus, AgentTaskType } from './agent.types';
 import { agentWorkflowRegistry } from './agent.workflow.registry';
 import { cognitiveConsolidationWorkflow, entityConsolidationWorkflow } from './workflows/consolidation.workflow';
@@ -152,10 +152,7 @@ export const initAgentWorker = () => {
             await handleTaskFailure(task, error);
             throw error;
         }
-    }, {
-        concurrency: 5, // Allow multiple tasks to be processed in parallel
-        lockDuration: 300000, // 5 minutes to prevent "could not renew lock" errors
-    });
+    }, AGENT_WORKER_CONFIG);
 };
 
 /**

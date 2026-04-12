@@ -5,7 +5,6 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
 import { entryClassifier } from '../enrichment/enrichment.classifier';
 import { enrichmentService } from '../enrichment/enrichment.service';
-import { Entry } from '../entry/entry.model';
 import entryService from '../entry/entry.service';
 import { CreateEntryRequest, IEntry } from '../entry/entry.types';
 import webActivityService from '../web-activity/web-activity.service';
@@ -25,6 +24,9 @@ export class CaptureService implements ICaptureService {
         const isMediaOrVoice = payload.type === 'media' || payload.type === 'voice' || payload.metadata?.isVoice;
         const method = isMediaOrVoice ? 'voice' : 'text';
         const inputMethodValue = payload.metadata?.source === 'whatsapp' ? 'whatsapp' : method;
+
+        // Classify signal tier
+        const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice); // noise, log, signal, deep_signal
 
         // Create Entry synchronously
         const entryData: CreateEntryRequest = {
@@ -48,6 +50,7 @@ export class CaptureService implements ICaptureService {
             title: payload.title,
             location: payload.location,
             mood: payload.mood,
+            signalTier: tier,
             metadata: {
                 ...payload.metadata,
                 sessionId,
@@ -57,13 +60,7 @@ export class CaptureService implements ICaptureService {
         };
 
         const entry = await entryService.createEntry(userId, entryData);
-
-        // Classify signal tier
-        const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice); // noise, log, signal, deep_signal
-
-        // Update entry with tier
-        await Entry.findByIdAndUpdate(entry._id, { signalTier: tier });
-
+        console.log('entry', entry)
         // Inform client immediately
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { ...entry, signalTier: tier });
 

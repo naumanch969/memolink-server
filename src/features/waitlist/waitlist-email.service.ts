@@ -1,13 +1,13 @@
-import { emailQueue } from '../email/queue/email.queue';
 import { logger } from '../../config/logger';
 import { config } from '../../config/env';
+import { getEmailQueue } from '../email/queue/email.queue';
 
 /**
  * Send waitlist confirmation email to user
  */
 export async function sendWaitlistConfirmationEmail(email: string): Promise<void> {
   try {
-    await emailQueue.add(
+    await getEmailQueue().add(
       'waitlist-confirmation',
       {
         type: 'WAITLIST_CONFIRMATION' as const,
@@ -40,7 +40,7 @@ export async function sendWaitlistAdminNotification(email: string): Promise<void
   try {
     const adminEmail = config.ADMIN_EMAIL;
 
-    await emailQueue.add(
+    await getEmailQueue().add(
       'waitlist-admin-alert',
       {
         type: 'WAITLIST_ADMIN_ALERT' as const,

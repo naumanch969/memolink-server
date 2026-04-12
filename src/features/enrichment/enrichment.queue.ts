@@ -1,36 +1,24 @@
 import { Queue } from 'bullmq';
 import { logger } from '../../config/logger';
 import { queueService } from '../../core/queue/queue.service';
+import { ENRICHMENT_JOB_OPTIONS, ENRICHMENT_QUEUE_NAME } from '../../core/queue/queue.constants';
 import { EnrichmentJobData } from './enrichment.types';
-
-const ENRICHMENT_QUEUE_NAME = 'enrichment-queue';
 
 let enrichmentQueue: Queue<EnrichmentJobData>;
 
 export const initEnrichmentQueue = () => {
     if (enrichmentQueue) return enrichmentQueue;
 
-    enrichmentQueue = queueService.registerQueue<EnrichmentJobData>(ENRICHMENT_QUEUE_NAME, {
-        defaultJobOptions: {
-            attempts: 3,
-            backoff: {
-                type: 'exponential',
-                delay: 5000,
-            },
-            removeOnComplete: { count: 100 },
-            removeOnFail: { count: 500 },
-        },
-    });
+    enrichmentQueue = queueService.registerQueue<EnrichmentJobData>(ENRICHMENT_QUEUE_NAME,
+        {
+            defaultJobOptions: ENRICHMENT_JOB_OPTIONS,
+        });
 
     logger.info(`Enrichment Queue '${ENRICHMENT_QUEUE_NAME}' initialized`);
     return enrichmentQueue;
 };
 
 export const getEnrichmentQueue = () => {
-    if (!enrichmentQueue) {
-        return initEnrichmentQueue();
-    }
+    if (!enrichmentQueue) return initEnrichmentQueue();
     return enrichmentQueue;
 };
-
-export { ENRICHMENT_QUEUE_NAME };

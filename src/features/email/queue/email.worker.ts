@@ -3,9 +3,10 @@ import { logger } from '../../../config/logger';
 import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
 import { getWaitlistConfirmationEmailTemplate, getWaitlistAdminEmailTemplate } from '../../../core/email/templates/waitlist.templates';
+import { EMAIL_QUEUE_NAME, EMAIL_WORKER_CONFIG } from '../../../core/queue/queue.constants';
 import { queueService } from '../../../core/queue/queue.service';
 import { validateEmailOrThrow } from '../../../shared/email-validator';
-import { EMAIL_QUEUE_NAME, getEmailDLQ } from './email.queue';
+import { getEmailDLQ } from './email.queue';
 import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData, WaitlistConfirmationEmailJobData, WaitlistAdminAlertEmailJobData } from './email.types';
 import { USER_ROLES } from '../../../shared/constants';
 import { SocketEvents } from '../../../core/socket/socket.types';
@@ -85,13 +86,7 @@ const processEmailJob = async (job: Job<EmailJob>) => {
 
 export const initEmailWorker = () => {
     // Register the worker
-    const worker = queueService.registerWorker(EMAIL_QUEUE_NAME, processEmailJob, {
-        concurrency: 5, // Process up to 5 emails concurrently
-        limiter: {
-            max: 10, // Max 10 emails
-            duration: 1000, // per 1 second
-        },
-    });
+    const worker = queueService.registerWorker(EMAIL_QUEUE_NAME, processEmailJob, EMAIL_WORKER_CONFIG);
 
     // Handle permanently failed jobs by moving to DLQ
     worker.on('failed', async (job, err) => {

@@ -49,7 +49,7 @@ export class EntryService implements IEntryService {
       }
 
       // 3. Create Entry object
-      const entry = new Entry({
+      let entry: any = new Entry({  // here any is EntryInstance or EntryObject
         userId: new Types.ObjectId(userId),
         ...entryData,
         tags: resolvedTagIds,
@@ -62,13 +62,15 @@ export class EntryService implements IEntryService {
       if (entryData.collectionId) {
         await collectionService.incrementEntryCount(entryData.collectionId);
       }
-      
+
       // Update tag usage counts if we resolved any tags
       if (resolvedTagIds.length > 0) {
         await tagService.incrementUsage(userId, resolvedTagIds.map(t => t.toString()));
       }
 
       await entry.populate(['tags', 'media', 'collectionId']);
+
+      entry = entry.toObject();
 
       // If the entry contains audio media, kick off async transcription.
       // The entry is already in 'processing' status from the model default when media is attached.
@@ -458,8 +460,8 @@ export class EntryService implements IEntryService {
 
       // ACID: Cascade delete associated documents
       await EnrichedEntry.deleteMany({ referenceId: entryId, userId }).session(session);
-      await GraphEdge.deleteMany({ 
-        $or: [{ sourceEntryId: entryId }, { targetEntryId: entryId }] 
+      await GraphEdge.deleteMany({
+        $or: [{ sourceEntryId: entryId }, { targetEntryId: entryId }]
       }).session(session);
       await AgentTask.deleteMany({ userId, 'inputData.entryId': entryId }).session(session);
 
