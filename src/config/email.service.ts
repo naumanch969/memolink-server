@@ -46,12 +46,28 @@ class EmailService implements IEmailService {
       validateEmailOrThrow(email, 'verification email');
 
       const { subject, html, text } = getVerificationEmailTemplate(name, otp);
-      await EmailProvider.getInstance().sendEmail({
-        to: email,
-        subject,
-        html,
-        text
+      // await EmailProvider.getInstance().sendEmail({
+      //   to: email,
+      //   subject,
+      //   html,
+      //   text
+      // });
+      const result = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.EMAIL_RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'company@opstintechnologies.com', // use this until you verify your domain
+          to: email,
+          subject: subject,
+          html: html,
+          text: text
+        })
       });
+
+      console.log('result', result)
 
       return true;
     } catch (error) {
