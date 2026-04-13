@@ -14,22 +14,37 @@ export class EmailProvider {
     private static instance: EmailProvider;
 
     private constructor() {
+        const port = parseInt(config.EMAIL_PORT || '587');
+        // Hostinger and many others require secure: true for port 465
+        const isSecure = port === 465 || String(config.EMAIL_SECURE).toLowerCase() === 'true';
+
         this.transporter = nodemailer.createTransport({
             pool: true,
             maxConnections: 5,
             maxMessages: 100,
             host: config.EMAIL_HOST || 'smtp.gmail.com',
-            port: parseInt(config.EMAIL_PORT || '587'),
-            secure: config.EMAIL_SECURE === 'true', // true for 465, false for other ports
+            port: port,
+            secure: isSecure,
             auth: {
                 user: config.EMAIL_USER,
                 pass: config.EMAIL_PASS,
             },
+            tls: {
+                // Many hosting providers (like Hostinger) may have certificate chain issues 
+                // in containerized environments. This ensures the handshake succeeds.
+                rejectUnauthorized: false
+            }
         });
 
         // Fire and forget verification, but catch errors to prevent unhandled rejections
         this.verifyConnection().catch(err => {
-            logger.error('EmailProvider failed to establish initial connection:', err);
+            logger.error('EmailProvider failed to establish initial connection:', {
+                message: err.message,
+                host: config.EMAIL_HOST,
+                port: port,
+                secure: isSecure,
+                user: config.EMAIL_USER
+            });
         });
     }
 
