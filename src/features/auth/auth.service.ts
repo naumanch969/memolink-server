@@ -324,7 +324,10 @@ export class AuthService implements IAuthService {
       }
 
       const otp = await Otp.generateOtp(emailLower, 'verification');
-      await emailService.sendVerificationEmail(emailLower, user.name, otp);
+      const emailSent = await emailService.sendVerificationEmail(emailLower, user.name, otp);
+      if (!emailSent) {
+        throw ApiError.internal('Unable to deliver verification code right now. Please try again shortly.');
+      }
 
       const response: { otp?: string } = {};
       if (config.NODE_ENV === 'development') response.otp = otp;

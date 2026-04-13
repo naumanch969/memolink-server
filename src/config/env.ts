@@ -67,6 +67,11 @@ export const config = {
   EMAIL_PASS: process.env.EMAIL_PASS,
   EMAIL_FROM: process.env.EMAIL_FROM,
   EMAIL_SECURE: process.env.EMAIL_SECURE,
+  EMAIL_CONNECTION_TIMEOUT_MS: parseInt(process.env.EMAIL_CONNECTION_TIMEOUT_MS || '10000'),
+  EMAIL_GREETING_TIMEOUT_MS: parseInt(process.env.EMAIL_GREETING_TIMEOUT_MS || '10000'),
+  EMAIL_SOCKET_TIMEOUT_MS: parseInt(process.env.EMAIL_SOCKET_TIMEOUT_MS || '15000'),
+  EMAIL_DNS_TIMEOUT_MS: parseInt(process.env.EMAIL_DNS_TIMEOUT_MS || '5000'),
+  EMAIL_SEND_TIMEOUT_MS: parseInt(process.env.EMAIL_SEND_TIMEOUT_MS || '20000'),
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'company@opstintechnologies.com',
 
   // Cloudflare R2 Configuration

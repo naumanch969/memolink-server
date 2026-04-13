@@ -25,6 +25,10 @@ export class EmailProvider {
             host: config.EMAIL_HOST || 'smtp.gmail.com',
             port: port,
             secure: isSecure,
+            connectionTimeout: config.EMAIL_CONNECTION_TIMEOUT_MS,
+            greetingTimeout: config.EMAIL_GREETING_TIMEOUT_MS,
+            socketTimeout: config.EMAIL_SOCKET_TIMEOUT_MS,
+            dnsTimeout: config.EMAIL_DNS_TIMEOUT_MS,
             auth: {
                 user: config.EMAIL_USER,
                 pass: config.EMAIL_PASS,
@@ -53,6 +57,24 @@ export class EmailProvider {
             EmailProvider.instance = new EmailProvider();
         }
         return EmailProvider.instance;
+    }
+
+    private withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                reject(new Error(timeoutMessage));
+            }, timeoutMs);
+
+            promise
+                .then((value) => {
+                    clearTimeout(timeoutId);
+                    resolve(value);
+                })
+                .catch((error) => {
+                    clearTimeout(timeoutId);
+                    reject(error);
+                });
+        });
     }
 
     private async verifyConnection() {
@@ -88,6 +110,7 @@ export class EmailProvider {
     }
 
     async sendEmail(options: EmailOptions): Promise<void> {
+        const startedAt = Date.now();
         try {
             const mailOptions = {
                 from: `"Brinn" <${config.EMAIL_USER}>`,
@@ -97,11 +120,17 @@ export class EmailProvider {
                 text: options.text,
             };
 
-            const result = await this.transporter.sendMail(mailOptions);
+            const result = await this.withTimeout(
+                this.transporter.sendMail(mailOptions),
+                config.EMAIL_SEND_TIMEOUT_MS,
+                `Email send timeout after ${config.EMAIL_SEND_TIMEOUT_MS}ms`
+            );
+
             logger.info('Email sent successfully', {
                 messageId: result.messageId,
                 to: options.to,
-                subject: options.subject
+                subject: options.subject,
+                durationMs: Date.now() - startedAt
             });
         } catch (error: any) {
             logger.error('Failed to send email:', {
@@ -110,10 +139,12 @@ export class EmailProvider {
                 to: options.to,
                 subject: options.subject,
                 code: error.code,
-                command: error.command
+                command: error.command,
+                durationMs: Date.now() - startedAt
             });
             // Throw error to let BullMQ handle retries with proper error context
             throw new Error(`Email send failed: ${error.message}`);
         }
     }
 }
+ 
