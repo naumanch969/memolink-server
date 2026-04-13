@@ -8,6 +8,7 @@ import { ISocketService, SocketEvents, UserRoleType } from './socket.types';
 class SocketService implements ISocketService {
     private static instance: SocketService;
     private _io: SocketServer | null = null;
+    private _publisher: any = null;
     private readonly REDIS_CHANNEL = 'SOCKET_BRIDGE';
 
     private constructor() { }
@@ -65,12 +66,39 @@ class SocketService implements ISocketService {
         });
     }
 
-    private publish(payload: any): void {
+    private async getPublisher(): Promise<any> {
+        if (this._publisher) return this._publisher;
+        
+        try {
+            const IORedis = (await import('ioredis')).default;
+            this._publisher = new IORedis(config.REDIS_URL, {
+                maxRetriesPerRequest: null,
+                enableReadyCheck: false,
+            });
+            logger.info('Socket Bridge Publisher connection initialized');
+            return this._publisher;
+        } catch (error) {
+            logger.error('Failed to initialize Socket Bridge Publisher', error);
+            return redisConnection; // Fallback to shared connection
+        }
+    }
+
+    private async publish(payload: any): Promise<void> {
         if (!config.REDIS_BRIDGE_ENABLED) return;
 
-        redisConnection.publish(this.REDIS_CHANNEL, JSON.stringify(payload)).catch(err => {
+        try {
+            const message = JSON.stringify(payload);
+            
+            // Check for unusually large payloads that might block the bridge
+            if (message.length > 102400) { // 100KB
+                logger.warn(`Large socket bridge payload detected (${Math.round(message.length / 1024)}KB) for event: ${payload.event}`);
+            }
+
+            const publisher = await this.getPublisher();
+            await publisher.publish(this.REDIS_CHANNEL, message);
+        } catch (err) {
             logger.error('Failed to publish to socket bridge', err);
-        });
+        }
     }
 
     public get io(): SocketServer {

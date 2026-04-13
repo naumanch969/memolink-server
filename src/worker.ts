@@ -66,14 +66,7 @@ async function startWorker() {
         initEmailWorker();
         initEnrichmentWorker();
 
-        // 5. Trigger Immediate Healing for existing entries
-        setImmediate(async () => {
-            logger.info('Starting initial Enrichment Healing batch...');
-            await enrichmentService.runEnrichmentHealingBatch(20).catch(err => {
-                logger.error('Initial enrichment healing failed:', err);
-            });
-        });
-
+        // 5. Workers handle their own internal startup protocols (including healing)
         // graphWorker.start();
         notificationWorker.start();
 

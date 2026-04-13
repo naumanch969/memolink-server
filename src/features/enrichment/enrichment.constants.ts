@@ -261,8 +261,8 @@ export const SIGNAL_SCORING_WEIGHTS = {
 // ───────────────────────────────────────────────────────────────────────────────
 
 export const SIGNAL_TIER_THRESHOLDS = {
-  NOISE_MAX: -5,    // score <= -5 → noise
-  LOG_MAX: 5,       // score -4 to 5 → log
-  SIGNAL_MAX: 20,   // score 6 to 20 → signal
-  // score > 20 → deep_signal
+  NOISE_MAX: -8,    // MVP: very few entries are noise. TODO: IDEALLY: score <= -5 → noise.
+  LOG_MAX: -5,       // MVP: few entries are logs. TODO: IDEALLY: score -4 to 5 → log
+  SIGNAL_MAX: 20,   // MVP: most entries are signals. TODO: IDEALLY: score 6 to 20 → signal
+  // TODO: IDEALLY: score > 20 → deep_signal
 } as const;

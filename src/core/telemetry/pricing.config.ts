@@ -7,6 +7,7 @@ export interface PricingModel {
 export const AI_PRICING: Record<string, PricingModel> = {
     'gemini-2.5-flash': { input: 0.10, output: 0.40 },
     'gemini-1.5-pro': { input: 3.50, output: 10.50 },
+    'gemini-3.1-pro-preview': { input: 4.00, output: 12.00 },
     'gpt-4o': { input: 5.00, output: 15.00 },
     'gpt-4o-mini': { input: 0.15, output: 0.60 },
     'claude-3-5-sonnet': { input: 3.00, output: 15.00 },

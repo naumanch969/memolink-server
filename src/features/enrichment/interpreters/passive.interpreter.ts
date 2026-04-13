@@ -12,6 +12,10 @@ Behavioral Logs:
 
 Valid themes (use ONLY these, max 3): ${ENRICHMENT_TAXONOMY.join(', ')}
 
+### EXTRACTION RULES:
+- **energyLevel**: Choose EXACTLY ONE of: "low", "medium", "high".
+- **cognitiveLoad**: Choose EXACTLY ONE of: "focused", "scattered", "ruminating".
+
 ### INFERENCE DISCIPLINE:
 - **Do not hallucinate specific thoughts.**
 - Infer **broad patterns** of work, leisure, or distraction.

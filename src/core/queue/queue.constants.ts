@@ -1,6 +1,7 @@
 // ─── QUEUE NAMES ─────────────────────────────────────────────────────────────
 
 export const ENRICHMENT_QUEUE_NAME = 'enrichment-queue';
+export const ENRICHMENT_QUEUE_HEALING = 'enrichment-healing';
 
 export const AGENT_QUEUE_NAME = 'agent-tasks';
 
@@ -11,6 +12,7 @@ export const EMAIL_DLQ_NAME = 'email-delivery-dlq';
 
 export const ENRICHMENT_JOB_ACTIVE = 'process-active';
 export const ENRICHMENT_JOB_PASSIVE = 'process-passive';
+export const ENRICHMENT_JOB_HEALING = 'process-healing';
 
 // ─── JOB OPTIONS ─────────────────────────────────────────────────────────────
 
@@ -19,6 +21,13 @@ export const ENRICHMENT_JOB_OPTIONS = {
     backoff: { type: 'exponential' as const, delay: 5000 },
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 500 },
+};
+
+export const ENRICHMENT_HEALING_JOB_OPTIONS = {
+    attempts: 1, // Only 1 attempt for healing to prevent loops
+    backoff: { type: 'fixed' as const, delay: 60000 },
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 100 },
 };
 
 export const AGENT_JOB_OPTIONS = {
@@ -47,6 +56,11 @@ export const ENRICHMENT_WORKER_CONFIG = {
     lockDuration: 300_000,  // 5m — increased to prevent lock errors during long LLM tasks
     lockRenewTime: 15_000,  // renew every 15s to prevent stale-lock eviction
     // limiter: { max: 20, duration: 60_000 }, // Throttling disabled for faster response
+};
+
+export const ENRICHMENT_HEALING_WORKER_CONFIG = {
+    concurrency: 2, // Low concurrency for healing to prioritize real-time traffic
+    lockDuration: 300_000,
 };
 
 export const AGENT_WORKER_CONFIG = {

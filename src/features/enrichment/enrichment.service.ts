@@ -13,8 +13,8 @@ import { PassiveSession } from '../web-activity/passive-session.model';
 import { WebActivity } from '../web-activity/web-activity.model';
 import { calculateSessionSignificance, HEALING_BATCH_SIZE, HEALING_STALENESS_THRESHOLD_MS, MAX_HEALING_ATTEMPTS, SIGNIFICANCE_GATE_SCORE } from './enrichment.constants';
 import { IEnrichmentService } from './enrichment.interfaces';
-import { ENRICHMENT_JOB_ACTIVE, ENRICHMENT_JOB_PASSIVE } from '../../core/queue/queue.constants';
-import { getEnrichmentQueue } from './enrichment.queue';
+import { ENRICHMENT_JOB_ACTIVE, ENRICHMENT_JOB_HEALING, ENRICHMENT_JOB_PASSIVE } from '../../core/queue/queue.constants';
+import { getEnrichmentHealingQueue, getEnrichmentQueue } from './enrichment.queue';
 import { ProcessingStep, SignalTier } from './enrichment.types';
 import { activeInterpreter } from './interpreters/active.interpreter';
 import { logInterpreter } from './interpreters/log.interpreter';
@@ -44,6 +44,25 @@ export class EnrichmentService implements IEnrichmentService {
             logger.error(`Enrichment Service: Failed to enqueue for ${entryId}`, error);
             // FIX: mark entry so the healing batch can pick it up
             await Entry.findByIdAndUpdate(entryId, { 'metadata.enrichmentPending': true }).catch(() => { });
+        }
+    }
+
+    async enqueueHealingEnrichment(userId: string, entryId: string, sessionId: string, signalTier: SignalTier): Promise<void> {
+        try {
+            const queue = getEnrichmentHealingQueue();
+            await queue.add(ENRICHMENT_JOB_HEALING, {
+                userId,
+                sourceType: 'active',
+                sessionId,
+                referenceId: entryId,
+                signalTier: signalTier as any,
+            }, {
+                jobId: `healing:${entryId}`, // Deduplicate healing jobs for the same entry
+            });
+            
+            logger.info(`Enrichment Service: Enqueued HEALING task for entry ${entryId}`);
+        } catch (error) {
+            logger.error(`Enrichment Service: Failed to enqueue healing for ${entryId}`, error);
         }
     }
 
@@ -363,7 +382,7 @@ export class EnrichmentService implements IEnrichmentService {
             if (stuckEntries.length > 0) {
                 logger.info(`Enrichment Healing: Found ${stuckEntries.length} stuck entries to re-enqueue`);
                 for (const entry of stuckEntries) {
-                    await this.enqueueActiveEnrichment(
+                    await this.enqueueHealingEnrichment(
                         entry.userId.toString(),
                         entry._id.toString(),
                         entry.sessionId || '',
@@ -401,7 +420,7 @@ export class EnrichmentService implements IEnrichmentService {
 
                         if (enrichedEntry.sourceType === 'active' && enrichedEntry.referenceId) {
                             logger.info(`Enrichment Healing: Re-enqueuing active entry ${enrichedEntry.referenceId}`);
-                            await this.enqueueActiveEnrichment(
+                            await this.enqueueHealingEnrichment(
                                 enrichedEntry.userId.toString(),
                                 enrichedEntry.referenceId.toString(),
                                 enrichedEntry.sessionId,

@@ -16,6 +16,8 @@ User Input: "${text}"
 
 Valid themes (use ONLY these, max 2): ${ENRICHMENT_TAXONOMY.join(', ')}
 Valid entity types: person, place, concept, project, organization
+- **energyLevel**: ALWAYS set to "medium" for logs.
+- **cognitiveLoad**: ALWAYS set to "focused" for logs.
 
 Respond with ONLY a JSON object in this structure:
 {

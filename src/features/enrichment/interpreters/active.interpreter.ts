@@ -16,7 +16,8 @@ Valid entity types: person
 - **entities**: Extract significant people mentioned in the text. Ignore locations, concepts, projects, or organizations. Every entity MUST be typed as "person".
 - **signal** and **coreThought** are MANDATORY and must always be provided.
 - For **contradictions**, **openLoops**, **desires**, and **fears**: ONLY extract if clearly present or strongly implied. If no evidence exists, return an empty array or string.
-- For **selfPerception**: ONLY extract if the user mentions themselves or their state. Otherwise, return an empty string "".
+- **energyLevel**: Choose EXACTLY ONE of: "low", "medium", "high".
+- **cognitiveLoad**: Choose EXACTLY ONE of: "focused", "scattered", "ruminating".
 - DO NOT hallucinate or force a psychological read where none exists.
 
 Respond with ONLY a JSON object in this structure:
