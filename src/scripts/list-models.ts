@@ -1,10 +1,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { config } from '../config/env';
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 async function listModels() {
-    console.log('Key:', process.env.GEMINI_API_KEY?.slice(0, 10), '...');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`;
+    console.log('Key:', config.GEMINI_API_KEY?.slice(0, 10), '...');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${config.GEMINI_API_KEY}`;
 
     try {
         const response = await fetch(url);

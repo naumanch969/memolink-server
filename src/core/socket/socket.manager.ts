@@ -15,7 +15,7 @@ export class SocketManager {
 
         this.io = new SocketServer(server, {
             cors: {
-                origin: process.env.CLIENT_URL || '*',
+                origin: config.CORS_ORIGIN || '*',
                 methods: ['GET', 'POST'],
                 credentials: true
             },

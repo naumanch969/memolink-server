@@ -2,6 +2,7 @@ import argon2 from 'argon2';
 import * as bip39 from 'bip39';
 import crypto from 'crypto';
 import { EncryptedField, IEncryptionService } from './encryption.interfaces';
+import { config } from '../../config/env';
 
 const ALGORITHM = 'aes-256-gcm';
 const MDK_LENGTH = 32;
@@ -90,8 +91,8 @@ export class EncryptionService implements IEncryptionService {
     // --- SERVICE KEY (enrichments — versioned) ---
 
     getServiceKey(version?: number): { key: Buffer; version: number } {
-        const v = version ?? parseInt(process.env.CURRENT_SERVICE_KEY_VERSION || '1');
-        const keyHex = process.env[`SERVICE_KEY_${v}`];
+        const v = version ?? parseInt(config.CURRENT_SERVICE_KEY_VERSION || '1');
+        const keyHex = config[`SERVICE_KEY_${v}`];
         if (!keyHex) throw new Error(`SERVICE_KEY_${v} not set`);
         return { key: Buffer.from(keyHex, 'hex'), version: v };
     }

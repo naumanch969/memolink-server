@@ -1,3 +1,4 @@
+import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { User } from '../auth/auth.model';
 import { getEmailQueue } from '../email/queue/email.queue';
@@ -156,7 +157,7 @@ export class ReportEmailService {
       return;
     }
 
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://app.brinn.ai';
+    const frontendUrl = config.FRONTEND_URL ?? 'https://app.brinn.ai';
     const period = this.formatPeriod(report.startDate, report.endDate);
 
     let subject: string;

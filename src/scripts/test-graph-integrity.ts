@@ -4,10 +4,11 @@ import mongoose, { Types } from 'mongoose';
 import KnowledgeEntity from '../features/entity/entity.model';
 import { EdgeStatus, EdgeType, GraphEdge, NodeType } from '../features/graph/edge.model';
 import { graphService } from '../features/graph/graph.service';
+import { config } from '../config/env';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/brinn';
+const MONGODB_URI = config.MONGODB_URI || 'mongodb://localhost:27017/brinn';
 
 async function runTest() {
     try {

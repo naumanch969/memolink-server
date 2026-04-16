@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { OAuthClient } from '../features/oauth/oauth.model';
 import dotenv from 'dotenv';
 import path from 'path';
+import { config } from '../config/env';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
@@ -16,7 +17,7 @@ const MCP_REDIRECT_URIS = [
 
 async function seedMcpClient() {
   try {
-    const mongoUri = process.env.MONGODB_URI;
+    const mongoUri = config.MONGODB_URI;
     if (!mongoUri) {
       throw new Error('MONGODB_URI is not defined in .env');
     }

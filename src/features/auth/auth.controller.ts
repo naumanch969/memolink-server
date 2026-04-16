@@ -136,20 +136,6 @@ export class AuthController {
     }
   }
 
-  // Request Onboarding OTP
-  static async requestOnboardingOtp(req: Request, res: Response) {
-    try {
-      const { email } = req.body;
-      if (!email) {
-        return ResponseHelper.badRequest(res, 'Email is required');
-      }
-      const result = await authService.requestOnboardingOtp(email);
-      ResponseHelper.success(res, result, 'Verification code sent');
-    } catch (error) {
-      ResponseHelper.error(res, 'Failed to send verification code', 500, error);
-    }
-  }
-
   // Forgot Password
   static async forgotPassword(req: Request, res: Response) {
     try {

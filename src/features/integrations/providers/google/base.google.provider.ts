@@ -14,8 +14,8 @@ export abstract class BaseGoogleProvider implements IIntegrationProvider {
     protected createOAuthClient() {
         return new google.auth.OAuth2(
             config.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET || 'dev-secret-placeholder',
-            process.env.GOOGLE_REDIRECT_URI || `${config.BACKEND_URL}/api/integrations/google/callback`
+            config.GOOGLE_CLIENT_SECRET || 'dev-secret-placeholder',
+            config.GOOGLE_REDIRECT_URI || `${config.BACKEND_URL}/api/integrations/google/callback`
         );
     }
 

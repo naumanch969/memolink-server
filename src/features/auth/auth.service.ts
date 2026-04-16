@@ -16,12 +16,10 @@ import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterReque
 import { Otp } from './otp.model';
 import { vaultService } from './vault.service';
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(config.GOOGLE_CLIENT_ID);
 
 export class AuthService implements IAuthService {
-  /**
-   * Register new user and initialize their encryption vault.
-   */
+
   async register(userData: RegisterRequest): Promise<RegisterResponse> {
     try {
       const { email, password, name, securityQuestion, securityAnswer } = userData;
@@ -70,16 +68,13 @@ export class AuthService implements IAuthService {
     }
   }
 
-  /**
-   * Login user and unlock vault if possible.
-   */
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       const { email, password } = credentials;
 
       // Find user with password and vault secrets
       const user = await User.findOne({ email: email.toLowerCase().trim() })
-        .select('+password +vault.passwordSalt +vault.wrappedMDK_password');
+        .select('+password +vault.passwordSalt +vault.wrappedMDK_password +vault.wrappedMDK_securityAnswer');
 
       if (!user) {
         throw ApiError.unauthorized('Invalid email or password');
@@ -92,13 +87,9 @@ export class AuthService implements IAuthService {
       }
 
       // --- Vault Management ---
-      let recoveryPhrase: string | undefined;
       let needsVaultSetup = false;
 
       if (!user.vault || !user.vault.wrappedMDK_password) {
-        // JIT Migration
-        const result = await vaultService.migrateLegacyUser(user as any, password);
-        recoveryPhrase = result.recoveryPhrase;
         needsVaultSetup = true;
       } else {
         // Standard Unlock
@@ -130,7 +121,6 @@ export class AuthService implements IAuthService {
         user: user.toJSON(),
         accessToken,
         refreshToken,
-        recoveryPhrase,
         needsVaultSetup
       };
     } catch (error) {
@@ -143,7 +133,7 @@ export class AuthService implements IAuthService {
     try {
       const ticket = await googleClient.verifyIdToken({
         idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: config.GOOGLE_CLIENT_ID,
       });
       const payload = ticket.getPayload();
 
@@ -157,7 +147,8 @@ export class AuthService implements IAuthService {
         throw ApiError.unauthorized('Email not found in Google Token');
       }
 
-      let user = await User.findOne({ email: email.toLowerCase().trim() });
+      let user = await User.findOne({ email: email.toLowerCase().trim() })
+        .select('+vault.wrappedMDK_password +vault.wrappedMDK_securityAnswer');
 
       if (user) {
         if (!user.googleId) {
@@ -188,7 +179,9 @@ export class AuthService implements IAuthService {
       await user.save();
       await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
-      return { user: user.toJSON(), accessToken, refreshToken };
+      const needsVaultSetup = !user.vault || !user.vault.wrappedMDK_password || user.vault.wrappedMDK_securityAnswer === 'pending' || !user.vault.wrappedMDK_securityAnswer;
+
+      return { user: user.toJSON(), accessToken, refreshToken, needsVaultSetup };
     } catch (error) {
       logger.error('Google login failed:', error);
       throw ApiError.unauthorized('Google authentication failed');
@@ -309,31 +302,6 @@ export class AuthService implements IAuthService {
       return { user: user.toJSON(), accessToken, refreshToken };
     } catch (error) {
       logger.error('Email verification failed:', error);
-      throw error;
-    }
-  }
-
-  async requestOnboardingOtp(email: string): Promise<{ otp?: string }> {
-    try {
-      const emailLower = email.toLowerCase().trim();
-      let user = await User.findByEmail(emailLower);
-
-      if (!user) {
-        user = new User({ email: emailLower, name: 'New Soul', password: await cryptoService.hashPassword(crypto.randomBytes(16).toString('hex')), isEmailVerified: false });
-        await user.save();
-      }
-
-      const otp = await Otp.generateOtp(emailLower, 'verification');
-      const emailSent = await emailService.sendVerificationEmail(emailLower, user.name, otp);
-      if (!emailSent) {
-        throw ApiError.internal('Unable to deliver verification code right now. Please try again shortly.');
-      }
-
-      const response: { otp?: string } = {};
-      if (config.NODE_ENV === 'development') response.otp = otp;
-      return response;
-    } catch (error) {
-      logger.error('Request onboarding OTP failed:', error);
       throw error;
     }
   }

@@ -10,6 +10,7 @@ import { mediaService } from './media.service';
 import { CreateMediaRequest, MediaMetadata } from './media.types';
 import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCloudinaryExif, parseCloudinaryOcr, validateFileSize, validateVideo, } from './media.utils';
 import { storageService } from './storage.service';
+import { config } from '../../config/env';
 
 // Upload error codes for client-side handling
 const UPLOAD_ERRORS = {
@@ -84,7 +85,7 @@ export class MediaController {
 
         ResponseHelper.error(res, errorMessage, 500, {
           code: UPLOAD_ERRORS.CLOUDINARY_ERROR.code,
-          details: process.env.NODE_ENV === 'development' ? errorMsg : undefined
+          details: config.NODE_ENV === 'development' ? errorMsg : undefined
         });
         return;
       }

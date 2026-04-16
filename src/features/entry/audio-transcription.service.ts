@@ -4,8 +4,9 @@ import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { Entry } from './entry.model';
+import { config } from '../../config/env';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = config.GEMINI_API_KEY;
 const GEMINI_AUDIO_MODEL = 'gemini-1.5-flash';
 
 async function downloadAsBase64(url: string): Promise<{ base64: string; mimeType: string }> {

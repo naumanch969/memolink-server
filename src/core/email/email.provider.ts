@@ -78,7 +78,7 @@ export class EmailProvider {
     }
 
     private async verifyConnection() {
-        if (process.env.NODE_ENV === 'test') {
+        if (config.NODE_ENV === 'test') {
             logger.info('Skipping email verification in test mode');
             return;
         }

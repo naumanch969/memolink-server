@@ -12,6 +12,7 @@ export interface IUser extends BaseEntity {
     whatsappLinkingCode?: string;
     whatsappLinkingCodeExpires?: Date;
     isEmailVerified: boolean;
+    isOnboarded: boolean;
     isActive: boolean;
     lastLoginAt?: Date;
     lastLogoutAt?: Date;
@@ -82,8 +83,7 @@ export interface AuthResponse {
     accessToken: string;
     refreshToken: string;
     otp?: string;
-    recoveryPhrase?: string; // One-time return for JIT migration
-    needsVaultSetup?: boolean; // True if legacy user missing security tiers
+    needsVaultSetup?: boolean;
 }
 
 export interface RegisterResponse {

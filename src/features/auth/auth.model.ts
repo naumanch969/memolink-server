@@ -16,6 +16,7 @@ const userSchema = new Schema<IUser>({
   avatar: { type: String, default: null, },
   role: { type: String, enum: Object.values(USER_ROLES), default: USER_ROLES.USER, },
   isEmailVerified: { type: Boolean, default: false, },
+  isOnboarded: { type: Boolean, default: false, },
   isActive: { type: Boolean, default: false, },
   lastLoginAt: { type: Date, default: null, },
   lastLogoutAt: { type: Date, default: null, },

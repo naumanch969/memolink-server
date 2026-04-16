@@ -10,6 +10,7 @@ import { SystemMetric } from './metric.model';
 
 import { IMonitoringService } from './monitoring.interfaces';
 import { SystemHealth } from "./monitoring.types";
+import { config } from '../../config/env';
 
 export class MonitoringService implements IMonitoringService {
     /**
@@ -218,8 +219,8 @@ export class MonitoringService implements IMonitoringService {
                 formatted: this.formatUptime(uptime),
             },
             timestamp: new Date(),
-            environment: process.env.NODE_ENV || 'development',
-            version: process.env.npm_package_version || '1.0.0',
+            environment: config.NODE_ENV || 'development',
+            version: config.npm_package_version || '1.0.0',
             memory: {
                 total: totalMem,
                 free: freeMem,
@@ -320,9 +321,9 @@ export class MonitoringService implements IMonitoringService {
             // Lazy load to avoid startup issues if not configured
             const { v2: cloudinary } = await import('cloudinary');
             cloudinary.config({
-                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-                api_key: process.env.CLOUDINARY_API_KEY,
-                api_secret: process.env.CLOUDINARY_API_SECRET
+                cloud_name: config.CLOUDINARY_CLOUD_NAME,
+                api_key: config.CLOUDINARY_API_KEY,
+                api_secret: config.CLOUDINARY_API_SECRET
             });
 
             const usage = await cloudinary.api.usage();

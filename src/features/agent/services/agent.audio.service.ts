@@ -4,6 +4,7 @@ import { withRetry } from '../../../core/utils/retry.utils';
 import { llmUsageService } from '../../llm-usage/llm-usage.service';
 import { AGENT_CONSTANTS } from '../agent.constants';
 import { IAudioTranscriptionService } from '../agent.interfaces';
+import { config } from '../../../config/env';
 
 /**
  * Audio Transcription Service
@@ -14,10 +15,10 @@ class AudioTranscriptionService implements IAudioTranscriptionService {
     private client: GoogleGenerativeAI;
 
     constructor() {
-        if (!process.env.GEMINI_API_KEY) {
+        if (!config.GEMINI_API_KEY) {
             throw new Error('GEMINI_API_KEY is required for audio transcription');
         }
-        this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        this.client = new GoogleGenerativeAI(config.GEMINI_API_KEY);
     }
 
     /**

@@ -5,6 +5,7 @@ import { AGENT_CONSTANTS } from '../../../features/agent/agent.constants';
 import { llmUsageService } from '../../../features/llm-usage/llm-usage.service';
 import { withRetry } from '../../utils/retry.utils';
 import { ILLMProvider, LLMGenerativeOptions } from '../llm.types';
+import { config } from '../../../config/env';
 
 export class GeminiProvider implements ILLMProvider {
     public name = AGENT_CONSTANTS.DEFAULT_TEXT_MODEL;
@@ -12,10 +13,10 @@ export class GeminiProvider implements ILLMProvider {
     private model: GenerativeModel;
 
     constructor() {
-        if (!process.env.GEMINI_API_KEY) {
+        if (!config.GEMINI_API_KEY) {
             throw new Error('GEMINI_API_KEY is not defined');
         }
-        this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        this.client = new GoogleGenerativeAI(config.GEMINI_API_KEY);
         this.model = this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL });
     }
 

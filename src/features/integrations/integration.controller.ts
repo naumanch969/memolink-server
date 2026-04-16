@@ -46,12 +46,12 @@ export class IntegrationController {
             await p.handleCallback(code as string, userId);
 
             // Once successfully connected, redirect back to the frontend settings UI
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            const frontendUrl = config.FRONTEND_URL || 'http://localhost:3000';
             res.redirect(`${frontendUrl}/settings?integration=success`);
 
         } catch (error) {
             logger.error('Failed to handle Google callback', error);
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            const frontendUrl = config.FRONTEND_URL || 'http://localhost:3000';
             res.redirect(`${frontendUrl}/settings?integration=error`);
         }
     }
