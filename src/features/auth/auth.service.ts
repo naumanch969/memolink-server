@@ -97,7 +97,7 @@ export class AuthService implements IAuthService {
           const normalizedPassword = password.toLowerCase().trim();
           const kek = await encryptionService.deriveKEK(normalizedPassword, user.vault.passwordSalt!);
           const mdk = encryptionService.unwrapKey(user.vault.wrappedMDK_password!, kek);
-          await encryptionSessionService.storeMDK(user._id.toString(), mdk);
+          await encryptionSessionService.storeMDK(user._id.toString(), mdk, user.securityConfig?.isEnabled);
 
           if (user.vault.wrappedMDK_securityAnswer === 'pending' || !user.vault.wrappedMDK_securityAnswer) {
             needsVaultSetup = true;
@@ -405,26 +405,33 @@ export class AuthService implements IAuthService {
       };
 
       if (answer && answer.trim()) {
-        securityConfig.answerHash = await cryptoService.hashPassword(answer.trim().toLowerCase());
-
+        const normalizedAnswer = answer.trim().toLowerCase();
+        
         // Sync Vault: We need the MDK to re-wrap it with the new answer
         let mdk = await encryptionSessionService.getMDK(userId);
 
         // If MDK not in session, try to unwrap using password if confirmed
         if (!mdk && confirmPassword && user.vault?.wrappedMDK_password) {
           try {
-            const kek = await encryptionService.deriveKEK(confirmPassword.toLowerCase().trim(), user.vault.passwordSalt!);
+            const normalizedConfirm = confirmPassword.toLowerCase().trim();
+            const kek = await encryptionService.deriveKEK(normalizedConfirm, user.vault.passwordSalt!);
             mdk = encryptionService.unwrapKey(user.vault.wrappedMDK_password!, kek);
-            // Store it in session for future use
-            await encryptionSessionService.storeMDK(userId, mdk);
           } catch (e) {
-            logger.warn('Failed to unwrap MDK via password during security reset', { userId });
+            logger.error('CRITICAL: Failed to unwrap MDK via password during security reset', { userId });
+            throw ApiError.unauthorized('Unable to sync vault. Incorrect account password.');
           }
         }
 
-        if (mdk && user.vault) {
+        if (!mdk) {
+          throw ApiError.forbidden('Vault is locked. Provide account password to sync security changes.', 'VAULT_LOCKED');
+        }
+
+        // Only update the hash if we have the MDK to update the wrapper!
+        securityConfig.answerHash = await cryptoService.hashPassword(normalizedAnswer);
+
+        if (user.vault) {
           const answerSalt = crypto.randomBytes(32).toString('hex');
-          const kek = await encryptionService.deriveKEK(answer.toLowerCase().trim(), answerSalt);
+          const kek = await encryptionService.deriveKEK(normalizedAnswer, answerSalt);
           const wrapped = encryptionService.wrapKey(mdk, kek);
           user.vault.securityQuestion = question || user.securityConfig?.question;
           user.vault.securityAnswerSalt = answerSalt;
@@ -437,6 +444,12 @@ export class AuthService implements IAuthService {
       user.securityConfig = securityConfig;
       await user.save();
       await cacheService.del(CacheKeys.userProfile(userId));
+
+      // Refresh session TTL if MDK is currently in session
+      const currentMdk = await encryptionSessionService.getMDK(userId);
+      if (currentMdk) {
+        await encryptionSessionService.storeMDK(userId, currentMdk, user.securityConfig.isEnabled);
+      }
     } catch (error) {
       logger.error('Update security config failed', error);
       throw error;

@@ -60,7 +60,8 @@ export class AuthMiddleware {
 
       // Refresh Vault TTL (sliding window)
       if (authUserId) {
-        await encryptionSessionService.refreshMDK(authUserId);
+        const isLockEnabled = (userProfile as any).securityConfig?.isEnabled ?? true;
+        await encryptionSessionService.refreshMDK(authUserId, isLockEnabled);
       }
 
       next();

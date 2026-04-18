@@ -2,11 +2,13 @@ import { redisConnection } from '../../config/redis';
 import { IEncryptionSessionService } from './encryption.interfaces';
 
 const LOCK_TTL = 60 * 15; // 15 minutes inactivity → system lock
+const UNLOCKED_TTL = 60 * 60 * 24; // 24 hours -> persistent vault access
 
 export class EncryptionSessionService implements IEncryptionSessionService {
 
-    async storeMDK(userId: string, mdk: Buffer): Promise<void> {
-        await redisConnection.setex(`vault:mdk:${userId}`, LOCK_TTL, mdk.toString('hex'));
+    async storeMDK(userId: string, mdk: Buffer, isLockEnabled: boolean = true): Promise<void> {
+        const ttl = isLockEnabled ? LOCK_TTL : UNLOCKED_TTL;
+        await redisConnection.setex(`vault:mdk:${userId}`, ttl, mdk.toString('hex'));
     }
 
     async getMDK(userId: string): Promise<Buffer | null> {
@@ -18,9 +20,9 @@ export class EncryptionSessionService implements IEncryptionSessionService {
         await redisConnection.del(`vault:mdk:${userId}`);
     }
 
-    async refreshMDK(userId: string): Promise<void> {
-        // Active users never hit the lock screen
-        await redisConnection.expire(`vault:mdk:${userId}`, LOCK_TTL);
+    async refreshMDK(userId: string, isLockEnabled: boolean = true): Promise<void> {
+        const ttl = isLockEnabled ? LOCK_TTL : UNLOCKED_TTL;
+        await redisConnection.expire(`vault:mdk:${userId}`, ttl);
     }
 }
 

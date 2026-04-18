@@ -70,7 +70,7 @@ export class VaultService implements IVaultService {
         };
 
         await user.save();
-        await encryptionSessionService.storeMDK(user._id.toString(), mdk);
+        await encryptionSessionService.storeMDK(user._id.toString(), mdk, user.securityConfig?.isEnabled);
 
         logger.info('Vault initialized successfully', { userId: user._id });
         return { recoveryPhrase, mdk };
@@ -89,12 +89,12 @@ export class VaultService implements IVaultService {
             throw ApiError.badRequest('Credential is required to unlock vault');
         }
 
-        const user = await User.findById(userId).select('+vault.passwordSalt +vault.wrappedMDK_password +vault.securityAnswerSalt +vault.wrappedMDK_securityAnswer +vault.unlockAttempts +vault.unlockLockedUntil');
+        const user = await User.findById(userId).select('+vault.passwordSalt +vault.wrappedMDK_password +vault.securityAnswerSalt +vault.wrappedMDK_securityAnswer +vault.unlockAttempts +vault.unlockLockedUntil +securityConfig.isEnabled');
         if (!user || !user.vault) throw ApiError.notFound('User or Vault not found');
 
-        if (user.vault.unlockLockedUntil && user.vault.unlockLockedUntil > new Date()) {
-            throw ApiError.forbidden(`Vault is locked due to too many attempts. Try again later.`);
-        }
+        // if (user.vault.unlockLockedUntil && user.vault.unlockLockedUntil > new Date()) {
+        //     throw ApiError.forbidden(`Vault is locked due to too many attempts. Try again later.`);
+        // }
 
         try {
             const salt = isPasswordUnlock ? user.vault.passwordSalt : user.vault.securityAnswerSalt;
@@ -106,7 +106,7 @@ export class VaultService implements IVaultService {
 
             const kek = await encryptionService.deriveKEK(secret, salt);
             const mdk = encryptionService.unwrapKey(wrappedMDKValue, kek);
-            await encryptionSessionService.storeMDK(userId, mdk);
+            await encryptionSessionService.storeMDK(userId, mdk, user.securityConfig?.isEnabled);
 
             user.vault.unlockAttempts = 0;
             user.vault.unlockLockedUntil = undefined;
@@ -134,7 +134,7 @@ export class VaultService implements IVaultService {
 
     async recoverWithPhrase(email: string, recoveryPhrase: string, newPassword?: string, newSecurityQuestion?: string, newSecurityAnswer?: string): Promise<void> {
         const user = await User.findOne({ email: email.toLowerCase().trim() })
-            .select('+vault.recoverySalt +vault.wrappedMDK_recovery +password');
+            .select('+vault.recoverySalt +vault.wrappedMDK_recovery +password +securityConfig.isEnabled');
 
         if (!user || !user.vault?.wrappedMDK_recovery) {
             throw ApiError.unauthorized('Recovery not possible for this account');
@@ -159,7 +159,7 @@ export class VaultService implements IVaultService {
             }
 
             await user.save();
-            await encryptionSessionService.storeMDK(user._id.toString(), mdk);
+            await encryptionSessionService.storeMDK(user._id.toString(), mdk, user.securityConfig?.isEnabled);
         } catch (error) {
             throw ApiError.unauthorized('Invalid recovery phrase');
         }

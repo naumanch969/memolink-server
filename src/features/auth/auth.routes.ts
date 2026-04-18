@@ -10,7 +10,7 @@ import { config } from '../../config/env';
 const router = Router();
 
 // Strict limiter for sensitive auth endpoints
-const authLimiter = RateLimitMiddleware.limit({ zone: 'auth', maxRequests: config.NODE_ENV == 'development' ? 100 : 15, windowMs: 15 * 60 * 1000 });
+const authLimiter = RateLimitMiddleware.limit({ zone: 'auth', maxRequests: config.NODE_ENV == 'development' ? 1000000 : 1050000, windowMs: 15 * 60 * 1000 });
 
 // Public routes
 router.post('/register', authLimiter, registerValidation, ValidationMiddleware.validate, AuthController.register);

@@ -23,8 +23,15 @@ export interface IEncryptionService {
 }
 
 export interface IEncryptionSessionService {
-    storeMDK(userId: string, mdk: Buffer): Promise<void>;
+    // Stores the unwrapped MDK in a secure, temporary session (Redis).
+    storeMDK(userId: string, mdk: Buffer, isLockEnabled?: boolean): Promise<void>;
+
+    // Retrieves the MDK from session.
     getMDK(userId: string): Promise<Buffer | null>;
+
+    // Manually clears the MDK session.
     clearMDK(userId: string): Promise<void>;
-    refreshMDK(userId: string): Promise<void>;
+
+    // Refreshes the session TTL for the MDK.
+    refreshMDK(userId: string, isLockEnabled?: boolean): Promise<void>;
 }
