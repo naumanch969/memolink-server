@@ -148,6 +148,9 @@ export interface ResendVerificationRequest {
 
 export interface SecurityConfigRequest {
     question: string;
+    confirmPassword?: string;
+    currentAnswer?: string;
+    currentSecret?: string;
     answer: string;
     timeoutMinutes: number;
     isEnabled: boolean;

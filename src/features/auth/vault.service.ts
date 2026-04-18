@@ -40,7 +40,7 @@ export class VaultService implements IVaultService {
         if (!mdk) {
             mdk = encryptionService.generateMDK();
         }
-        
+
         const recoveryPhrase = encryptionService.generateRecoveryPhrase();
 
         const passWrapper = await this.generateWrapper(plainPassword || '', mdk);
@@ -81,7 +81,7 @@ export class VaultService implements IVaultService {
 
         console.log('data', data)
         const isPasswordUnlock = !!password;
-        
+
         // Universal normalization: Baseline match
         const secret = (isPasswordUnlock ? password : securityAnswer)?.trim().toLowerCase();
 

@@ -357,31 +357,43 @@ export class AuthService implements IAuthService {
   async updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<void> {
     try {
       const { question, answer, timeoutMinutes, isEnabled, maskEntries } = config;
-      const user = await User.findById(userId).select('+securityConfig.answerHash');
+      const user = await User.findById(userId).select('+password +securityConfig.answerHash +vault');
       if (!user) throw ApiError.notFound('User');
 
       const wasEnabled = user.securityConfig?.isEnabled;
       const isActivating = isEnabled && !wasEnabled;
-      const isQuestionChanging = question && user.securityConfig?.question && question !== user.securityConfig.question;
 
-      // Logic:
-      // 1. If it WAS enabled, we MUST verify the current answer to allow ANY change (disable, maskEntries, etc.)
-      // 2. If it WAS NOT enabled, but is being ACTIVATED (isEnabled: true), we MUST have an answer to set it.
-      // 3. If it WAS NOT enabled, and is staying DISABLED (isEnabled: false), we can change maskEntries/timeout without answer.
+      const { confirmPassword, currentAnswer } = config;
 
       if (wasEnabled || isActivating) {
-        if (!answer || !answer.trim()) {
-          throw ApiError.badRequest('Security answer is required to update security configuration');
+        let isAuthorized = false;
+
+        if (currentAnswer?.trim() && wasEnabled) {
+          isAuthorized = await cryptoService.comparePassword(currentAnswer.trim().toLowerCase(), user.securityConfig!.answerHash!);
+        }
+        
+        if (!isAuthorized && confirmPassword && wasEnabled && user.password) {
+          // Fallback: reset via main account password
+          isAuthorized = await cryptoService.comparePassword(confirmPassword, user.password);
+        }
+
+        if (!isAuthorized && isActivating && answer) {
+          isAuthorized = true;
+        }
+
+        if (!isAuthorized) {
+          logger.warn('Security update authorization failed', { 
+            userId, 
+            hasCurrentAnswer: !!currentAnswer, 
+            hasConfirmPassword: !!confirmPassword,
+            hasStoredPassword: !!user.password,
+            wasEnabled 
+          });
+          throw ApiError.unauthorized('Invalid security answer or password confirmation');
         }
 
         if (isActivating && (!question || !question.trim())) {
           throw ApiError.badRequest('Security question is required when enabling security');
-        }
-
-        if (wasEnabled) {
-          // Verify current identity
-          const isMatch = await cryptoService.comparePassword(answer.trim().toLowerCase(), user.securityConfig!.answerHash!);
-          if (!isMatch) throw ApiError.unauthorized('Invalid security answer');
         }
       }
 
@@ -395,8 +407,21 @@ export class AuthService implements IAuthService {
       if (answer && answer.trim()) {
         securityConfig.answerHash = await cryptoService.hashPassword(answer.trim().toLowerCase());
 
-        // Sync Vault if unlocked
-        const mdk = await encryptionSessionService.getMDK(userId);
+        // Sync Vault: We need the MDK to re-wrap it with the new answer
+        let mdk = await encryptionSessionService.getMDK(userId);
+
+        // If MDK not in session, try to unwrap using password if confirmed
+        if (!mdk && confirmPassword && user.vault?.wrappedMDK_password) {
+          try {
+            const kek = await encryptionService.deriveKEK(confirmPassword.toLowerCase().trim(), user.vault.passwordSalt!);
+            mdk = encryptionService.unwrapKey(user.vault.wrappedMDK_password!, kek);
+            // Store it in session for future use
+            await encryptionSessionService.storeMDK(userId, mdk);
+          } catch (e) {
+            logger.warn('Failed to unwrap MDK via password during security reset', { userId });
+          }
+        }
+
         if (mdk && user.vault) {
           const answerSalt = crypto.randomBytes(32).toString('hex');
           const kek = await encryptionService.deriveKEK(answer.toLowerCase().trim(), answerSalt);
