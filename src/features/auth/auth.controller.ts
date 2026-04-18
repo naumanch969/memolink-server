@@ -174,8 +174,8 @@ export class AuthController {
     try {
       const userId = req.user!._id.toString();
       const config: SecurityConfigRequest = req.body;
-      await authService.updateSecurityConfig(userId, config);
-      ResponseHelper.success(res, null, 'Security settings updated');
+      const user = await authService.updateSecurityConfig(userId, config);
+      ResponseHelper.success(res, user, 'Security settings updated');
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
       ResponseHelper.error(res, error.message || 'Failed to update security settings', statusCode, error);

@@ -132,10 +132,7 @@ export class AuthService implements IAuthService {
 
   async googleLogin(idToken: string): Promise<AuthResponse> {
     try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken,
-        audience: config.GOOGLE_CLIENT_ID,
-      });
+      const ticket = await googleClient.verifyIdToken({ idToken, audience: config.GOOGLE_CLIENT_ID, });
       const payload = ticket.getPayload();
 
       if (!payload) {
@@ -354,7 +351,7 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<void> {
+  async updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<any> {
     try {
       const { question, answer, timeoutMinutes, isEnabled, maskEntries } = config;
       const user = await User.findById(userId).select('+password +securityConfig.answerHash +vault');
@@ -371,7 +368,7 @@ export class AuthService implements IAuthService {
         if (currentAnswer?.trim() && wasEnabled) {
           isAuthorized = await cryptoService.comparePassword(currentAnswer.trim().toLowerCase(), user.securityConfig!.answerHash!);
         }
-        
+
         if (!isAuthorized && confirmPassword && wasEnabled && user.password) {
           // Fallback: reset via main account password
           isAuthorized = await cryptoService.comparePassword(confirmPassword, user.password);
@@ -382,12 +379,12 @@ export class AuthService implements IAuthService {
         }
 
         if (!isAuthorized) {
-          logger.warn('Security update authorization failed', { 
-            userId, 
-            hasCurrentAnswer: !!currentAnswer, 
+          logger.warn('Security update authorization failed', {
+            userId,
+            hasCurrentAnswer: !!currentAnswer,
             hasConfirmPassword: !!confirmPassword,
             hasStoredPassword: !!user.password,
-            wasEnabled 
+            wasEnabled
           });
           throw ApiError.unauthorized('Invalid security answer or password confirmation');
         }
@@ -406,7 +403,7 @@ export class AuthService implements IAuthService {
 
       if (answer && answer.trim()) {
         const normalizedAnswer = answer.trim().toLowerCase();
-        
+
         // Sync Vault: We need the MDK to re-wrap it with the new answer
         let mdk = await encryptionSessionService.getMDK(userId);
 
@@ -450,6 +447,8 @@ export class AuthService implements IAuthService {
       if (currentMdk) {
         await encryptionSessionService.storeMDK(userId, currentMdk, user.securityConfig.isEnabled);
       }
+
+      return user;
     } catch (error) {
       logger.error('Update security config failed', error);
       throw error;
