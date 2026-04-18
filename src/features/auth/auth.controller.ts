@@ -23,8 +23,8 @@ export class AuthController {
       const result = await authService.login(loginData);
 
       ResponseHelper.success(res, result, 'Login successful');
-    } catch (error) {
-      ResponseHelper.error(res, 'Login failed', 401, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Login failed', 401, error);
     }
   }
 
@@ -35,8 +35,8 @@ export class AuthController {
       const result = await authService.googleLogin(idToken);
 
       ResponseHelper.success(res, result, 'Google login successful');
-    } catch (error) {
-      ResponseHelper.error(res, 'Google login failed', 401, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Google login failed', 401, error);
     }
   }
 
@@ -131,8 +131,8 @@ export class AuthController {
       const { otp }: VerifyEmailRequest = req.body;
       const result = await authService.verifyEmail(otp);
       ResponseHelper.success(res, result, 'Email verified successfully');
-    } catch (error) {
-      ResponseHelper.error(res, 'Email verification failed', 400, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Email verification failed', 400, error);
     }
   }
 
@@ -153,8 +153,8 @@ export class AuthController {
       const { otp, newPassword }: ResetPasswordRequest = req.body;
       await authService.resetPassword(otp, newPassword);
       ResponseHelper.success(res, null, 'Password reset successfully');
-    } catch (error) {
-      ResponseHelper.error(res, 'Password reset failed', 400, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Password reset failed', 400, error);
     }
   }
 
@@ -225,8 +225,8 @@ export class AuthController {
       const userId = req.user!._id.toString();
       await authService.unlockVault(userId, req.body);
       ResponseHelper.success(res, null, 'Vault unlocked successfully');
-    } catch (error) {
-      ResponseHelper.error(res, 'Failed to unlock vault', 401, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Failed to unlock vault', 401, error);
     }
   }
 
@@ -235,8 +235,8 @@ export class AuthController {
     try {
       await authService.recoverVaultWithPhrase(req.body);
       ResponseHelper.success(res, null, 'Vault recovered successfully');
-    } catch (error) {
-      ResponseHelper.error(res, 'Failed to recover vault', 400, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Failed to recover vault', 400, error);
     }
   }
 
@@ -246,8 +246,8 @@ export class AuthController {
       const userId = req.user!._id.toString();
       await authService.setupVault(userId, req.body);
       ResponseHelper.success(res, null, 'Vault initialized successfully');
-    } catch (error) {
-      ResponseHelper.error(res, 'Failed to setup vault', 400, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Failed to setup vault', 400, error);
     }
   }
 }

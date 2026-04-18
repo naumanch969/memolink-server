@@ -1,6 +1,8 @@
-import nodemailer from 'nodemailer';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
+import { ResendTransporter } from './transporters/resend.transporter';
+import { SmtpTransporter } from './transporters/smtp.transporter';
+import { IEmailTransporter } from './transporters/email-transporter.interface';
 
 export interface EmailOptions {
     to: string;
@@ -10,46 +12,16 @@ export interface EmailOptions {
 }
 
 export class EmailProvider {
-    private transporter: nodemailer.Transporter;
     private static instance: EmailProvider;
+    private resendTransporter: ResendTransporter;
+    private smtpTransporter: SmtpTransporter;
 
     private constructor() {
-        const port = parseInt(config.EMAIL_PORT || '587');
-        // Hostinger and many others require secure: true for port 465
-        const isSecure = port === 465 || String(config.EMAIL_SECURE).toLowerCase() === 'true';
+        this.resendTransporter = new ResendTransporter();
+        this.smtpTransporter = new SmtpTransporter();
 
-        this.transporter = nodemailer.createTransport({
-            pool: true,
-            maxConnections: 5,
-            maxMessages: 100,
-            host: config.EMAIL_HOST || 'smtp.gmail.com',
-            port: port,
-            secure: isSecure,
-            connectionTimeout: config.EMAIL_CONNECTION_TIMEOUT_MS,
-            greetingTimeout: config.EMAIL_GREETING_TIMEOUT_MS,
-            socketTimeout: config.EMAIL_SOCKET_TIMEOUT_MS,
-            dnsTimeout: config.EMAIL_DNS_TIMEOUT_MS,
-            auth: {
-                user: config.EMAIL_USER,
-                pass: config.EMAIL_PASS,
-            },
-            tls: {
-                // Many hosting providers (like Hostinger) may have certificate chain issues 
-                // in containerized environments. This ensures the handshake succeeds.
-                rejectUnauthorized: false
-            }
-        });
-
-        // Fire and forget verification, but catch errors to prevent unhandled rejections
-        this.verifyConnection().catch(err => {
-            logger.error('EmailProvider failed to establish initial connection:', {
-                message: err.message,
-                host: config.EMAIL_HOST,
-                port: port,
-                secure: isSecure,
-                user: config.EMAIL_USER
-            });
-        });
+        // Initial verification
+        this.verifyConnection();
     }
 
     public static getInstance(): EmailProvider {
@@ -59,92 +31,55 @@ export class EmailProvider {
         return EmailProvider.instance;
     }
 
-    private withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-                reject(new Error(timeoutMessage));
-            }, timeoutMs);
-
-            promise
-                .then((value) => {
-                    clearTimeout(timeoutId);
-                    resolve(value);
-                })
-                .catch((error) => {
-                    clearTimeout(timeoutId);
-                    reject(error);
-                });
-        });
-    }
-
     private async verifyConnection() {
-        if (config.NODE_ENV === 'test') {
-            logger.info('Skipping email verification in test mode');
+        if (config.NODE_ENV === 'test') return;
+
+        if (config.EMAIL_RESEND_API_KEY) {
+            logger.info('Email System: Resend detected as primary provider');
             return;
         }
 
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                await this.transporter.verify();
-                logger.info('Email server connection established');
-                return;
-            } catch (error: any) {
-                logger.error(`Email server connection failed (attempt ${attempt}/${maxRetries}):`, {
-                    error: error.message,
-                    code: error.code
-                });
-
-                if (attempt === maxRetries) {
-                    throw new Error(
-                        `Failed to connect to email server after ${maxRetries} attempts: ${error.message}`
-                    );
-                }
-
-                // Exponential backoff: 2s, 4s
-                const delay = 2000 * attempt;
-                logger.info(`Retrying email connection in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
+        const isSmtpConnected = await this.smtpTransporter.verify();
+        if (isSmtpConnected) {
+            logger.info('Email System: SMTP connection established');
+        } else {
+            logger.warn('Email System: SMTP connection failed. Please check credentials.');
         }
     }
 
     async sendEmail(options: EmailOptions): Promise<void> {
         const startedAt = Date.now();
-        try {
-            const mailOptions = {
-                from: `"Brinn" <${config.EMAIL_USER}>`,
-                to: options.to,
-                subject: options.subject,
-                html: options.html,
-                text: options.text,
-            };
 
-            const result = await this.withTimeout(
-                this.transporter.sendMail(mailOptions),
-                config.EMAIL_SEND_TIMEOUT_MS,
-                `Email send timeout after ${config.EMAIL_SEND_TIMEOUT_MS}ms`
-            );
-
-            logger.info('Email sent successfully', {
-                messageId: result.messageId,
-                to: options.to,
-                subject: options.subject,
-                durationMs: Date.now() - startedAt
-            });
-        } catch (error: any) {
-            logger.error('Failed to send email:', {
-                error: error.message,
-                stack: error.stack,
-                to: options.to,
-                subject: options.subject,
-                code: error.code,
-                command: error.command,
-                durationMs: Date.now() - startedAt
-            });
-            // Throw error to let BullMQ handle retries with proper error context
-            throw new Error(`Email send failed: ${error.message}`);
+        // 1. Try Resend if configured
+        if (config.EMAIL_RESEND_API_KEY) {
+            const result = await this.resendTransporter.send(options);
+            if (result.success) {
+                logger.info('Email sent successfully via Resend', {
+                    to: options.to,
+                    durationMs: Date.now() - startedAt
+                });
+                return;
+            }
+            logger.warn('Resend send failed, trying fallback to SMTP...', { error: result.error });
         }
+
+        // 2. Fallback to SMTP
+        const result = await this.smtpTransporter.send(options);
+        if (result.success) {
+            logger.info('Email sent successfully via SMTP', {
+                to: options.to,
+                durationMs: Date.now() - startedAt
+            });
+            return;
+        }
+
+        // 3. Both failed
+        logger.error('Email delivery failed for all providers', {
+            to: options.to,
+            error: result.error,
+            durationMs: Date.now() - startedAt
+        });
+
+        throw new Error(`Email delivery failed: ${result.error}`);
     }
 }
- 

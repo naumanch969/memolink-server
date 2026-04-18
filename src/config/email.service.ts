@@ -46,32 +46,16 @@ class EmailService implements IEmailService {
       validateEmailOrThrow(email, 'verification email');
 
       const { subject, html, text } = getVerificationEmailTemplate(name, otp);
-      // await EmailProvider.getInstance().sendEmail({
-      //   to: email,
-      //   subject,
-      //   html,
-      //   text
-      // });
-      const result = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.EMAIL_RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'company@opstintechnologies.com', // use this until you verify your domain
-          to: email,
-          subject: subject,
-          html: html,
-          text: text
-        })
+      await EmailProvider.getInstance().sendEmail({
+        to: email,
+        subject,
+        html,
+        text
       });
-
-      console.log('result', result)
 
       return true;
     } catch (error) {
-      logger.error('Failed to send verification email (sync):', error);
+      logger.error('Failed to send verification email:', error);
       return false;
     }
   }
@@ -80,7 +64,7 @@ class EmailService implements IEmailService {
     try {
       validateEmailOrThrow(email, 'password reset email');
 
-      const resetUrl = `${config.FRONTEND_URL}/reset-password?token=${resetToken}`;
+      const resetUrl = `${config.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
       const { subject, html, text } = getPasswordResetEmailTemplate(name, resetUrl);
 
       await EmailProvider.getInstance().sendEmail({
