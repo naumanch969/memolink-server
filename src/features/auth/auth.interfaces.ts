@@ -22,4 +22,5 @@ export interface IAuthService {
   unlockVault(userId: string, data: { securityAnswer?: string; password?: string }): Promise<void>;
   getVaultStatus(userId: string): Promise<{ isLocked: boolean; securityQuestion?: string }>;
   recoverVaultWithPhrase(data: VaultRecoveryRequest): Promise<void>;
+  onboardOtp(email: string): Promise<void>;
 }

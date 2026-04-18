@@ -21,6 +21,7 @@ router.post('/forgot-password', authLimiter, forgotPasswordValidation, Validatio
 router.post('/reset-password', authLimiter, resetPasswordValidation, ValidationMiddleware.validate, AuthController.resetPassword);
 router.post('/verify-email', authLimiter, verifyEmailValidation, ValidationMiddleware.validate, AuthController.verifyEmail);
 router.post('/resend-verification', authLimiter, resendVerificationValidation, ValidationMiddleware.validate, AuthController.resendVerification);
+router.post('/onboard/otp', authLimiter, resendVerificationValidation, ValidationMiddleware.validate, AuthController.onboardOtp);
 
 router.post('/vault/recover', authLimiter, AuthController.recoverVault);
 

@@ -351,6 +351,34 @@ export class AuthService implements IAuthService {
     }
   }
 
+  async onboardOtp(email: string): Promise<void> {
+    try {
+      let user = await User.findByEmail(email);
+
+      // If user doesn't exist, create a shell account for onboarding
+      if (!user) {
+        user = new User({
+          email: email.toLowerCase().trim(),
+          name: email.split('@')[0], // Placeholder name
+          isEmailVerified: false,
+          isOnboarded: false,
+        });
+        await user.save();
+        logger.info('Created shell user for onboarding', { email });
+      }
+
+      if (user.isEmailVerified && user.isOnboarded) {
+        throw ApiError.conflict('User is already registered and onboarded');
+      }
+
+      const otp = await Otp.generateOtp(email, 'verification');
+      await emailService.sendVerificationEmail(email, user.name, otp);
+    } catch (error) {
+      logger.error('Onboard OTP failed:', error);
+      throw error;
+    }
+  }
+
   async updateSecurityConfig(userId: string, config: SecurityConfigRequest): Promise<any> {
     try {
       const { question, answer, timeoutMinutes, isEnabled, maskEntries } = config;

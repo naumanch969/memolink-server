@@ -125,6 +125,17 @@ export class AuthController {
     }
   }
 
+  // Onboard OTP
+  static async onboardOtp(req: Request, res: Response) {
+    try {
+      const { email }: { email: string } = req.body;
+      await authService.onboardOtp(email);
+      ResponseHelper.success(res, null, 'Onboarding verification code sent');
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Failed to start onboarding', error.statusCode || 500, error);
+    }
+  }
+
   // Verify Email
   static async verifyEmail(req: Request, res: Response) {
     try {
