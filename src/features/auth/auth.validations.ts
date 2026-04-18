@@ -5,7 +5,6 @@ export const registerValidation = [
   body('email')
     .isEmail()
     .withMessage('Please provide a valid email')
-    .normalizeEmail()
     .isLength({ max: VALIDATION.EMAIL_MAX_LENGTH })
     .withMessage(`Email cannot exceed ${VALIDATION.EMAIL_MAX_LENGTH} characters`),
 
@@ -36,8 +35,7 @@ export const registerValidation = [
 export const loginValidation = [
   body('email')
     .isEmail()
-    .withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .withMessage('Please provide a valid email'),
 
   body('password')
     .notEmpty()
@@ -67,8 +65,7 @@ export const refreshTokenValidation = [
 export const forgotPasswordValidation = [
   body('email')
     .isEmail()
-    .withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .withMessage('Please provide a valid email'),
 ];
 
 export const resetPasswordValidation = [
@@ -92,8 +89,7 @@ export const verifyEmailValidation = [
 export const resendVerificationValidation = [
   body('email')
     .isEmail()
-    .withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .withMessage('Please provide a valid email'),
 ];
 
 export const updateProfileValidation = [
@@ -165,8 +161,7 @@ export const vaultUnlockValidation = [
 export const vaultRecoverValidation = [
   body('email')
     .isEmail()
-    .withMessage('Please provide a valid email')
-    .normalizeEmail(),
+    .withMessage('Please provide a valid email'),
 
   body('recoveryPhrase')
     .trim()

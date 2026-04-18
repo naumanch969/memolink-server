@@ -15,6 +15,7 @@ import { User } from './auth.model';
 import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest, VaultRecoveryRequest, VaultStatus } from './auth.types';
 import { Otp } from './otp.model';
 import { vaultService } from './vault.service';
+import { ValidationUtil } from '../../shared/utils/validation.utils';
 
 const googleClient = new OAuth2Client(config.GOOGLE_CLIENT_ID);
 
@@ -71,7 +72,7 @@ export class AuthService implements IAuthService {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       const { email, password } = credentials;
-
+      console.log('emaio', email, email.toLocaleLowerCase().trim())
       // Find user with password and vault secrets
       const user = await User.findOne({ email: email.toLowerCase().trim() })
         .select('+password +vault.passwordSalt +vault.wrappedMDK_password +vault.wrappedMDK_securityAnswer');
@@ -145,17 +146,23 @@ export class AuthService implements IAuthService {
         throw ApiError.unauthorized('Email not found in Google Token');
       }
 
-      let user = await User.findOne({ email: email.toLowerCase().trim() })
+      let user = await User.findOne({ email })
         .select('+vault.wrappedMDK_password +vault.wrappedMDK_securityAnswer');
 
       if (user) {
+        let needsSave = false;
         if (!user.googleId) {
           user.googleId = googleId;
-          await user.save();
+          needsSave = true;
         }
+        if (!user.isEmailVerified) {
+          user.isEmailVerified = true;
+          needsSave = true;
+        }
+        if (needsSave) await user.save();
       } else {
         user = new User({
-          email: email.toLowerCase().trim(),
+          email,
           name: name || 'User',
           googleId,
           avatar: picture,
@@ -358,7 +365,7 @@ export class AuthService implements IAuthService {
       // If user doesn't exist, create a shell account for onboarding
       if (!user) {
         user = new User({
-          email: email.toLowerCase().trim(),
+          email: email,
           name: email.split('@')[0], // Placeholder name
           isEmailVerified: false,
           isOnboarded: false,

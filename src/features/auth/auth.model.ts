@@ -1,6 +1,7 @@
 import mongoose, { HydratedDocument, Model, Schema } from 'mongoose';
 import { STORAGE_LIMITS, USER_ROLES } from '../../shared/constants';
 import { IUser } from './auth.types';
+import { ValidationUtil } from '../../shared/utils/validation.utils';
 
 // Interface for User model with static methods
 interface IUserModel extends Model<IUser> {
@@ -9,7 +10,15 @@ interface IUserModel extends Model<IUser> {
 }
 
 const userSchema = new Schema<IUser>({
-  email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true, maxlength: [254, 'Email cannot exceed 254 characters'], match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'], },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    maxlength: [254, 'Email cannot exceed 254 characters'],
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'],
+  },
   password: { type: String, select: false, }, // Don't include password in queries by default
   googleId: { type: String, unique: true, sparse: true, select: false },
   name: { type: String, required: [true, 'Name is required'], trim: true, maxlength: [100, 'Name cannot exceed 100 characters'], },
@@ -121,7 +130,7 @@ userSchema.methods.verifyEmail = function () {
 
 // Static methods
 userSchema.statics.findByEmail = function (email: string) {
-  return this.findOne({ email: email.toLowerCase().trim() });
+  return this.findOne({ email });
 };
 
 userSchema.statics.findActiveUsers = function () {
