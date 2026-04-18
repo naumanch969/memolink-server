@@ -14,6 +14,7 @@ export interface IUser extends BaseEntity {
     isEmailVerified: boolean;
     isOnboarded: boolean;
     isActive: boolean;
+    interests?: string[];
     lastLoginAt?: Date;
     lastLogoutAt?: Date;
     preferences: {
@@ -83,6 +84,7 @@ export interface AuthResponse {
     accessToken: string;
     refreshToken: string;
     otp?: string;
+    recoveryPhrase?: string;
     needsVaultSetup?: boolean;
 }
 
@@ -109,7 +111,8 @@ export interface RegisterRequest {
 }
 
 export interface VaultUnlockRequest {
-    securityAnswer: string;
+    securityAnswer?: string;
+    password?: string;
 }
 
 export interface VaultStatus {
@@ -149,4 +152,12 @@ export interface SecurityConfigRequest {
     timeoutMinutes: number;
     isEnabled: boolean;
     maskEntries?: boolean;
+}
+
+export interface VaultRecoveryRequest {
+    email: string;
+    recoveryPhrase: string;
+    newPassword?: string;
+    newSecurityQuestion?: string;
+    newSecurityAnswer?: string;
 }

@@ -12,7 +12,7 @@ import { encryptionService } from '../../core/encryption/encryption.service';
 import { ApiError } from '../../core/errors/api.error';
 import { IAuthService } from "./auth.interfaces";
 import { User } from './auth.model';
-import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest, VaultStatus } from './auth.types';
+import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest, VaultRecoveryRequest, VaultStatus } from './auth.types';
 import { Otp } from './otp.model';
 import { vaultService } from './vault.service';
 
@@ -92,9 +92,10 @@ export class AuthService implements IAuthService {
       if (!user.vault || !user.vault.wrappedMDK_password) {
         needsVaultSetup = true;
       } else {
-        // Standard Unlock
+        // Standard Unlock (Universal Normalization Baseline)
         try {
-          const kek = await encryptionService.deriveKEK(password, user.vault.passwordSalt!);
+          const normalizedPassword = password.toLowerCase().trim();
+          const kek = await encryptionService.deriveKEK(normalizedPassword, user.vault.passwordSalt!);
           const mdk = encryptionService.unwrapKey(user.vault.wrappedMDK_password!, kek);
           await encryptionSessionService.storeMDK(user._id.toString(), mdk);
 
@@ -494,16 +495,17 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async unlockVault(userId: string, securityAnswer: string): Promise<void> {
-    return vaultService.unlockVault(userId, securityAnswer);
+  async unlockVault(userId: string, data: { securityAnswer?: string; password?: string }): Promise<void> {
+    return vaultService.unlockVault(userId, data);
   }
 
   async getVaultStatus(userId: string): Promise<VaultStatus> {
     return vaultService.getVaultStatus(userId);
   }
 
-  async recoverVaultWithPhrase(email: string, recoveryPhrase: string, newPassword: string): Promise<void> {
-    return vaultService.recoverWithPhrase(email, recoveryPhrase, newPassword);
+  async recoverVaultWithPhrase(data: VaultRecoveryRequest): Promise<void> {
+    const { email, recoveryPhrase, newPassword, newSecurityQuestion, newSecurityAnswer } = data;
+    return vaultService.recoverWithPhrase(email, recoveryPhrase, newPassword, newSecurityQuestion, newSecurityAnswer);
   }
 
   async setupVault(userId: string, data: { password?: string; securityQuestion: string; securityAnswer: string }): Promise<void> {

@@ -1,4 +1,4 @@
-import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest } from "./auth.types";
+import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest, VaultRecoveryRequest } from "./auth.types";
 
 export interface IAuthService {
   register(userData: RegisterRequest): Promise<RegisterResponse>;
@@ -19,7 +19,7 @@ export interface IAuthService {
   logout(userId: string): Promise<void>;
   uploadAvatar(userId: string, file: any): Promise<IUser>;
   removeAvatar(userId: string): Promise<IUser>;
-  unlockVault(userId: string, securityAnswer: string): Promise<void>;
+  unlockVault(userId: string, data: { securityAnswer?: string; password?: string }): Promise<void>;
   getVaultStatus(userId: string): Promise<{ isLocked: boolean; securityQuestion?: string }>;
-  recoverVaultWithPhrase(email: string, recoveryPhrase: string, newPassword: string): Promise<void>;
+  recoverVaultWithPhrase(data: VaultRecoveryRequest): Promise<void>;
 }

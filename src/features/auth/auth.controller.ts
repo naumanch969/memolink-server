@@ -220,12 +220,10 @@ export class AuthController {
     }
   }
 
-  // Unlock Vault
   static async unlockVault(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
-      const { securityAnswer }: VaultUnlockRequest = req.body;
-      await authService.unlockVault(userId, securityAnswer);
+      await authService.unlockVault(userId, req.body);
       ResponseHelper.success(res, null, 'Vault unlocked successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to unlock vault', 401, error);
@@ -235,8 +233,7 @@ export class AuthController {
   // Recover Vault
   static async recoverVault(req: Request, res: Response) {
     try {
-      const { email, recoveryPhrase, newPassword } = req.body;
-      await authService.recoverVaultWithPhrase(email, recoveryPhrase, newPassword);
+      await authService.recoverVaultWithPhrase(req.body);
       ResponseHelper.success(res, null, 'Vault recovered successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to recover vault', 400, error);

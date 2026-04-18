@@ -10,7 +10,7 @@ interface IUserModel extends Model<IUser> {
 
 const userSchema = new Schema<IUser>({
   email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true, maxlength: [254, 'Email cannot exceed 254 characters'], match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'], },
-  password: { type: String, minlength: [8, 'Password must be at least 8 characters long'], select: false, }, // Don't include password in queries by default
+  password: { type: String, select: false, }, // Don't include password in queries by default
   googleId: { type: String, unique: true, sparse: true, select: false },
   name: { type: String, required: [true, 'Name is required'], trim: true, maxlength: [100, 'Name cannot exceed 100 characters'], },
   avatar: { type: String, default: null, },
@@ -18,6 +18,7 @@ const userSchema = new Schema<IUser>({
   isEmailVerified: { type: Boolean, default: false, },
   isOnboarded: { type: Boolean, default: false, },
   isActive: { type: Boolean, default: false, },
+  interests: [{ type: String }],
   lastLoginAt: { type: Date, default: null, },
   lastLogoutAt: { type: Date, default: null, },
   preferences: {

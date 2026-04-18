@@ -154,10 +154,12 @@ export const verifySecurityAnswerValidation = [
 ];
 
 export const vaultUnlockValidation = [
-  body('securityAnswer')
-    .trim()
-    .notEmpty()
-    .withMessage('Security answer is required'),
+  body().custom((value, { req }) => {
+    if (!req.body.securityAnswer && !req.body.password) {
+      throw new Error('Either securityAnswer or password must be provided');
+    }
+    return true;
+  }),
 ];
 
 export const vaultRecoverValidation = [

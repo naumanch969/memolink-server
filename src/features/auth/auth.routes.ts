@@ -4,12 +4,13 @@ import { RateLimitMiddleware } from '../../core/middleware/rate-limit.middleware
 import { FileUploadMiddleware } from '../../core/middleware/upload.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { AuthController } from './auth.controller';
-import { changePasswordValidation, forgotPasswordValidation, loginValidation, refreshTokenValidation, registerValidation, resendVerificationValidation, resetPasswordValidation, updateProfileValidation, updateSecurityConfigValidation, verifyEmailValidation, verifySecurityAnswerValidation } from './auth.validations';
+import { changePasswordValidation, forgotPasswordValidation, loginValidation, refreshTokenValidation, registerValidation, resendVerificationValidation, resetPasswordValidation, updateProfileValidation, updateSecurityConfigValidation, vaultUnlockValidation, verifyEmailValidation, verifySecurityAnswerValidation } from './auth.validations';
+import { config } from '../../config/env';
 
 const router = Router();
 
 // Strict limiter for sensitive auth endpoints
-const authLimiter = RateLimitMiddleware.limit({ zone: 'auth', maxRequests: 15, windowMs: 15 * 60 * 1000 });
+const authLimiter = RateLimitMiddleware.limit({ zone: 'auth', maxRequests: config.NODE_ENV == 'development' ? 100 : 15, windowMs: 15 * 60 * 1000 });
 
 // Public routes
 router.post('/register', authLimiter, registerValidation, ValidationMiddleware.validate, AuthController.register);
@@ -38,7 +39,7 @@ router.post('/logout', AuthController.logout);
 
 // Vault routes
 router.get('/vault/status', AuthController.getVaultStatus);
-router.post('/vault/unlock', authLimiter, AuthController.unlockVault);
+router.post('/vault/unlock', authLimiter, vaultUnlockValidation, ValidationMiddleware.validate, AuthController.unlockVault);
 router.post('/vault/setup', AuthController.setupVault);
 
 export default router;
