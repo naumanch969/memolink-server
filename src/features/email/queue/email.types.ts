@@ -1,4 +1,4 @@
-export type EmailJobType = 'VERIFICATION' | 'PASSWORD_RESET' | 'WELCOME' | 'SECURITY_ALERT' | 'GENERIC' | 'WAITLIST_CONFIRMATION' | 'WAITLIST_ADMIN_ALERT';
+export type EmailJobType = 'VERIFICATION' | 'PASSWORD_RESET' | 'WELCOME' | 'SECURITY_ALERT' | 'GENERIC' | 'WAITLIST_CONFIRMATION' | 'WAITLIST_ADMIN_ALERT' | 'BADGE_UNLOCKED';
 
 export interface BaseEmailJobData {
     to: string;
@@ -39,7 +39,15 @@ export interface WaitlistAdminAlertEmailJobData extends BaseEmailJobData {
     email: string;
 }
 
+export interface BadgeUnlockedEmailJobData extends BaseEmailJobData {
+    userName: string;
+    badgeName: string;
+    badgeDescription: string;
+    badgeId: string;
+    rarity: string;
+}
+
 export interface EmailJob {
     type: EmailJobType;
-    data: VerificationEmailJobData | PasswordResetEmailJobData | WelcomeEmailJobData | SecurityAlertEmailJobData | GenericEmailJobData | WaitlistConfirmationEmailJobData | WaitlistAdminAlertEmailJobData;
+    data: VerificationEmailJobData | PasswordResetEmailJobData | WelcomeEmailJobData | SecurityAlertEmailJobData | GenericEmailJobData | WaitlistConfirmationEmailJobData | WaitlistAdminAlertEmailJobData | BadgeUnlockedEmailJobData;
 }

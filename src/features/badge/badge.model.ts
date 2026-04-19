@@ -1,32 +1,7 @@
 
-import mongoose, { Schema, Document } from 'mongoose';
-
-export enum BadgeRarity {
-    COMMON = 'common',
-    UNCOMMON = 'uncommon',
-    RARE = 'rare',
-    EPIC = 'epic',
-    LEGENDARY = 'legendary',
-}
-
-export enum BadgeCategory {
-    IDENTITY = 'identity',
-    MILESTONE = 'milestone',
-    INSIGHT = 'insight',
-    LOYALTY = 'loyalty',
-    POWER = 'power',
-}
-
-export interface IBadgeDefinition extends Document {
-    badgeId: string; // Unique string identifier (e.g., 'founding-customer')
-    name: string;
-    description: string;
-    icon: string;
-    rarity: BadgeRarity;
-    category: BadgeCategory;
-    trigger: string;
-    isEnabled: boolean;
-}
+import mongoose, { Schema } from 'mongoose';
+import { IBadgeDefinition, IUserBadge } from './badge.interfaces';
+import { BadgeRarity, BadgeCategory, BadgeStatus } from './badge.types';
 
 const BadgeDefinitionSchema: Schema = new Schema({
     badgeId: { type: String, required: true, unique: true },
@@ -36,15 +11,8 @@ const BadgeDefinitionSchema: Schema = new Schema({
     rarity: { type: String, enum: Object.values(BadgeRarity), default: BadgeRarity.COMMON },
     category: { type: String, enum: Object.values(BadgeCategory), default: BadgeCategory.MILESTONE },
     trigger: { type: String, required: true },
-    isEnabled: { type: Boolean, default: true },
+    status: { type: String, enum: Object.values(BadgeStatus), default: BadgeStatus.LIVE },
 }, { timestamps: true });
-
-export interface IUserBadge extends Document {
-    userId: mongoose.Types.ObjectId;
-    badgeId: string;
-    awardedAt: Date;
-    metadata?: Record<string, any>;
-}
 
 const UserBadgeSchema: Schema = new Schema({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -58,3 +26,6 @@ UserBadgeSchema.index({ userId: 1, badgeId: 1 }, { unique: true });
 
 export const BadgeDefinition = mongoose.model<IBadgeDefinition>('BadgeDefinition', BadgeDefinitionSchema);
 export const UserBadge = mongoose.model<IUserBadge>('UserBadge', UserBadgeSchema);
+
+export * from './badge.types';
+export * from './badge.interfaces';

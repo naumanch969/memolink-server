@@ -3,11 +3,12 @@ import { logger } from '../../../config/logger';
 import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
 import { getWaitlistConfirmationEmailTemplate, getWaitlistAdminEmailTemplate } from '../../../core/email/templates/waitlist.templates';
+import { getBadgeUnlockedEmailTemplate } from '../../../core/email/templates/badge.templates';
 import { EMAIL_QUEUE_NAME, EMAIL_WORKER_CONFIG } from '../../../core/queue/queue.constants';
 import { queueService } from '../../../core/queue/queue.service';
 import { validateEmailOrThrow } from '../../../shared/email-validator';
 import { getEmailDLQ } from './email.queue';
-import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData, WaitlistConfirmationEmailJobData, WaitlistAdminAlertEmailJobData } from './email.types';
+import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData, WaitlistConfirmationEmailJobData, WaitlistAdminAlertEmailJobData, BadgeUnlockedEmailJobData } from './email.types';
 import { USER_ROLES } from '../../../shared/constants';
 import { SocketEvents } from '../../../core/socket/socket.types';
 import { socketService } from '../../../core/socket/socket.service';
@@ -61,6 +62,11 @@ const processEmailJob = async (job: Job<EmailJob>) => {
             case 'WAITLIST_ADMIN_ALERT': {
                 const d = data as WaitlistAdminAlertEmailJobData;
                 emailContent = getWaitlistAdminEmailTemplate(d.email);
+                break;
+            }
+            case 'BADGE_UNLOCKED': {
+                const d = data as BadgeUnlockedEmailJobData;
+                emailContent = getBadgeUnlockedEmailTemplate(d.userName, d.badgeName, d.badgeDescription, d.badgeId, d.rarity);
                 break;
             }
             default:
