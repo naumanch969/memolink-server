@@ -15,7 +15,7 @@ import { User } from './auth.model';
 import { AuthResponse, ChangePasswordRequest, IUser, LoginRequest, RegisterRequest, RegisterResponse, SecurityConfigRequest, VaultRecoveryRequest, VaultStatus } from './auth.types';
 import { Otp } from './otp.model';
 import { vaultService } from './vault.service';
-import { ValidationUtil } from '../../shared/utils/validation.utils';
+import axios from 'axios'
 
 const googleClient = new OAuth2Client(config.GOOGLE_CLIENT_ID);
 
@@ -131,10 +131,23 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async googleLogin(idToken: string): Promise<AuthResponse> {
+  async googleLogin(token: string): Promise<AuthResponse> {
     try {
-      const ticket = await googleClient.verifyIdToken({ idToken, audience: config.GOOGLE_CLIENT_ID, });
-      const payload = ticket.getPayload();
+      let payload: any;
+
+      // Check if it's a JWT (ID Token has 3 segments) or an Access Token
+      if (token.includes('.') && token.split('.').length === 3) {
+        const ticket = await googleClient.verifyIdToken({ idToken: token, audience: config.GOOGLE_CLIENT_ID, });
+        payload = ticket.getPayload();
+      } else {
+        // It's an Access Token, fetch userinfo from Google
+        const response = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        payload = response.data;
+      }
 
       if (!payload) {
         throw ApiError.unauthorized('Invalid Google Token');
