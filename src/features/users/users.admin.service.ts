@@ -11,6 +11,7 @@ import { notificationService } from '../notification/notification.service';
 import { reminderService } from '../reminder/reminder.service';
 import { tagService } from '../tag/tag.service';
 import { webActivityService } from '../web-activity/web-activity.service';
+import { UserBadge, BadgeDefinition } from '../badge/badge.model';
 
 import { IUsersAdminService } from './users.interfaces';
 import { UserListFilter, UserListResult } from "./users.types";
@@ -58,8 +59,33 @@ export class UsersAdminService implements IUsersAdminService {
             User.countDocuments(query)
         ]);
 
+        // Fetch badges for these users
+        const userIds = users.map(u => u._id);
+        const userBadges = await UserBadge.find({ userId: { $in: userIds } }).lean();
+        const badgeDefinitions = await BadgeDefinition.find({
+            badgeId: { $in: userBadges.map(ub => ub.badgeId) }
+        }).lean();
+
+        // Attach badges to users
+        const usersWithBadges = users.map(user => {
+            const badgesForUser = userBadges
+                .filter(ub => ub.userId.toString() === user._id.toString())
+                .map(ub => {
+                    const definition = badgeDefinitions.find(d => d.badgeId === ub.badgeId);
+                    return {
+                        ...ub,
+                        definition
+                    };
+                });
+            
+            return {
+                ...user,
+                badges: badgesForUser
+            };
+        });
+
         return {
-            users,
+            users: usersWithBadges,
             total,
             page,
             totalPages: Math.ceil(total / limit)

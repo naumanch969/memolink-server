@@ -9,6 +9,7 @@ import app from './app';
 import { SocketManager } from './socket/socket.manager';
 import { bufferManager } from './telemetry/buffer.manager';
 import oauthService from '../features/oauth/oauth.service';
+import { badgeService } from '../features/badge/badge.service';
 
 class Server {
   private server: HttpServer;
@@ -23,6 +24,7 @@ class Server {
       // Connect to database
       await database.connect();
       await verifyMetricsIndexes();
+      await badgeService.seedBadges();
 
       // Seed OAuth Clients
       await oauthService.seedClaudeClient(config.CLAUDE_CLIENT_SECRET);
