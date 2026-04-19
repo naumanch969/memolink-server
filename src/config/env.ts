@@ -108,7 +108,7 @@ export const config = {
   WHATSAPP_DISPLAY_NUMBER: process.env.WHATSAPP_DISPLAY_NUMBER || '',
   WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
   CLAUDE_CLIENT_SECRET: process.env.CLAUDE_CLIENT_SECRET || 'claude_secret_brinn_2025',
-  
+
   CURRENT_SERVICE_KEY_VERSION: process.env.CURRENT_SERVICE_KEY_VERSION || '1',
 } as const;
 

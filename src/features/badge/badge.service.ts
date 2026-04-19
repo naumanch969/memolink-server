@@ -7,12 +7,11 @@ import { IBadgeDefinition, IUserBadge } from './badge.interfaces';
 import { INITIAL_BADGES } from './badge.registry';
 import { getEmailQueue } from '../email/queue/email.queue';
 import { User } from '../auth/auth.model';
-import { config } from '../../config/env';
+import { notificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/notification.types';
 
 export class BadgeService {
-    /**
-     * Seeds initial badges if they don't exist
-     */
+    // Seeds initial badges if they don't exist
     async seedBadges(): Promise<void> {
         for (const badgeData of INITIAL_BADGES) {
             await BadgeDefinition.findOneAndUpdate(
@@ -27,18 +26,14 @@ export class BadgeService {
         logger.info('Badge registry seeded successfully');
     }
 
-    /**
-     * Get all available badge definitions (visible to public)
-     */
+    // Get all available badge definitions (visible to public)
     async getAvailableBadges(): Promise<IBadgeDefinition[]> {
-        return BadgeDefinition.find({ 
+        return BadgeDefinition.find({
             status: { $in: [BadgeStatus.LIVE, BadgeStatus.EXPIRED] }
         }).lean();
     }
 
-    /**
-     * Get badges earned by a user
-     */
+    // Get badges earned by a user
     async getUserBadges(userId: string): Promise<any[]> {
         const userBadges = await UserBadge.find({
             userId: new mongoose.Types.ObjectId(userId)
@@ -54,9 +49,7 @@ export class BadgeService {
         }));
     }
 
-    /**
-     * Award a badge to a user
-     */
+    // Award a badge to a user
     async awardBadge(userId: string, badgeId: string, metadata?: any): Promise<IUserBadge> {
         // 1. Check if badge definition exists
         const definition = await BadgeDefinition.findOne({ badgeId });
@@ -101,32 +94,43 @@ export class BadgeService {
                     rarity: definition.rarity
                 }
             });
-            logger.info(`Badge ${badgeId} awarded to ${user.email} and notification queued.`);
+            logger.info(`Badge ${badgeId} awarded to ${user.email} and notification email queued.`);
         } catch (emailError) {
             logger.error('Failed to queue badge notification email:', emailError);
             // Don't fail the awarding if email fails
         }
 
+        // 5. Create System Notification
+        try {
+            await notificationService.create({
+                userId: userId,
+                type: NotificationType.ACHIEVEMENT,
+                title: 'New Achievement Unlocked!',
+                message: `Congratulations! You've earned the ${definition.name} badge.`,
+                referenceId: awardedBadge._id as any,
+                referenceModel: 'UserBadge',
+                actionUrl: '/achievements'
+            });
+            logger.info(`Achievement notification created for user ${userId} (Badge: ${badgeId})`);
+        } catch (notifError) {
+            logger.error('Failed to create achievement notification:', notifError);
+            // Don't fail the awarding if notification fails
+        }
+
         return awardedBadge;
     }
 
-    /**
-     * Get all badge definitions for admin
-     */
+    // Get all badge definitions for admin
     async getAllBadgesAdmin(): Promise<IBadgeDefinition[]> {
         return BadgeDefinition.find().sort({ category: 1, rarity: 1 }).lean();
     }
 
-    /**
-     * Create a new badge definition
-     */
+    // Create a new badge definition
     async createBadge(data: Partial<IBadgeDefinition>): Promise<IBadgeDefinition> {
         return BadgeDefinition.create(data);
     }
 
-    /**
-     * Update an existing badge definition
-     */
+    // Update an existing badge definition
     async updateBadge(badgeId: string, data: Partial<IBadgeDefinition>): Promise<IBadgeDefinition | null> {
         return BadgeDefinition.findOneAndUpdate(
             { badgeId },
@@ -135,17 +139,13 @@ export class BadgeService {
         );
     }
 
-    /**
-     * Delete a badge definition
-     */
+    // Delete a badge definition
     async deleteBadge(badgeId: string): Promise<boolean> {
         const result = await BadgeDefinition.deleteOne({ badgeId });
         return result.deletedCount > 0;
     }
 
-    /**
-     * Get badge achievement statistics
-     */
+    // Get badge achievement statistics
     async getBadgeStats(): Promise<any[]> {
         const stats = await UserBadge.aggregate([
             {
