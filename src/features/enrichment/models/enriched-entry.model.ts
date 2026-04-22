@@ -59,6 +59,8 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
 
 // Compound Indexes for fast retrieval
 enrichedEntrySchema.index({ userId: 1, timestamp: -1 });
+// For Passive: One summary per session. For Active: One enrichment per entry (referenceId).
+enrichedEntrySchema.index({ userId: 1, referenceId: 1 }, { unique: true, sparse: true });
 enrichedEntrySchema.index({ userId: 1, sessionId: 1, sourceType: 1 }, { unique: true });
 enrichedEntrySchema.index({ userId: 1, sourceType: 1, timestamp: -1 });
 

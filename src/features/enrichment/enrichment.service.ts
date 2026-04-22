@@ -110,9 +110,21 @@ export class EnrichmentService implements IEnrichmentService {
     async processActiveEnrichment(userId: string, entryId: string, sessionId: string, signalTier?: SignalTier): Promise<void> {
         try {
             // FIX: idempotency guard — skip if already fully enriched (safe on BullMQ retries)
-            const alreadyCompleted = await EnrichedEntry.exists({ referenceId: new Types.ObjectId(entryId), processingStatus: ProcessingStatus.COMPLETED, });
-            if (alreadyCompleted) {
-                logger.info(`Enrichment Service: Skipping already-completed active enrichment for ${entryId}`);
+            let enrichedResult = await EnrichedEntry.findOne({ referenceId: new Types.ObjectId(entryId), processingStatus: ProcessingStatus.COMPLETED, }).lean();
+            if (enrichedResult) {
+                logger.info(`Enrichment Service: Data already exists for ${entryId}, synchronizing state...`);
+                
+                const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true })
+                    .populate('tags', 'name color');
+
+                if (completedEntry) {
+                    (completedEntry as any).enrichment = {
+                        metadata: enrichedResult.metadata,
+                        narrative: enrichedResult.narrative,
+                        extraction: enrichedResult.extraction
+                    };
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, completedEntry);
+                }
                 return;
             }
 
@@ -150,7 +162,7 @@ export class EnrichmentService implements IEnrichmentService {
                 const { embedding } = await noiseInterpreter.process(entry.content);
 
                 await EnrichedEntry.findOneAndUpdate(
-                    { userId, sessionId, sourceType: SourceType.ACTIVE },
+                    { userId, referenceId: entryId },
                     {
                         $set: {
                             userId,
@@ -279,8 +291,8 @@ export class EnrichmentService implements IEnrichmentService {
                 metadata: { processingStep: ProcessingStep.STORING_MEMORY },
             });
 
-            await EnrichedEntry.findOneAndUpdate(
-                { userId, sessionId, sourceType: SourceType.ACTIVE },
+            enrichedResult = await EnrichedEntry.findOneAndUpdate(
+                { userId, referenceId: entryId },
                 {
                     $set: {
                         userId,
@@ -307,11 +319,22 @@ export class EnrichmentService implements IEnrichmentService {
                         timestamp: entry.date || entry.createdAt || new Date(),
                     },
                 },
-                { upsert: true }
+                { upsert: true, new: true }
             );
 
             // FIX: use { new: true } to skip the extra entryService.getEntryById() round-trip
-            const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true });
+            const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true })
+                .populate('tags', 'name color');
+
+            // Attach enrichment data manually so the UI receives the full payload in the socket event
+            if (completedEntry && enrichedResult) {
+                (completedEntry as any).enrichment = {
+                    metadata: enrichedResult.metadata,
+                    narrative: enrichedResult.narrative,
+                    extraction: enrichedResult.extraction
+                };
+            }
+
             socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, completedEntry);
 
             logger.info(`Enrichment Process [${entryId}]: Enrichment fully complete for session ${sessionId}`);
