@@ -21,7 +21,7 @@ export abstract class BaseGoogleProvider implements IIntegrationProvider {
         );
     }
 
-    getAuthUrl(userId: string): string {
+    getAuthUrl(userId: string): Promise<{ url: string }> {
         const client = this.createOAuthClient();
 
         // Secure state to track both provider and user (prevents CSRF and auth loss on redirect)
@@ -31,12 +31,14 @@ export abstract class BaseGoogleProvider implements IIntegrationProvider {
             { expiresIn: '15m' }
         );
 
-        return client.generateAuthUrl({
+        const url = client.generateAuthUrl({
             access_type: 'offline',
             prompt: 'consent',
             scope: this.scopes,
             state: stateToken
         });
+
+        return Promise.resolve({ url });
     }
 
     async handleCallback(code: string, userId: string): Promise<IIntegrationTokenDocument> {

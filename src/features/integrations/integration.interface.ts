@@ -11,8 +11,8 @@ export interface IIntegrationProvider {
     readonly name: string; // e.g. 'Google Calendar'
     readonly description: string; // e.g. 'Read and create events'
     
-    // Returns the connection URL (OAuth or direct link)
-    getAuthUrl(userId: string): string | Promise<string>;
+    // Returns the connection URL (OAuth or direct link) and optional metadata
+    getAuthUrl(userId: string): Promise<{ url: string; [key: string]: any }>;
     
     // Processes the returning OAuth code & saves credentials for this provider
     handleCallback(code: string, userId: string): Promise<IIntegrationTokenDocument>;

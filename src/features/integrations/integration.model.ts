@@ -1,5 +1,5 @@
 import { Document, Schema, Types, model } from 'mongoose';
-import { IntegrationProviderIdentifier } from './integration.enums';
+import { IntegrationProviderIdentifier } from './integration.interface';
 
 export interface IIntegrationToken {
     userId: Types.ObjectId;

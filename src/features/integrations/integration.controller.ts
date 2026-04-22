@@ -14,10 +14,10 @@ export class IntegrationController {
             const userId = req.user._id;
 
             const p = integrationRegistry.get(provider);
-            const url = await p.getAuthUrl(userId);
+            const authData = await p.getAuthUrl(userId);
 
-            // ResponseHelper.success for JSON responses
-            ResponseHelper.success(res, { url });
+            // Spread authData directly so the response shape is { url, ...rest }
+            ResponseHelper.success(res, authData);
         } catch (error) {
             logger.error('Failed to generate connection URL', error);
             ResponseHelper.error(res, 'Failed to connect');

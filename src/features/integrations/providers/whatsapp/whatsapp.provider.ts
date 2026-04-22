@@ -232,7 +232,7 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
     }
 
     // IIntegrationProvider Methods
-    async getAuthUrl(userId: string): Promise<string> {
+    async getAuthUrl(userId: string): Promise<{ url: string;[key: string]: any }> {
         // Generate 6-digit code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
@@ -246,7 +246,7 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         const link = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=Verify%20${code}`;
         logger.info('Generated WhatsApp link via getAuthUrl', { link, userId });
 
-        return link;
+        return { url: link };
     }
 
     async handleCallback(_code: string, _userId: string): Promise<IIntegrationTokenDocument> {
