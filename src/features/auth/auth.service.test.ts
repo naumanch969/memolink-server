@@ -1,4 +1,4 @@
-import { emailService } from '../../config/email.service';
+import { emailService } from '../email/email.service';
 import { cryptoService } from '../../core/crypto/crypto.service';
 import { User } from './auth.model';
 import { authService } from './auth.service';
@@ -8,7 +8,7 @@ import { vaultService } from './vault.service';
 jest.mock('./auth.model');
 jest.mock('./otp.model');
 jest.mock('./vault.service');
-jest.mock('../../config/email.service');
+jest.mock('../email/email.service');
 jest.mock('../../core/crypto/crypto.service');
 jest.mock('../../core/encryption/encryption.service');
 jest.mock('../../core/encryption/encryption-session.service');

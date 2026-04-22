@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { cloudinaryService } from '../../config/cloudinary.service';
-import { emailService } from '../../config/email.service';
+import { emailService } from '../email/email.service';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { CacheKeys } from '../../core/cache/cache.keys';
@@ -52,10 +52,7 @@ export class AuthService implements IAuthService {
       const otp = await Otp.generateOtp(email, 'verification');
 
       // Send verification email
-      const emailSent = await emailService.sendVerificationEmail(email, name, otp);
-      if (!emailSent) {
-        logger.warn('Failed to send verification email', { email });
-      }
+      await emailService.sendVerificationEmail(email, name, otp, user._id.toString());
 
       const result: RegisterResponse = { otp: undefined, recoveryPhrase };
       if (config.NODE_ENV === 'development') {
@@ -184,7 +181,7 @@ export class AuthService implements IAuthService {
         await user.save();
 
         try {
-          await emailService.sendWelcomeEmail(user.email, user.name);
+          await emailService.sendWelcomeEmail(user.email, user.name, config.FRONTEND_URL, user._id.toString());
         } catch (e) {
           logger.warn('Failed to send welcome email for Google signup', { email });
         }
@@ -330,7 +327,7 @@ export class AuthService implements IAuthService {
       if (!user) return; // Silent fail
 
       const otp = await Otp.generateOtp(email, 'password_reset');
-      await emailService.sendPasswordResetEmail(email, user.name, otp);
+      await emailService.sendPasswordResetEmail(email, user.name, otp, config.FRONTEND_URL, user._id.toString());
     } catch (error) {
       logger.error('Forgot password failed:', error);
       throw error;
@@ -364,7 +361,7 @@ export class AuthService implements IAuthService {
       if (user.isEmailVerified) throw ApiError.conflict('Email is already verified');
 
       const otp = await Otp.generateOtp(email, 'verification');
-      await emailService.sendVerificationEmail(email, user.name, otp);
+      await emailService.sendVerificationEmail(email, user.name, otp, user._id.toString());
     } catch (error) {
       logger.error('Resend verification failed:', error);
       throw error;
@@ -392,7 +389,7 @@ export class AuthService implements IAuthService {
       }
 
       const otp = await Otp.generateOtp(email, 'verification');
-      await emailService.sendVerificationEmail(email, user.name, otp);
+      await emailService.sendVerificationEmail(email, user.name, otp, user._id.toString());
     } catch (error) {
       logger.error('Onboard OTP failed:', error);
       throw error;
@@ -512,7 +509,7 @@ export class AuthService implements IAuthService {
 
       const isValid = await cryptoService.comparePassword(answer.trim().toLowerCase(), user.securityConfig.answerHash);
       if (!isValid) {
-        await emailService.sendSecurityAlert(user.email, user.name, answer);
+        await emailService.sendSecurityAlert(user.email, user.name, answer, user._id.toString());
       }
       return { valid: isValid };
     } catch (error) {

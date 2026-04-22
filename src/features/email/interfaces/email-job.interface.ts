@@ -1,7 +1,17 @@
-export type EmailJobType = 'VERIFICATION' | 'PASSWORD_RESET' | 'WELCOME' | 'SECURITY_ALERT' | 'GENERIC' | 'WAITLIST_CONFIRMATION' | 'WAITLIST_ADMIN_ALERT' | 'BADGE_UNLOCKED';
+export type EmailJobType = 
+    | 'VERIFICATION' 
+    | 'PASSWORD_RESET' 
+    | 'WELCOME' 
+    | 'SECURITY_ALERT' 
+    | 'GENERIC' 
+    | 'WAITLIST_CONFIRMATION' 
+    | 'WAITLIST_ADMIN_ALERT' 
+    | 'BADGE_UNLOCKED'
+    | 'TEMPLATED';
 
 export interface BaseEmailJobData {
     to: string;
+    logId: string; // Required for all jobs to sync with EmailLog
 }
 
 export interface VerificationEmailJobData extends BaseEmailJobData {
@@ -12,12 +22,12 @@ export interface VerificationEmailJobData extends BaseEmailJobData {
 export interface PasswordResetEmailJobData extends BaseEmailJobData {
     name: string;
     resetToken: string;
-    frontendUrl: string; // Passed from config
+    frontendUrl: string;
 }
 
 export interface WelcomeEmailJobData extends BaseEmailJobData {
     name: string;
-    frontendUrl: string; // Passed from config
+    frontendUrl: string;
 }
 
 export interface SecurityAlertEmailJobData extends BaseEmailJobData {
@@ -47,7 +57,22 @@ export interface BadgeUnlockedEmailJobData extends BaseEmailJobData {
     rarity: string;
 }
 
+export interface TemplatedEmailJobData extends BaseEmailJobData {
+    templateName: string;
+    templateData: Record<string, any>;
+    subjectOverride?: string;
+}
+
 export interface EmailJob {
     type: EmailJobType;
-    data: VerificationEmailJobData | PasswordResetEmailJobData | WelcomeEmailJobData | SecurityAlertEmailJobData | GenericEmailJobData | WaitlistConfirmationEmailJobData | WaitlistAdminAlertEmailJobData | BadgeUnlockedEmailJobData;
+    data: 
+        | VerificationEmailJobData 
+        | PasswordResetEmailJobData 
+        | WelcomeEmailJobData 
+        | SecurityAlertEmailJobData 
+        | GenericEmailJobData 
+        | WaitlistConfirmationEmailJobData 
+        | WaitlistAdminAlertEmailJobData 
+        | BadgeUnlockedEmailJobData
+        | TemplatedEmailJobData;
 }

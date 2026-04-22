@@ -29,6 +29,7 @@ import tagRoutes from '../../features/tag/tag.routes';
 import webActivityRoutes from '../../features/web-activity/web-activity.routes';
 import waitlistRoutes from '../../features/waitlist/waitlist.routes';
 import badgeRoutes from '../../features/badge/badge.routes';
+import emailRoutes from '../../features/email/email.routes';
 
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger.config';
@@ -97,6 +98,7 @@ router.use('/oauth', oauthRoutes);
 router.use('/waitlist', waitlistRoutes);
 router.use('/support', supportRoutes);
 router.use('/badges', badgeRoutes);
+router.use('/emails', emailRoutes);
 
 
 

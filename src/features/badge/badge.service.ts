@@ -5,7 +5,7 @@ import { BadgeDefinition, UserBadge } from './badge.model';
 import { BadgeStatus } from './badge.types';
 import { IBadgeDefinition, IUserBadge } from './badge.interfaces';
 import { INITIAL_BADGES } from './badge.registry';
-import { getEmailQueue } from '../email/queue/email.queue';
+import { emailService } from '../email/email.service';
 import { User } from '../auth/auth.model';
 import { notificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
@@ -81,23 +81,18 @@ export class BadgeService {
 
         // 4. Send Email Notification
         try {
-            const emailQueue = getEmailQueue();
-
-            await emailQueue.add('send-email', {
-                type: 'BADGE_UNLOCKED',
-                data: {
-                    to: user.email,
-                    userName: user.name,
-                    badgeName: definition.name,
-                    badgeDescription: definition.description,
-                    badgeId: definition.badgeId,
-                    rarity: definition.rarity
-                }
-            });
-            logger.info(`Badge ${badgeId} awarded to ${user.email} and notification email queued.`);
+            await emailService.sendSystemEmail('BADGE_UNLOCKED', {
+                to: user.email,
+                userName: user.name,
+                badgeName: definition.name,
+                badgeDescription: definition.description,
+                badgeId: definition.badgeId,
+                rarity: definition.rarity
+            }, userId);
+            
+            logger.info(`Badge ${badgeId} awarded to ${user.email} and notification email logged & queued.`);
         } catch (emailError) {
             logger.error('Failed to queue badge notification email:', emailError);
-            // Don't fail the awarding if email fails
         }
 
         // 5. Create System Notification

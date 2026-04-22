@@ -1,10 +1,12 @@
 import nodemailer from 'nodemailer';
 import { config } from '../../../config/env';
 import { EmailOptions } from '../email.provider';
-import { IEmailTransporter } from './email-transporter.interface';
+import { IEmailTransporter, TransporterResponse } from './email-transporter.interface';
+import { EmailProvider } from '../../../features/email/models/email-log.model';
 
 export class SmtpTransporter implements IEmailTransporter {
     public readonly name = 'SMTP';
+    public readonly provider = EmailProvider.SMTP;
     private transporter: nodemailer.Transporter;
 
     constructor() {
@@ -28,7 +30,7 @@ export class SmtpTransporter implements IEmailTransporter {
         });
     }
 
-    async send(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: any }> {
+    async send(options: EmailOptions): Promise<TransporterResponse> {
         try {
             const mailOptions = {
                 from: config.EMAIL_FROM || `"Brinn" <${config.EMAIL_USER}>`,
@@ -39,9 +41,17 @@ export class SmtpTransporter implements IEmailTransporter {
             };
 
             const result = await this.transporter.sendMail(mailOptions);
-            return { success: true, messageId: result.messageId };
+            return { 
+                success: true, 
+                messageId: result.messageId,
+                provider: this.provider
+            };
         } catch (error: any) {
-            return { success: false, error: error.message };
+            return { 
+                success: false, 
+                error: error.message,
+                provider: this.provider
+            };
         }
     }
 

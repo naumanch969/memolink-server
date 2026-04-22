@@ -62,6 +62,7 @@ export const config = {
 
 
   EMAIL_RESEND_API_KEY: process.env.EMAIL_RESEND_API_KEY,
+  EMAIL_RESEND_WEBHOOK_SECRET: process.env.EMAIL_RESEND_WEBHOOK_SECRET,
   EMAIL_HOST: process.env.EMAIL_HOST,
   EMAIL_PORT: process.env.EMAIL_PORT,
   EMAIL_USER: process.env.EMAIL_USER,

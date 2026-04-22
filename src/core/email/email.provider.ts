@@ -2,7 +2,7 @@ import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { ResendTransporter } from './transporters/resend.transporter';
 import { SmtpTransporter } from './transporters/smtp.transporter';
-import { IEmailTransporter } from './transporters/email-transporter.interface';
+import { TransporterResponse } from './transporters/email-transporter.interface';
 
 export interface EmailOptions {
     to: string;
@@ -47,7 +47,7 @@ export class EmailProvider {
         }
     }
 
-    async sendEmail(options: EmailOptions): Promise<void> {
+    async sendEmail(options: EmailOptions): Promise<TransporterResponse> {
         const startedAt = Date.now();
 
         // 1. Try Resend if configured
@@ -58,7 +58,7 @@ export class EmailProvider {
                     to: options.to,
                     durationMs: Date.now() - startedAt
                 });
-                return;
+                return result;
             }
             logger.warn('Resend send failed, trying fallback to SMTP...', { error: result.error });
         }
@@ -70,7 +70,7 @@ export class EmailProvider {
                 to: options.to,
                 durationMs: Date.now() - startedAt
             });
-            return;
+            return result;
         }
 
         // 3. Both failed
@@ -80,6 +80,6 @@ export class EmailProvider {
             durationMs: Date.now() - startedAt
         });
 
-        throw new Error(`Email delivery failed: ${result.error}`);
+        return result;
     }
 }

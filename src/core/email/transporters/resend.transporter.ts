@@ -2,15 +2,17 @@ import axios from 'axios';
 import { config } from '../../../config/env';
 import { logger } from '../../../config/logger';
 import { EmailOptions } from '../email.provider';
-import { IEmailTransporter } from './email-transporter.interface';
+import { IEmailTransporter, TransporterResponse } from './email-transporter.interface';
+import { EmailProvider } from '../../../features/email/models/email-log.model';
 
 export class ResendTransporter implements IEmailTransporter {
     public readonly name = 'Resend';
-    public readonly baseUrl = 'https://api.resend.com/emails'
+    public readonly provider = EmailProvider.RESEND;
+    public readonly baseUrl = 'https://api.resend.com/emails';
 
-    async send(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: any }> {
+    async send(options: EmailOptions): Promise<TransporterResponse> {
         if (!config.EMAIL_RESEND_API_KEY) {
-            return { success: false, error: 'Resend API key missing' };
+            return { success: false, error: 'Resend API key missing', provider: this.provider };
         }
 
         try {
@@ -28,14 +30,23 @@ export class ResendTransporter implements IEmailTransporter {
             });
 
             if (response.status === 200 || response.status === 201) {
-                return { success: true, messageId: response.data.id };
+                return { 
+                    success: true, 
+                    messageId: response.data.id,
+                    provider: this.provider
+                };
             }
 
-            return { success: false, error: response.data };
+            return { 
+                success: false, 
+                error: response.data,
+                provider: this.provider 
+            };
         } catch (error: any) {
             return {
                 success: false,
-                error: error.response?.data || error.message
+                error: error.response?.data || error.message,
+                provider: this.provider
             };
         }
     }

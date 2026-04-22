@@ -2,11 +2,8 @@ import DOMPurify from 'isomorphic-dompurify';
 import { logger } from '../../config/logger';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
-import { USER_ROLES } from '../../shared/constants';
-import { validateEmailOrThrow } from '../../shared/email-validator';
 import { User } from '../auth/auth.model';
-import { getEmailQueue } from '../email/queue/email.queue';
-import { AnnouncementDeliveryLog, DeliveryStatus } from './announcement-delivery-log.model';
+import { emailService } from '../email/email.service';
 import { IAnnouncementService } from "./announcement.interfaces";
 import { Announcement, AnnouncementStatus, AnnouncementType, IAnnouncement } from './announcement.model';
 import { CreateAnnouncementDto } from './announcement.types';
@@ -57,173 +54,96 @@ export class AnnouncementService implements IAnnouncementService {
         }
 
         await Announcement.findByIdAndDelete(id);
-        // Also clean up delivery logs
-        await AnnouncementDeliveryLog.deleteMany({ announcementId: id });
         return true;
     }
 
     async getDeliveryLogs(announcementId: string, page: number = 1, limit: number = 50) {
-        const skip = (page - 1) * limit;
-
-        const [logs, total] = await Promise.all([
-            AnnouncementDeliveryLog.find({ announcementId })
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            AnnouncementDeliveryLog.countDocuments({ announcementId })
-        ]);
-
-        return { logs, total };
+        const result = await emailService.getLogsByMetadata('announcementId', announcementId, page, limit);
+        return {
+            logs: result.data,
+            total: result.total
+        };
     }
 
-    /**
-     * Dispatch an announcement to the email queue.
-     * This fetches eligible users and creates a job for each.
-     */
     async dispatchAnnouncement(id: string): Promise<IAnnouncement | null> {
         const announcement = await Announcement.findById(id);
-        if (!announcement) {
-            throw new Error('Announcement not found');
-        }
+        if (!announcement) return null;
 
         if (announcement.status === AnnouncementStatus.PROCESSING || announcement.status === AnnouncementStatus.COMPLETED) {
-            throw new Error('Announcement is already processed or processing');
+            throw new Error('Announcement is already being processed or completed');
         }
 
-        announcement.status = AnnouncementStatus.PROCESSING;
-        await announcement.save();
-
-        // Start async processing without blocking the request
+        // Run processing in background
         this.processDispatch(announcement).catch(err => {
-            logger.error(`Failed to process announcement dispatch ${id}:`, err);
-            announcement.status = AnnouncementStatus.FAILED;
-            announcement.save();
+            logger.error(`Background dispatch failed for ${id}:`, err);
         });
 
         return announcement;
     }
 
+    /**
+     * Unified dispatch logic using EmailService.sendBulkEmails
+     */
     private async processDispatch(announcement: IAnnouncement) {
         try {
             logger.info(`Starting dispatch for announcement ${announcement._id}`);
 
-            // Build query based on target
+            // 1. Build recipient list
             const query: any = { isEmailVerified: true };
 
-            // Filter by roles if specified, handle 'all' by skipping filter
             if (announcement.target.roles && announcement.target.roles.length > 0 && !announcement.target.roles.includes('all')) {
                 query.role = { $in: announcement.target.roles };
             }
 
-            // Filter by user preferences based on announcement type
             if (announcement.type === AnnouncementType.NEWSLETTER) {
-                // Explicitly check for false, as undefined (legacy users) should default to true handled by code/schema defaults if possible,
-                // but robustly: query where it's NOT false.
                 query['preferences.communication.newsletter'] = { $ne: false };
             } else if (announcement.type === AnnouncementType.ANNOUNCEMENT) {
                 query['preferences.communication.productUpdates'] = { $ne: false };
             }
-            // Security alerts usually bypass preference checks or have a separate strictly enforced flag
 
-            // Use cursor to handle large user bases efficiently
-            const cursor = User.find(query).select('email name').cursor();
-            const emailQueue = getEmailQueue();
+            const users = await User.find(query).select('email _id').lean();
+            const recipients = users.map(u => ({
+                to: u.email,
+                userId: (u as any)._id.toString()
+            }));
 
-            let queuedCount = 0;
-            let invalidEmailCount = 0;
-            const batchSize = 100;
-            let batch: any[] = [];
-            let deliveryLogs: any[] = [];
-
-            // Sanitize HTML content once before batching
-            const sanitizedHtml = DOMPurify.sanitize(announcement.content);
-            const textContent = announcement.content.replace(/<[^>]*>?/gm, ''); // Simple strip tags for text version
-
-            for (let user = await cursor.next(); user != null; user = await cursor.next()) {
-                // Validate email before adding to batch
-                try {
-                    validateEmailOrThrow(user.email, 'announcement');
-
-                    batch.push({
-                        name: `announcement-${announcement._id}-${user._id}`,
-                        data: {
-                            type: 'GENERIC',
-                            data: {
-                                to: user.email,
-                                subject: announcement.title,
-                                html: sanitizedHtml,
-                                text: textContent,
-                            }
-                        },
-                        opts: {
-                            jobId: `announcement-${announcement._id}-${user._id}`
-                        }
-                    });
-
-                    // Create delivery log entry
-                    deliveryLogs.push({
-                        announcementId: announcement._id,
-                        userId: user._id,
-                        recipientEmail: user.email,
-                        recipientName: user.name,
-                        status: DeliveryStatus.QUEUED,
-                        attempts: 0,
-                    });
-                } catch (error) {
-                    invalidEmailCount++;
-                    logger.warn(`Skipping invalid email for user ${user._id}:`, { email: user.email });
-                    continue;
-                }
-
-                if (batch.length >= batchSize) {
-                    await emailQueue.addBulk(batch);
-                    await AnnouncementDeliveryLog.insertMany(deliveryLogs);
-                    queuedCount += batch.length;
-                    batch = [];
-                    deliveryLogs = [];
-
-                    // Update progress periodically
-                    announcement.stats.queuedCount = queuedCount;
-                    announcement.stats.invalidEmailCount = invalidEmailCount;
-                    await announcement.save();
-
-                    // Emit socket event for progress
-                    socketService.emitToRole(USER_ROLES.ADMIN, SocketEvents.ANNOUNCEMENT_DISPATCH_PROGRESS, {
-                        announcementId: announcement._id,
-                        stats: announcement.stats
-                    });
-                }
-            }
-
-            // Add remaining items in batch
-            if (batch.length > 0) {
-                await emailQueue.addBulk(batch);
-                await AnnouncementDeliveryLog.insertMany(deliveryLogs);
-                queuedCount += batch.length;
-            }
-
-            announcement.stats.totalRecipients = queuedCount + invalidEmailCount;
-            announcement.stats.queuedCount = queuedCount;
-            announcement.stats.invalidEmailCount = invalidEmailCount;
-
-            // If no recipients, mark as COMPLETED immediately
-            if (queuedCount === 0) {
+            if (recipients.length === 0) {
+                logger.info(`No recipients found for announcement ${announcement._id}`);
                 announcement.status = AnnouncementStatus.COMPLETED;
+                announcement.stats.totalRecipients = 0;
                 announcement.stats.progress = 100;
-            } else {
-                // Keep as PROCESSING, worker will complete it
-                announcement.status = AnnouncementStatus.PROCESSING;
-                announcement.stats.progress = 0;
+                await announcement.save();
+                return;
             }
 
+            // 2. Prepare content
+            const sanitizedHtml = DOMPurify.sanitize(announcement.content);
+            const textContent = announcement.content.replace(/<[^>]*>?/gm, '');
+
+            // 3. Mark as processing
+            announcement.status = AnnouncementStatus.PROCESSING;
             announcement.sentAt = new Date();
             await announcement.save();
 
-            // Emit socket event for update
-            socketService.emitAll(SocketEvents.ANNOUNCEMENT_UPDATED, announcement);
+            // 4. Send Bulk Emails via Unified Email Engine
+            const queuedCount = await emailService.sendBulkEmails(
+                recipients,
+                announcement.title,
+                sanitizedHtml,
+                textContent,
+                { announcementId: announcement._id.toString() }
+            );
 
-            logger.info(`Completed dispatch for announcement ${announcement._id}.`);
+            // 5. Update finale stats
+            announcement.stats.totalRecipients = recipients.length;
+            announcement.stats.queuedCount = queuedCount;
+            announcement.stats.invalidEmailCount = recipients.length - queuedCount;
+            announcement.stats.progress = 100;
+            announcement.status = AnnouncementStatus.COMPLETED;
+            await announcement.save();
+
+            socketService.emitAll(SocketEvents.ANNOUNCEMENT_UPDATED, announcement);
+            logger.info(`Completed dispatch for announcement ${announcement._id}. Queued: ${queuedCount}`);
 
         } catch (error) {
             logger.error(`Error in processDispatch for ${announcement._id}:`, error);

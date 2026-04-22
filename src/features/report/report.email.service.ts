@@ -1,7 +1,7 @@
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { User } from '../auth/auth.model';
-import { getEmailQueue } from '../email/queue/email.queue';
+import { emailService } from '../email/email.service';
 import { IReport, ReportType } from './report.types';
 
 // ─── HTML Templates ───────────────────────────────────────────────────────────
@@ -180,11 +180,13 @@ export class ReportEmailService {
     }
 
     try {
-      const queue = getEmailQueue();
-      await queue.add(`report-email-${report.type}-${userId}-${Date.now()}`, {
-        type: 'GENERIC',
-        data: { to: user.email, subject, html },
-      });
+      await emailService.sendCustomEmail(
+        user.email,
+        subject,
+        html,
+        undefined, // text optional
+        userId
+      );
       logger.info(`[ReportEmailService] ${report.type} email queued for user ${userId}`);
     } catch (error) {
       // Non-fatal: log and continue — report is already saved

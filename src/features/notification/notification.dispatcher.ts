@@ -4,7 +4,7 @@ import { redisConnection } from '../../config/redis';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { User } from '../auth/auth.model';
-import { getEmailQueue } from '../email/queue/email.queue';
+import { emailService } from '../email/email.service';
 import notificationService from './notification.service';
 import { NotificationTemplates } from './notification.templates';
 import { CreateNotificationDTO, INotificationDocument, NotificationType } from './notification.types';
@@ -114,16 +114,13 @@ export class NotificationDispatcher {
 
     private async dispatchEmail(email: string, data: CreateNotificationDTO) {
         try {
-            const emailQueue = getEmailQueue();
-            await emailQueue.add(`notification-email-${data.type}-${Date.now()}`, {
-                type: 'GENERIC',
-                data: {
-                    to: email,
-                    subject: data.title,
-                    text: data.message,
-                    html: `<p>${data.message}</p>${data.actionUrl ? `<a href="${data.actionUrl}">View details</a>` : ''}`
-                }
-            });
+            await emailService.sendCustomEmail(
+                email,
+                data.title,
+                `<p>${data.message}</p>${data.actionUrl ? `<a href="${data.actionUrl}">View details</a>` : ''}`,
+                data.message,
+                data.userId.toString()
+            );
             logger.debug(`[NotificationDispatcher] Email queued for ${email}`);
         } catch (error) {
             logger.error(`[NotificationDispatcher] Failed to queue email for ${email}`, error);

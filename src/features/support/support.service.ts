@@ -1,13 +1,8 @@
 import { logger } from '../../config/logger';
-import { getEmailQueue } from '../email/queue/email.queue';
-import { EmailJobType } from '../email/queue/email.types';
+import { emailService } from '../email/email.service';
 
 export class SupportService {
-  async sendSupportRequest({
-    name, email, subject, message, type
-  }: {
-    name: string, email: string, subject: string, message: string, type: string
-  }) {
+  async sendSupportRequest({ name, email, subject, message, type }: { name: string, email: string, subject: string, message: string, type: string }) {
     try {
       const supportEmail = 'support.brinn@opstintechnologies.com';
 
@@ -24,18 +19,19 @@ export class SupportService {
                      </div>
                  `;
 
-      const emailQueue = getEmailQueue();
-      await emailQueue.add('support-feedback', {
-        type: 'GENERIC',
-        data: {
-          to: supportEmail,
-          subject: `[FEEDBACK] ${subject} - from ${name}`,
-          html,
-          text: `Support request from ${name} (${email}):\n\n${message}`
-        }
-      });
+      const text = `Support request from ${name} (${email}):\n\n${message}`;
 
-      logger.info('Support request queued', { email, subject });
+      // Use the unified email engine
+      await emailService.sendCustomEmail(
+        supportEmail,
+        `[FEEDBACK] ${subject} - from ${name}`,
+        html,
+        text,
+        undefined, // No userId associated with support yet
+        { supportName: name, supportEmail: email, supportType: type }
+      );
+
+      logger.info('Support request queued via unified engine', { email, subject });
       return { success: true };
     } catch (error) {
       logger.error('Failed to queue support request', error);
