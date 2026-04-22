@@ -1,8 +1,10 @@
 import { BaseGoogleProvider } from "./base.google.provider";
+import { IntegrationProviderIdentifier } from "../../integration.interface";
 
 export class GoogleCalendarProvider extends BaseGoogleProvider {
-    readonly identifier = 'google_calendar';
+    readonly identifier = IntegrationProviderIdentifier.GOOGLE_CALENDAR;
     readonly name = 'Google Calendar';
+
     readonly description = 'Read and manage your calendar events';
     readonly scopes = [
         'https://www.googleapis.com/auth/userinfo.profile',

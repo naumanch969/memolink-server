@@ -1,9 +1,11 @@
 import { Document, Schema, Types, model } from 'mongoose';
+import { IntegrationProviderIdentifier } from './integration.enums';
 
 export interface IIntegrationToken {
     userId: Types.ObjectId;
     // TODO: Using simple strings for now, but in production these should be encrypted at rest using a mongoose plugin or custom pre-save hook
-    provider: string; // Dynamic provider ID, e.g. 'google_calendar', 'google_gmail'
+    provider: IntegrationProviderIdentifier; // Dynamic provider ID
+
     accessToken: string;
     refreshToken?: string;
     scopes: string[];

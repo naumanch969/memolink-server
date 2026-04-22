@@ -96,7 +96,7 @@ export class AgentService implements IAgentService {
                 options: { timezone: options.timezone }
             });
 
-            const summary = "Processing your entry...";
+            const summary = "Entry captured.";
             await agentMemoryService.addMessage(userId, 'agent', summary);
 
             // Background Persona Sync

@@ -2,11 +2,13 @@ import { Types } from "mongoose";
 import { GoogleCalendarAdapter } from "../providers/google/google.calendar.adapter";
 import { googleCalendarProvider } from "../providers/google/google.calendar.provider";
 import { AgentTool } from "./tool.interface";
+import { IntegrationProviderIdentifier } from "../integration.interface";
 
 export class GetCalendarEventsTool extends AgentTool {
     readonly name = "get_calendar_events";
     readonly description = "Get the user's Google Calendar events for a specific time range. Input dates must be ISO 8601 strings.";
-    readonly requiredIntegration = "google_calendar";
+    readonly requiredIntegration = IntegrationProviderIdentifier.GOOGLE_CALENDAR;
+
     readonly parameters = {
         type: "object",
         properties: {
@@ -47,7 +49,8 @@ export class GetCalendarEventsTool extends AgentTool {
 export class CreateCalendarEventTool extends AgentTool {
     readonly name = "create_calendar_event";
     readonly description = "Create a new event on the user's Google Calendar";
-    readonly requiredIntegration = "google_calendar";
+    readonly requiredIntegration = IntegrationProviderIdentifier.GOOGLE_CALENDAR;
+
     readonly parameters = {
         type: "object",
         properties: {

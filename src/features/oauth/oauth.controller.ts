@@ -15,16 +15,7 @@ export class OAuthController {
    */
   static async authorize(req: any, res: Response) {
     try {
-      const { 
-        client_id, 
-        clientId,
-        redirect_uri, 
-        redirectUri,
-        response_type, 
-        responseType,
-        state, 
-        scope 
-      } = { ...req.query, ...req.body };
+      const { client_id, clientId, redirect_uri, redirectUri, response_type, responseType, state, scope } = { ...req.query, ...req.body };
 
       // Normalize parameters (handle both camelCase from frontend and snake_case from OAuth spec)
       const effectiveClientId = (client_id || clientId) as string;
@@ -53,7 +44,7 @@ export class OAuthController {
       // If we want a consent screen, redirect to frontend consent page
       // For now, let's assume we redirect to a consent page on the frontend
       // return res.redirect(`${config.FRONTEND_URL}/oauth/consent?${req.url.split('?')[1]}`);
-      
+
       // AUTO-APPROVE for now to fulfill the "automatic" request
       const userId = req.user._id.toString();
       const code = await oauthService.generateAuthorizationCode(
@@ -85,13 +76,7 @@ export class OAuthController {
    */
   static async token(req: Request, res: Response) {
     try {
-      const {
-        grant_type,
-        code,
-        redirect_uri,
-        client_id,
-        client_secret
-      } = req.body;
+      const { grant_type, code, redirect_uri, client_id, client_secret } = req.body;
 
       if (grant_type !== 'authorization_code') {
         return ResponseHelper.badRequest(res, 'Only grant_type=authorization_code is supported');

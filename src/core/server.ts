@@ -9,7 +9,6 @@ import app from './app';
 import { SocketManager } from './socket/socket.manager';
 import { bufferManager } from './telemetry/buffer.manager';
 import oauthService from '../features/oauth/oauth.service';
-import { badgeService } from '../features/badge/badge.service';
 
 class Server {
   private server: HttpServer;
@@ -23,18 +22,18 @@ class Server {
     try {
       // Connect to database
       await database.connect();
-      await verifyMetricsIndexes();
-      await badgeService.seedBadges();
+      await verifyMetricsIndexes(); // TODO: check this thing
 
-      // Seed OAuth Clients
+      // Seed OAuth Clients // TODO: have a look at complete oauth service
       await oauthService.seedClaudeClient(config.CLAUDE_CLIENT_SECRET);
-
 
       // Initialize Sockets
       this.socketManager = new SocketManager(this.server);
 
       // Start Telemetry
       MetricsService.startSystemMetricsCollection();
+      
+      // TODO: why?
       startDailyRollupJob();
 
       // Start server
@@ -101,15 +100,6 @@ class Server {
       process.exit(0);
     }
   }
-}
-
-// Start server if this file is run directly
-if (require.main === module) {
-  const server = new Server();
-  server.start().catch((error) => {
-    logger.error('Failed to start server:', error);
-    process.exit(1);
-  });
 }
 
 export default Server;

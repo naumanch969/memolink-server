@@ -6,8 +6,6 @@ import { WhatsAppController } from './whatsapp.controller';
 
 const router = Router();
 
-// Connection endpoints
-router.get('/:provider/connect', AuthMiddleware.authenticate, IntegrationController.connectProvider);
 // Google has a strict callback url so we use a universal one and pass state mapping to provider id
 router.get('/google/callback', IntegrationController.handleGoogleCallback);
 
@@ -15,12 +13,14 @@ router.get('/google/callback', IntegrationController.handleGoogleCallback);
 router.get('/whatsapp/webhook', WhatsAppController.verify);
 router.post('/whatsapp/webhook', WhatsAppController.receive);
 
-// WhatsApp Linking
-router.get('/whatsapp/link-code', AuthMiddleware.authenticate, WhatsAppController.getLinkCode);
+router.use(AuthMiddleware.authenticate)
+
+// Connection endpoints
+router.get('/:provider/connect', IntegrationController.connectProvider);
 
 // Management endpoints
-router.get('/', AuthMiddleware.authenticate, IntegrationController.listConnections);
-router.delete('/whatsapp', AuthMiddleware.authenticate, WhatsAppController.disconnect);
-router.delete('/:provider', AuthMiddleware.authenticate, IntegrationController.disconnect);
+router.get('/', IntegrationController.listConnections);
+router.delete('/:provider', IntegrationController.disconnect);
+
 
 export default router;

@@ -42,8 +42,8 @@ import supportRoutes from '../../features/support/support.routes';
 
 const router = Router();
 
-// Health check
 
+// Health check
 router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -99,8 +99,5 @@ router.use('/waitlist', waitlistRoutes);
 router.use('/support', supportRoutes);
 router.use('/badges', badgeRoutes);
 router.use('/emails', emailRoutes);
-
-
-
 
 export default router;

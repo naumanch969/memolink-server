@@ -1,13 +1,15 @@
 import { Types } from "mongoose";
+import { IntegrationProviderIdentifier } from "../integration.interface";
 
 export abstract class AgentTool {
     abstract readonly name: string;
     abstract readonly description: string;
     abstract readonly parameters: any;
 
-    // The identifier of the integration required (e.g. 'google_calendar')
+    // The identifier of the integration required
     // If undefined, the tool doesn't require an external integration connection.
-    abstract readonly requiredIntegration?: string;
+    abstract readonly requiredIntegration?: IntegrationProviderIdentifier;
+
 
     // Executes the tool logic
     abstract execute(args: any, userId: string | Types.ObjectId): Promise<any>;

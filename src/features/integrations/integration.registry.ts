@@ -1,13 +1,13 @@
-import { IIntegrationProvider } from "./provider.interface";
+import { IIntegrationProvider, IntegrationProviderIdentifier } from "./integration.interface";
 
 class IntegrationRegistry {
-    private providers: Map<string, IIntegrationProvider> = new Map();
+    private providers: Map<IntegrationProviderIdentifier, IIntegrationProvider> = new Map();
 
     register(provider: IIntegrationProvider) {
         this.providers.set(provider.identifier, provider);
     }
 
-    get(identifier: string): IIntegrationProvider {
+    get(identifier: IntegrationProviderIdentifier): IIntegrationProvider {
         const provider = this.providers.get(identifier);
         if (!provider) {
             throw new Error(`Integration provider ${identifier} not found`);
@@ -21,3 +21,4 @@ class IntegrationRegistry {
 }
 
 export const integrationRegistry = new IntegrationRegistry();
+

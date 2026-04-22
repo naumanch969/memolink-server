@@ -1,21 +1,20 @@
+import jwt from 'jsonwebtoken';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { IntegrationToken } from './integration.model';
 import { integrationRegistry } from './integration.registry';
-import jwt from 'jsonwebtoken';
+import { IntegrationProviderIdentifier } from './integration.interface';
 import { ResponseHelper } from '../../core/utils/response.utils';
 
 export class IntegrationController {
-    /**
-     * Start the OAuth connection for any registered provider
-     */
+    // Start the OAuth connection for any registered provider
     static async connectProvider(req: any, res: any): Promise<void> {
         try {
-            const { provider } = req.params;
+            const provider = req.params.provider as IntegrationProviderIdentifier;
             const userId = req.user._id;
 
             const p = integrationRegistry.get(provider);
-            const url = p.getAuthUrl(userId);
+            const url = await p.getAuthUrl(userId);
 
             // ResponseHelper.success for JSON responses
             ResponseHelper.success(res, { url });
@@ -24,6 +23,7 @@ export class IntegrationController {
             ResponseHelper.error(res, 'Failed to connect');
         }
     }
+
 
     static async handleGoogleCallback(req: any, res: any): Promise<void> {
         try {
@@ -45,7 +45,7 @@ export class IntegrationController {
 
             const { userId, provider } = decodedState;
 
-            const p = integrationRegistry.get(provider);
+            const p = integrationRegistry.get(provider as IntegrationProviderIdentifier);
             await p.handleCallback(code as string, userId);
 
             // Once successfully connected, redirect back to the frontend settings UI
@@ -59,9 +59,7 @@ export class IntegrationController {
         }
     }
 
-    /**
-     * List all connected integrations for a user
-     */
+    // List all connected integrations for a user
     static async listConnections(req: any, res: any): Promise<void> {
         try {
             const userId = req.user._id;
@@ -74,15 +72,14 @@ export class IntegrationController {
         }
     }
 
-    /**
-     * Disconnect a specific provider
-     */
+    // Disconnect a specific provider
     static async disconnect(req: any, res: any): Promise<void> {
         try {
-            const { provider } = req.params;
+            const provider = req.params.provider as IntegrationProviderIdentifier;
             const userId = req.user._id;
 
-            await IntegrationToken.findOneAndDelete({ userId, provider });
+            const p = integrationRegistry.get(provider);
+            await p.disconnect(userId);
 
             ResponseHelper.success(res, null, `Successfully disconnected ${provider}`);
         } catch (error) {
@@ -91,3 +88,4 @@ export class IntegrationController {
         }
     }
 }
+

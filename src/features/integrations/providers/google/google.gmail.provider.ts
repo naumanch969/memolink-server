@@ -1,8 +1,10 @@
 import { BaseGoogleProvider } from "./base.google.provider";
+import { IntegrationProviderIdentifier } from "../../integration.interface";
 
 export class GoogleGmailProvider extends BaseGoogleProvider {
-    readonly identifier = 'google_gmail';
+    readonly identifier = IntegrationProviderIdentifier.GOOGLE_GMAIL;
     readonly name = 'Google Gmail';
+
     readonly description = 'Read and send emails';
     readonly scopes = [
         'https://www.googleapis.com/auth/userinfo.profile',

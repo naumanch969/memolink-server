@@ -73,12 +73,7 @@ app.use(MonitoringMiddleware.monitorHTTP());
 
 // Request logging
 app.use((req, res, next) => {
-  logger.debug('Incoming request:', {
-    method: req.method,
-    url: req.url,
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-  });
+  logger.debug('Incoming request:', { method: req.method, url: req.url, ip: req.ip, userAgent: req.get('User-Agent'), });
   next();
 });
 

@@ -11,8 +11,6 @@ import { initEmailWorker } from './features/email/queue/email.worker';
 import { getEnrichmentQueue } from './features/enrichment/enrichment.queue';
 import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
 import notificationWorker from './features/notification/notification.worker';
-// import { graphWorker } from './workers/graph.worker';
-import enrichmentService from './features/enrichment/enrichment.service';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {

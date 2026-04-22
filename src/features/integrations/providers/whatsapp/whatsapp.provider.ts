@@ -11,8 +11,15 @@ import { socketService } from '../../../../core/socket/socket.service';
 import { SocketEvents } from '../../../../core/socket/socket.types';
 import { IWhatsAppProvider } from '../../whatsapp.interfaces';
 import { WhatsAppWebhookPayload } from './whatsapp.types';
+import { IIntegrationProvider, IntegrationProviderIdentifier } from '../../integration.interface';
+import { IIntegrationTokenDocument } from '../../integration.model';
 
-export class WhatsAppProvider implements IWhatsAppProvider {
+export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider {
+
+    readonly identifier = IntegrationProviderIdentifier.WHATSAPP;
+    readonly name = 'WhatsApp';
+    readonly description = 'Connect your WhatsApp to capture memos and get notifications';
+
     private config;
 
     constructor() {
@@ -33,9 +40,7 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         return `https://graph.facebook.com/v21.0/${id}`;
     }
 
-    /**
-     * Handles incoming WhatsApp webhook events
-     */
+    // Handles incoming WhatsApp webhook events
     async handleWebhook(data: WhatsAppWebhookPayload): Promise<void> {
         const entry = data.entry?.[0];
         const changes = entry?.changes?.[0];
@@ -61,8 +66,8 @@ export class WhatsAppProvider implements IWhatsAppProvider {
 
         const from = message.from;
         logger.info('WhatsApp Webhook message', { from, type: message.type });
-        let user = await User.findOne({ whatsappNumber: from });
 
+        let user = await User.findOne({ whatsappNumber: from });
         if (!user) {
             logger.info('User not found by whatsappNumber, checking for linking code', { from });
         }
@@ -160,9 +165,7 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         }
     }
 
-    /**
-     * Downloads media from WhatsApp Cloud API
-     */
+    // Downloads media from WhatsApp Cloud API
     private async downloadMedia(mediaId: string): Promise<Buffer> {
         // 1. Get Media URL
         const mediaResponse = await axios.get(`https://graph.facebook.com/v21.0/${mediaId}`, {
@@ -181,9 +184,7 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         return Buffer.from(downloadResponse.data);
     }
 
-    /**
-     * Sends a text message back to WhatsApp user
-     */
+    // Sends a text message back to WhatsApp user
     async sendMessage(to: string, text: string, fromId?: string): Promise<string | undefined> {
         try {
             const url = this.getApiUrl(fromId);
@@ -217,9 +218,7 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         }
     }
 
-    /**
-     * Webhook verification (GET request from Meta)
-     */
+    // Webhook verification (GET request from Meta)
     verifyWebhook(query: any): string | null {
         const mode = query['hub.mode'];
         const token = query['hub.verify_token'];
@@ -231,6 +230,48 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         }
         return null;
     }
+
+    // IIntegrationProvider Methods
+    async getAuthUrl(userId: string): Promise<string> {
+        // Generate 6-digit code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+        await User.findByIdAndUpdate(userId, {
+            whatsappLinkingCode: code,
+            whatsappLinkingCodeExpires: expiresAt
+        });
+
+        const phoneNumber = config.WHATSAPP_DISPLAY_NUMBER.replace(/\D/g, ''); // remove everything thats not a number/digit
+        const link = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=Verify%20${code}`;
+        logger.info('Generated WhatsApp link via getAuthUrl', { link, userId });
+
+        return link;
+    }
+
+    async handleCallback(_code: string, _userId: string): Promise<IIntegrationTokenDocument> {
+        throw new Error('WhatsApp does not support OAuth callback flow');
+    }
+
+    async verifyConnection(userId: string): Promise<boolean> {
+        const user = await User.findById(userId);
+        return !!user?.whatsappNumber;
+    }
+
+    async disconnect(userId: string): Promise<void> {
+        await User.findByIdAndUpdate(userId, {
+            $unset: {
+                whatsappNumber: 1,
+                whatsappLinkingCode: 1,
+                whatsappLinkingCodeExpires: 1
+            }
+        });
+
+        // Invalidate profile cache
+        await cacheService.del(CacheKeys.userProfile(userId.toString()));
+    }
 }
 
 export const whatsappProvider = new WhatsAppProvider();
+
+

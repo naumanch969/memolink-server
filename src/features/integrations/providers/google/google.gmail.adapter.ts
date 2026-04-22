@@ -13,9 +13,7 @@ export interface EmailMessage {
 }
 
 export class GoogleGmailAdapter {
-    /**
-     * Get recent emails for a user
-     */
+    // Get recent emails for a user
     static async getRecentEmails(auth: any, maxResults = 10, query = ''): Promise<EmailMessage[]> {
         try {
             const gmail = google.gmail({ version: 'v1', auth });
@@ -87,9 +85,7 @@ export class GoogleGmailAdapter {
         }
     }
 
-    /**
-     * Send an email
-     */
+    // Send an email
     static async sendEmail(auth: any, to: string, subject: string, bodyText: string): Promise<string> {
         try {
             const gmail = google.gmail({ version: 'v1', auth });

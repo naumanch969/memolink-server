@@ -13,9 +13,7 @@ export interface CalendarEvent {
 }
 
 export class GoogleCalendarAdapter {
-    /**
-     * Get events for a user between two dates
-     */
+    // Get events for a user between two dates
     static async getEvents(auth: any, timeMin: Date, timeMax: Date, maxResults = 50): Promise<CalendarEvent[]> {
         try {
             const calendar = google.calendar({ version: 'v3', auth });
@@ -51,9 +49,7 @@ export class GoogleCalendarAdapter {
         }
     }
 
-    /**
-     * Create a new calendar event
-     */
+    // Create a new calendar event
     static async createEvent(
         auth: any,
         summary: string,

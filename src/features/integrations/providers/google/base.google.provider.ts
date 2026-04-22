@@ -2,12 +2,14 @@ import { google } from 'googleapis';
 import { config } from '../../../../config/env';
 import { logger } from '../../../../config/logger';
 import { IIntegrationTokenDocument, IntegrationToken } from '../../integration.model';
-import { IIntegrationProvider } from '../../provider.interface';
+import { IIntegrationProvider } from '../../integration.interface';
+import { IntegrationProviderIdentifier } from '../../integration.interface';
 import jwt from 'jsonwebtoken';
 
 export abstract class BaseGoogleProvider implements IIntegrationProvider {
-    abstract readonly identifier: string;
+    abstract readonly identifier: IntegrationProviderIdentifier;
     abstract readonly name: string;
+
     abstract readonly description: string;
     abstract readonly scopes: string[];
 
@@ -77,7 +79,12 @@ export abstract class BaseGoogleProvider implements IIntegrationProvider {
         return !!token && (!token.isExpired() || !!token.refreshToken); // Valid if not expired OR has refresh token to renew
     }
 
+    async disconnect(userId: string): Promise<void> {
+        await IntegrationToken.findOneAndDelete({ userId, provider: this.identifier });
+    }
+
     async getClient(userId: string) {
+
         const token = await IntegrationToken.findOne({ userId, provider: this.identifier });
         if (!token) throw new Error(`${this.name} integration not connected`);
 

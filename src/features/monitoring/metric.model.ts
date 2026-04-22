@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { logger } from '../../config/logger';
 
 export interface ISystemMetric extends Document {
     key: string;       // e.g., "ai:tokens:total"
@@ -21,7 +22,6 @@ SystemMetricSchema.index({ key: 1, period: 1 }, { unique: true });
 
 export const SystemMetric = mongoose.model<ISystemMetric>('SystemMetric', SystemMetricSchema);
 
-import { logger } from '../../config/logger';
 
 export const verifyMetricsIndexes = async () => {
     try {

@@ -76,11 +76,7 @@ export async function performRollup() {
                 $set: {
                     value: data.value,
                     lastUpdatedAt: new Date(),
-                    metadata: {
-                        op: data.op,
-                        rollup: true,
-                        samples: data.count
-                    }
+                    metadata: { op: data.op, rollup: true, samples: data.count }
                 }
             },
             upsert: true

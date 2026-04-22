@@ -2,11 +2,13 @@ import { Types } from "mongoose";
 import { GoogleGmailAdapter } from "../providers/google/google.gmail.adapter";
 import { googleGmailProvider } from "../providers/google/google.gmail.provider";
 import { AgentTool } from "./tool.interface";
+import { IntegrationProviderIdentifier } from "../integration.interface";
 
 export class GetRecentEmailsTool extends AgentTool {
     readonly name = "get_recent_emails";
     readonly description = "Retrieve recent emails from the user's Gmail using optional search queries (e.g. 'is:unread', 'from:boss@company.com').";
-    readonly requiredIntegration = "google_gmail";
+    readonly requiredIntegration = IntegrationProviderIdentifier.GOOGLE_GMAIL;
+
     readonly parameters = {
         type: "object",
         properties: {
@@ -43,7 +45,8 @@ export class GetRecentEmailsTool extends AgentTool {
 export class SendEmailTool extends AgentTool {
     readonly name = "send_email";
     readonly description = "Send an email beautifully via the user's attached Gmail account.";
-    readonly requiredIntegration = "google_gmail";
+    readonly requiredIntegration = IntegrationProviderIdentifier.GOOGLE_GMAIL;
+
     readonly parameters = {
         type: "object",
         properties: {
