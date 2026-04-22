@@ -6,6 +6,9 @@ import cacheService from '../../../../core/cache/cache.service';
 import { audioTranscriptionService } from '../../../agent/services/agent.audio.service';
 import { agentService } from '../../../agent/services/agent.service';
 import { User } from '../../../auth/auth.model';
+import { Notification } from '../../../notification/notification.model';
+import { socketService } from '../../../../core/socket/socket.service';
+import { SocketEvents } from '../../../../core/socket/socket.types';
 import { IWhatsAppProvider } from '../../whatsapp.interfaces';
 import { WhatsAppWebhookPayload } from './whatsapp.types';
 
@@ -25,10 +28,9 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         };
     }
 
-    private get apiUrl() {
-        const url = `https://graph.facebook.com/v21.0/${this.config.phoneNumberId}`;
-        logger.info('WhatsApp API URL', { url });
-        return url;
+    private getApiUrl(phoneNumberId?: string) {
+        const id = phoneNumberId || this.config.phoneNumberId;
+        return `https://graph.facebook.com/v21.0/${id}`;
     }
 
     /**
@@ -38,8 +40,23 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         const entry = data.entry?.[0];
         const changes = entry?.changes?.[0];
         const value = changes?.value;
-        const message = value?.messages?.[0];
+        const recipientPhoneNumberId = value?.metadata?.phone_number_id;
 
+        // 1. Handle Status Updates (sent, delivered, read, etc)
+        if (value?.statuses && value.statuses.length > 0) {
+            const status = value.statuses[0];
+            logger.info('WhatsApp Status Update', { id: status.id, status: status.status, recipient: status.recipient_id });
+
+            // Update the notification status in DB using the WhatsApp message ID
+            await Notification.findOneAndUpdate(
+                { whatsappId: status.id },
+                { $set: { whatsappStatus: status.status } }
+            );
+            return;
+        }
+
+        // 2. Handle Incoming Messages
+        const message = value?.messages?.[0];
         if (!message) return;
 
         const from = message.from;
@@ -74,46 +91,48 @@ export class WhatsAppProvider implements IWhatsAppProvider {
                 await cacheService.del(CacheKeys.userProfile(user._id.toString()));
 
                 logger.info('WhatsApp number linked successfully', { email: user.email, from });
-                await this.sendMessage(from, `✅ Success! Your WhatsApp number is now linked to ${user.email}. You can now send text or voice notes to capture memos.`);
+
+                // Notify frontend via socket
+                socketService.emitToUser(user._id, SocketEvents.INTEGRATION_WHATSAPP_LINKED, { whatsappNumber: from, email: user.email });
+
+                await this.sendMessage(from, `✅ Success! Your WhatsApp number is now linked to ${user.email}. You can now send text or voice notes to capture memos.`, recipientPhoneNumberId);
                 return;
             } else {
                 logger.warn('Linking code not found or expired', { code, from });
-                await this.sendMessage(from, `❌ Invalid or expired verification code. Please generate a new one in your settings.`);
+                await this.sendMessage(from, `❌ Invalid or expired verification code. Please generate a new one in your settings.`, recipientPhoneNumberId);
                 return;
             }
         }
 
         if (!user) {
             logger.warn('WhatsApp message from unlinked number', { from });
-            await this.sendMessage(from, "Your phone number is not linked to any Brinn account. Please link it in your settings.");
+            await this.sendMessage(from, "Your phone number is not linked to any Brinn account. Please link it in your settings.", recipientPhoneNumberId);
             return;
         }
 
         try {
             if (message.type === 'text' && message.text) {
-                await this.handleTextMessage(user._id.toString(), from, message.text.body);
+                await this.handleTextMessage(user._id.toString(), from, message.text.body, recipientPhoneNumberId);
             } else if (message.type === 'audio' && message.audio) {
-                await this.handleAudioMessage(user._id.toString(), from, message.audio.id, message.audio.mime_type);
+                await this.handleAudioMessage(user._id.toString(), from, message.audio.id, message.audio.mime_type, recipientPhoneNumberId);
             } else {
                 logger.debug('Unsupported WhatsApp message type', { type: message.type, from });
             }
         } catch (error) {
             logger.error('Error processing WhatsApp message', { error, from, userId: user._id });
-            await this.sendMessage(from, "I'm sorry, I encountered an error processing your message.");
+            await this.sendMessage(from, "I'm sorry, I encountered an error processing your message.", recipientPhoneNumberId);
         }
     }
 
-    private async handleTextMessage(userId: string, from: string, text: string) {
-        const result = await agentService.processNaturalLanguage(userId, text, {
-            source: 'whatsapp'
-        });
+    private async handleTextMessage(userId: string, from: string, text: string, fromId?: string) {
+        const result = await agentService.processNaturalLanguage(userId, text, { source: 'whatsapp' });
 
         if (result.summary) {
-            await this.sendMessage(from, result.summary);
+            await this.sendMessage(from, result.summary, fromId);
         }
     }
 
-    private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string) {
+    private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string, fromId?: string) {
         logger.info('Processing WhatsApp audio', { mediaId, userId });
 
         const audioBuffer = await this.downloadMedia(mediaId);
@@ -137,7 +156,7 @@ export class WhatsAppProvider implements IWhatsAppProvider {
         );
 
         if (result.summary) {
-            await this.sendMessage(from, result.summary);
+            await this.sendMessage(from, result.summary, fromId);
         }
     }
 
@@ -165,10 +184,11 @@ export class WhatsAppProvider implements IWhatsAppProvider {
     /**
      * Sends a text message back to WhatsApp user
      */
-    async sendMessage(to: string, text: string): Promise<void> {
+    async sendMessage(to: string, text: string, fromId?: string): Promise<string | undefined> {
         try {
-            await axios.post(
-                `${this.apiUrl}/messages`,
+            const url = this.getApiUrl(fromId);
+            const response = await axios.post(
+                `${url}/messages`,
                 {
                     messaging_product: 'whatsapp',
                     to,
@@ -182,8 +202,18 @@ export class WhatsAppProvider implements IWhatsAppProvider {
                     }
                 }
             );
+
+            const messageId = response.data.messages?.[0]?.id;
+            logger.info('WhatsApp message sent', { to, messageId, fromId: fromId || this.config.phoneNumberId });
+            return messageId;
+
         } catch (error: any) {
-            logger.error('Failed to send WhatsApp message', error.response?.data || error.message);
+            logger.error('Failed to send WhatsApp message', {
+                error: error.response?.data || error.message,
+                to,
+                fromId: fromId || this.config.phoneNumberId
+            });
+            return undefined;
         }
     }
 

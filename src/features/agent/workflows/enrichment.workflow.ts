@@ -8,6 +8,8 @@ import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, IAgentWorkflow } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
+import { notificationDispatcher } from '../../notification/notification.dispatcher';
+import { NotificationType } from '../../notification/notification.types';
 import { entryEmbeddingWorkflow } from './embedding.workflow';
 import { taggingWorkflow } from './tagging.workflow';
 
@@ -100,6 +102,19 @@ export class EnrichmentWorkflow implements IAgentWorkflow {
             agentService.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
 
             socketService.emitToUser(userId.toString(), SocketEvents.ENTRY_UPDATED, entry);
+            
+            // 3. Close WhatsApp Cycle
+            if (entry.inputMethod === 'whatsapp') {
+                await notificationDispatcher.dispatch({
+                    userId,
+                    type: NotificationType.SYSTEM,
+                    title: 'Memo Ready',
+                    message: `✅ Your memo has been processed and enriched.`,
+                    actionUrl: `/entries/${entry._id}`,
+                    referenceId: entry._id.toString(),
+                    referenceModel: 'Entry'
+                });
+            }
 
             return {
                 status: 'completed',

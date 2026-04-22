@@ -21,7 +21,7 @@ router.get('/logs', emailController.getLogs);
 router.get('/templates', emailController.getTemplates);
 router.post('/templates', emailValidations.createTemplate, ValidationMiddleware.validate, emailController.createTemplate);
 router.get('/templates/:id', emailValidations.templateIdParam, ValidationMiddleware.validate, emailController.getTemplateById);
-router.put('/templates/:id', emailValidations.updateTemplate, ValidationMiddleware.validate, emailController.updateTemplate);
+router.patch('/templates/:id', emailValidations.updateTemplate, ValidationMiddleware.validate, emailController.updateTemplate);
 router.delete('/templates/:id', emailValidations.templateIdParam, ValidationMiddleware.validate, emailController.deleteTemplate);
 
 // Custom one-off email sending

@@ -19,6 +19,8 @@ export class NotificationService implements INotificationService {
                 referenceModel: data.referenceModel,
                 actionUrl: data.actionUrl,
                 eventId: data.eventId,
+                whatsappId: data.whatsappId,
+                whatsappStatus: data.whatsappStatus,
                 isRead: false
             });
 

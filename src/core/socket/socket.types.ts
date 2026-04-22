@@ -41,7 +41,10 @@ export enum SocketEvents {
     PARTNER_RESPONSE_END = 'partner:response_end',
 
     // System
-    SYSTEM_HEALTH_UPDATE = 'system:health_update'
+    SYSTEM_HEALTH_UPDATE = 'system:health_update',
+
+    // Integrations
+    INTEGRATION_WHATSAPP_LINKED = 'integration:whatsapp_linked'
 }
 
 export interface SocketData {

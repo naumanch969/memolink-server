@@ -3,6 +3,7 @@ import { WaitlistService } from './waitlist.service';
 import { validateWaitlistEmail } from './waitlist.validations';
 import { sendWaitlistConfirmationEmail, sendWaitlistAdminNotification } from './waitlist-email.service';
 import { logger } from '../../config/logger';
+import { ResponseHelper } from '../../core/utils/response.utils';
 
 /**
  * POST /api/v1/waitlist/join
@@ -27,10 +28,7 @@ export const joinWaitlist = async (req: Request, res: Response, next: NextFuncti
     // Validate email format
     const validationError = validateWaitlistEmail(email);
     if (validationError) {
-      return res.status(400).json({
-        success: false,
-        message: validationError,
-      });
+      return ResponseHelper.badRequest(res, validationError);
     }
 
     // Add to waitlist
@@ -44,11 +42,7 @@ export const joinWaitlist = async (req: Request, res: Response, next: NextFuncti
     sendWaitlistAdminNotification(email)
       .catch((err) => logger.error('Failed to send admin notification:', err));
 
-    return res.status(201).json({
-      success: true,
-      message: 'Successfully added to waitlist',
-      email: waitlistEntry.email,
-    });
+    return ResponseHelper.created(res, { email: waitlistEntry.email }, 'Successfully added to waitlist');
   } catch (error: unknown) {
     const statusCode =
       typeof error === 'object' && error !== null && 'statusCode' in error
@@ -56,10 +50,7 @@ export const joinWaitlist = async (req: Request, res: Response, next: NextFuncti
         : undefined;
 
     if (statusCode === 409) {
-      return res.status(409).json({
-        success: false,
-        message: 'This email is already on the waitlist',
-      });
+      return ResponseHelper.conflict(res, 'This email is already on the waitlist');
     }
 
     logger.error('Error in joinWaitlist:', error);
@@ -71,17 +62,12 @@ export const joinWaitlist = async (req: Request, res: Response, next: NextFuncti
  * GET /api/v1/waitlist/count
  * Get waitlist count (admin only)
  */
-export const getWaitlistCount = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const getWaitlistCount = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const count = await WaitlistService.getWaitlistCount();
     const byStatus = await WaitlistService.getCountByStatus();
 
-    return res.status(200).json({
-      success: true,
+    return ResponseHelper.success(res, {
       total: count,
       byStatus: byStatus.reduce(
         (acc, item) => {

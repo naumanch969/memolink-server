@@ -1,24 +1,10 @@
 import mongoose, { HydratedDocument, Model, Schema } from 'mongoose';
 import { STORAGE_LIMITS, USER_ROLES } from '../../shared/constants';
-import { IUser } from './auth.types';
-import { ValidationUtil } from '../../shared/utils/validation.utils';
+import { IUser, IUserModel } from './auth.types';
 
-// Interface for User model with static methods
-interface IUserModel extends Model<IUser> {
-  findByEmail(email: string): Promise<HydratedDocument<IUser> | null>;
-  findActiveUsers(): Promise<HydratedDocument<IUser>[]>;
-}
 
 const userSchema = new Schema<IUser>({
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    maxlength: [254, 'Email cannot exceed 254 characters'],
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'],
-  },
+  email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true, maxlength: [254, 'Email cannot exceed 254 characters'], match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email'], },
   password: { type: String, select: false, }, // Don't include password in queries by default
   googleId: { type: String, unique: true, sparse: true, select: false },
   name: { type: String, required: [true, 'Name is required'], trim: true, maxlength: [100, 'Name cannot exceed 100 characters'], },
@@ -44,11 +30,11 @@ const userSchema = new Schema<IUser>({
     },
   },
   securityConfig: {
-    question: { type: String, trim: true },
+    question: { type: String, trim: true }, // security question to ask at system lock
     answerHash: { type: String, select: false }, // Don't return hash by default
-    timeoutMinutes: { type: Number, default: 5 },
-    isEnabled: { type: Boolean, default: false },
-    maskEntries: { type: Boolean, default: false },
+    timeoutMinutes: { type: Number, default: 5 }, // After how many minutes system should lock
+    isEnabled: { type: Boolean, default: false }, // Enable/Disable security lock
+    maskEntries: { type: Boolean, default: false }, // Mask entries 
   },
   // Storage quota
   storageUsed: { type: Number, default: 0 },
@@ -66,13 +52,13 @@ const userSchema = new Schema<IUser>({
 
   // Vault for MDK encryption
   vault: {
-    passwordSalt: { type: String, select: false },
-    wrappedMDK_password: { type: String, select: false },
-    securityQuestion: { type: String },
-    securityAnswerSalt: { type: String, select: false },
-    wrappedMDK_securityAnswer: { type: String, select: false },
-    recoverySalt: { type: String, select: false },
-    wrappedMDK_recovery: { type: String, select: false },
+    passwordSalt: { type: String, select: false }, // Salt for password
+    wrappedMDK_password: { type: String, select: false }, // MDK via password
+    securityQuestion: { type: String }, // TODO: securityQuestion and securityConfig.question are same thing. remove this one. 
+    securityAnswerSalt: { type: String, select: false }, // Salt for security question
+    wrappedMDK_securityAnswer: { type: String, select: false }, // MDK via security question
+    recoverySalt: { type: String, select: false }, // Salt for recovery
+    wrappedMDK_recovery: { type: String, select: false }, // MDK via recovery
     encryptionVersion: { type: Number, default: 3 },
     unlockAttempts: { type: Number, default: 0 },
     unlockLockedUntil: { type: Date },
@@ -137,6 +123,11 @@ userSchema.statics.findActiveUsers = function () {
   return this.find({ isEmailVerified: true });
 };
 
+
+export const User = mongoose.model<IUser, IUserModel>('User', userSchema);
+export default User;
+
+
 // Add static methods to the interface
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -146,6 +137,3 @@ declare global {
     }
   }
 }
-
-export const User = mongoose.model<IUser, IUserModel>('User', userSchema);
-export default User;

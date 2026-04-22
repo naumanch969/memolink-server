@@ -14,10 +14,23 @@ export interface WhatsAppWebhookPayload {
                     wa_id: string;
                 }>;
                 messages?: Array<WhatsAppMessage>;
-                statuses?: Array<any>;
+                statuses?: Array<WhatsAppStatus>;
             };
             field: 'messages';
         }>;
+    }>;
+}
+
+export interface WhatsAppStatus {
+    id: string;
+    status: 'sent' | 'delivered' | 'read' | 'failed' | 'deleted';
+    timestamp: string;
+    recipient_id: string;
+    errors?: Array<{
+        code: number;
+        title: string;
+        message: string;
+        error_data?: { details: string };
     }>;
 }
 

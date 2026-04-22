@@ -3,6 +3,7 @@ import { logger } from '../../config/logger';
 import { IntegrationToken } from './integration.model';
 import { integrationRegistry } from './integration.registry';
 import jwt from 'jsonwebtoken';
+import { ResponseHelper } from '../../core/utils/response.utils';
 
 export class IntegrationController {
     /**
@@ -16,11 +17,11 @@ export class IntegrationController {
             const p = integrationRegistry.get(provider);
             const url = p.getAuthUrl(userId);
 
-            // res.redirect(url); // Don't redirect straight away
-            res.json({ url });
+            // ResponseHelper.success for JSON responses
+            ResponseHelper.success(res, { url });
         } catch (error) {
             logger.error('Failed to generate connection URL', error);
-            res.status(500).json({ error: 'Failed to connect' });
+            ResponseHelper.error(res, 'Failed to connect');
         }
     }
 
@@ -29,7 +30,8 @@ export class IntegrationController {
             const { code, state } = req.query;
 
             if (!code || !state) {
-                return res.status(400).json({ error: 'Code and state are required' });
+                ResponseHelper.badRequest(res, 'Code and state are required');
+                return;
             }
 
             let decodedState: any;
@@ -37,7 +39,8 @@ export class IntegrationController {
             try {
                 decodedState = jwt.verify(state as string, config.JWT_SECRET);
             } catch {
-                return res.status(401).json({ error: 'Invalid or expired state token' });
+                ResponseHelper.unauthorized(res, 'Invalid or expired state token');
+                return;
             }
 
             const { userId, provider } = decodedState;
@@ -64,10 +67,10 @@ export class IntegrationController {
             const userId = req.user._id;
             const tokens = await IntegrationToken.find({ userId }).select('-accessToken -refreshToken');
 
-            res.json(tokens);
+            ResponseHelper.success(res, tokens);
         } catch (error) {
             logger.error('Failed to list integrations', error);
-            res.status(500).json({ error: 'Failed to list connections' });
+            ResponseHelper.error(res, 'Failed to list connections');
         }
     }
 
@@ -81,10 +84,10 @@ export class IntegrationController {
 
             await IntegrationToken.findOneAndDelete({ userId, provider });
 
-            res.json({ message: `Successfully disconnected ${provider}` });
+            ResponseHelper.success(res, null, `Successfully disconnected ${provider}`);
         } catch (error) {
             logger.error('Failed to disconnect integration', error);
-            res.status(500).json({ error: 'Failed to disconnect' });
+            ResponseHelper.error(res, 'Failed to disconnect');
         }
     }
 }

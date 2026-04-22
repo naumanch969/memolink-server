@@ -1,17 +1,18 @@
 import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { announcementService } from './announcement.service';
 
 export class AnnouncementController {
 
-    static async create(req: Request, res: Response) {
+    static async create(req: AuthenticatedRequest, res: Response) {
         try {
             if (!req.user) return ResponseHelper.unauthorized(res);
 
             const announcement = await announcementService.createAnnouncement({
                 ...req.body,
-                authorId: req.user._id.toString()
+                authorId: req.user._id?.toString()
             });
 
             ResponseHelper.created(res, announcement, 'Announcement created successfully');
@@ -21,7 +22,7 @@ export class AnnouncementController {
         }
     }
 
-    static async getAll(req: Request, res: Response) {
+    static async getAll(req: AuthenticatedRequest, res: Response) {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
@@ -40,7 +41,7 @@ export class AnnouncementController {
         }
     }
 
-    static async getOne(req: Request, res: Response) {
+    static async getOne(req: AuthenticatedRequest, res: Response) {
         try {
             const announcement = await announcementService.getAnnouncementById(req.params.id);
             if (!announcement) {
@@ -53,7 +54,7 @@ export class AnnouncementController {
         }
     }
 
-    static async update(req: Request, res: Response) {
+    static async update(req: AuthenticatedRequest, res: Response) {
         try {
             const announcement = await announcementService.updateAnnouncement(req.params.id, req.body);
             if (!announcement) {
@@ -66,7 +67,7 @@ export class AnnouncementController {
         }
     }
 
-    static async delete(req: Request, res: Response) {
+    static async delete(req: AuthenticatedRequest, res: Response) {
         try {
             const success = await announcementService.deleteAnnouncement(req.params.id);
             if (!success) {
@@ -79,7 +80,7 @@ export class AnnouncementController {
         }
     }
 
-    static async send(req: Request, res: Response) {
+    static async send(req: AuthenticatedRequest, res: Response) {
         try {
             const announcement = await announcementService.dispatchAnnouncement(req.params.id);
             ResponseHelper.success(res, announcement, 'Announcement dispatch started');
@@ -89,7 +90,7 @@ export class AnnouncementController {
         }
     }
 
-    static async getDeliveryLogs(req: Request, res: Response) {
+    static async getDeliveryLogs(req: AuthenticatedRequest, res: Response) {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 50;

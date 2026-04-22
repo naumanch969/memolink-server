@@ -16,6 +16,8 @@ const NotificationSchema = new Schema<INotificationDocument>(
         referenceModel: { type: String }, // Usage: refPath in a more complex setup, or manual lookup
         actionUrl: { type: String },
         eventId: { type: String, unique: true, sparse: true },
+        whatsappId: { type: String, index: true, sparse: true },
+        whatsappStatus: { type: String, enum: ['sent', 'delivered', 'read', 'failed'], sparse: true },
     },
     {
         timestamps: true,

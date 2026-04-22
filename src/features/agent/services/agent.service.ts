@@ -74,6 +74,7 @@ export class AgentService implements IAgentService {
                 date: new Date(),
                 type: 'text',
                 status: 'processing', // Start in processing since it's an AI flow
+                inputMethod: options.source === 'whatsapp' ? 'whatsapp' : (options.inputMethod || 'text'),
                 tags: options.tags || [],
                 metadata: { source: options.source || 'capture-mode' }
             });
@@ -101,11 +102,7 @@ export class AgentService implements IAgentService {
             // Background Persona Sync
             this.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
 
-            return {
-                tasks: [task],
-                result: entry,
-                summary
-            };
+            return { tasks: [task], result: entry, summary };
 
         } catch (error) {
             logger.error("Agent NLP Processing failed", error);

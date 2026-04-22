@@ -18,6 +18,8 @@ export interface INotification {
     referenceModel?: string; // e.g., 'Reminder', 'Goal'
     actionUrl?: string; // For frontend navigation
     eventId?: string; // For idempotency (from EventStream)
+    whatsappId?: string; // To track delivery status from Meta Webhooks
+    whatsappStatus?: 'sent' | 'delivered' | 'read' | 'failed';
     createdAt: Date;
     updatedAt: Date;
 }
@@ -36,6 +38,8 @@ export interface CreateNotificationDTO {
     referenceModel?: string;
     actionUrl?: string;
     eventId?: string;
+    whatsappId?: string;
+    whatsappStatus?: 'sent' | 'delivered' | 'read' | 'failed';
 }
 
 export enum NotificationStatus {

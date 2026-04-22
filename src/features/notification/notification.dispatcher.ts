@@ -1,10 +1,13 @@
 import { Types } from 'mongoose';
+import { config } from '../../config/env';
 import { logger } from '../../config/logger';
 import { redisConnection } from '../../config/redis';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { User } from '../auth/auth.model';
 import { emailService } from '../email/email.service';
+import { whatsappProvider } from '../integrations/providers/whatsapp/whatsapp.provider';
+import { Notification } from './notification.model';
 import notificationService from './notification.service';
 import { NotificationTemplates } from './notification.templates';
 import { CreateNotificationDTO, INotificationDocument, NotificationType } from './notification.types';
@@ -46,7 +49,7 @@ export class NotificationDispatcher {
         const notification = await notificationService.create(data);
 
         // 2. Fetch user preferences
-        const user = await User.findById(data.userId).select('preferences email').lean();
+        const user = await User.findById(data.userId).select('preferences email whatsappNumber pushTokens').lean();
         if (!user) {
             logger.warn(`[NotificationDispatcher] User ${data.userId} not found for dispatch`);
             return notification;
@@ -66,7 +69,20 @@ export class NotificationDispatcher {
             }
         }
 
-        // 5. Mobile Push Notifications via Expo
+        // 5. WhatsApp Notification (if preference is enabled and number exists)
+        if (user.preferences?.notifications && user.whatsappNumber && !throttled) {
+            if (this.shouldSendWhatsApp(data.type)) {
+                const whatsappId = await this.dispatchWhatsApp(user.whatsappNumber, data);
+                if (whatsappId) {
+                    await Notification.findByIdAndUpdate(notification._id, {
+                        whatsappId,
+                        whatsappStatus: 'sent'
+                    });
+                }
+            }
+        }
+
+        // 6. Mobile Push Notifications via Expo
         if (user.preferences?.notifications && user.pushTokens?.length) {
             const tokens = user.pushTokens.map(pt => pt.token);
             const { expoPushService } = await import('./push/expo-push.service');
@@ -124,6 +140,24 @@ export class NotificationDispatcher {
             logger.debug(`[NotificationDispatcher] Email queued for ${email}`);
         } catch (error) {
             logger.error(`[NotificationDispatcher] Failed to queue email for ${email}`, error);
+        }
+    }
+
+    private shouldSendWhatsApp(type: NotificationType): boolean {
+        // For now, only send critical or reminder notifications to WhatsApp
+        const whatsappEnabledTypes = [NotificationType.REMINDER, NotificationType.SYSTEM];
+        return whatsappEnabledTypes.includes(type);
+    }
+
+    private async dispatchWhatsApp(to: string, data: CreateNotificationDTO): Promise<string | undefined> {
+        try {
+            const message = `${data.title}: ${data.message}${data.actionUrl ? `\n\nView: ${config.FRONTEND_URL}${data.actionUrl}` : ''}`;
+            const messageId = await whatsappProvider.sendMessage(to, message);
+            logger.debug(`[NotificationDispatcher] WhatsApp sent to ${to}`, { messageId });
+            return messageId;
+        } catch (error) {
+            logger.error(`[NotificationDispatcher] Failed to send WhatsApp to ${to}`, error);
+            return undefined;
         }
     }
 }

@@ -3,7 +3,7 @@ import { WhatsAppWebhookPayload } from './providers/whatsapp/whatsapp.types';
 
 export interface IWhatsAppProvider {
     handleWebhook(data: WhatsAppWebhookPayload): Promise<void>;
-    sendMessage(to: string, text: string): Promise<void>;
+    sendMessage(to: string, text: string): Promise<string | undefined>;
     verifyWebhook(query: any): string | null;
 }
 

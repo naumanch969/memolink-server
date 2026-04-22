@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import { BaseEntity } from "../../shared/types";
+import { HydratedDocument, Model } from 'mongoose';
 
 export interface IUser extends BaseEntity {
     email: string;
@@ -58,7 +59,12 @@ export interface IUser extends BaseEntity {
     };
 }
 
-export interface AuthenticatedRequest extends Request {
+export interface IUserModel extends Model<IUser> {
+    findByEmail(email: string): Promise<HydratedDocument<IUser> | null>;
+    findActiveUsers(): Promise<HydratedDocument<IUser>[]>;
+}
+
+export interface AuthenticatedRequest extends Request { // TODO: We have add user in express.d.ts then why AuthenticatedRequest? we should remove this. 
     user?: IUser;
 }
 
