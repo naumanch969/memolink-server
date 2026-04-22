@@ -7,7 +7,7 @@ export interface WhatsAppPayload {
     senderName?: string;
     isVoice?: boolean;
     mediaUrl?: string;
-    timestamp?: number;
+    timestamp?: number | Date;
 }
 
 export interface ICapturePayload {

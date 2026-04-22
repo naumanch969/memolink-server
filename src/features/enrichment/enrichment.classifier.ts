@@ -1,11 +1,4 @@
-import {
-    AVOIDANCE_MARKERS, COMPLEX_EMOTION_WORDS, CONTRADICTION_MARKERS, DECISION_MARKERS, DESIRE_MARKERS, INTROSPECTIVE_PHRASES,
-    LOG_BOOSTER_WORDS,
-    META_COGNITIVE_MARKERS, NEGATIVE_EMOTION_WORDS, POSITIVE_EMOTION_WORDS, SELF_PERCEPTION_MARKERS, SIGNAL_SCORING_WEIGHTS, SIGNAL_TIER_THRESHOLDS,
-    TEMPORAL_PERSPECTIVE_MARKERS,
-    TIME_ANCHORS,
-    TRIVIAL_ACTIVITY_VERBS,
-} from './enrichment.constants';
+import { AVOIDANCE_MARKERS, COMPLEX_EMOTION_WORDS, CONTRADICTION_MARKERS, DECISION_MARKERS, DESIRE_MARKERS, INTROSPECTIVE_PHRASES, LOG_BOOSTER_WORDS, META_COGNITIVE_MARKERS, NEGATIVE_EMOTION_WORDS, POSITIVE_EMOTION_WORDS, SELF_PERCEPTION_MARKERS, SIGNAL_SCORING_WEIGHTS, SIGNAL_TIER_THRESHOLDS, TEMPORAL_PERSPECTIVE_MARKERS, TIME_ANCHORS, TRIVIAL_ACTIVITY_VERBS, } from './enrichment.constants';
 import { SignalTier } from './enrichment.types';
 
 export interface ClassificationResult {
@@ -26,7 +19,7 @@ export class EntryClassifier {
         // Hard override: user-declared importance forces deep_signal
         if (isImportant) {
             return {
-                tier: 'deep_signal',
+                tier: SignalTier.DEEP_SIGNAL,
                 score: SIGNAL_SCORING_WEIGHTS.IS_IMPORTANT,
                 breakdown: { is_important: SIGNAL_SCORING_WEIGHTS.IS_IMPORTANT },
             };
@@ -34,7 +27,7 @@ export class EntryClassifier {
 
         // Hard override: no content at all
         if (!content || content.trim().length === 0) {
-            return { tier: 'noise', score: -10, breakdown: { empty_content: -10 } };
+            return { tier: SignalTier.NOISE, score: -10, breakdown: { empty_content: -10 } };
         }
 
         const lower = content.toLowerCase();
@@ -168,10 +161,10 @@ export class EntryClassifier {
     }
 
     private static resolveToTier(score: number): SignalTier {
-        if (score <= SIGNAL_TIER_THRESHOLDS.NOISE_MAX) return 'noise';
-        if (score <= SIGNAL_TIER_THRESHOLDS.LOG_MAX) return 'log';
-        if (score <= SIGNAL_TIER_THRESHOLDS.SIGNAL_MAX) return 'signal';
-        return 'deep_signal';
+        if (score <= SIGNAL_TIER_THRESHOLDS.NOISE_MAX) return SignalTier.NOISE;
+        if (score <= SIGNAL_TIER_THRESHOLDS.LOG_MAX) return SignalTier.LOG;
+        if (score <= SIGNAL_TIER_THRESHOLDS.SIGNAL_MAX) return SignalTier.SIGNAL;
+        return SignalTier.DEEP_SIGNAL;
     }
 }
 

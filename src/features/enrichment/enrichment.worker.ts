@@ -4,7 +4,7 @@ import { queueService } from '../../core/queue/queue.service';
 import { ENRICHMENT_HEALING_WORKER_CONFIG, ENRICHMENT_JOB_ACTIVE, ENRICHMENT_JOB_HEALING, ENRICHMENT_JOB_PASSIVE, ENRICHMENT_QUEUE_HEALING, ENRICHMENT_QUEUE_NAME, ENRICHMENT_WORKER_CONFIG } from '../../core/queue/queue.constants';
 import { initEnrichmentHealingQueue, initEnrichmentQueue } from './enrichment.queue';
 import { enrichmentService } from './enrichment.service';
-import { EnrichmentJobData } from './enrichment.types';
+import { EnrichmentJobData, SourceType } from './enrichment.types';
 
 const processJob = async (job: Job<EnrichmentJobData>) => {
     const { userId, sourceType, referenceId, sessionId, signalTier } = job.data;
@@ -13,10 +13,10 @@ const processJob = async (job: Job<EnrichmentJobData>) => {
     logger.debug(`[Enrichment Worker] Job Data:`, job.data);
 
     try {
-        if (job.name === ENRICHMENT_JOB_ACTIVE || job.name === ENRICHMENT_JOB_HEALING || sourceType === 'active') {
+        if (job.name === ENRICHMENT_JOB_ACTIVE || job.name === ENRICHMENT_JOB_HEALING || sourceType === SourceType.ACTIVE) {
             if (!referenceId) throw new Error(`Missing referenceId for enrichment job ${job.id}`);
             await enrichmentService.processActiveEnrichment(userId, referenceId, sessionId, signalTier);
-        } else if (job.name === ENRICHMENT_JOB_PASSIVE || sourceType === 'passive') {
+        } else if (job.name === ENRICHMENT_JOB_PASSIVE || sourceType === SourceType.PASSIVE) {
             await enrichmentService.processPassiveEnrichment(userId, sessionId);
         } else {
             logger.warn(`[Enrichment Worker] Unknown job name [${job.name}] or sourceType [${sourceType}] for job ${job.id}`);

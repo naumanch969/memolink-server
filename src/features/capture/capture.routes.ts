@@ -3,7 +3,7 @@ import { AuthMiddleware } from '../../core/middleware/auth.middleware';
 import { FileUploadMiddleware } from '../../core/middleware/upload.middleware';
 import { ValidationMiddleware } from '../../core/middleware/validation.middleware';
 import { captureController } from './capture.controller';
-import { ingestEntryValidation, ingestWebValidation, ingestWhatsAppValidation } from './capture.validations';
+import { captureEntryValidation, capturWebValidation, capturWhatsAppValidation } from './capture.validations';
 
 const router = Router();
 
@@ -22,16 +22,16 @@ router.post(
         { name: 'file_3', maxCount: 1 },
         { name: 'file_4', maxCount: 1 },
     ]),
-    ingestEntryValidation,
+    captureEntryValidation,
     ValidationMiddleware.validate,
     captureController.captureEntry,
 );
 
 // 2. PASSIVE: Web Activity Sync (Browser Extension)
-router.post('/web', ingestWebValidation, ValidationMiddleware.validate, captureController.captureWeb);
+router.post('/web', capturWebValidation, ValidationMiddleware.validate, captureController.captureWeb);
 
 // 3. SOCIAL/WEBHOOK: WhatsApp Bridge
-router.post('/whatsapp', ingestWhatsAppValidation, ValidationMiddleware.validate, captureController.captureWhatsApp);
+router.post('/whatsapp', capturWhatsAppValidation, ValidationMiddleware.validate, captureController.captureWhatsApp);
 
 
 export default router;

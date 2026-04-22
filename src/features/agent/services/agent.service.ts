@@ -14,7 +14,7 @@ import { AGENT_CONSTANTS } from '../agent.constants';
 import { IAgentService } from '../agent.interfaces';
 import { AgentTask, IAgentTaskDocument } from '../agent.model';
 import { getAgentQueue } from '../agent.queue';
-import { AgentTaskInput, AgentTaskStatus, AgentTaskType } from '../agent.types';
+import { AgentTaskInput, AgentTaskStatus, AgentTaskType, MessageRole } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import { IUserPersonaDocument, UserPersona } from '../memory/persona.model';
 import { chatOrchestrator } from '../orchestrators/chat.orchestrator';
@@ -61,106 +61,15 @@ export class AgentService implements IAgentService {
 
     /**
      * ==========================================
-     * NATURAL LANGUAGE PROCESSING
-     * ==========================================
-     */
-
-    async processNaturalLanguage(userId: string, text: string, options: any = {}): Promise<any> {
-        // 1. Reliability Pattern: Capture to Library first
-        let entry: any = null;
-        try {
-            entry = await entryService.createEntry(userId, {
-                content: text,
-                date: new Date(),
-                type: 'text',
-                status: 'processing', // Start in processing since it's an AI flow
-                inputMethod: options.source === 'whatsapp' ? 'whatsapp' : (options.inputMethod || 'text'),
-                tags: options.tags || [],
-                metadata: { source: options.source || 'capture-mode' }
-            });
-            logger.info("Reliability Capture: Entry saved", { userId, entryId: entry._id });
-        } catch (error) {
-            logger.error("Reliability Capture Failed", error);
-            throw error;
-        }
-
-        try {
-            // Keep user history updated
-            await agentMemoryService.addMessage(userId, 'user', text);
-
-            // 2. Trigger Unified Enrichment Task
-            // This task now handles Tagging, Extraction, and Indexing in background.
-            const task = await this.createTask(userId, AgentTaskType.ENTRY_ENRICHMENT, {
-                text,
-                entryId: entry._id.toString(),
-                options: { timezone: options.timezone }
-            });
-
-            const summary = "Entry captured.";
-            await agentMemoryService.addMessage(userId, 'agent', summary);
-
-            // Background Persona Sync
-            this.triggerSynthesis(userId).catch(err => logger.error("Persona Synthesis trigger failed", err));
-
-            return { tasks: [task], result: entry, summary };
-
-        } catch (error) {
-            logger.error("Agent NLP Processing failed", error);
-            if (entry?._id) {
-                await entryService.updateEntry(entry._id.toString(), userId, { status: 'failed' });
-            }
-            throw error;
-        }
-    }
-
-    async findSimilarEntries(userId: string, text: string, limit: number = 5): Promise<any[]> {
-        try {
-            const queryVector = await LLMService.generateEmbeddings(text, { workflow: 'similarity', userId });
-            const results = await Entry.aggregate([
-                {
-                    $vectorSearch: {
-                        index: "vector_index",
-                        path: "embeddings",
-                        queryVector,
-                        numCandidates: 100,
-                        limit,
-                        filter: { userId: new Types.ObjectId(userId) }
-                    }
-                },
-                { $project: { content: 1, date: 1, type: 1, score: { $meta: "vectorSearchScore" } } }
-            ]);
-
-            if (results.length > 0) return results;
-
-            const { entries } = await entryService.getEntries(userId, { q: text, limit });
-            return (entries || []).map((e: any) => ({ content: e.content, date: e.date, type: e.type, score: 0.5 }));
-        } catch (error) {
-            logger.error('Similar entries lookup failed', error);
-            return [];
-        }
-    }
-
-    async cleanText(userId: string, text: string): Promise<string> {
-        try {
-            const prompt = `Clean raw/fragmented text into polished format while preserving meaning, tone, tags, and mentions. Dont add any extra text/information. \nInput: "${text}"\nCleaned Text:`;
-            return (await LLMService.generateText(prompt, { workflow: 'text_cleaning', userId, temperature: 0.3 })).trim();
-        } catch (error) {
-            logger.error('Text cleaning failed', error);
-            return text;
-        }
-    }
-
-    /**
-     * ==========================================
      * CONVERSATIONAL INTERFACE
      * ==========================================
      */
 
     async chat(userId: string, message: string): Promise<string> {
-        await agentMemoryService.addMessage(userId, 'user', message);
+        await agentMemoryService.addMessage(userId, MessageRole.USER, message);
         return await chatOrchestrator.chat(userId, message, {
             onFinish: async (finalAnswer) => {
-                await agentMemoryService.addMessage(userId, 'agent', finalAnswer);
+                await agentMemoryService.addMessage(userId, MessageRole.AGENT, finalAnswer);
                 this.triggerSynthesis(userId).catch(e => logger.error("Persona Synthesis trigger failed", e));
                 this.checkMemoryFlush(userId).catch(e => logger.error("Memory Flush check failed", e));
             }
@@ -168,12 +77,12 @@ export class AgentService implements IAgentService {
     }
 
     async chatStream(userId: string, message: string, onChunk: (chunk: string) => void): Promise<string> {
-        await agentMemoryService.addMessage(userId, 'user', message);
+        await agentMemoryService.addMessage(userId, MessageRole.USER, message);
 
         const finalResponse = await chatOrchestrator.chatStream(userId, message, onChunk);
 
         // Save full message to history after stream finishes
-        await agentMemoryService.addMessage(userId, 'agent', finalResponse);
+        await agentMemoryService.addMessage(userId, MessageRole.AGENT, finalResponse);
 
         // Background housekeeping
         this.triggerSynthesis(userId).catch(e => logger.error("Persona Synthesis trigger failed", e));
@@ -182,7 +91,7 @@ export class AgentService implements IAgentService {
         return finalResponse;
     }
 
-    async goalArchitect(userId: string, message: string, history: Array<{ role: string, content: string }>): Promise<string> {
+    async goalArchitect(userId: string, message: string, history: Array<{ role: MessageRole, content: string }>): Promise<string> {
         const historyText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
         const prompt = `You are a Goal Architect AI. Help the user operationalize ambitions into Goals.\nHistory: ${historyText}\nUSER: ${message}`;
         return await LLMService.generateText(prompt, { workflow: 'goal_architect', userId });
@@ -277,11 +186,6 @@ export class AgentService implements IAgentService {
     async getPersonaContext(userId: string): Promise<string> {
         const persona = await this.getPersona(userId);
         return `USER PERSONA SOURCE OF TRUTH:\n${persona.rawMarkdown}\nSummary: ${persona.summary}`;
-    }
-
-    async syncEntries(userId: string, entryId?: string): Promise<{ taskId: string }> {
-        const task = await this.createTask(userId, AgentTaskType.SYNC, { entryId });
-        return { taskId: task._id.toString() };
     }
 
     async syncPersona(userId: string, force: boolean = false): Promise<{ taskId: string }> {

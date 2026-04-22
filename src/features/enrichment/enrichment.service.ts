@@ -6,8 +6,10 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
 import { AGENT_CONSTANTS } from '../agent/agent.constants';
 import entityService from '../entity/entity.service';
+import tagService from '../tag/tag.service';
+import { CognitiveLoad, EnergyLevel, EntitySource, EntityType, InputMethod, ProcessingStatus, ProcessingStep, SignalTier, SourceType } from './enrichment.types';
+import { EntryType, EntryStatus } from '../entry/entry.types';
 import { Entry } from '../entry/entry.model';
-import entryService from '../entry/entry.service';
 import { NodeType } from '../graph/edge.model';
 import { PassiveSession } from '../web-activity/passive-session.model';
 import { WebActivity } from '../web-activity/web-activity.model';
@@ -15,7 +17,6 @@ import { calculateSessionSignificance, HEALING_BATCH_SIZE, HEALING_STALENESS_THR
 import { IEnrichmentService } from './enrichment.interfaces';
 import { ENRICHMENT_JOB_ACTIVE, ENRICHMENT_JOB_HEALING, ENRICHMENT_JOB_PASSIVE } from '../../core/queue/queue.constants';
 import { getEnrichmentHealingQueue, getEnrichmentQueue } from './enrichment.queue';
-import { ProcessingStep, SignalTier } from './enrichment.types';
 import { activeInterpreter } from './interpreters/active.interpreter';
 import { logInterpreter } from './interpreters/log.interpreter';
 import { noiseInterpreter } from './interpreters/noise.interpreter';
@@ -29,15 +30,15 @@ export class EnrichmentService implements IEnrichmentService {
             const queue = getEnrichmentQueue();
             await queue.add(ENRICHMENT_JOB_ACTIVE, {
                 userId,
-                sourceType: 'active',
+                sourceType: SourceType.ACTIVE,
                 sessionId,
                 referenceId: entryId,
                 signalTier: signalTier as any,
             });
             console.log('number of jobs: ', await queue.getJobCounts())
             // Set status to queued so UI can show it
-            await Entry.findByIdAndUpdate(entryId, { status: 'queued' }).catch(() => { });
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { _id: entryId, status: 'queued' });
+            await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.QUEUED }).catch(() => { });
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { _id: entryId, status: EntryStatus.QUEUED });
 
             logger.info(`Enrichment Service: Enqueued task for entry ${entryId}`);
         } catch (error) {
@@ -52,14 +53,14 @@ export class EnrichmentService implements IEnrichmentService {
             const queue = getEnrichmentHealingQueue();
             await queue.add(ENRICHMENT_JOB_HEALING, {
                 userId,
-                sourceType: 'active',
+                sourceType: SourceType.ACTIVE,
                 sessionId,
                 referenceId: entryId,
                 signalTier: signalTier as any,
             }, {
                 jobId: `healing:${entryId}`, // Deduplicate healing jobs for the same entry
             });
-            
+
             logger.info(`Enrichment Service: Enqueued HEALING task for entry ${entryId}`);
         } catch (error) {
             logger.error(`Enrichment Service: Failed to enqueue healing for ${entryId}`, error);
@@ -95,7 +96,7 @@ export class EnrichmentService implements IEnrichmentService {
             // FIX: jobId deduplicates — BullMQ silently ignores duplicate waiting/active jobs
             await queue.add(ENRICHMENT_JOB_PASSIVE, {
                 userId,
-                sourceType: 'passive',
+                sourceType: SourceType.PASSIVE,
                 sessionId,
             }, {
                 jobId: `passive:${userId}:${sessionId}`,
@@ -109,7 +110,7 @@ export class EnrichmentService implements IEnrichmentService {
     async processActiveEnrichment(userId: string, entryId: string, sessionId: string, signalTier?: SignalTier): Promise<void> {
         try {
             // FIX: idempotency guard — skip if already fully enriched (safe on BullMQ retries)
-            const alreadyCompleted = await EnrichedEntry.exists({ referenceId: new Types.ObjectId(entryId), processingStatus: 'completed', });
+            const alreadyCompleted = await EnrichedEntry.exists({ referenceId: new Types.ObjectId(entryId), processingStatus: ProcessingStatus.COMPLETED, });
             if (alreadyCompleted) {
                 logger.info(`Enrichment Service: Skipping already-completed active enrichment for ${entryId}`);
                 return;
@@ -126,7 +127,7 @@ export class EnrichmentService implements IEnrichmentService {
 
 
             // Update Entry to processing status
-            entry.status = 'processing';
+            entry.status = EntryStatus.PROCESSING;
             entry.metadata = {
                 ...entry.metadata,
                 processingStep: ProcessingStep.ANALYZING_INTENT
@@ -137,7 +138,7 @@ export class EnrichmentService implements IEnrichmentService {
             // Let the UI know the entry is being processed
             socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
                 _id: entryId,
-                status: 'processing',
+                status: EntryStatus.PROCESSING,
                 metadata: { processingStep: ProcessingStep.ANALYZING_INTENT },
                 signalTier: entry.signalTier,
             });
@@ -145,27 +146,27 @@ export class EnrichmentService implements IEnrichmentService {
             logger.info(`Enrichment Process [${entryId}]: Starting enrichment (Tier: ${entry.signalTier})`);
 
             // ─── TIER 0: NOISE ────────────────────────────────────────────────────
-            if (entry.signalTier === 'noise') {
+            if (entry.signalTier === SignalTier.NOISE) {
                 const { embedding } = await noiseInterpreter.process(entry.content);
 
                 await EnrichedEntry.findOneAndUpdate(
-                    { userId, sessionId, sourceType: 'active' },
+                    { userId, sessionId, sourceType: SourceType.ACTIVE },
                     {
                         $set: {
                             userId,
                             sessionId,
                             referenceId: entryId,
-                            sourceType: 'active',
-                            inputMethod: (entry as any).inputMethod || (entry.type === 'mixed' ? 'voice' : 'text'),
-                            processingStatus: 'noise',
-                            signalTier: 'noise',
+                            sourceType: SourceType.ACTIVE,
+                            inputMethod: (entry as any).inputMethod || (entry.type === EntryType.MIXED ? InputMethod.VOICE : InputMethod.TEXT),
+                            processingStatus: ProcessingStatus.NOISE,
+                            signalTier: SignalTier.NOISE,
                             metadata: {
                                 themes: [],
                                 emotions: [],
                                 entities: [],
                                 sentimentScore: 0,
-                                energyLevel: 'medium',
-                                cognitiveLoad: 'focused',
+                                energyLevel: EnergyLevel.MEDIUM,
+                                cognitiveLoad: CognitiveLoad.FOCUSED,
                             },
                             narrative: {
                                 signal: 'Noise entry (no enrichment)',
@@ -187,8 +188,7 @@ export class EnrichmentService implements IEnrichmentService {
                     { upsert: true }
                 );
 
-                // FIX: use { new: true } to avoid extra DB read
-                const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: 'completed' }, { new: true, lean: true });
+                const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true });
                 socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, completedEntry);
                 logger.info(`Noise entry processed for ${entryId}`);
                 return;
@@ -196,7 +196,7 @@ export class EnrichmentService implements IEnrichmentService {
 
             // ─── TIER 1: LOG / TIER 2+3: SIGNAL / DEEP SIGNAL ───────────────────
             let interpreterPromise: Promise<any>;
-            if (entry.signalTier === 'log') {
+            if (entry.signalTier === SignalTier.LOG) {
                 logger.debug(`Enrichment Process [${entryId}]: Using log interpreter`);
                 interpreterPromise = logInterpreter.process(entry.content);
             } else {
@@ -217,8 +217,8 @@ export class EnrichmentService implements IEnrichmentService {
 
             logger.info(`Enrichment Process [${entryId}]: Interpreter & Embeddings complete`);
 
-            if (entry.signalTier === 'deep_signal') {
-                result.extraction.flags.push('deep_signal');
+            if (entry.signalTier === SignalTier.DEEP_SIGNAL) {
+                result.extraction.flags.push(SignalTier.DEEP_SIGNAL);
             }
 
             // Phase: Entity Resolution
@@ -231,27 +231,47 @@ export class EnrichmentService implements IEnrichmentService {
 
             const resolvedEntities = await Promise.all(
                 (result.metadata.entities || [])
-                    .filter((ent: any) => ent.type === 'person')
+                    .filter((ent: any) => ent.type === EntityType.PERSON)
                     .map(async (ent: any) => {
-                    try {
-                        let otype = NodeType.ENTITY;
-                        if (ent.type === 'person') otype = NodeType.PERSON;
-                        else if (ent.type === 'organization') otype = NodeType.ORGANIZATION;
-                        else if (ent.type === 'project') otype = NodeType.PROJECT;
+                        try {
+                            let otype = NodeType.ENTITY;
+                            if (ent.type === EntityType.PERSON) otype = NodeType.PERSON;
+                            else if (ent.type === EntityType.ORGANIZATION) otype = NodeType.ORGANIZATION;
+                            else if (ent.type === EntityType.PROJECT) otype = NodeType.PROJECT;
 
-                        const entity = await entityService.findOrCreateEntity(userId, ent.name, otype as any);
-                        return {
-                            entityId: entity._id,
-                            name: ent.name,
-                            type: ent.type,
-                            confidence: ent.confidence,
-                            source: 'extracted' as const,
-                        };
-                    } catch {
-                        return { name: ent.name, type: ent.type, confidence: ent.confidence, source: 'extracted' as const };
-                    }
-                })
+                            const entity = await entityService.findOrCreateEntity(userId, ent.name, otype as any);
+                            return {
+                                entityId: entity._id,
+                                name: ent.name,
+                                type: ent.type,
+                                confidence: ent.confidence,
+                                source: EntitySource.EXTRACTED,
+                            };
+                        } catch {
+                            return { name: ent.name, type: ent.type, confidence: ent.confidence, source: EntitySource.EXTRACTED };
+                        }
+                    })
             );
+
+            // Phase: Tagging (Absorbed from Agent Module)
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.TAGGING },
+            });
+
+            logger.debug(`Enrichment Process [${entryId}]: Applying ${result.metadata.themes?.length || 0} tags`);
+            const themes = result.metadata.themes || [];
+            const tags = await Promise.all(
+                themes.map((theme: string) => tagService.findOrCreateTag(userId, theme))
+            );
+            const tagIds = tags.map(t => t._id);
+
+            // Update Entry with tags
+            entry.tags = tagIds as any;
+            await entry.save();
+
+            // Increment usage counts
+            await tagService.incrementUsage(userId, tagIds.map(id => id.toString()));
 
             // Phase: Storage
             socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
@@ -260,16 +280,16 @@ export class EnrichmentService implements IEnrichmentService {
             });
 
             await EnrichedEntry.findOneAndUpdate(
-                { userId, sessionId, sourceType: 'active' },
+                { userId, sessionId, sourceType: SourceType.ACTIVE },
                 {
                     $set: {
                         userId,
                         sessionId,
                         referenceId: entryId,
-                        sourceType: 'active',
+                        sourceType: SourceType.ACTIVE,
                         signalTier: entry.signalTier,
-                        inputMethod: (entry as any).inputMethod || (entry.type === 'mixed' ? 'voice' : 'text'),
-                        processingStatus: 'completed',
+                        inputMethod: (entry as any).inputMethod || (entry.type === EntryType.MIXED ? InputMethod.VOICE : InputMethod.TEXT),
+                        processingStatus: ProcessingStatus.COMPLETED,
                         metadata: {
                             ...result.metadata,
                             entities: resolvedEntities,
@@ -291,7 +311,7 @@ export class EnrichmentService implements IEnrichmentService {
             );
 
             // FIX: use { new: true } to skip the extra entryService.getEntryById() round-trip
-            const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: 'completed' }, { new: true, lean: true });
+            const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true });
             socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, completedEntry);
 
             logger.info(`Enrichment Process [${entryId}]: Enrichment fully complete for session ${sessionId}`);
@@ -303,7 +323,7 @@ export class EnrichmentService implements IEnrichmentService {
 
     async processPassiveEnrichment(userId: string, sessionId: string): Promise<void> {
         try {
-            const alreadyDone = await EnrichedEntry.exists({ userId, sessionId, sourceType: 'passive' });
+            const alreadyDone = await EnrichedEntry.exists({ userId, sessionId, sourceType: SourceType.PASSIVE });
             if (alreadyDone) {
                 logger.info(`Enrichment already completed for passive session ${sessionId}, skipping.`);
                 return;
@@ -327,17 +347,17 @@ export class EnrichmentService implements IEnrichmentService {
                 LLMService.generateEmbeddings(behavioralLog),
             ]);
 
-            const score = session.signalTier === 'deep_signal' ? 85 : session.signalTier === 'signal' ? 65 : 40;
+            const score = session.signalTier === SignalTier.DEEP_SIGNAL ? 85 : session.signalTier === SignalTier.SIGNAL ? 65 : 40;
 
             await EnrichedEntry.findOneAndUpdate(
-                { userId, sessionId, sourceType: 'passive' },
+                { userId, sessionId, sourceType: SourceType.PASSIVE },
                 {
                     $set: {
                         userId,
                         sessionId,
-                        sourceType: 'passive',
-                        inputMethod: 'system',
-                        processingStatus: 'completed',
+                        sourceType: SourceType.PASSIVE,
+                        inputMethod: InputMethod.SYSTEM,
+                        processingStatus: ProcessingStatus.COMPLETED,
                         metadata: result.metadata,
                         narrative: result.narrative,
                         extraction: {
@@ -356,7 +376,7 @@ export class EnrichmentService implements IEnrichmentService {
                 { upsert: true }
             );
 
-            const summary = await EnrichedEntry.findOne({ userId, sessionId, sourceType: 'passive' }).lean();
+            const summary = await EnrichedEntry.findOne({ userId, sessionId, sourceType: SourceType.PASSIVE }).lean();
             socketService.emitToUser(userId, SocketEvents.PASSIVE_SUMMARY_UPDATED, summary);
 
             logger.info(`Enrichment complete for passive session ${sessionId}`);
@@ -374,7 +394,7 @@ export class EnrichmentService implements IEnrichmentService {
             const stuckEntries = await Entry.find({
                 $or: [
                     { 'metadata.enrichmentPending': true },
-                    { status: { $in: ['capturing', 'processing', 'failed'] } }
+                    { status: { $in: [EntryStatus.PROCESSING, EntryStatus.FAILED] } }
                 ],
                 updatedAt: { $lt: oneHourAgo } // Only heal after a period of inactivity
             }).limit(limit);
@@ -386,7 +406,7 @@ export class EnrichmentService implements IEnrichmentService {
                         entry.userId.toString(),
                         entry._id.toString(),
                         entry.sessionId || '',
-                        entry.signalTier || 'signal'
+                        entry.signalTier || SignalTier.SIGNAL
                     );
                     // Clear the pending flag once re-enqueued
                     await Entry.findByIdAndUpdate(entry._id, { $unset: { 'metadata.enrichmentPending': "" } });
@@ -395,9 +415,9 @@ export class EnrichmentService implements IEnrichmentService {
 
             // ─── PHASE 2: INCOMPLETE ENRICHED ENTRIES ───────────────────
             const candidates = await EnrichedEntry.find({
-                signalTier: { $nin: ['noise', 'log'] },
+                signalTier: { $nin: [SignalTier.NOISE, SignalTier.LOG] },
                 $or: [
-                    { processingStatus: { $in: ['failed', 'pending'] } },
+                    { processingStatus: { $in: [ProcessingStatus.FAILED, ProcessingStatus.PENDING] } },
                     { 'narrative.coreThought': { $in: [null, ''] } },
                     { 'narrative.signal': { $in: [null, ''] } },
                     { 'metadata.themes': { $size: 0 } },
@@ -418,7 +438,7 @@ export class EnrichmentService implements IEnrichmentService {
                         enrichedEntry.healingAttempts += 1;
                         await enrichedEntry.save();
 
-                        if (enrichedEntry.sourceType === 'active' && enrichedEntry.referenceId) {
+                        if (enrichedEntry.sourceType === SourceType.ACTIVE && enrichedEntry.referenceId) {
                             logger.info(`Enrichment Healing: Re-enqueuing active entry ${enrichedEntry.referenceId}`);
                             await this.enqueueHealingEnrichment(
                                 enrichedEntry.userId.toString(),
@@ -426,7 +446,7 @@ export class EnrichmentService implements IEnrichmentService {
                                 enrichedEntry.sessionId,
                                 enrichedEntry.signalTier
                             );
-                        } else if (enrichedEntry.sourceType === 'passive') {
+                        } else if (enrichedEntry.sourceType === SourceType.PASSIVE) {
                             logger.info(`Enrichment Healing: Re-enqueuing passive session ${enrichedEntry.sessionId}`);
                             await this.enqueuePassiveEnrichment(
                                 enrichedEntry.userId.toString(),
@@ -455,15 +475,24 @@ export class EnrichmentService implements IEnrichmentService {
             : (error.message || 'Internal processing error');
 
         await Entry.findByIdAndUpdate(entryId, {
-            status: 'failed',
+            status: EntryStatus.FAILED,
             'metadata.error': errorMessage,
         }).catch(() => { });
 
         socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
             _id: entryId,
-            status: 'failed',
+            status: EntryStatus.FAILED,
             metadata: { error: errorMessage },
         });
+    }
+    async cleanText(userId: string, text: string): Promise<string> {
+        try {
+            const prompt = `Clean raw/fragmented text into polished format while preserving meaning, tone, tags, and mentions. Dont add any extra text/information. \nInput: "${text}"\nCleaned Text:`;
+            return (await LLMService.generateText(prompt, { workflow: 'text_cleaning', userId, temperature: 0.3 })).trim();
+        } catch (error) {
+            logger.error('Text cleaning failed', error);
+            return text;
+        }
     }
 }
 

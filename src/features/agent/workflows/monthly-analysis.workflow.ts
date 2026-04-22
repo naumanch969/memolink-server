@@ -6,7 +6,7 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
 import { ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 
 // ─── Output Schema ────────────────────────────────────────────────────────────
 
@@ -108,10 +108,10 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
         const { userId } = task;
         try {
             const result = await this.runMonthlyAnalysis(userId);
-            return { status: 'completed', result };
+            return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
             logger.error(`Monthly Analysis failed for user ${userId}`, error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 

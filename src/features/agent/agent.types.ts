@@ -10,7 +10,6 @@ export enum AgentTaskType {
     DAILY_BRIEFING = 'DAILY_BRIEFING',
     KNOWLEDGE_QUERY = 'KNOWLEDGE_QUERY',
     WEB_ACTIVITY_SUMMARY = 'WEB_ACTIVITY_SUMMARY',
-    ENTRY_ENRICHMENT = 'ENTRY_ENRICHMENT',
     SYNC = 'SYNC',
     PERSONA_SYNTHESIS = 'PERSONA_SYNTHESIS',
     MEMORY_FLUSH = 'MEMORY_FLUSH',
@@ -19,9 +18,6 @@ export enum AgentTaskType {
     COGNITIVE_CONSOLIDATION = 'COGNITIVE_CONSOLIDATION',
     WEEKLY_ANALYSIS = 'WEEKLY_ANALYSIS',
     MONTHLY_ANALYSIS = 'MONTHLY_ANALYSIS',
-    TAGGING = 'TAGGING',
-    ENTITY_EXTRACTION = 'ENTITY_EXTRACTION',
-    ENTRY_EMBEDDING = 'ENTRY_EMBEDDING',
     DAILY_REFLECTION = 'DAILY_REFLECTION',
 }
 
@@ -32,18 +28,21 @@ export enum AgentTaskStatus {
     FAILED = 'FAILED',
 }
 
+export enum WorkflowStatus {
+    COMPLETED = 'completed',
+    FAILED = 'failed',
+    PENDING = 'pending',
+}
+
+export enum MessageRole {
+    USER = 'user',
+    AGENT = 'agent',
+    SYSTEM = 'system',
+}
+
 /**
  * TASK DATA CONTRACTS
  */
-
-export interface EntryEnrichmentInput {
-    text: string;
-    entryId: string;
-    options?: {
-        timezone?: string;
-        source?: string;
-    };
-}
 
 export interface PersonaSynthesisInput {
     force?: boolean;
@@ -69,7 +68,6 @@ export interface ConsolidationInput {
 }
 
 export type AgentTaskInput =
-    | EntryEnrichmentInput
     | PersonaSynthesisInput
     | SyncInput
     | WebActivityInput
@@ -91,7 +89,7 @@ export interface IAgentTask {
 }
 
 export type AgentWorkflowResult = {
-    status: 'completed' | 'failed' | 'pending';
+    status: WorkflowStatus;
     result?: any;
     error?: string;
 };
@@ -99,7 +97,7 @@ export type AgentWorkflowResult = {
 export type AgentWorkflow = (task: IAgentTask) => Promise<AgentWorkflowResult>;
 
 export interface IChatMessage {
-    role: 'user' | 'agent' | 'system';
+    role: MessageRole;
     content: string;
     timestamp: number;
 }

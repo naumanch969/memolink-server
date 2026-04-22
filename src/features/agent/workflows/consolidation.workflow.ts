@@ -3,7 +3,7 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
 
@@ -31,14 +31,14 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
         const { entityId, userId } = (task.inputData as any) || {};
 
         if (!entityId || !userId) {
-            return { status: 'failed', error: 'entityId and userId are required' };
+            return { status: WorkflowStatus.FAILED, error: 'entityId and userId are required' };
         }
 
         try {
             // 1. Fetch Entity
             const entity = await entityService.getEntityById(entityId, userId);
             if (!entity.rawMarkdown || entity.rawMarkdown.length < 50) {
-                return { status: 'completed', result: { message: 'Not enough data to consolidate' } };
+                return { status: WorkflowStatus.COMPLETED, result: { message: 'Not enough data to consolidate' } };
             }
 
             // 2. Call LLM for Synthesis
@@ -72,7 +72,7 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
             logger.info(`EntityConsolidation: Successfully crunched narrative for "${entity.name}" (${entityId})`);
 
             return {
-                status: 'completed',
+                status: WorkflowStatus.COMPLETED,
                 result: {
                     previousSize: entity.rawMarkdown.length,
                     newSize: synthesis.rawMarkdown.length,
@@ -82,7 +82,7 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
 
         } catch (error: any) {
             logger.error(`EntityConsolidation: Workflow failed for entity ${entityId}`, error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 }
@@ -106,7 +106,7 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
 
             const recentMessages = history.slice(-messageCount);
             if (recentMessages.length < 3) {
-                return { status: 'completed', result: { message: 'Not enough new history to consolidate' } };
+                return { status: WorkflowStatus.COMPLETED, result: { message: 'Not enough new history to consolidate' } };
             }
 
             const historyText = recentMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
@@ -143,7 +143,7 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
             logger.info(`CognitiveConsolidation: Updated persona for user ${userId} based on ${recentMessages.length} messages.`);
 
             return {
-                status: 'completed',
+                status: WorkflowStatus.COMPLETED,
                 result: {
                     messagesAnalyzed: recentMessages.length,
                     factsFound: update.newFacts.length
@@ -152,7 +152,7 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
 
         } catch (error: any) {
             logger.error(`CognitiveConsolidation: Workflow failed for user ${userId}`, error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 }

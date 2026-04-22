@@ -1,20 +1,30 @@
 import { Document, Types } from 'mongoose';
 import { z } from 'zod';
 import { BaseEntity } from '../../shared/types';
+import { 
+    SignalTier, 
+    SourceType, 
+    InputMethod, 
+    ProcessingStatus, 
+    EnergyLevel, 
+    CognitiveLoad, 
+    ProcessingStep, 
+    EntityType, 
+    EntitySource 
+} from './enrichment.enums';
 import { ENRICHMENT_TAXONOMY } from './enrichment.constants';
 
-export type SignalTier = 'noise' | 'log' | 'signal' | 'deep_signal';
-export type SourceType = 'active' | 'passive';
-export type InputMethod = 'text' | 'voice' | 'whatsapp' | 'system';
-export type ProcessingStatus = 'pending' | 'completed' | 'failed' | 'noise';
-export type EnergyLevel = 'low' | 'medium' | 'high';
-export type CognitiveLoad = 'focused' | 'scattered' | 'ruminating';
-export enum ProcessingStep {
-    ANALYZING_INTENT = 'analyzing_intent',
-    INDEXING = 'indexing',
-    RESOLVING_ENTITIES = 'resolving_entities',
-    STORING_MEMORY = 'storing_memory'
-}
+export {
+    SignalTier,
+    SourceType,
+    InputMethod,
+    ProcessingStatus,
+    EnergyLevel,
+    CognitiveLoad,
+    ProcessingStep,
+    EntityType,
+    EntitySource
+};
 
 // --- Zod Schemas (Source of Truth) ---
 
@@ -27,13 +37,13 @@ export const EnrichmentMetadataSchema = z.object({
     entities: z.array(z.object({
         entityId: z.any().optional(), // In-memory/DB ID
         name: z.string(),
-        type: z.enum(['person', 'place', 'concept', 'project', 'organization']),
+        type: z.nativeEnum(EntityType),
         confidence: z.number().min(0).max(1),
-        source: z.enum(['user', 'extracted'])
+        source: z.nativeEnum(EntitySource)
     })),
     sentimentScore: z.number().min(-1).max(1),
-    energyLevel: z.enum(['low', 'medium', 'high']),
-    cognitiveLoad: z.enum(['focused', 'scattered', 'ruminating']),
+    energyLevel: z.nativeEnum(EnergyLevel),
+    cognitiveLoad: z.nativeEnum(CognitiveLoad),
 });
 
 export const EnrichmentNarrativeSchema = z.object({

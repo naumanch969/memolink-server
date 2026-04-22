@@ -5,7 +5,8 @@ import { tagService } from '../../tag/tag.service';
 import { PassiveSession } from '../../web-activity/passive-session.model';
 import { WebActivity } from '../../web-activity/web-activity.model';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { EntryType } from '../../entry/entry.types';
 
 export class WebActivityWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.WEB_ACTIVITY_SUMMARY;
@@ -15,7 +16,7 @@ export class WebActivityWorkflow implements IAgentWorkflow {
         const { date } = (inputData as any) || {};
 
         if (!date) {
-            return { status: 'failed', error: 'Missing date in inputData' };
+            return { status: WorkflowStatus.FAILED, error: 'Missing date in inputData' };
         }
 
         try {
@@ -25,7 +26,7 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             const activity = await WebActivity.findOne({ userId, date });
             if (!activity || activity.totalSeconds === 0) {
                 logger.info(`No activity to summarize for user ${userId} on ${date}`);
-                return { status: 'completed', result: { skipped: true, reason: 'no_activity' } };
+                return { status: WorkflowStatus.COMPLETED, result: { skipped: true, reason: 'no_activity' } };
             }
 
             // 2. Fetch PassiveSessions for deeper cognitive insights
@@ -91,7 +92,7 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             // 5. Create Journal Entry
             await entryService.createEntry(userId, {
                 content: summary,
-                type: 'text',
+                type: EntryType.TEXT,
                 date: new Date(date),
                 tags: [tag1._id.toString(), tag2._id.toString()],
                 isPrivate: true,
@@ -112,11 +113,11 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             activity.summaryCreated = true;
             await activity.save();
 
-            return { status: 'completed', result: { summaryCreated: true } };
+            return { status: WorkflowStatus.COMPLETED, result: { summaryCreated: true } };
 
         } catch (error: any) {
             logger.error(`Web activity summary failed for user ${userId}`, error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 }

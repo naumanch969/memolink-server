@@ -4,7 +4,7 @@ import { logger } from '../../../config/logger';
 import { redisConnection } from '../../../config/redis';
 import { AGENT_CONSTANTS } from '../agent.constants';
 import { IAgentMemoryService } from '../agent.interfaces';
-import { IChatMessage } from "../agent.types";
+import { IChatMessage, MessageRole } from "../agent.types";
 import { ChatMemory } from './agent.memory.model';
 
 export class AgentMemory implements IAgentMemoryService {
@@ -14,7 +14,7 @@ export class AgentMemory implements IAgentMemoryService {
     }
 
     // Add a message to the user's short-term memory
-    async addMessage(userId: string | Types.ObjectId, role: 'user' | 'agent' | 'system', content: string): Promise<void> {
+    async addMessage(userId: string | Types.ObjectId, role: MessageRole, content: string): Promise<void> {
         const key = this.getKey(userId);
         const message: IChatMessage = { role, content, timestamp: Date.now() };
 

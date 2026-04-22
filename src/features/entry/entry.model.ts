@@ -1,7 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 import { ENTRY_TYPES } from '../../shared/constants';
 import '../media/media.model';
-import { IEntry } from './entry.types';
+import { IEntry, EntryStatus, EntryType } from './entry.types';
+import { InputMethod, SignalTier } from '../enrichment/enrichment.types';
 
 const entrySchema = new Schema<IEntry>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: [true, 'User ID is required'], index: true, },
@@ -10,7 +11,7 @@ const entrySchema = new Schema<IEntry>({
     maxlength: [10000000, 'Content cannot exceed 10000000 characters'],
     default: ''
   },
-  type: { type: String, enum: Object.values(ENTRY_TYPES), default: ENTRY_TYPES.TEXT, },
+  type: { type: String, enum: Object.values(EntryType), default: EntryType.TEXT, },
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag', }],
   media: [{ type: Schema.Types.ObjectId, ref: 'Media', }],
   collectionId: { type: Schema.Types.ObjectId, ref: 'Collection' },
@@ -28,10 +29,10 @@ const entrySchema = new Schema<IEntry>({
   endTime: { type: String, trim: true, },
   isMultiDay: { type: Boolean, default: false, },
   isEdited: { type: Boolean, default: false, },
-  inputMethod: { type: String, enum: ['text', 'voice', 'whatsapp', 'system'], default: 'text' },
+  inputMethod: { type: String, enum: Object.values(InputMethod), default: InputMethod.TEXT },
   sessionId: { type: String, index: true },
-  status: { type: String, enum: ['ready', 'processing', 'failed', 'capturing', 'completed', 'queued'], default: 'ready', index: true },
-  signalTier: { type: String, enum: ['noise', 'log', 'signal', 'deep_signal'], index: true },
+  status: { type: String, enum: Object.values(EntryStatus), default: EntryStatus.QUEUED, index: true },
+  signalTier: { type: String, enum: Object.values(SignalTier), index: true },
   metadata: { type: Object, default: {} },
 }, {
   timestamps: true,
@@ -62,9 +63,9 @@ entrySchema.virtual('wordCount').get(function () {
 entrySchema.pre('save', function (this: any, next) {
   // Auto-detect entry type based on content
   if (this.media && this.media.length > 0) {
-    this.type = this.content.trim() ? ENTRY_TYPES.MIXED : ENTRY_TYPES.MEDIA;
+    this.type = this.content.trim() ? EntryType.MIXED : EntryType.MEDIA;
   } else {
-    this.type = ENTRY_TYPES.TEXT;
+    this.type = EntryType.TEXT;
   }
 
   next();

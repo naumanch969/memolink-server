@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { SignalTier } from '../enrichment/enrichment.types';
+import { SignalTier, SourceType } from '../enrichment/enrichment.types';
 import { ActivityDefinitions } from './activity-definitions.model';
 import { PassiveSession } from './passive-session.model';
 import { WebActivityEvent } from './web-activity.types';
@@ -155,7 +155,7 @@ export class PassiveAnalysisService {
                         'process-passive-enrichment',
                         {
                             userId: userId,
-                            sourceType: 'passive',
+                            sourceType: SourceType.PASSIVE,
                             sessionId: session._id.toString(),
                             signalTier: signalTier
                         },
@@ -201,7 +201,7 @@ export class PassiveAnalysisService {
 
         // Noise: Less than 10 mins of scattered activity. Nothing interesting.
         if (totalMinutes < 10) {
-            return 'noise';
+            return SignalTier.NOISE;
         }
 
         // Signal: Extremely long flow (Deep work) OR high erratic behavior (Doomscroll/Distraction loop)
@@ -209,11 +209,11 @@ export class PassiveAnalysisService {
 
         if (flowMinutes > SUBSTANTIAL_FLOW_MINUTES || (primaryCategory === 'distracting' && highSwitchRate)) {
             // Flow state OR Doomscrolling loop are important psychological signals.
-            return 'signal';
+            return SignalTier.SIGNAL;
         }
 
         // Log: Medium activity, standard day-to-day operations
-        return 'log';
+        return SignalTier.LOG;
     }
 }
 

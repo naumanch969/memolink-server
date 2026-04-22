@@ -1,7 +1,7 @@
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { ENRICHMENT_TAXONOMY, SYSTEM_PERSONAS } from '../enrichment.constants';
-import { EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
+import { CognitiveLoad, EnergyLevel, EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
 export class PassiveInterpreter implements IEnrichmentInterpreter<string, IEnrichmentResult> {
     async process(logs: string): Promise<IEnrichmentResult> {
@@ -13,8 +13,8 @@ Behavioral Logs:
 Valid themes (use ONLY these, max 3): ${ENRICHMENT_TAXONOMY.join(', ')}
 
 ### EXTRACTION RULES:
-- **energyLevel**: Choose EXACTLY ONE of: "low", "medium", "high".
-- **cognitiveLoad**: Choose EXACTLY ONE of: "focused", "scattered", "ruminating".
+- **energyLevel**: Choose EXACTLY ONE of: ${Object.values(EnergyLevel).map(v => `"${v}"`).join(', ')}.
+- **cognitiveLoad**: Choose EXACTLY ONE of: ${Object.values(CognitiveLoad).map(v => `"${v}"`).join(', ')}.
 
 ### INFERENCE DISCIPLINE:
 - **Do not hallucinate specific thoughts.**
@@ -32,8 +32,8 @@ Respond with ONLY a JSON object in this structure:
     "emotions": [{ "label": "neutral", "intensity": 1.0 }],
     "entities": [],
     "sentimentScore": 0,
-    "energyLevel": "high",
-    "cognitiveLoad": "focused"
+    "energyLevel": "${EnergyLevel.HIGH}",
+    "cognitiveLoad": "${CognitiveLoad.FOCUSED}"
   },
   "narrative": {
     "signal": "Psychological/Behavioral summary (3-5 sentences).",

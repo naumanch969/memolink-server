@@ -1,90 +1,12 @@
 import { Response } from 'express';
 import { logger } from '../../config/logger';
-import { socketService } from '../../core/socket/socket.service';
-import { SocketEvents } from '../../core/socket/socket.types';
 import { ResponseHelper } from '../../core/utils/response.utils';
-import { ENTRY_TYPES } from '../../shared/constants';
 import DateUtil from '../../shared/utils/date.utils';
-import { MongoUtil } from '../../shared/utils/mongo.utils';
-import { AgentTaskType } from '../agent/agent.types';
-import agentService from '../agent/services/agent.service';
 import { AuthenticatedRequest } from '../auth/auth.types';
-import { HEALING_STALENESS_THRESHOLD_MS } from '../enrichment/enrichment.constants';
 import { enrichmentService } from '../enrichment/enrichment.service';
-import { tagService } from '../tag/tag.service';
 import { entryService } from './entry.service';
 
-import { entryClassifier } from '../enrichment/enrichment.classifier';
-
 export class EntryController {
-  // Create new entry
-  static async createEntry(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { content, tags, metadata, type } = req.body;
-      const userId = req.user!._id.toString();
-
-      // 2. PROCESS TAGS (Resolve strings to IDs)
-      const explicitTags = tags || [];
-      const tagIds: string[] = [];
-      for (const tagIdentifier of explicitTags) {
-        if (MongoUtil.isValidObjectId(tagIdentifier)) {
-          tagIds.push(tagIdentifier);
-        } else {
-          const tag = await tagService.findOrCreateTag(userId, tagIdentifier);
-          tagIds.push(tag._id.toString());
-        }
-      }
-
-      // Classify signal tier
-      const isMediaOrVoice = type === 'media' || type === 'voice' || metadata?.isVoice;
-      const { tier } = entryClassifier.classify(content || '', req.body.isImportant ?? false, isMediaOrVoice);
-
-      // 3. DETERMINE AI NEEDS
-      const needsAI = req.body.status === 'processing' || (content && (content.length > 20 || type === ENTRY_TYPES.MEDIA));
-
-      // 4. CREATE ENTRY VIA SERVICE
-      const entry = await entryService.createEntry(userId, {
-        ...req.body,
-        tags: tagIds,
-        status: needsAI ? 'processing' : 'ready',
-        signalTier: tier
-      });
-
-      // 5. POST-CREATE SIDE EFFECTS (Fire and forget | background tasks)
-      // Update Tag Usage
-      if (explicitTags.length > 0) {
-        tagService.incrementUsage(userId, explicitTags).catch(e => logger.error('Tag usage increment failed', e));
-      }
-
-      // TRIGGER ACTIVE ENRICHMENT
-      if (needsAI) {
-        const dateForSession = (entry as any).createdAt || entry.date || new Date();
-        const sessionId = DateUtil.getSessionId(dateForSession);
-
-        enrichmentService.enqueueActiveEnrichment(
-          userId,
-          entry._id.toString(),
-          sessionId,
-          tier
-        ).catch(async (err) => {
-          logger.error('Failed to enqueue enrichment', err);
-          const failedEntry = await entryService.updateEntry(entry._id.toString(), userId, {
-            status: 'failed',
-            metadata: { ...entry.metadata, error: 'Failed to enqueue AI task' }
-          });
-          socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, failedEntry);
-        });
-      }
-
-      // 6. EMIT CREATION EVENT
-      socketService.emitToUser(userId, SocketEvents.ENTRY_CREATED, entry);
-
-      ResponseHelper.created(res, entry, 'Entry created successfully');
-    } catch (error) {
-      logger.error('Entry creation controller failed:', error);
-      ResponseHelper.error(res, 'Failed to create entry', 500, error);
-    }
-  }
 
   // Get user entries with pagination and filtering
   static async getUserEntries(req: AuthenticatedRequest, res: Response) {
@@ -202,16 +124,6 @@ export class EntryController {
         ResponseHelper.notFound(res, 'Entry not found');
         return;
       }
-
-      const createdAtTime = (entry as any).createdAt ? new Date((entry as any).createdAt).getTime() : new Date(entry.date).getTime();
-
-      // TODO: this check is removed for MVP
-      // const isOldEnough = Date.now() - createdAtTime >= HEALING_STALENESS_THRESHOLD_MS;
-
-      // if (!isOldEnough) {
-      //   ResponseHelper.badRequest(res, 'Entry must be at least one hour old to retry enrichment.');
-      //   return;
-      // }
 
       let sessionId = entry.sessionId;
       if (!sessionId) {

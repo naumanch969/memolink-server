@@ -3,7 +3,7 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import Entry from '../../entry/entry.model';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 import { UserPersona } from '../memory/persona.model';
 
 const PersonaSynthesisSchema = z.object({
@@ -27,7 +27,7 @@ export class PersonaWorkflow implements IAgentWorkflow {
 
             if (!entries || entries.length === 0) {
                 logger.info(`No entries found for user ${userId}, synthesis skipping.`);
-                return { status: 'completed', result: { note: 'No data to synthesize' } };
+                return { status: WorkflowStatus.COMPLETED, result: { note: 'No data to synthesize' } };
             }
 
             const entriesText = entries
@@ -84,11 +84,11 @@ export class PersonaWorkflow implements IAgentWorkflow {
             }
 
             logger.info(`Persona document updated for user ${userId}`);
-            return { status: 'completed', result: synthesis };
+            return { status: WorkflowStatus.COMPLETED, result: synthesis };
 
         } catch (error: any) {
             logger.error(`Persona synthesis failed for user ${userId}`, error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 }

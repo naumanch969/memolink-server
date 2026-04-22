@@ -8,6 +8,7 @@ export interface IMediaService {
   getUserMedia(userId: string, options?: any): Promise<{ media: IMedia[]; total: number; page: number; limit: number; totalPages: number; }>;
   updateMedia(mediaId: string, userId: string, updateData: UpdateMediaRequest): Promise<IMedia>;
   deleteMedia(mediaId: string, userId: string): Promise<void>;
+  getMediaBuffer(mediaId: string, userId: string): Promise<{ buffer: Buffer; mimeType: string }>;
   deleteUserData(userId: string): Promise<number>;
 }
 

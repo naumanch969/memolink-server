@@ -7,4 +7,5 @@ export interface IEnrichmentService {
     processActiveEnrichment(userId: string, entryId: string, sessionId: string, signalTier?: SignalTier): Promise<void>;
     processPassiveEnrichment(userId: string, sessionId: string): Promise<void>;
     runEnrichmentHealingBatch(limit?: number): Promise<void>;
+    cleanText(userId: string, text: string): Promise<string>;
 }

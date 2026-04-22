@@ -4,7 +4,7 @@ import { logger } from '../../../../config/logger';
 import { CacheKeys } from '../../../../core/cache/cache.keys';
 import cacheService from '../../../../core/cache/cache.service';
 import { audioTranscriptionService } from '../../../agent/services/agent.audio.service';
-import { agentService } from '../../../agent/services/agent.service';
+import { captureService } from '../../../capture/capture.service';
 import { User } from '../../../auth/auth.model';
 import { Notification } from '../../../notification/notification.model';
 import { socketService } from '../../../../core/socket/socket.service';
@@ -129,15 +129,16 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         }
     }
 
-    private async handleTextMessage(userId: string, from: string, text: string, fromId?: string) {
-        const result = await agentService.processNaturalLanguage(userId, text, { source: 'whatsapp' });
-
-        if (result.summary) {
-            await this.sendMessage(from, result.summary, fromId);
-        }
+    private async handleTextMessage(userId: string, from: string, text: string, _fromId?: string) {
+        await captureService.captureWhatsApp(userId, {
+            from,
+            body: text,
+            isVoice: false,
+            timestamp: new Date()
+        });
     }
 
-    private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string, fromId?: string) {
+    private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string, _fromId?: string) {
         logger.info('Processing WhatsApp audio', { mediaId, userId });
 
         const audioBuffer = await this.downloadMedia(mediaId);
@@ -150,19 +151,13 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             return;
         }
 
-        // 2. Process through the normal NL intent pipeline
-        const result = await agentService.processNaturalLanguage(
-            userId,
-            transcription.text,
-            {
-                source: 'whatsapp',
-                audioDetected: true
-            }
-        );
-
-        if (result.summary) {
-            await this.sendMessage(from, result.summary, fromId);
-        }
+        // 2. Capture through CaptureService
+        await captureService.captureWhatsApp(userId, {
+            from,
+            body: transcription.text,
+            isVoice: true,
+            timestamp: new Date()
+        });
     }
 
     // Downloads media from WhatsApp Cloud API

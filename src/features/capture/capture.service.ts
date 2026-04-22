@@ -5,8 +5,9 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
 import { entryClassifier } from '../enrichment/enrichment.classifier';
 import { enrichmentService } from '../enrichment/enrichment.service';
+import { InputMethod } from '../enrichment/enrichment.types';
 import entryService from '../entry/entry.service';
-import { CreateEntryRequest, IEntry } from '../entry/entry.types';
+import { CreateEntryRequest, IEntry, EntryStatus, EntryType } from '../entry/entry.types';
 import webActivityService from '../web-activity/web-activity.service';
 import { ActivitySyncBatch } from '../web-activity/web-activity.types';
 import { ICapturePayload, ICaptureService, WhatsAppPayload } from './capture.interfaces';
@@ -15,15 +16,15 @@ export class CaptureService implements ICaptureService {
 
     // 1. ACTIVE: Text/Voice/Manual Entry
     async captureEntry(userId: string, payload: ICapturePayload): Promise<IEntry> {
+        
         const entryDate = payload.date ? new Date(payload.date) : new Date();
         const sessionId = DateUtil.getSessionId(entryDate);
         const content = payload.content || '';
 
-
         // Determine input method
         const isMediaOrVoice = payload.type === 'media' || payload.type === 'voice' || payload.metadata?.isVoice;
-        const method = isMediaOrVoice ? 'voice' : 'text';
-        const inputMethodValue = payload.metadata?.source === 'whatsapp' ? 'whatsapp' : method;
+        const method = isMediaOrVoice ? InputMethod.VOICE : InputMethod.TEXT;
+        const inputMethodValue = payload.metadata?.source === 'whatsapp' ? InputMethod.WHATSAPP : method;
 
         // Classify signal tier
         const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice); // noise, log, signal, deep_signal
@@ -31,8 +32,8 @@ export class CaptureService implements ICaptureService {
         // Create Entry synchronously
         const entryData: CreateEntryRequest = {
             content: content,
-            status: 'capturing',
-            type: method === 'voice' ? 'mixed' : 'text',
+            status: EntryStatus.QUEUED,
+            type: method === InputMethod.VOICE ? EntryType.MEDIA : EntryType.TEXT,
             inputMethod: inputMethodValue,
             date: entryDate,
             startDate: payload.startDate ? new Date(payload.startDate) : undefined,
@@ -62,7 +63,7 @@ export class CaptureService implements ICaptureService {
         const entry = await entryService.createEntry(userId, entryData);
         console.log('entry', entry)
         // Inform client immediately
-        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { ...entry, signalTier: tier });
+        socketService.emitToUser(userId, SocketEvents.ENTRY_CREATED, { ...entry, signalTier: tier });
 
         // Queue enrichment asynchronously with tier information
         await enrichmentService.enqueueActiveEnrichment(userId, entry._id.toString(), sessionId, tier);

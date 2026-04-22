@@ -1,121 +1,52 @@
-import axios from 'axios';
-import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
-import { socketService } from '../../core/socket/socket.service';
-import { SocketEvents } from '../../core/socket/socket.types';
-import { Entry } from './entry.model';
-import { config } from '../../config/env';
-
-const GEMINI_API_KEY = config.GEMINI_API_KEY;
-const GEMINI_AUDIO_MODEL = 'gemini-1.5-flash';
-
-async function downloadAsBase64(url: string): Promise<{ base64: string; mimeType: string }> {
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
-    const base64 = Buffer.from(response.data).toString('base64');
-    const mimeType = (response.headers['content-type'] as string) || 'audio/webm';
-    return { base64, mimeType };
-}
-
-async function callGeminiAudio(base64: string, mimeType: string): Promise<string> {
-    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
-
-    const body = {
-        contents: [{
-            parts: [
-                {
-                    inlineData: {
-                        mimeType,
-                        data: base64,
-                    },
-                },
-                {
-                    text: 'Please transcribe this audio recording accurately. Output only the transcribed text, no labels, no timestamps.',
-                },
-            ],
-        }],
-    };
-
-    const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_AUDIO_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        body,
-        { headers: { 'Content-Type': 'application/json' } }
-    );
-
-    const text: string = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return text.trim();
-}
+import { mediaService } from '../media/media.service';
+import { audioTranscriptionService } from '../agent/services/agent.audio.service';
+import entryService from './entry.service';
+import { EntryStatus } from './entry.types';
 
 /**
- * Transcribes all audio media in an entry and patches the entry content.
- * Fire-and-forget: errors are logged but do not propagate.
+ * Wrapper for audio transcription on an Entry
  */
 export async function transcribeAudioEntry(entryId: string, userId: string): Promise<void> {
     try {
-        const entry = await Entry.findOne({
-            _id: new Types.ObjectId(entryId),
-            userId: new Types.ObjectId(userId),
-        }).populate('media');
+        const entry = await entryService.getEntryById(entryId, userId);
+        const audioMedia = (entry.media as any[]).find((m: any) => m?.type === 'audio');
 
-        if (!entry) {
-            logger.warn('transcribeAudioEntry: entry not found', { entryId });
+        if (!audioMedia) {
+            logger.warn(`No audio media found for entry ${entryId}`);
             return;
         }
 
-        const audioMedia = (entry.media as any[]).filter(
-            (m: any) => m?.type === 'audio' && m?.url
-        );
+        // Fetch audio buffer
+        const { buffer, mimeType } = await mediaService.getMediaBuffer(audioMedia._id.toString(), userId);
 
-        if (audioMedia.length === 0) {
-            logger.info('transcribeAudioEntry: no audio media found, skipping', { entryId });
-            return;
-        }
+        // Transcribe
+        const { text } = await audioTranscriptionService.transcribe(buffer, mimeType, { userId });
 
-        // Transcribe all audio files and join results
-        const transcripts: string[] = [];
-        for (const media of audioMedia) {
-            try {
-                const { base64, mimeType } = await downloadAsBase64(media.url);
-                const transcript = await callGeminiAudio(base64, mimeType);
-                if (transcript) transcripts.push(transcript);
-            } catch (err) {
-                logger.warn('transcribeAudioEntry: failed to transcribe one audio', { mediaId: media._id, err });
-            }
-        }
-
-        if (transcripts.length === 0) {
-            // Mark as failed so UI doesn't spin forever
-            await Entry.findByIdAndUpdate(entryId, { status: 'failed' });
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                status: 'failed',
+        if (text) {
+            // Update entry with transcribed text
+            await entryService.updateEntry(entryId, userId, {
+                content: entry.content ? `${entry.content}\n\n[Transcribed]: ${text}` : text,
+                metadata: {
+                    ...entry.metadata,
+                    transcribed: true,
+                    originalAudioId: audioMedia._id
+                }
             });
-            return;
+
+            logger.info(`Entry ${entryId} audio transcribed and updated`);
         }
-
-        const finalContent = [entry.content, ...transcripts].filter(Boolean).join('\n\n').trim();
-
-        const updated = await Entry.findByIdAndUpdate(
-            entryId,
-            { content: finalContent, status: 'ready', aiProcessed: true },
-            { new: true }
-        ).populate(['mentions', 'tags', 'media', 'collectionId']).lean();
-
-        // Push live update to client
-        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
-
-        logger.info('transcribeAudioEntry: completed', { entryId, charCount: finalContent.length });
     } catch (error) {
-        logger.error('transcribeAudioEntry: unhandled error', { entryId, error });
-
-        // Best-effort: mark failed so the UI doesn't stay in processing state
+        logger.error(`Failed to transcribe entry ${entryId}:`, error);
+        
+        // Mark as failed if it was in capturing/processing
         try {
-            await Entry.findByIdAndUpdate(entryId, { status: 'failed' });
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                status: 'failed',
+            await entryService.updateEntry(entryId, userId, {
+                status: EntryStatus.FAILED,
+                metadata: { error: 'Audio transcription failed' }
             });
-        } catch {
-            logger.error('transcribeAudioEntry: failed to update entry status', { entryId, error });
-         }
+        } catch (e) {
+            // ignore
+        }
     }
 }

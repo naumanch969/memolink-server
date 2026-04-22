@@ -12,23 +12,17 @@ class LLMServiceClass implements ILLMService {
         this.provider = new GeminiProvider();
     }
 
-    /**
-     * Generate raw text from a prompt
-     */
+    // Generate raw text from a prompt
     async generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string> {
         return this.provider.generateText(prompt, options);
     }
 
-    /**
-     * Generate structured data matching a Zod schema
-     */
+    // Generate structured data matching a Zod schema
     async generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T> {
         return this.provider.generateJSON(prompt, schema, options);
     }
 
-    /**
-     * Generate content allowing for tool usage (function calling)
-     */
+    // Generate content allowing for tool usage (function calling)
     async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
         if (!this.provider.generateWithTools) {
             throw new Error(`Current provider ${this.provider.name} does not support tools`);
@@ -36,9 +30,7 @@ class LLMServiceClass implements ILLMService {
         return this.provider.generateWithTools(prompt, options);
     }
 
-    /**
-     * Generate content as a stream of text chunks
-     */
+    // Generate content as a stream of text chunks
     async generateStream(prompt: string, options?: LLMGenerativeOptions): Promise<AsyncIterable<string>> {
         if (!this.provider.generateStream) {
             throw new Error(`Current provider ${this.provider.name} does not support streaming`);
@@ -46,6 +38,7 @@ class LLMServiceClass implements ILLMService {
         return this.provider.generateStream(prompt, options);
     }
 
+    // Generate vector embeddings
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {
         try {
             if (!this.provider.generateEmbeddings) {

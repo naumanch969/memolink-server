@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { AgentTaskType } from './agent.types';
-import { audioTranscriptionService } from './services/agent.audio.service';
 import { agentService } from './services/agent.service';
 
 export class AgentController {
@@ -55,84 +54,7 @@ export class AgentController {
         }
     }
 
-    static async processNaturalLanguage(req: Request, res: Response): Promise<void> {
-        try {
-            const { text, tags, timezone } = req.body;
-            const userId = (req as any).user._id;
 
-            if (!text) {
-                ResponseHelper.badRequest(res, 'Text input is required');
-                return;
-            }
-
-            const processingResult = await agentService.processNaturalLanguage(userId, text, { tags, timezone });
-
-            console.log('processingResult', processingResult)
-
-            ResponseHelper.success(res, {
-                task: processingResult.tasks[0],
-                data: processingResult.result
-            }, 'Processed');
-        } catch (error) {
-            logger.error('Error processing natural language', error);
-            ResponseHelper.error(res, 'Error processing natural language', 500, error);
-        }
-    }
-
-    /**
-     * POST /agents/intent/audio
-     * Accepts audio file upload, transcribes it, then runs through intent processing
-     */
-    static async processAudioIntent(req: Request, res: Response): Promise<void> {
-        try {
-            const userId = (req as any).user._id;
-            const file = req.file;
-
-            if (!file) {
-                ResponseHelper.badRequest(res, 'Audio file is required');
-                return;
-            }
-
-            const tags = req.body.tags ? (typeof req.body.tags === 'string' ? JSON.parse(req.body.tags) : req.body.tags) : [];
-            const timezone = req.body.timezone || undefined;
-
-            // 1. Transcribe the audio
-            logger.info('Starting audio transcription', { userId, mimeType: file.mimetype, size: file.size });
-            const transcription = await audioTranscriptionService.transcribe(file.buffer, file.mimetype, { userId });
-
-            if (!transcription.text) {
-                ResponseHelper.success(res, {
-                    transcription: '',
-                    confidence: 'low',
-                    intent: null,
-                    task: null,
-                    data: null,
-                }, 'Audio was empty or inaudible');
-                return;
-            }
-
-            // 2. Process through the normal NL intent pipeline
-            const processingResult = await agentService.processNaturalLanguage(
-                userId,
-                transcription.text,
-                {
-                    tags,
-                    timezone,
-                    source: 'audio',
-                }
-            );
-
-            ResponseHelper.success(res, {
-                transcription: transcription.text,
-                confidence: transcription.confidence,
-                task: processingResult.tasks[0],
-                data: processingResult.result,
-            }, 'Audio processed');
-        } catch (error) {
-            logger.error('Error processing audio intent', error);
-            ResponseHelper.error(res, 'Error processing audio intent', 500, error);
-        }
-    }
 
     static async chat(req: Request, res: Response): Promise<void> {
         try {
@@ -203,27 +125,15 @@ export class AgentController {
         }
     }
 
-    /**
-     * Unified sync endpoint.
-     * Use POST /agent/sync?type=persona for persona sync
-     * Use POST /agent/sync for entry enhancement
-     */
-    static async syncLibrary(req: Request, res: Response): Promise<void> {
+    static async syncPersona(req: Request, res: Response): Promise<void> {
         try {
             const userId = (req as any).user._id;
-            const { entryId, force } = req.body;
-            const type = req.query.type as string;
-
-            if (type === 'persona') {
-                const result = await agentService.syncPersona(userId, force);
-                ResponseHelper.success(res, result, 'Persona sync task enqueued');
-            } else {
-                const result = await agentService.syncEntries(userId, entryId);
-                ResponseHelper.success(res, result, 'Library enrichment tasks enqueued');
-            }
+            const { force } = req.body;
+            const result = await agentService.syncPersona(userId, force);
+            ResponseHelper.success(res, result, 'Persona sync task enqueued');
         } catch (error) {
-            logger.error('Error syncing library', error);
-            ResponseHelper.error(res, 'Error syncing library', 500, error);
+            logger.error('Error syncing persona', error);
+            ResponseHelper.error(res, 'Error syncing persona', 500, error);
         }
     }
 
@@ -238,22 +148,5 @@ export class AgentController {
         }
     }
 
-    static async cleanText(req: Request, res: Response): Promise<void> {
-        try {
-            const { text } = req.body;
-            const userId = (req as any).user._id;
-
-            if (!text) {
-                ResponseHelper.badRequest(res, 'Text is required');
-                return;
-            }
-
-            const cleanedText = await agentService.cleanText(userId, text);
-            ResponseHelper.success(res, { cleanedText }, 'Text cleaned successfully');
-        } catch (error) {
-            logger.error('Error cleaning text', error);
-            ResponseHelper.error(res, 'Error cleaning text', 500, error);
-        }
-    }
 }
 

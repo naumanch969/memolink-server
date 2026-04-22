@@ -9,7 +9,7 @@ const router = Router();
 router.use(AuthMiddleware.authenticate);
 router.use(AuthMiddleware.requireVault);
 
-// POST / replaced by /capture/entry to correctly route through intelligence enrichment.
+
 router.get('/search', searchEntriesValidation, ValidationMiddleware.validate, EntryController.searchEntries);
 router.get('/stats', EntryController.getEntryStats);
 router.get('/feed', EntryController.getFeed);

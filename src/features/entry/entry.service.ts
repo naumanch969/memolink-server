@@ -15,7 +15,7 @@ import { tagService } from '../tag/tag.service';
 import { transcribeAudioEntry } from './audio-transcription.service';
 import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
-import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, UpdateEntryRequest } from "./entry.types";
+import { CreateEntryRequest, EntryStats, GetEntriesRequest, GetEntriesResponse, IEntry, UpdateEntryRequest, EntryStatus, SearchMode } from "./entry.types";
 
 export class EntryService implements IEntryService {
 
@@ -105,15 +105,15 @@ export class EntryService implements IEntryService {
     try {
       const limit = Math.min(Math.max(1, options.limit || 20), 100);
       const userObjectId = new Types.ObjectId(userId);
-      const mode = options.mode || (options.q ? 'instant' : 'feed');
+      const mode = options.mode || (options.q ? SearchMode.INSTANT : SearchMode.FEED);
 
       // 1. SEMANTIC SEARCH (DEEP)
-      if (mode === 'deep' && options.q) {
+      if (mode === SearchMode.DEEP && options.q) {
         return this.performVectorSearch(userId, options);
       }
 
       // 2. HYBRID SEARCH
-      if (mode === 'hybrid' && options.q) {
+      if (mode === SearchMode.HYBRID && options.q) {
         return this.performHybridSearch(userId, options);
       }
 
@@ -122,7 +122,7 @@ export class EntryService implements IEntryService {
       this.applyQueryFilters(filter, options);
 
       // CURSOR-BASED (Stable Feed)
-      if (options.cursor || mode === 'feed') {
+      if (options.cursor || mode === SearchMode.FEED) {
         if (options.cursor) {
           const cursorEntry = await Entry.findById(options.cursor).select('createdAt');
           if (cursorEntry) {
@@ -156,7 +156,7 @@ export class EntryService implements IEntryService {
       }
       const projection: any = {};
 
-      if (options.q && mode === 'instant') {
+      if (options.q && mode === SearchMode.INSTANT) {
         const sanitized = StringUtil.sanitizeSearchQuery(options.q);
         if (sanitized) {
           filter.$text = { $search: sanitized };
@@ -245,7 +245,24 @@ export class EntryService implements IEntryService {
         }
       },
       { $unwind: "$entry" },
-      { $replaceRoot: { newRoot: { $mergeObjects: ["$entry", { score: { $meta: "vectorSearchScore" } }, { metadata: { $mergeObjects: ["$entry.metadata", "$metadata"] } }] } } }
+      { 
+        $replaceRoot: { 
+          newRoot: { 
+            $mergeObjects: [
+              "$entry", 
+              { score: { $meta: "vectorSearchScore" } },
+              { 
+                enrichment: {
+                  narrative: "$narrative",
+                  extraction: "$extraction",
+                  metadata: "$metadata",
+                  signalTier: "$signalTier"
+                }
+              }
+            ] 
+          } 
+        } 
+      }
     ];
 
     const filter: any = {};
@@ -255,10 +272,13 @@ export class EntryService implements IEntryService {
     pipeline.push({ $skip: skip });
     pipeline.push({ $limit: limit });
 
-    const entries = await Entry.aggregate(pipeline);
+    const results = await EnrichedEntry.aggregate(pipeline);
+    
+    // We need to populate the resulting entry documents
+    const entries = results.map(r => r); // r matches what were previously entries in the pipeline
+    
     await Entry.populate(entries, {
-      path: 'tags media',
-      model: 'Entry'
+      path: 'tags media collectionId',
     });
 
     return { entries, total: entries.length, page: options.page || 1, limit, totalPages: 1 };
@@ -268,7 +288,7 @@ export class EntryService implements IEntryService {
   private async performHybridSearch(userId: string | Types.ObjectId, options: GetEntriesRequest): Promise<any> {
     const limit = options.limit || 20;
     const [keywordRes, vectorRes] = await Promise.all([
-      this.getEntries(userId, { ...options, mode: 'instant', limit: 50 }),
+      this.getEntries(userId, { ...options, mode: SearchMode.INSTANT, limit: 50 }),
       this.performVectorSearch(userId, { ...options, limit: 50 }).catch(() => ({ entries: [] }))
     ]);
 
@@ -541,11 +561,11 @@ export class EntryService implements IEntryService {
       // Heal stuck "processing" entries (> 5 mins old)
       const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
       const stuckEntries = await Entry.find({
-        status: 'processing',
+        status: EntryStatus.PROCESSING,
         updatedAt: { $lt: fiveMinsAgo }
       });
       for (const entry of stuckEntries) {
-        entry.status = 'failed';
+        entry.status = EntryStatus.FAILED;
         entry.metadata = { ...entry.metadata, processingStep: 'timeout', error: 'AI processing timed out' };
         await entry.save();
         socketService.emitToUser(entry.userId.toString(), SocketEvents.ENTRY_UPDATED, entry);

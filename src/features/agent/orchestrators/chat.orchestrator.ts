@@ -5,6 +5,8 @@ import { graphService } from '../../graph/graph.service';
 import { agentMemoryService } from '../memory/agent.memory';
 
 import { IChatOrchestrator } from '../agent.interfaces';
+import { SearchMode } from '../../entry/entry.types';
+import { MessageRole } from '../agent.types';
 
 export class ChatOrchestrator implements IChatOrchestrator {
 
@@ -30,7 +32,7 @@ export class ChatOrchestrator implements IChatOrchestrator {
             // 1. Semantic Retrieval (Memory Recall)
             const semanticSearchPromise = entryService.getEntries(userId, {
                 q: message,
-                mode: 'deep',
+                mode: SearchMode.DEEP,
                 limit: 12
             }).catch(err => {
                 logger.warn('Semantic retrieval failed', err);
@@ -41,7 +43,7 @@ export class ChatOrchestrator implements IChatOrchestrator {
             // If the user asks about "last month", we should actually show them the last ~50 memos to give the AI context
             const timelineSearchPromise = isTimeQuery ? entryService.getEntries(userId, {
                 limit: 40,
-                mode: 'feed'
+                mode: SearchMode.FEED
             }).catch(() => ({ entries: [] })) : Promise.resolve({ entries: [] });
 
             const [semanticResults, timelineResults] = await Promise.all([semanticSearchPromise, timelineSearchPromise]);
@@ -50,7 +52,9 @@ export class ChatOrchestrator implements IChatOrchestrator {
                 const date = new Date(entry.date).toLocaleDateString();
                 const content = entry.content.slice(0, 800);
                 const title = entry.title ? `[${entry.title}] ` : '';
-                const insights = entry.enrichment?.narrative || '';
+                const enrichment = entry.enrichment || {};
+                const narrative = enrichment.narrative || {};
+                const insights = narrative.coreThought || narrative.signal || '';
                 return `[${date}] ${title}${content}\nInsights: ${insights}`;
             };
 
@@ -67,7 +71,7 @@ export class ChatOrchestrator implements IChatOrchestrator {
                 .filter(h => h.content !== message || h.timestamp < Date.now() - 1000)
                 .slice(-10);
 
-            const promptHistory = previousHistory.map((h) => `${h.role === 'user' ? 'You' : 'Agent'}: ${h.content}`).join('\n');
+            const promptHistory = previousHistory.map((h) => `${h.role === MessageRole.USER ? 'You' : 'Agent'}: ${h.content}`).join('\n');
 
             // 4. Upgraded System Prompt (The "Partner Mindset")
             const systemInstruction = `You are Brinn, an extremely high-reasoning digital partner. You are the user's second brain.

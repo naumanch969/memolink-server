@@ -4,7 +4,7 @@ import Entry from '../../entry/entry.model';
 import { EdgeType, NodeType } from '../../graph/edge.model';
 import { graphService } from '../../graph/graph.service';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 
 export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.RETROACTIVE_LINKING;
@@ -13,7 +13,7 @@ export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
         const { entityId, userId, name, aliases = [] } = (task.inputData as any) || {};
 
         if (!entityId || !name) {
-            return { status: 'failed', error: 'entityId and name are required' };
+            return { status: WorkflowStatus.FAILED, error: 'entityId and name are required' };
         }
 
         try {
@@ -51,12 +51,12 @@ export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
             logger.info(`Retroactive Linking completed for ${name}. Linked ${linkedCount} past entries.`);
 
             return {
-                status: 'completed',
+                status: WorkflowStatus.COMPLETED,
                 result: { linkedCount }
             };
         } catch (error: any) {
             logger.error(`Retroactive linking failed for ${name}`, error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 }

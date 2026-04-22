@@ -1,14 +1,14 @@
 import mongoose, { Schema } from 'mongoose';
-import { IEnrichedEntryDocument } from '../enrichment.types';
+import { IEnrichedEntryDocument, CognitiveLoad, EnergyLevel, InputMethod, ProcessingStatus, SignalTier, SourceType } from '../enrichment.types';
 
 const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     referenceId: { type: Schema.Types.ObjectId, ref: 'Entry', index: true },
     sessionId: { type: String, required: true, index: true },
-    sourceType: { type: String, enum: ['active', 'passive'], required: true, index: true },
-    inputMethod: { type: String, enum: ['text', 'voice', 'whatsapp', 'system'], required: true },
-    processingStatus: { type: String, enum: ['pending', 'completed', 'failed', 'noise'], default: 'pending', index: true },
-    signalTier: { type: String, enum: ['noise', 'log', 'signal', 'deep_signal'], index: true },
+    sourceType: { type: String, enum: Object.values(SourceType), required: true, index: true },
+    inputMethod: { type: String, enum: Object.values(InputMethod), required: true },
+    processingStatus: { type: String, enum: Object.values(ProcessingStatus), default: ProcessingStatus.PENDING, index: true },
+    signalTier: { type: String, enum: Object.values(SignalTier), index: true },
 
     metadata: {
         themes: [{ type: String, index: true }],
@@ -24,8 +24,8 @@ const enrichedEntrySchema = new Schema<IEnrichedEntryDocument>({
             source: { type: String, enum: ['user', 'extracted'] }
         }],
         sentimentScore: { type: Number, default: 0 },
-        energyLevel: { type: String, enum: ['low', 'medium', 'high'] },
-        cognitiveLoad: { type: String, enum: ['focused', 'scattered', 'ruminating'] }
+        energyLevel: { type: String, enum: Object.values(EnergyLevel) },
+        cognitiveLoad: { type: String, enum: Object.values(CognitiveLoad) }
     },
 
     narrative: {

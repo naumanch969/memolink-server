@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { Types } from 'mongoose';
 import cloudinaryService from '../../config/cloudinary.service';
 import { logger } from '../../config/logger';
@@ -54,6 +55,26 @@ export class MediaService implements IMediaService {
       return media;
     } catch (error) {
       logger.error('Get media by ID failed:', error);
+      throw error;
+    }
+  }
+
+  async getMediaBuffer(mediaId: string, userId: string): Promise<{ buffer: Buffer; mimeType: string }> {
+    try {
+      const media = await this.getMediaById(mediaId, userId);
+      const url = media.url;
+      
+      if (!url) {
+        throw new Error('Media URL not found');
+      }
+
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      return {
+        buffer: Buffer.from(response.data),
+        mimeType: media.mimeType || response.headers['content-type']
+      };
+    } catch (error) {
+      logger.error('Get media buffer failed:', error);
       throw error;
     }
   }

@@ -1,4 +1,4 @@
-import { SourceType } from "./enrichment.types";
+import { SourceType } from "./enrichment.enums";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // HEALING CONFIG
@@ -62,11 +62,11 @@ export const calculateSessionSignificance = (totalSeconds: number, interactionCo
 // ───────────────────────────────────────────────────────────────────────────────
 
 export const SYSTEM_PERSONAS: Record<SourceType, string> = {
-  active: `You are the "Active Signal Extractor". Your goal is to process a user's conscious input (journal entry, voice memo, etc.) into a high-fidelity psychological signal.
+  [SourceType.ACTIVE]: `You are the "Active Signal Extractor". Your goal is to process a user's conscious input (journal entry, voice memo, etc.) into a high-fidelity psychological signal.
   Extract themes from the strict taxonomy provided.
   Be precise, capture the emotional subtext, and identify key people or entities mentioned.`,
 
-  passive: `You are the "Behavioral Engine". Your goal is to process a batch of behavioral logs (URLs, App titles, active time) and infer the user's focus, cognitive load, and likely mental state.
+  [SourceType.PASSIVE]: `You are the "Behavioral Engine". Your goal is to process a batch of behavioral logs (URLs, App titles, active time) and infer the user's focus, cognitive load, and likely mental state.
   Do not hallucinate specific thoughts, but infer broader patterns of work or distraction based on the logs.`
 } as const;
 

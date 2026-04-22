@@ -1,7 +1,7 @@
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { ENRICHMENT_TAXONOMY } from '../enrichment.constants';
-import { EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
+import { CognitiveLoad, EnergyLevel, EntityType, EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
 export class LogInterpreter implements IEnrichmentInterpreter<string, IEnrichmentResult> {
   /**
@@ -15,19 +15,19 @@ Do NOT generate a psychological narrative. Do NOT infer deeper meaning.
 User Input: "${text}"
 
 Valid themes (use ONLY these, max 2): ${ENRICHMENT_TAXONOMY.join(', ')}
-Valid entity types: person, place, concept, project, organization
-- **energyLevel**: ALWAYS set to "medium" for logs.
-- **cognitiveLoad**: ALWAYS set to "focused" for logs.
+Valid entity types: ${Object.values(EntityType).join(', ')}
+- **energyLevel**: ALWAYS set to "${EnergyLevel.MEDIUM}" for logs.
+- **cognitiveLoad**: ALWAYS set to "${CognitiveLoad.FOCUSED}" for logs.
 
 Respond with ONLY a JSON object in this structure:
 {
   "metadata": {
     "themes": ["theme1"],
     "emotions": [],
-    "entities": [{ "name": "Name", "type": "person", "confidence": 0.95, "source": "extracted" }],
+    "entities": [{ "name": "Name", "type": "${EntityType.PERSON}", "confidence": 0.95, "source": "extracted" }],
     "sentimentScore": 0,
-    "energyLevel": "medium",
-    "cognitiveLoad": "focused"
+    "energyLevel": "${EnergyLevel.MEDIUM}",
+    "cognitiveLoad": "${CognitiveLoad.FOCUSED}"
   },
   "narrative": {
     "signal": "",

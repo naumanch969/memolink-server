@@ -7,7 +7,7 @@ import { NodeType } from '../../graph/edge.model';
 import graphService from '../../graph/graph.service';
 import { AGENT_CONSTANTS } from '../agent.constants';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
 
@@ -36,7 +36,7 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
         // 1. Get History
         const history = await agentMemoryService.getHistory(userId);
         if (history.length < count) {
-            return { status: 'completed', result: { message: 'Not enough history to flush' } };
+            return { status: WorkflowStatus.COMPLETED, result: { message: 'Not enough history to flush' } };
         }
 
         // 2. Select oldest chunk
@@ -155,7 +155,7 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
 
             logger.info(`Memory Flush completed for user ${userId}. Flushed ${count} messages.`);
             return {
-                status: 'completed',
+                status: WorkflowStatus.COMPLETED,
                 result: {
                     flushedCount: count,
                     observationsFound: observations.length
@@ -164,7 +164,7 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
 
         } catch (error: any) {
             logger.error('Memory Flush failed', error);
-            return { status: 'failed', error: error.message };
+            return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 }

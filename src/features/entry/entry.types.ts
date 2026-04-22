@@ -1,15 +1,32 @@
 import { Types } from 'mongoose';
 import { BaseEntity } from '../../shared/types';
-import { IEnrichmentMetadata, IEnrichmentNarrative, SignalTier } from '../enrichment/enrichment.types';
+import { IEnrichmentMetadata, IEnrichmentNarrative, SignalTier, InputMethod } from '../enrichment/enrichment.types';
 
-// TODO: transform this into enum. and use at all places
-export type EntryStatus = 'capturing' | 'processing' | 'completed' | 'failed' | 'queued' | 'ready';
+export enum EntryStatus {
+    QUEUED = 'queued',       // In line for enrichment
+    PROCESSING = 'processing', // Currently being enriched
+    COMPLETED = 'completed',  // Fully processed and searchable
+    FAILED = 'failed'        // Error in enrichment
+}
+
+export enum EntryType {
+    TEXT = 'text',
+    MEDIA = 'media',
+    MIXED = 'mixed'
+}
+
+export enum SearchMode {
+    INSTANT = 'instant',
+    DEEP = 'deep',
+    HYBRID = 'hybrid',
+    FEED = 'feed'
+}
 
 // Entry Types
 export interface IEntry extends BaseEntity {
     userId: Types.ObjectId;
     content: string;
-    type: 'text' | 'media' | 'mixed';
+    type: EntryType;
     tags: Types.ObjectId[]; // Tag IDs
     media: Types.ObjectId[]; // Media IDs
     collectionId?: Types.ObjectId; // Collection ID
@@ -28,7 +45,7 @@ export interface IEntry extends BaseEntity {
     isEdited?: boolean;
     isFavorite?: boolean;
     status: EntryStatus;
-    inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
+    inputMethod?: InputMethod;
     sessionId?: string;
     signalTier?: SignalTier;
     metadata?: Record<string, any>; // System logs, processing steps, etc.
@@ -49,7 +66,7 @@ export interface EntryResponse {
 
 export interface CreateEntryRequest {
     content: string;
-    type?: 'text' | 'media' | 'mixed';
+    type?: EntryType;
     tags?: string[];
     media?: string[];
     collectionId?: string;
@@ -66,15 +83,15 @@ export interface CreateEntryRequest {
     startTime?: string;
     endTime?: string;
     isMultiDay?: boolean;
-    status?: 'ready' | 'processing' | 'failed' | 'capturing';
+    status?: EntryStatus;
     signalTier?: SignalTier;
     metadata?: Record<string, any>;
-    inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
+    inputMethod?: InputMethod;
 }
 
 export interface UpdateEntryRequest {
     content?: string;
-    type?: 'text' | 'media' | 'mixed';
+    type?: EntryType;
     tags?: string[];
     media?: string[];
     collectionId?: string;
@@ -89,7 +106,7 @@ export interface UpdateEntryRequest {
     date?: Date;
     status?: EntryStatus;
     metadata?: Record<string, any>;
-    inputMethod?: 'text' | 'voice' | 'whatsapp' | 'system';
+    inputMethod?: InputMethod;
 }
 
 export interface GetEntriesRequest {
@@ -115,7 +132,7 @@ export interface GetEntriesRequest {
     cursor?: string;
 
     // Search Mode
-    mode?: 'instant' | 'deep' | 'hybrid' | 'feed';
+    mode?: SearchMode;
 }
 
 export interface GetEntriesResponse {
