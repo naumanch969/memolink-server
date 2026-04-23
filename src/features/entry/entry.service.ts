@@ -12,6 +12,7 @@ import collectionService from '../collection/collection.service';
 import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
 import { GraphEdge } from '../graph/edge.model';
 import { tagService } from '../tag/tag.service';
+import { badgeService } from '../badge/badge.service';
 import { transcribeAudioEntry } from './audio-transcription.service';
 import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
@@ -78,6 +79,9 @@ export class EntryService implements IEntryService {
       if (hasAudioMedia) {
         setImmediate(() => transcribeAudioEntry(entry._id.toString(), userId.toString()));
       }
+
+      // Trigger achievement checks (Async)
+      setImmediate(() => badgeService.handleEntryCreatedAchievements(userId.toString()));
 
       return entry;
     } catch (error) {

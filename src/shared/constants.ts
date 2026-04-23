@@ -28,6 +28,7 @@ export const COLLECTIONS = {
 export const USER_ROLES = {
   USER: 'user',
   ADMIN: 'admin',
+  BETA_TESTER: 'beta_tester',
 } as const;
 
 // Entry Types

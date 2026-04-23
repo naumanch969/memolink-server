@@ -9,6 +9,7 @@ import { emailService } from '../email/email.service';
 import { User } from '../auth/auth.model';
 import { notificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
+import { Entry } from '../entry/entry.model';
 
 export class BadgeService {
     // Seeds initial badges if they don't exist
@@ -50,69 +51,141 @@ export class BadgeService {
     }
 
     // Award a badge to a user
-    async awardBadge(userId: string, badgeId: string, metadata?: any): Promise<IUserBadge> {
-        // 1. Check if badge definition exists
-        const definition = await BadgeDefinition.findOne({ badgeId });
-        if (!definition) {
-            throw new Error(`Badge definition not found for ID: ${badgeId}`);
-        }
-
-        // 2. Check if user exists
-        const user = await User.findById(new mongoose.Types.ObjectId(userId));
-        if (!user) {
-            throw new Error('User not found');
-        }
-
-        // 3. Award the badge (ensure uniqueness via upsert if needed, or check first)
-        const existing = await UserBadge.findOne({
-            userId: new mongoose.Types.ObjectId(userId),
-            badgeId
-        });
-        if (existing) {
-            return existing; // Already awarded
-        }
-
-        const awardedBadge = await UserBadge.create({
-            userId: new mongoose.Types.ObjectId(userId),
-            badgeId,
-            metadata,
-            awardedAt: new Date()
-        });
-
-        // 4. Send Email Notification
+    async awardBadge(userId: string, badgeId: string, metadata?: any): Promise<IUserBadge | null> {
         try {
-            await emailService.sendSystemEmail('BADGE_UNLOCKED', {
-                to: user.email,
-                userName: user.name,
-                badgeName: definition.name,
-                badgeDescription: definition.description,
-                badgeId: definition.badgeId,
-                rarity: definition.rarity
-            }, userId);
-            
-            logger.info(`Badge ${badgeId} awarded to ${user.email} and notification email logged & queued.`);
-        } catch (emailError) {
-            logger.error('Failed to queue badge notification email:', emailError);
-        }
+            // 1. Check if badge definition exists
+            const definition = await BadgeDefinition.findOne({ badgeId });
+            if (!definition) {
+                logger.warn(`Badge definition not found for ID: ${badgeId}`);
+                return null;
+            }
 
-        // 5. Create System Notification
-        try {
-            await notificationService.create({
-                userId: userId,
-                type: NotificationType.ACHIEVEMENT,
-                title: 'New Achievement Unlocked!',
-                message: `Congratulations! You've earned the ${definition.name} badge.`,
-                referenceId: awardedBadge._id as any,
-                referenceModel: 'UserBadge',
-                actionUrl: '/achievements'
+            // 2. Check if user exists
+            const user = await User.findById(new mongoose.Types.ObjectId(userId));
+            if (!user) {
+                logger.warn(`User not found: ${userId}`);
+                return null;
+            }
+
+            // 3. Award the badge (ensure uniqueness via upsert if needed, or check first)
+            const existing = await UserBadge.findOne({
+                userId: new mongoose.Types.ObjectId(userId),
+                badgeId
             });
-            logger.info(`Achievement notification created for user ${userId} (Badge: ${badgeId})`);
-        } catch (notifError) {
-            logger.error('Failed to create achievement notification:', notifError);
-            // Don't fail the awarding if notification fails
+            if (existing) {
+                return existing; // Already awarded
+            }
+
+            const awardedBadge = await UserBadge.create({
+                userId: new mongoose.Types.ObjectId(userId),
+                badgeId,
+                metadata,
+                awardedAt: new Date()
+            });
+
+            // 4. Send Email Notification
+            try {
+                await emailService.sendSystemEmail('BADGE_UNLOCKED', {
+                    to: user.email,
+                    userName: user.name,
+                    badgeName: definition.name,
+                    badgeDescription: definition.description,
+                    badgeId: definition.badgeId,
+                    rarity: definition.rarity
+                }, userId);
+
+                logger.info(`Badge ${badgeId} awarded to ${user.email} and notification email logged & queued.`);
+            } catch (emailError) {
+                logger.error('Failed to queue badge notification email:', emailError);
+            }
+
+            // 5. Create System Notification
+            try {
+                await notificationService.create({
+                    userId: userId,
+                    type: NotificationType.ACHIEVEMENT,
+                    title: 'New Achievement Unlocked!',
+                    message: `Congratulations! You've earned the ${definition.name} badge.`,
+                    referenceId: awardedBadge._id as any,
+                    referenceModel: 'UserBadge',
+                    actionUrl: '/achievements'
+                });
+                logger.info(`Achievement notification created for user ${userId} (Badge: ${badgeId})`);
+            } catch (notifError) {
+                logger.error('Failed to create achievement notification:', notifError);
+            }
+
+            return awardedBadge;
+        } catch (error) {
+            logger.error(`Error awarding badge ${badgeId} to user ${userId}:`, error);
+            return null;
+        }
+    }
+
+    // Evaluates and awards potential achievements after a new entry is created.
+    async handleEntryCreatedAchievements(userId: string): Promise<void> {
+        try {
+            const userObjectId = new mongoose.Types.ObjectId(userId);
+
+            // 1. MILESTONE CHECKS
+            const totalEntries = await Entry.countDocuments({ userId: userObjectId });
+
+            if (totalEntries >= 1) await this.awardBadge(userId, 'first_thought');
+            if (totalEntries >= 10) await this.awardBadge(userId, 'ten_thoughts');
+            if (totalEntries >= 50) await this.awardBadge(userId, 'fifty_thoughts');
+            if (totalEntries >= 100) await this.awardBadge(userId, 'memory_keeper');
+            if (totalEntries >= 500) await this.awardBadge(userId, 'deep_archivist');
+            if (totalEntries >= 1000) await this.awardBadge(userId, 'mind_vault');
+
+            // 2. STREAK CHECKS
+            await this.evaluateStreakAchievements(userId);
+
+        } catch (error) {
+            logger.error('Failed to handle entry achievements:', error);
+        }
+    }
+
+    private async evaluateStreakAchievements(userId: string): Promise<void> {
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+
+        // Get all entry dates for the last 30+ days
+        const thirtyFiveDaysAgo = new Date();
+        thirtyFiveDaysAgo.setDate(thirtyFiveDaysAgo.getDate() - 35);
+
+        const recentEntries = await Entry.find({
+            userId: userObjectId,
+            createdAt: { $gte: thirtyFiveDaysAgo }
+        }).select('createdAt').sort({ createdAt: -1 });
+
+        if (recentEntries.length === 0) return;
+
+        // Unique days set
+        const daySet = new Set(recentEntries.map(e => e.createdAt.toISOString().split('T')[0]));
+
+        let currentStreak = 0;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        // Check if streak is active (took action today or yesterday)
+        if (!daySet.has(todayStr) && !daySet.has(yesterdayStr)) {
+            return; // Streak broken
         }
 
-        return awardedBadge;
+        // Calculate current streak
+        const checkDate = new Date();
+        if (!daySet.has(todayStr)) {
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+
+        while (daySet.has(checkDate.toISOString().split('T')[0])) {
+            currentStreak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+
+        if (currentStreak >= 7) await this.awardBadge(userId, 'streak_thinker');
+        if (currentStreak >= 30) await this.awardBadge(userId, 'monthly_streak');
     }
 
     // Get all badge definitions for admin
