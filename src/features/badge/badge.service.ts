@@ -131,8 +131,8 @@ export class BadgeService {
             const totalEntries = await Entry.countDocuments({ userId: userObjectId });
 
             if (totalEntries >= 1) await this.awardBadge(userId, 'first_thought');
-            if (totalEntries >= 10) await this.awardBadge(userId, 'ten_thoughts');
-            if (totalEntries >= 50) await this.awardBadge(userId, 'fifty_thoughts');
+            if (totalEntries >= 10) await this.awardBadge(userId, 'deca_thought');
+            if (totalEntries >= 50) await this.awardBadge(userId, 'thought_weaver');
             if (totalEntries >= 100) await this.awardBadge(userId, 'memory_keeper');
             if (totalEntries >= 500) await this.awardBadge(userId, 'deep_archivist');
             if (totalEntries >= 1000) await this.awardBadge(userId, 'mind_vault');
@@ -185,7 +185,7 @@ export class BadgeService {
         }
 
         if (currentStreak >= 7) await this.awardBadge(userId, 'streak_thinker');
-        if (currentStreak >= 30) await this.awardBadge(userId, 'monthly_streak');
+        if (currentStreak >= 30) await this.awardBadge(userId, 'monthly_mindset');
     }
 
     // Get all badge definitions for admin

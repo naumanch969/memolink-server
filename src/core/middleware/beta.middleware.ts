@@ -1,7 +1,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { USER_ROLES } from '../../shared/constants';
-import ApiError from '../utils/ApiError';
+import { ApiError } from '../errors/api.error';
 
 /**
  * Middleware to restrict access to Beta Testers and Admins only.
