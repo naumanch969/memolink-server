@@ -69,47 +69,50 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         const from = message.from;
         logger.info('WhatsApp Webhook message', { from, type: message.type });
 
-        let user = await User.findOne({ whatsappNumber: from });
-        if (!user) {
-            logger.info('User not found by whatsappNumber, checking for linking code', { from });
-        }
-
-        // If user not found, check for linking code (support "Verify: 123456" or "Verify 123456")
-        if (!user && message.type === 'text' && message.text?.body.toLowerCase().startsWith('verify')) {
+        // 1. Priority check: Is this a verification/linking command?
+        if (message.type === 'text' && message.text?.body.toLowerCase().startsWith('verify')) {
             const body = message.text.body;
-            // Extract code: "Verify: 123456" -> "123456", "Verify 123456" -> "123456"
             const code = body.replace(/verify:?/i, '').trim();
-
             logger.info('Attempting WhatsApp link with code', { code, from });
 
-            user = await User.findOne({
+            const userByCode = await User.findOne({
                 whatsappLinkingCode: code,
                 whatsappLinkingCodeExpires: { $gt: new Date() }
             });
 
-            if (user) {
-                logger.info('Found user for linking code', { email: user.email, userId: user._id });
-                user.whatsappNumber = from;
-                user.whatsappLinkingCode = undefined;
-                user.whatsappLinkingCodeExpires = undefined;
-                await user.save();
-
-                // Invalidate cache
-                await cacheService.del(CacheKeys.userProfile(user._id.toString()));
-
-                logger.info('WhatsApp number linked successfully', { email: user.email, from });
-
-                // Notify frontend via socket
-                socketService.emitToUser(user._id, SocketEvents.INTEGRATION_WHATSAPP_LINKED, { whatsappNumber: from, email: user.email });
-
-                await this.sendMessage(from, `✅ Success! Your WhatsApp number is now linked to ${user.email}. You can now send text or voice notes to capture memos.`, recipientPhoneNumberId);
-                return;
-            } else {
+            if (!userByCode) {
                 logger.warn('Linking code not found or expired', { code, from });
                 await this.sendMessage(from, `❌ Invalid or expired verification code. Please generate a new one in your settings.`, recipientPhoneNumberId);
                 return;
             }
+
+            // Check if THIS NUMBER is already linked to ANY user
+            const alreadyLinkedUser = await User.findOne({ whatsappNumber: from });
+            if (alreadyLinkedUser) {
+                if (alreadyLinkedUser._id.toString() === userByCode._id.toString()) {
+                    await this.sendMessage(from, `✅ Your account is already linked to this WhatsApp number.`, recipientPhoneNumberId);
+                } else {
+                    logger.warn('WhatsApp number already linked to another user', { from, existingUser: alreadyLinkedUser.email });
+                    await this.sendMessage(from, `❌ This WhatsApp number is already linked to another Brinn account (${alreadyLinkedUser.email}). Please disconnect it from that account first.`, recipientPhoneNumberId);
+                }
+                return;
+            }
+
+            // Perform linking
+            userByCode.whatsappNumber = from;
+            userByCode.whatsappLinkingCode = undefined;
+            userByCode.whatsappLinkingCodeExpires = undefined;
+            await userByCode.save();
+
+            await cacheService.del(CacheKeys.userProfile(userByCode._id.toString()));
+            socketService.emitToUser(userByCode._id, SocketEvents.INTEGRATION_WHATSAPP_LINKED, { whatsappNumber: from, email: userByCode.email });
+
+            await this.sendMessage(from, `✅ Success! Your WhatsApp number is now linked to ${userByCode.email}. You can now send text or voice notes to capture memos.`, recipientPhoneNumberId);
+            return;
         }
+
+        // 2. Regular Message Processing (Find user by number)
+        const user = await User.findOne({ whatsappNumber: from });
 
         if (!user) {
             logger.warn('WhatsApp message from unlinked number', { from });
