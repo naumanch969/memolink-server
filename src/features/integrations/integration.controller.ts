@@ -14,6 +14,14 @@ export class IntegrationController {
             const userId = req.user._id;
 
             const p = integrationRegistry.get(provider);
+            
+            // Check if already connected
+            const isConnected = await p.verifyConnection(userId.toString());
+            if (isConnected) {
+                ResponseHelper.badRequest(res, `Provider ${provider} is already connected`);
+                return;
+            }
+
             const authData = await p.getAuthUrl(userId);
 
             // Spread authData directly so the response shape is { url, ...rest }

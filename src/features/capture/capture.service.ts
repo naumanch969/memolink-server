@@ -16,7 +16,7 @@ export class CaptureService implements ICaptureService {
 
     // 1. ACTIVE: Text/Voice/Manual Entry
     async captureEntry(userId: string, payload: ICapturePayload): Promise<IEntry> {
-        
+
         const entryDate = payload.date ? new Date(payload.date) : new Date();
         const sessionId = DateUtil.getSessionId(entryDate);
         const content = payload.content || '';
@@ -94,7 +94,7 @@ export class CaptureService implements ICaptureService {
     }
 
     // 3. WhatsApp
-    async captureWhatsApp(userId: string, payload: WhatsAppPayload): Promise<void> {
+    async captureWhatsApp(userId: string, payload: WhatsAppPayload): Promise<IEntry> {
         // WhatsApp enters as an active entry but from the bot
         const metadata = {
             whatsapp_from: payload.from,
@@ -111,7 +111,8 @@ export class CaptureService implements ICaptureService {
             metadata
         };
 
-        await this.captureEntry(userId, entryPayload);
+        const entry = await this.captureEntry(userId, entryPayload);
+        return entry;
     }
 
 }

@@ -4,7 +4,9 @@ import { logger } from '../../../../config/logger';
 import { CacheKeys } from '../../../../core/cache/cache.keys';
 import cacheService from '../../../../core/cache/cache.service';
 import { audioTranscriptionService } from '../../../agent/services/agent.audio.service';
+import { agentService } from '../../../agent/services/agent.service';
 import { captureService } from '../../../capture/capture.service';
+import { receptionService } from '../../../capture/reception.service';
 import { User } from '../../../auth/auth.model';
 import { Notification } from '../../../notification/notification.model';
 import { socketService } from '../../../../core/socket/socket.service';
@@ -129,16 +131,22 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         }
     }
 
-    private async handleTextMessage(userId: string, from: string, text: string, _fromId?: string) {
-        await captureService.captureWhatsApp(userId, {
+    private async handleTextMessage(userId: string, from: string, text: string, recipientPhoneNumberId?: string) {
+        const entry = await captureService.captureWhatsApp(userId, {
             from,
             body: text,
             isVoice: false,
             timestamp: new Date()
         });
+
+        // 2. Respond via Receptionist (Dynamic acknowledgment)
+        const response = await receptionService.generateResponse(userId, entry);
+        if (response) {
+            await this.sendMessage(from, response, recipientPhoneNumberId);
+        }
     }
 
-    private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string, _fromId?: string) {
+    private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
         logger.info('Processing WhatsApp audio', { mediaId, userId });
 
         const audioBuffer = await this.downloadMedia(mediaId);
@@ -147,17 +155,24 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         const transcription = await audioTranscriptionService.transcribe(audioBuffer, mimeType, { userId });
 
         if (!transcription.text) {
-            await this.sendMessage(from, "I couldn't hear anything in that voice message.");
+            await this.sendMessage(from, "I couldn't hear anything in that voice message.", recipientPhoneNumberId);
             return;
         }
 
         // 2. Capture through CaptureService
-        await captureService.captureWhatsApp(userId, {
+        const entry = await captureService.captureWhatsApp(userId, {
             from,
             body: transcription.text,
             isVoice: true,
             timestamp: new Date()
         });
+
+        // 3. Respond via Receptionist
+        const response = await receptionService.generateResponse(userId, entry);
+
+        if (response) {
+            await this.sendMessage(from, response, recipientPhoneNumberId);
+        }
     }
 
     // Downloads media from WhatsApp Cloud API

@@ -36,5 +36,5 @@ export interface ICapturePayload {
 export interface ICaptureService {
     captureEntry(userId: string, payload: ICapturePayload): Promise<IEntry>;
     captureWeb(userId: string, payload: ActivitySyncBatch): Promise<void>;
-    captureWhatsApp(userId: string, payload: WhatsAppPayload): Promise<void>;
+    captureWhatsApp(userId: string, payload: WhatsAppPayload): Promise<IEntry>;
 }
