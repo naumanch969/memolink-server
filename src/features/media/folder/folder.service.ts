@@ -1,10 +1,10 @@
 import { Types } from 'mongoose';
-import { logger } from '../../config/logger';
-import { ApiError } from '../../core/errors/api.error';
+import { logger } from '../../../config/logger';
+import { ApiError } from '../../../core/errors/api.error';
 import { IFolderService } from "./folder.interfaces";
 import { Folder } from './folder.model';
 import { CreateFolderRequest, IFolder, UpdateFolderRequest } from './folder.types';
-import { Media } from './media.model';
+import { Media } from '../media.model';
 
 export class FolderService implements IFolderService {
   async createFolder(userId: string, folderData: CreateFolderRequest): Promise<IFolder> {

@@ -11,6 +11,8 @@ import { initEmailWorker } from './features/email/queue/email.worker';
 import { getEnrichmentQueue } from './features/enrichment/enrichment.queue';
 import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
 import notificationWorker from './features/notification/notification.worker';
+import { initMediaWorker } from './features/media/media.worker';
+import { getMediaQueue } from './features/media/media.queue';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -44,6 +46,7 @@ async function startWorker() {
             const emailQueue = getEmailQueue();
             const agentQueue = getAgentQueue();
             const enrichmentQueue = getEnrichmentQueue();
+            const mediaQueue = getMediaQueue();
 
             // Clear statistics
             const counts = await enrichmentQueue.getJobCounts();
@@ -52,6 +55,7 @@ async function startWorker() {
             // drain() clears wait, delayed, and paused
             await emailQueue.drain();
             await agentQueue.drain();
+            await mediaQueue.drain();
             
             // For enrichment, we want a clean slate in dev to fix lock errors
             // DISABLED: obliterate is too destructive and wipes valid waiting jobs on restart
@@ -63,6 +67,7 @@ async function startWorker() {
         initAgentWorker();
         initEmailWorker();
         initEnrichmentWorker();
+        initMediaWorker();
 
         // 5. Workers handle their own internal startup protocols (including healing)
         // graphWorker.start();

@@ -1,5 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { IMedia } from './media.types';
+import { MediaStatus } from './media.enums';
 
 const mediaSchema = new Schema<IMedia>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },
@@ -57,19 +58,11 @@ const mediaSchema = new Schema<IMedia>({
     ocrText: String,
     ocrConfidence: Number,
     // AI tags
-    aiTags: [{
-      tag: String,
-      confidence: Number,
-    }],
+    aiTags: [{ tag: String, confidence: Number, }],
     // Face detection
     faces: [{
       entityId: { type: Schema.Types.ObjectId, ref: 'KnowledgeEntity' },
-      boundingBox: {
-        x: Number,
-        y: Number,
-        width: Number,
-        height: Number,
-      },
+      boundingBox: { x: Number, y: Number, width: Number, height: Number, },
       confidence: Number,
     }],
   },
@@ -77,7 +70,7 @@ const mediaSchema = new Schema<IMedia>({
   extension: { type: String }, // File extension (e.g., 'pdf', 'zip', 'json')
   altText: { type: String },   // Accessibility description
   description: { type: String }, // User notes
-  status: { type: String, enum: ['uploading', 'processing', 'ready', 'error'], default: 'ready' },
+  status: { type: String, enum: Object.values(MediaStatus), default: MediaStatus.READY },
   processingError: { type: String },
 }, { timestamps: true, });
 
@@ -88,4 +81,3 @@ mediaSchema.index({ userId: 1, extension: 1 }); // Index for filtering by extens
 
 export const Media = mongoose.model<IMedia>('Media', mediaSchema);
 export default Media;
- 

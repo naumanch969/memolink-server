@@ -1,12 +1,10 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.types';
+import { ResponseHelper } from '../../../core/utils/response.utils';
+import { AuthenticatedRequest } from '../../auth/auth.types';
 import { storageService } from './storage.service';
 
 export class StorageController {
-  /**
-   * Get user's storage statistics
-   */
+  // Get user's storage statistics
   static async getStorageStats(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -17,9 +15,7 @@ export class StorageController {
     }
   }
 
-  /**
-   * Get detailed storage breakdown by file type
-   */
+  // Get detailed storage breakdown by file type
   static async getStorageBreakdown(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -30,9 +26,7 @@ export class StorageController {
     }
   }
 
-  /**
-   * Recalculate and sync storage usage
-   */
+  // Recalculate and sync storage usage
   static async syncStorage(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -43,9 +37,7 @@ export class StorageController {
     }
   }
 
-  /**
-   * Find orphaned media
-   */
+  // Find orphaned media
   static async getOrphanedMedia(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -56,9 +48,7 @@ export class StorageController {
     }
   }
 
-  /**
-   * Get cleanup suggestions
-   */
+  // Get cleanup suggestions
   static async getCleanupSuggestions(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -69,10 +59,7 @@ export class StorageController {
     }
   }
 
-  /**
-   * Cleanup deleted files (Empty Trash)
-   * This is a placeholder for future implementation
-   */
+  // Cleanup deleted files (Empty Trash)
   static async emptyTrash(req: AuthenticatedRequest, res: Response) {
     try {
       // Placeholder

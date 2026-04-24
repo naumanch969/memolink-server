@@ -8,9 +8,12 @@ import { AuthenticatedRequest } from '../auth/auth.types';
 import { mediaEvents, MediaEventType } from './media.events';
 import { mediaService } from './media.service';
 import { CreateMediaRequest, MediaMetadata } from './media.types';
-import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCloudinaryExif, parseCloudinaryOcr, validateFileSize, validateVideo, } from './media.utils';
-import { storageService } from './storage.service';
+import { buildResolutionString, getFileExtension, validateFileSize, validateVideo, } from './media.utils';
+import { storageService } from './storage/storage.service';
 import { config } from '../../config/env';
+import { addMediaJob } from './media.queue';
+import { MediaJobType } from './media.types';
+import { MediaStatus, MediaSource } from './media.enums';
 
 // Upload error codes for client-side handling
 const UPLOAD_ERRORS = {
@@ -27,16 +30,12 @@ export class MediaController {
   static async uploadMedia(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
-      const { folderId, tags, altText, description, enableOcr, enableAiTagging } = req.body;
+      const { folderId, tags, altText, description } = req.body;
 
       if (!req.file) {
         ResponseHelper.badRequest(res, UPLOAD_ERRORS.NO_FILE.message);
         return;
       }
-
-      // Safely parse boolean flags
-      const shouldEnableOcr = enableOcr === 'true' || enableOcr === true || enableOcr === '1';
-      const shouldEnableAiTagging = enableAiTagging === 'true' || enableAiTagging === true || enableAiTagging === '1';
 
       // Reserve storage space atomically (prevents race conditions)
       let reservation;
@@ -44,9 +43,7 @@ export class MediaController {
         reservation = await storageService.reserveSpace(userId, req.file.size);
       } catch (reservationError: unknown) {
         const errorMsg = reservationError instanceof Error ? reservationError.message : 'Storage reservation failed';
-        ResponseHelper.error(res, errorMsg, 403, {
-          code: UPLOAD_ERRORS.QUOTA_EXCEEDED.code,
-        });
+        ResponseHelper.error(res, errorMsg, 403, { code: UPLOAD_ERRORS.QUOTA_EXCEEDED.code, });
         return;
       }
 
@@ -62,9 +59,9 @@ export class MediaController {
       let cloudinaryResult;
       try {
         cloudinaryResult = await cloudinaryService.uploadFile(req.file, 'brinn', {
-          extractExif: true,
-          enableOcr: shouldEnableOcr,
-          enableAiTagging: shouldEnableAiTagging,
+          extractExif: false,
+          enableOcr: false,
+          enableAiTagging: false,
         });
       } catch (cloudinaryError: unknown) {
         await reservation.rollback();
@@ -139,7 +136,7 @@ export class MediaController {
         thumbnail = cloudinaryService.getPdfThumbnail(cloudinaryResult.public_id);
       }
 
-      // Build enhanced metadata
+      // Build base metadata
       const metadata: MediaMetadata = {
         width: cloudinaryResult.width,
         height: cloudinaryResult.height,
@@ -151,27 +148,6 @@ export class MediaController {
         videoThumbnails,
         selectedThumbnailIndex: 0,
       };
-
-      // Extract EXIF data
-      if (cloudinaryResult.image_metadata) {
-        const exif = parseCloudinaryExif(cloudinaryResult);
-        if (exif) metadata.exif = exif;
-      }
-
-      // Extract OCR text
-      if (cloudinaryResult.info?.ocr) {
-        const { text, confidence } = parseCloudinaryOcr(cloudinaryResult);
-        if (text) {
-          metadata.ocrText = text;
-          metadata.ocrConfidence = confidence;
-        }
-      }
-
-      // Extract AI tags
-      if (cloudinaryResult.info?.categorization) {
-        const aiTags = parseCloudinaryAiTags(cloudinaryResult);
-        if (aiTags.length > 0) metadata.aiTags = aiTags;
-      }
 
       // Create media record
       try {
@@ -189,6 +165,7 @@ export class MediaController {
           extension: getFileExtension(req.file.originalname, req.file.mimetype),
           altText: altText || undefined,
           description: description || undefined,
+          status: MediaStatus.PROCESSING,
           metadata,
         };
 
@@ -204,30 +181,34 @@ export class MediaController {
           source: 'web',
         });
 
-        // Emit metadata events if applicable
-        if (metadata.exif) {
-          mediaEvents.emit(MediaEventType.METADATA_EXTRACTED, {
+        // Add to background processing queue
+        if (media.type === 'audio') {
+          addMediaJob({
             mediaId: media._id.toString(),
             userId,
-            metadataType: 'exif',
-            data: metadata.exif as unknown as Record<string, unknown>,
+            jobType: MediaJobType.PROCESS_AUDIO,
+            sourceType: MediaSource.WEB
           });
-        }
-
-        if (metadata.ocrText) {
-          mediaEvents.emit(MediaEventType.OCR_COMPLETED, {
+        } else if (media.type === 'image') {
+          addMediaJob({
             mediaId: media._id.toString(),
             userId,
-            text: metadata.ocrText,
-            confidence: metadata.ocrConfidence || 0,
+            jobType: MediaJobType.PROCESS_IMAGE,
+            sourceType: MediaSource.WEB
           });
-        }
-
-        if (metadata.aiTags && metadata.aiTags.length > 0) {
-          mediaEvents.emit(MediaEventType.AI_TAGGED, {
+        } else if (media.type === 'document') {
+          addMediaJob({
             mediaId: media._id.toString(),
             userId,
-            tags: metadata.aiTags,
+            jobType: MediaJobType.PROCESS_DOCUMENT,
+            sourceType: MediaSource.WEB
+          });
+        } else if (media.type === 'video') {
+          addMediaJob({
+            mediaId: media._id.toString(),
+            userId,
+            jobType: MediaJobType.PROCESS_VIDEO,
+            sourceType: MediaSource.WEB
           });
         }
 
@@ -300,18 +281,6 @@ export class MediaController {
       ResponseHelper.success(res, updated, 'Thumbnail updated successfully');
     } catch (error) {
       ResponseHelper.error(res, 'Failed to update thumbnail', 500, error);
-    }
-  }
-
-  static async createMedia(req: AuthenticatedRequest, res: Response) {
-    try {
-      const userId = req.user!._id.toString();
-      const mediaData: CreateMediaRequest = req.body;
-      const media = await mediaService.createMedia(userId, mediaData);
-
-      ResponseHelper.created(res, media, 'Media created successfully');
-    } catch (error) {
-      ResponseHelper.error(res, 'Failed to create media', 500, error);
     }
   }
 

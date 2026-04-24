@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { logger } from '../../config/logger';
+import { logger } from '../../../config/logger';
 
 // Chunk size: 5MB default (can be adjusted based on network conditions)
 const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
@@ -88,7 +88,7 @@ export interface SessionStatusResponse {
   expiresAt: Date;
 }
 
-import { IChunkedUploadService } from './media.interfaces';
+import { IChunkedUploadService } from '../media.interfaces';
 
 export class ChunkedUploadService implements IChunkedUploadService {
   private sessions: Map<string, UploadSession> = new Map();

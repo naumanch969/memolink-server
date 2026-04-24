@@ -6,7 +6,7 @@ import { getMediaTypeFromMime } from '../../shared/constants';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { mediaService } from '../media/media.service';
 import { getFileExtension } from '../media/media.utils';
-import { storageService } from '../media/storage.service';
+import { storageService } from '../media/storage/storage.service';
 import { captureService } from './capture.service';
 
 export class CaptureController {

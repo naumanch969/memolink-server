@@ -1,16 +1,9 @@
-/**
- * Media Utilities
- * Video validation, EXIF extraction, OCR support
- */
-
 import { logger } from '../../config/logger';
 import { FILE_UPLOAD, getMediaTypeFromMime, VIDEO_LIMITS } from '../../shared/constants';
 import { AI_PROCESSING_CONFIG, GPS_REFERENCES, VIDEO_CONFIG } from './media.constants';
 import { ExifData, MediaType } from './media.types';
 
-/**
- * Video Validation Error
- */
+// Video Validation Error
 export class VideoValidationError extends Error {
   code: string;
   constructor(message: string, code: string) {
@@ -20,10 +13,7 @@ export class VideoValidationError extends Error {
   }
 }
 
-/**
- * Validate video file before upload
- * Video length/size validation
- */
+// Validate video file before upload
 export function validateVideo(
   file: Express.Multer.File,
   metadata?: { duration?: number; width?: number; height?: number }
@@ -58,13 +48,11 @@ export function validateVideo(
   };
 }
 
-/**
- * Validate file size based on type
- */
+// Validate file size based on type
 export function validateFileSize(file: Express.Multer.File): { valid: boolean; error?: string } {
   const isVideo = file.mimetype.startsWith('video/');
   const maxSize = isVideo ? FILE_UPLOAD.MAX_VIDEO_SIZE : FILE_UPLOAD.MAX_SIZE;
-  
+
   if (file.size > maxSize) {
     const maxMB = maxSize / (1024 * 1024);
     return {
@@ -72,58 +60,54 @@ export function validateFileSize(file: Express.Multer.File): { valid: boolean; e
       error: `File exceeds maximum size of ${maxMB}MB`,
     };
   }
-  
+
   return { valid: true };
 }
 
-/**
- * Generate multiple video thumbnails at different timestamps
- */
+// Generate multiple video thumbnails at different timestamps
 export function generateVideoThumbnailTimestamps(duration: number, count: number = 5): number[] {
   if (duration <= 0) return [0];
-  
+
   const timestamps: number[] = [];
   const interval = duration / (count + 1);
-  
+
   for (let i = 1; i <= count; i++) {
     timestamps.push(
-      Math.round(interval * i * Math.pow(10, VIDEO_CONFIG.TIMESTAMP_PRECISION_DECIMALS)) / 
+      Math.round(interval * i * Math.pow(10, VIDEO_CONFIG.TIMESTAMP_PRECISION_DECIMALS)) /
       Math.pow(10, VIDEO_CONFIG.TIMESTAMP_PRECISION_DECIMALS)
     );
   }
-  
+
   return timestamps;
 }
 
-/**
- * Parse EXIF data from Cloudinary response
- */
+// Parse EXIF data from Cloudinary response
 export function parseCloudinaryExif(cloudinaryInfo: any): ExifData | undefined {
   if (!cloudinaryInfo?.image_metadata) {
     return undefined;
   }
 
   const meta = cloudinaryInfo.image_metadata;
-  
+
   // Validate meta is an object
   if (typeof meta !== 'object' || meta === null) {
     logger.warn('Invalid image_metadata format');
     return undefined;
   }
-  
+
   try {
     const exif: ExifData = {};
-    
+
     // Camera info
     if (meta.Make) exif.make = meta.Make;
     if (meta.Model) exif.model = meta.Model;
-    
+
     // Date taken
     if (meta.DateTimeOriginal || meta.CreateDate) {
       const dateStr = meta.DateTimeOriginal || meta.CreateDate;
       exif.dateTaken = parseExifDate(dateStr);
     }
-    
+
     // GPS coordinates
     if (meta.GPSLatitude && meta.GPSLongitude) {
       exif.gps = {
@@ -132,7 +116,7 @@ export function parseCloudinaryExif(cloudinaryInfo: any): ExifData | undefined {
         altitude: meta.GPSAltitude ? parseFloat(meta.GPSAltitude) : undefined,
       };
     }
-    
+
     // Camera settings
     if (meta.ExposureTime) exif.exposureTime = meta.ExposureTime;
     if (meta.FNumber) exif.fNumber = parseFloat(meta.FNumber);
@@ -141,7 +125,7 @@ export function parseCloudinaryExif(cloudinaryInfo: any): ExifData | undefined {
     if (meta.LensModel || meta.LensInfo) exif.lens = meta.LensModel || meta.LensInfo;
     if (meta.Software) exif.software = meta.Software;
     if (meta.Orientation) exif.orientation = parseInt(meta.Orientation);
-    
+
     // Return undefined if no data extracted
     return Object.keys(exif).length > 0 ? exif : undefined;
   } catch (error) {
@@ -150,12 +134,10 @@ export function parseCloudinaryExif(cloudinaryInfo: any): ExifData | undefined {
   }
 }
 
-/**
- * Parse EXIF date string to ISO 8601 string
- */
+// Parse EXIF date string to ISO 8601 string
 function parseExifDate(dateStr: string): string | undefined {
   if (!dateStr) return undefined;
-  
+
   try {
     // EXIF format: "YYYY:MM:DD HH:MM:SS"
     const normalized = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
@@ -166,12 +148,10 @@ function parseExifDate(dateStr: string): string | undefined {
   }
 }
 
-/**
- * Parse GPS coordinate from EXIF format
- */
+// Parse GPS coordinate from EXIF format
 function parseGpsCoordinate(value: string, ref?: string): number | undefined {
   if (!value) return undefined;
-  
+
   try {
     // Handle format like "deg 37' 46.50" N" or decimal
     const decimalMatch = value.match(/^[\d.]+$/);
@@ -180,7 +160,7 @@ function parseGpsCoordinate(value: string, ref?: string): number | undefined {
       if (ref === GPS_REFERENCES.SOUTH || ref === GPS_REFERENCES.WEST) coord = -coord;
       return coord;
     }
-    
+
     // Parse DMS format
     const dmsMatch = value.match(/(\d+)\s*(?:deg|°)?\s*(\d+)['′]?\s*([\d.]+)["″]?/);
     if (dmsMatch) {
@@ -191,17 +171,14 @@ function parseGpsCoordinate(value: string, ref?: string): number | undefined {
       if (ref === GPS_REFERENCES.SOUTH || ref === GPS_REFERENCES.WEST) coord = -coord;
       return coord;
     }
-    
+
     return undefined;
   } catch {
     return undefined;
   }
 }
 
-/**
- * Extract OCR text using Cloudinary's OCR addon
- * Returns text content and confidence score
- */
+// Extract OCR text using Cloudinary's OCR addon
 export function parseCloudinaryOcr(cloudinaryInfo: any): { text?: string; confidence?: number } {
   if (!cloudinaryInfo?.info?.ocr?.adv_ocr?.data) {
     return {};
@@ -209,7 +186,7 @@ export function parseCloudinaryOcr(cloudinaryInfo: any): { text?: string; confid
 
   try {
     const ocrData = cloudinaryInfo.info.ocr.adv_ocr.data;
-    
+
     // Validate ocrData is an array
     if (!Array.isArray(ocrData)) {
       logger.warn('Invalid OCR data format: expected array');
@@ -252,20 +229,18 @@ export function parseCloudinaryOcr(cloudinaryInfo: any): { text?: string; confid
   }
 }
 
-/**
- * Parse AI auto-tagging from Cloudinary
- */
+// Parse AI auto-tagging from Cloudinary
 export function parseCloudinaryAiTags(cloudinaryInfo: any): Array<{ tag: string; confidence: number }> {
   const tags: Array<{ tag: string; confidence: number }> = [];
 
   try {
     // Parse categorization/tagging results
     const categorization = cloudinaryInfo?.info?.categorization;
-    
+
     if (!categorization || typeof categorization !== 'object') {
       return [];
     }
-    
+
     if (categorization?.google_tagging?.data && Array.isArray(categorization.google_tagging.data)) {
       for (const item of categorization.google_tagging.data) {
         if (item.tag && item.confidence) {
@@ -273,7 +248,7 @@ export function parseCloudinaryAiTags(cloudinaryInfo: any): Array<{ tag: string;
         }
       }
     }
-    
+
     if (categorization?.aws_rek_tagging?.data && Array.isArray(categorization.aws_rek_tagging.data)) {
       for (const item of categorization.aws_rek_tagging.data) {
         if (item.tag && item.confidence) {
@@ -301,35 +276,29 @@ export function parseCloudinaryAiTags(cloudinaryInfo: any): Array<{ tag: string;
   }
 }
 
-/**
- * Determine media type from MIME type
- */
+// Determine media type from MIME type
 export function getMediaType(mimeType: string): MediaType {
   return getMediaTypeFromMime(mimeType) as MediaType;
 }
 
-/**
- * Extract file extension from filename or MIME type
- */
+// Extract file extension from filename or MIME type
 export function getFileExtension(filename: string, mimeType?: string): string {
   // Try from filename first
   const fromFilename = filename.split('.').pop()?.toLowerCase();
   if (fromFilename && fromFilename.length <= 5) {
     return fromFilename;
   }
-  
+
   // Fallback to MIME type
   if (mimeType) {
     const parts = mimeType.split('/');
     return parts[parts.length - 1].split('+')[0]; // Handle types like 'image/svg+xml'
   }
-  
+
   return 'bin';
 }
 
-/**
- * Build video resolution string
- */
+// Build video resolution string
 export function buildResolutionString(width?: number, height?: number): string | undefined {
   if (width && height) {
     return `${width}x${height}`;

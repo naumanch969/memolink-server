@@ -4,7 +4,7 @@ import { entityService } from '../entity/entity.service';
 import { Entry } from '../entry/entry.model';
 import { entryService } from '../entry/entry.service';
 import { goalService } from '../goal/goal.service';
-import { folderService } from '../media/folder.service';
+import { folderService } from '../media/folder/folder.service';
 import { Media } from '../media/media.model';
 import { mediaService } from '../media/media.service';
 import { notificationService } from '../notification/notification.service';
@@ -77,7 +77,7 @@ export class UsersAdminService implements IUsersAdminService {
                         definition
                     };
                 });
-            
+
             return {
                 ...user,
                 badges: badgesForUser

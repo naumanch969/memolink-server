@@ -7,7 +7,7 @@ import { agentService } from '../../features/agent/services/agent.service';
 import { User } from '../../features/auth/auth.model';
 import { enrichmentService } from '../../features/enrichment/enrichment.service';
 import { entryService } from '../../features/entry/entry.service';
-import { storageService } from '../../features/media/storage.service';
+import { storageService } from '../../features/media/storage/storage.service';
 import { initNotificationProcessor } from '../../features/notification/notification.cron';
 import { notificationService } from '../../features/notification/notification.service';
 import { WebActivity } from '../../features/web-activity/web-activity.model';

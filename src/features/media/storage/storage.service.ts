@@ -1,68 +1,14 @@
-import { logger } from '../../config/logger';
-import { MEDIA_TYPES } from '../../shared/constants';
-import { User } from '../auth/auth.model';
-import { STORAGE_THRESHOLDS } from './media.constants';
-import { Media } from './media.model';
-
-// Storage Reservation for atomic operations
-export interface StorageReservation {
-  id: string;
-  userId: string;
-  size: number;
-  createdAt: Date;
-  expiresAt: Date;
-  status: 'pending' | 'committed' | 'rolled-back';
-  commit: () => Promise<void>;
-  rollback: () => Promise<void>;
-}
-
-interface ReservationRecord {
-  userId: string;
-  size: number;
-  createdAt: Date;
-  expiresAt: Date;
-  status: 'pending' | 'committed' | 'rolled-back';
-}
-
-export interface StorageStats {
-  used: number;
-  quota: number;
-  available: number;
-  usagePercent: number;
-  isWarning: boolean;
-  isCritical: boolean;
-  breakdown: {
-    images: number;
-    videos: number;
-    documents: number;
-    audio: number;
-    archives: number;
-    data: number;
-    code: number;
-    other: number;
-  };
-}
-
-export interface OrphanMedia {
-  _id: string;
-  filename: string;
-  size: number;
-  type: string;
-  createdAt: Date;
-  url: string;
-}
-
-export interface CleanupSuggestion {
-  type: 'large' | 'old' | 'duplicate' | 'orphan';
-  mediaIds: string[];
-  potentialSavings: number;
-  description: string;
-}
-
-import { IStorageService } from './media.interfaces';
-import Entry from '../entry/entry.model';
+import { logger } from '../../../config/logger';
+import { MEDIA_TYPES } from '../../../shared/constants';
+import { User } from '../../auth/auth.model';
+import { STORAGE_THRESHOLDS } from '../media.constants';
+import { Media } from '../media.model';
+import { IStorageService } from '../media.interfaces';
+import Entry from '../../entry/entry.model';
+import { CleanupSuggestion, OrphanMedia, ReservationRecord, StorageReservation, StorageStats } from './storage.interface';
 
 export class StorageService implements IStorageService {
+
   // In-memory reservation tracking (consider Redis for distributed systems)
   private reservations = new Map<string, ReservationRecord>();
   private cleanupInterval: NodeJS.Timeout | null = null;
@@ -75,9 +21,7 @@ export class StorageService implements IStorageService {
     }, 60 * 1000); // Check every minute
   }
 
-  /**
-   * Cleanup expired reservations
-   */
+  // Cleanup expired reservations
   private async cleanupExpiredReservations(): Promise<void> {
     const now = new Date();
     const expired: string[] = [];
@@ -96,9 +40,7 @@ export class StorageService implements IStorageService {
     }
   }
 
-  /**
-   * Get total pending reservations for a user
-   */
+  // Get total pending reservations for a user
   private getPendingReservations(userId: string): number {
     let total = 0;
     for (const reservation of this.reservations.values()) {
@@ -109,9 +51,7 @@ export class StorageService implements IStorageService {
     return total;
   }
 
-  /**
-   * Reserve storage space atomically (prevents race conditions)
-   */
+  // Reserve storage space atomically (prevents race conditions)
   async reserveSpace(userId: string, size: number): Promise<StorageReservation> {
     const user = await User.findById(userId).select('storageUsed storageQuota');
     if (!user) {
@@ -201,9 +141,7 @@ export class StorageService implements IStorageService {
     return reservation;
   }
 
-  /**
-   * Get storage usage statistics for a user
-   */
+  // Get storage usage statistics for a user
   async getStorageStats(userId: string): Promise<StorageStats> {
     const user = await User.findById(userId).select('storageUsed storageQuota');
     if (!user) {
@@ -232,9 +170,7 @@ export class StorageService implements IStorageService {
     };
   }
 
-  /**
-   * Get storage breakdown by media type
-   */
+  // Get storage breakdown by media type
   async getStorageBreakdown(userId: string): Promise<StorageStats['breakdown']> {
     const aggregation = await Media.aggregate([
       { $match: { userId: userId } },
@@ -288,9 +224,7 @@ export class StorageService implements IStorageService {
     return breakdown;
   }
 
-  /**
-   * Check if user can upload a file of given size
-   */
+  // Check if user can upload a file of given size
   async canUpload(userId: string, fileSize: number): Promise<{ allowed: boolean; reason?: string }> {
     const user = await User.findById(userId).select('storageUsed storageQuota');
     if (!user) {
@@ -317,9 +251,7 @@ export class StorageService implements IStorageService {
     return { allowed: true };
   }
 
-  /**
-   * Update user's storage usage after upload
-   */
+  // Update user's storage usage after upload
   async incrementUsage(userId: string, bytes: number): Promise<void> {
     await User.findByIdAndUpdate(userId, {
       $inc: { storageUsed: bytes },
@@ -327,9 +259,7 @@ export class StorageService implements IStorageService {
     logger.debug(`Storage incremented for user ${userId}: +${this.formatBytes(bytes)}`);
   }
 
-  /**
-   * Update user's storage usage after deletion
-   */
+  // Update user's storage usage after deletion
   async decrementUsage(userId: string, bytes: number): Promise<void> {
     await User.findByIdAndUpdate(userId, {
       $inc: { storageUsed: -bytes },
@@ -337,9 +267,7 @@ export class StorageService implements IStorageService {
     logger.debug(`Storage decremented for user ${userId}: -${this.formatBytes(bytes)}`);
   }
 
-  /**
-   * Recalculate and sync storage usage from actual media
-   */
+  // Recalculate and sync storage usage from actual media
   async syncStorageUsage(userId: string): Promise<number> {
     const result = await Media.aggregate([
       { $match: { userId: userId } },
@@ -356,9 +284,7 @@ export class StorageService implements IStorageService {
     return actualUsage;
   }
 
-  /**
-   * Find orphaned media (not linked to any entry or folder)
-   */
+  // Find orphaned media (not linked to any entry or folder)
   async findOrphanedMedia(userId: string): Promise<OrphanMedia[]> {
 
     // Get all media IDs that are referenced in entries
@@ -386,9 +312,7 @@ export class StorageService implements IStorageService {
     }));
   }
 
-  /**
-   * Get cleanup suggestions for a user
-   */
+  // Get cleanup suggestions for a user
   async getCleanupSuggestions(userId: string): Promise<CleanupSuggestion[]> {
     const suggestions: CleanupSuggestion[] = [];
 
@@ -411,7 +335,7 @@ export class StorageService implements IStorageService {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const { Entry } = await import('../entry/entry.model');
+    const { Entry } = await import('../../entry/entry.model');
     const recentEntryMedia = await Entry.find({ userId }).select('media');
     const recentMediaIds = new Set(
       recentEntryMedia.flatMap((e) => e.media.map((m: { toString: () => string }) => m.toString()))
@@ -472,9 +396,7 @@ export class StorageService implements IStorageService {
     return suggestions;
   }
 
-  /**
-   * Format bytes to human readable string
-   */
+  // Format bytes to human readable string
   formatBytes(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -483,9 +405,7 @@ export class StorageService implements IStorageService {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
-  /**
-   * Cleanup resources on service shutdown
-   */
+  // Cleanup resources on service shutdown
   destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);

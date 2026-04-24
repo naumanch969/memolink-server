@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { ResponseHelper } from '../../core/utils/response.utils';
-import { AuthenticatedRequest } from '../auth/auth.types';
+import { ResponseHelper } from '../../../core/utils/response.utils';
+import { AuthenticatedRequest } from '../../auth/auth.types';
 import { folderService } from './folder.service';
 
 export class FolderController {

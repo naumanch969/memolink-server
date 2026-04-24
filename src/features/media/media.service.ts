@@ -8,7 +8,7 @@ import { mediaEvents, MediaEventType } from './media.events';
 import { IMediaService } from "./media.interfaces";
 import { Media } from './media.model';
 import { CreateMediaRequest, IMedia, UpdateMediaRequest } from './media.types';
-import { storageService } from './storage.service';
+import { storageService } from './storage/storage.service';
 
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
@@ -63,7 +63,7 @@ export class MediaService implements IMediaService {
     try {
       const media = await this.getMediaById(mediaId, userId);
       const url = media.url;
-      
+
       if (!url) {
         throw new Error('Media URL not found');
       }
@@ -79,20 +79,7 @@ export class MediaService implements IMediaService {
     }
   }
 
-  async getUserMedia(userId: string, options: {
-    page?: number;
-    limit?: number;
-    sort?: string;
-    type?: string;
-    folderId?: string | null;
-    search?: string;
-  } = {}): Promise<{
-    media: IMedia[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  async getUserMedia(userId: string, options: { page?: number; limit?: number; sort?: string; type?: string; folderId?: string | null; search?: string; } = {}): Promise<{ media: IMedia[]; total: number; page: number; limit: number; totalPages: number; }> {
     try {
       const { page, limit, skip } = Helpers.getPaginationParams(options);
       const sort = Helpers.getSortParams(options, 'createdAt');

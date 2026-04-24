@@ -1,15 +1,15 @@
 import { Response } from 'express';
-import { cloudinaryService } from '../../config/cloudinary.service';
-import { logger } from '../../config/logger';
-import { ResponseHelper } from '../../core/utils/response.utils';
-import { getMediaTypeFromMime } from '../../shared/constants';
-import { AuthenticatedRequest } from '../auth/auth.types';
+import { cloudinaryService } from '../../../config/cloudinary.service';
+import { logger } from '../../../config/logger';
+import { ResponseHelper } from '../../../core/utils/response.utils';
+import { getMediaTypeFromMime } from '../../../shared/constants';
+import { AuthenticatedRequest } from '../../auth/auth.types';
 import { chunkedUploadService } from './chunked-upload.service';
-import { mediaEvents, MediaEventType } from './media.events';
-import { mediaService } from './media.service';
-import { CreateMediaRequest, MediaMetadata } from './media.types';
-import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCloudinaryExif, parseCloudinaryOcr } from './media.utils';
-import { storageService } from './storage.service';
+import { mediaEvents, MediaEventType } from '../media.events';
+import { mediaService } from '../media.service';
+import { CreateMediaRequest, MediaMetadata } from '../media.types';
+import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCloudinaryExif, parseCloudinaryOcr } from '../media.utils';
+import { storageService } from '../storage/storage.service';
 
 export class ChunkedUploadController {
   /**

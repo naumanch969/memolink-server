@@ -6,13 +6,17 @@ export const ENRICHMENT_QUEUE_HEALING = 'enrichment-healing';
 export const AGENT_QUEUE_NAME = 'agent-tasks';
 
 export const EMAIL_QUEUE_NAME = 'email-delivery';
-export const EMAIL_DLQ_NAME = 'email-delivery-dlq';
+export const EMAIL_DLQ_NAME = 'email-delivery-dlq'; // dead letter queue: to queue the failed jobs
+
+export const MEDIA_QUEUE_NAME = 'media-processing';
 
 // ─── JOB NAMES ───────────────────────────────────────────────────────────────
 
 export const ENRICHMENT_JOB_ACTIVE = 'process-active';
 export const ENRICHMENT_JOB_PASSIVE = 'process-passive';
 export const ENRICHMENT_JOB_HEALING = 'process-healing';
+
+export const MEDIA_JOB_PROCESS = 'media-process';
 
 // ─── JOB OPTIONS ─────────────────────────────────────────────────────────────
 
@@ -49,6 +53,13 @@ export const EMAIL_DLQ_JOB_OPTIONS = {
     removeOnFail: false,
 };
 
+export const MEDIA_JOB_OPTIONS = {
+    attempts: 3,
+    backoff: { type: 'exponential' as const, delay: 5000 },
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 500 },
+};
+
 // ─── WORKER CONFIG ────────────────────────────────────────────────────────────
 
 export const ENRICHMENT_WORKER_CONFIG = {
@@ -71,4 +82,9 @@ export const AGENT_WORKER_CONFIG = {
 export const EMAIL_WORKER_CONFIG = {
     concurrency: 10,
     limiter: { max: 10, duration: 1_000 },  // 10 emails/sec
+};
+
+export const MEDIA_WORKER_CONFIG = {
+    concurrency: 5,         // Multi-threaded media processing
+    lockDuration: 600_000,  // 10m — heavy transcoding can take time
 };

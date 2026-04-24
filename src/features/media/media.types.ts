@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { BaseEntity } from "../../shared/types";
+import { MediaStatus, MediaSource } from "./media.enums";
 
 export interface IMedia extends BaseEntity {
     userId: Types.ObjectId;
@@ -16,7 +17,7 @@ export interface IMedia extends BaseEntity {
     extension?: string;
     altText?: string;
     description?: string;
-    status?: 'uploading' | 'processing' | 'ready' | 'error';
+    status: MediaStatus;
     processingError?: string;
     metadata?: {
         width?: number;
@@ -91,6 +92,7 @@ export interface CreateMediaRequest {
     altText?: string;
     description?: string;
     metadata?: MediaMetadata;
+    status?: MediaStatus
 }
 
 export interface MediaMetadata {
@@ -141,3 +143,31 @@ export interface BulkMoveMediaRequest {
 }
 
 export type MediaType = 'image' | 'video' | 'document' | 'audio' | 'archive' | 'data' | 'code';
+
+export enum MediaJobType {
+  PROCESS_AUDIO = 'process_audio',
+  PROCESS_IMAGE = 'process_image',
+  PROCESS_VIDEO = 'process_video',
+  PROCESS_DOCUMENT = 'process_document',
+  GENERATE_THUMBNAIL = 'generate_thumbnail',
+  RUN_OCR = 'run_ocr',
+  AI_TAGGING = 'ai_tagging'
+}
+
+export interface MediaJobData {
+  userId: string;
+  mediaId: string; // Internal media ID
+  jobType: MediaJobType;
+  sourceType: MediaSource;
+  sessionId?: string;
+  options?: {
+    priority?: number;
+    force?: boolean;
+    transcode?: boolean; // For audio/video
+  };
+  whatsappData?: {
+    from: string;
+    mediaId: string; // WhatsApp Cloud API media ID
+    mimeType: string;
+  };
+}

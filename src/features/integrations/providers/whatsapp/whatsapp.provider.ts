@@ -3,8 +3,6 @@ import { config } from '../../../../config/env';
 import { logger } from '../../../../config/logger';
 import { CacheKeys } from '../../../../core/cache/cache.keys';
 import cacheService from '../../../../core/cache/cache.service';
-import { audioTranscriptionService } from '../../../agent/services/agent.audio.service';
-import { agentService } from '../../../agent/services/agent.service';
 import { captureService } from '../../../capture/capture.service';
 import { receptionService } from '../../../capture/reception.service';
 import { User } from '../../../auth/auth.model';
@@ -15,7 +13,11 @@ import { IWhatsAppProvider } from '../../whatsapp.interfaces';
 import { WhatsAppWebhookPayload } from './whatsapp.types';
 import { IIntegrationProvider, IntegrationProviderIdentifier } from '../../integration.interface';
 import { IIntegrationTokenDocument } from '../../integration.model';
+import { MediaJobType } from '../../../media/media.types';
+import { addMediaJob } from '../../../media/media.queue';
+import { MediaSource } from '../../../media/media.enums';
 
+// TODO: check if we need to remvoe the audio handling by agent module
 export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider {
 
     readonly identifier = IntegrationProviderIdentifier.WHATSAPP;
@@ -125,6 +127,12 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 await this.handleTextMessage(user._id.toString(), from, message.text.body, recipientPhoneNumberId);
             } else if (message.type === 'audio' && message.audio) {
                 await this.handleAudioMessage(user._id.toString(), from, message.audio.id, message.audio.mime_type, recipientPhoneNumberId);
+            } else if (message.type === 'image' && message.image) {
+                await this.handleImageMessage(user._id.toString(), from, message.image.id, message.image.mime_type, recipientPhoneNumberId);
+            } else if (message.type === 'document' && message.document) {
+                await this.handleDocumentMessage(user._id.toString(), from, message.document.id, message.document.mime_type, recipientPhoneNumberId);
+            } else if (message.type === 'video' && message.video) {
+                await this.handleVideoMessage(user._id.toString(), from, message.video.id, message.video.mime_type, recipientPhoneNumberId);
             } else {
                 logger.debug('Unsupported WhatsApp message type', { type: message.type, from });
             }
@@ -150,32 +158,47 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
     }
 
     private async handleAudioMessage(userId: string, from: string, mediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
-        logger.info('Processing WhatsApp audio', { mediaId, userId });
-
-        const audioBuffer = await this.downloadMedia(mediaId);
-
-        // 1. Transcribe the audio
-        const transcription = await audioTranscriptionService.transcribe(audioBuffer, mimeType, { userId });
-
-        if (!transcription.text) {
-            await this.sendMessage(from, "I couldn't hear anything in that voice message.", recipientPhoneNumberId);
-            return;
-        }
-
-        // 2. Capture through CaptureService
-        const entry = await captureService.captureWhatsApp(userId, {
-            from,
-            body: transcription.text,
-            isVoice: true,
-            timestamp: new Date()
+        logger.info('Offloading WhatsApp audio to media queue', { mediaId, userId });
+        addMediaJob({
+            mediaId: '', 
+            userId,
+            jobType: MediaJobType.PROCESS_AUDIO,
+            sourceType: MediaSource.WHATSAPP,
+            whatsappData: { from, mediaId, mimeType }
         });
+    }
 
-        // 3. Respond via Receptionist
-        const response = await receptionService.generateResponse(userId, entry);
+    private async handleImageMessage(userId: string, from: string, mediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
+        logger.info('Offloading WhatsApp image to media queue', { mediaId, userId });
+        addMediaJob({
+            mediaId: '',
+            userId,
+            jobType: MediaJobType.PROCESS_IMAGE,
+            sourceType: MediaSource.WHATSAPP,
+            whatsappData: { from, mediaId, mimeType }
+        });
+    }
 
-        if (response) {
-            await this.sendMessage(from, response, recipientPhoneNumberId);
-        }
+    private async handleDocumentMessage(userId: string, from: string, mediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
+        logger.info('Offloading WhatsApp document to media queue', { mediaId, userId });
+        addMediaJob({
+            mediaId: '',
+            userId,
+            jobType: MediaJobType.PROCESS_DOCUMENT,
+            sourceType: MediaSource.WHATSAPP,
+            whatsappData: { from, mediaId, mimeType }
+        });
+    }
+
+    private async handleVideoMessage(userId: string, from: string, mediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
+        logger.info('Offloading WhatsApp video to media queue', { mediaId, userId });
+        addMediaJob({
+            mediaId: '',
+            userId,
+            jobType: MediaJobType.PROCESS_VIDEO,
+            sourceType: MediaSource.WHATSAPP,
+            whatsappData: { from, mediaId, mimeType }
+        });
     }
 
     // Downloads media from WhatsApp Cloud API
