@@ -6,7 +6,10 @@ export interface WhatsAppPayload {
     body: string;
     senderName?: string;
     isVoice?: boolean;
-    mediaUrl?: string;
+    isImage?: boolean;
+    isVideo?: boolean;
+    isDocument?: boolean;
+    mediaUrl?: string; // This is the internal mediaId
     timestamp?: number | Date;
 }
 

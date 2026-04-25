@@ -43,6 +43,25 @@ export class ReceptionService {
     "Saved the recording. Pulling the text now.",
   ];
 
+  private readonly imagePool = [
+    "Got the image. Saving it to your vault.",
+    "Image received. Storing it in your timeline.",
+    "Nice shot. Logged and saved.",
+    "Image saved. I'll analyze it for you.",
+  ];
+
+  private readonly videoPool = [
+    "Got the video. Processing it now.",
+    "Video received. Saving it for you.",
+    "Logged the video. Give me a moment to store it.",
+  ];
+
+  private readonly documentPool = [
+    "Got the document. Saving it to your files.",
+    "Document received. Storing it safely.",
+    "File saved. I'll process the content shortly.",
+  ];
+
   private readonly randomPool = [
     "Got it.",
     "Saved.",
@@ -60,11 +79,15 @@ export class ReceptionService {
 
   async generateResponse(userId: string | Types.ObjectId, entry: IEntry): Promise<string> {
     try {
-      // 1. CONTEXTUAL: Entry Type
-      const hasAudio = entry.type === 'media' || (entry.media && entry.media.length > 0);
-      if (hasAudio) {
+      // 1. CONTEXTUAL: Entry Type / Media Type
+      const metadata = entry.metadata || {};
+      
+      if (metadata.isVoice || entry.type === 'media' && !metadata.isImage && !metadata.isVideo && !metadata.isDocument) {
         return this.getRandom(this.audioPool);
       }
+      if (metadata.isImage) return this.getRandom(this.imagePool);
+      if (metadata.isVideo) return this.getRandom(this.videoPool);
+      if (metadata.isDocument) return this.getRandom(this.documentPool);
 
       // 2. CONTEXTUAL: Time of Day
       const greeting = this.getTimeBasedGreeting();

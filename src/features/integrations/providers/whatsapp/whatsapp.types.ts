@@ -55,10 +55,12 @@ export interface WhatsAppMessage {
         id: string;
         mime_type: string;
         filename?: string;
+        caption?: string;
     };
     video?: {
         id: string;
         mime_type: string;
+        caption?: string;
     };
 }
 

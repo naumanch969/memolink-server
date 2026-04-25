@@ -28,7 +28,13 @@ class AudioTranscriptionService implements IAudioTranscriptionService {
         audioBuffer: Buffer,
         mimeType: string,
         options?: { userId?: string; language?: string }
-    ): Promise<{ text: string; confidence: 'high' | 'medium' | 'low' }> {
+    ): Promise<{ 
+        text: string; 
+        confidence: 'high' | 'medium' | 'low';
+        summary?: string;
+        tags?: string[];
+        language?: string;
+    }> {
         const model = this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL });
         const base64Audio = audioBuffer.toString('base64');
 
@@ -36,19 +42,24 @@ class AudioTranscriptionService implements IAudioTranscriptionService {
             ? `The audio is likely in ${options.language}.`
             : 'Detect the language automatically.';
 
-        const prompt = `You are a precise audio transcription engine. Transcribe the following audio recording into text.
+        const prompt = `You are a precise audio transcription engine. Transcribe the following audio recording into text and provide additional analysis.
 
 Rules:
-- Output ONLY the transcribed text, nothing else
 - Preserve the speaker's words exactly as spoken
 - Use proper punctuation and capitalization
-- If the audio is unclear or silent, output exactly: [inaudible]
+- If the audio is unclear or silent, use "[inaudible]" in the text field
 - If there are multiple speakers, prefix with "Speaker 1:", "Speaker 2:", etc.
-- If the speech is in a non-English language (e.g. Hindi, Urdu, Spanish), transcribe it phonetically into Roman English (using the English alphabet). Do NOT translate the content into English. Do NOT use the native script.
+- If the speech is in a non-English language, transcribe it phonetically into Roman English. Do NOT translate.
 - ${languageHint}
 
 Output strictly valid JSON:
-{"text": "<transcribed text>", "confidence": "high" | "medium" | "low"}`;
+{
+  "text": "<full transcription>",
+  "confidence": "high" | "medium" | "low",
+  "summary": "<concise 1-2 sentence summary>",
+  "tags": ["tag1", "tag2", ...],
+  "language": "<detected language code, e.g. en, tr>"
+}`;
 
         const startTime = Date.now();
 
@@ -93,7 +104,13 @@ Output strictly valid JSON:
             }
 
             const rawText = response.text().trim();
-            let parsed: { text: string; confidence: string };
+            let parsed: { 
+                text: string; 
+                confidence: string;
+                summary?: string;
+                tags?: string[];
+                language?: string;
+            };
 
             try {
                 // Clean markdown fences if present
@@ -120,6 +137,9 @@ Output strictly valid JSON:
             return {
                 text: parsed.text,
                 confidence: (parsed.confidence as 'high' | 'medium' | 'low') || 'medium',
+                summary: (parsed as any).summary,
+                tags: (parsed as any).tags,
+                language: (parsed as any).language
             };
         } catch (error) {
             logger.error('Audio transcription failed', error);

@@ -29,11 +29,17 @@ export class CaptureService implements ICaptureService {
         // Classify signal tier
         const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice); // noise, log, signal, deep_signal
 
+        // Determine type dynamically (will also be handled by pre-save hook in model)
+        let entryType = method === InputMethod.VOICE ? EntryType.MEDIA : EntryType.TEXT;
+        if (payload.media && payload.media.length > 0 && content.trim()) {
+            entryType = EntryType.MIXED;
+        }
+
         // Create Entry synchronously
         const entryData: CreateEntryRequest = {
             content: content,
             status: EntryStatus.QUEUED,
-            type: method === InputMethod.VOICE ? EntryType.MEDIA : EntryType.TEXT,
+            type: entryType,
             inputMethod: inputMethodValue,
             date: entryDate,
             startDate: payload.startDate ? new Date(payload.startDate) : undefined,
@@ -100,14 +106,20 @@ export class CaptureService implements ICaptureService {
             whatsapp_from: payload.from,
             whatsapp_name: payload.senderName,
             whatsapp_media: payload.mediaUrl,
-            isVoice: payload.isVoice,
+            isVoice: payload.isVoice, // TODO: resolve these boolean flags to enum. and also, trasnform that whatsap_from to whatsappFrom, same for others. and run migration. infact, define it in schema
+            isImage: payload.isImage,
+            isVideo: payload.isVideo,
+            isDocument: payload.isDocument,
             source: 'whatsapp'
         };
 
+        const isMedia = payload.isVoice || payload.isImage || payload.isVideo || payload.isDocument;
+
         const entryPayload: ICapturePayload = {
-            content: payload.body,
-            type: payload.isVoice ? 'media' : 'text',
+            content: payload.body || (isMedia ? `WhatsApp ${payload.isVoice ? 'Voice Note' : payload.isImage ? 'Image' : payload.isVideo ? 'Video' : 'Document'}` : ''),
+            type: isMedia ? 'media' : 'text',
             date: payload.timestamp ? new Date(payload.timestamp) : new Date(),
+            media: payload.mediaUrl ? [payload.mediaUrl] : [],
             metadata
         };
 

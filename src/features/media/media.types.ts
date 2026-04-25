@@ -66,6 +66,9 @@ export interface IMedia extends BaseEntity {
         // OCR extracted text
         ocrText?: string;
         ocrConfidence?: number;
+        // AI-generated data
+        summary?: string;
+        colors?: string[];
         // AI-generated tags
         aiTags?: Array<{
           tag: string;
@@ -114,6 +117,8 @@ export interface MediaMetadata {
     exif?: ExifData;
     ocrText?: string;
     ocrConfidence?: number;
+    summary?: string;
+    colors?: string[];
     aiTags?: Array<{ tag: string; confidence: number }>;
 }
 
@@ -161,9 +166,10 @@ export enum MediaJobType {
 
 export interface MediaJobData {
   userId: string;
-  mediaId: string; // Internal media ID
+  mediaId?: string; // Internal media ID
   jobType: MediaJobType;
   sourceType: MediaSource;
+  entryId?: string; // Associated Entry ID if created upfront
   sessionId?: string;
   options?: {
     priority?: number;

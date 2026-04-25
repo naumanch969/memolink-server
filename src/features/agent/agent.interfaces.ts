@@ -25,7 +25,13 @@ export interface IAudioTranscriptionService {
         audioBuffer: Buffer,
         mimeType: string,
         options?: { userId?: string; language?: string }
-    ): Promise<{ text: string; confidence: 'high' | 'medium' | 'low' }>;
+    ): Promise<{ 
+        text: string; 
+        confidence: 'high' | 'medium' | 'low';
+        summary?: string;
+        tags?: string[];
+        language?: string;
+    }>;
 }
 
 export interface IAgentMemoryService {

@@ -1,3 +1,4 @@
+import './features/integrations/init';
 import * as Sentry from '@sentry/node';
 import 'apminsight';
 import { config } from './config/env';
@@ -6,6 +7,7 @@ import Server from './core/server';
 import { logger } from './config/logger';
 import { initAgentQueue } from './features/agent/agent.queue';
 import { initEmailQueue } from './features/email/queue/email.queue';
+
 
 
 // Initialize Sentry

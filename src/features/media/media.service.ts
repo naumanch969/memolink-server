@@ -9,14 +9,46 @@ import { IMediaService } from "./media.interfaces";
 import { Media } from './media.model';
 import { CreateMediaRequest, IMedia, UpdateMediaRequest } from './media.types';
 import { storageService } from './storage/storage.service';
+import { config } from '../../config/env';
+import { getMediaTypeFromMime } from '../../shared/constants';
+import { MediaStatus } from './media.enums';
+import { buildResolutionString } from './media.utils';
 
 export class MediaService implements IMediaService {
+ 
+  // Downloads media from WhatsApp Cloud API
+  async downloadWhatsAppMedia(whatsappMediaId: string): Promise<Buffer> {
+    const apiToken = config.WHATSAPP_API_TOKEN;
+    if (!apiToken) {
+      throw new Error('WHATSAPP_API_TOKEN is not configured');
+    }
+
+    logger.info('Fetching WhatsApp media URL', { whatsappMediaId });
+    const mediaResponse = await axios.get(`https://graph.facebook.com/v21.0/${whatsappMediaId}`, {
+      headers: { Authorization: `Bearer ${apiToken}` }
+    });
+
+    const url = mediaResponse.data.url;
+    if (!url) {
+      logger.error('Failed to get WhatsApp media URL', mediaResponse.data);
+      throw new Error('Failed to get WhatsApp media URL');
+    }
+
+    logger.info('Downloading media from WhatsApp URL', { whatsappMediaId });
+    const downloadResponse = await axios.get(url, {
+      headers: { Authorization: `Bearer ${apiToken}` },
+      responseType: 'arraybuffer'
+    });
+
+    return Buffer.from(downloadResponse.data);
+  }
+
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
     try {
-      const media = new Media({ 
-        userId: new Types.ObjectId(userId), 
+      const media = new Media({
+        userId: new Types.ObjectId(userId),
         storageType: 'authenticated', // Default to new pattern for all new creations
-        ...mediaData 
+        ...mediaData
       });
 
       await media.save();
@@ -265,6 +297,66 @@ export class MediaService implements IMediaService {
   async getSignedUrl(mediaId: string, userId: string): Promise<string> {
     const media = await this.getMediaById(mediaId, userId);
     return cloudinaryService.getSignedUrl(media.cloudinaryId);
+  }
+
+  // Uploads a buffer to Cloudinary and creates a Media record
+  // This is used for programmatic uploads like WhatsApp
+  async uploadMediaFromBuffer(
+    userId: string,
+    buffer: Buffer,
+    mimeType: string,
+    originalName: string,
+    options: { folderId?: string; tags?: string[] } = {}
+  ): Promise<IMedia> {
+    // 1. Reserve storage space
+    const reservation = await storageService.reserveSpace(userId, buffer.length);
+
+    try {
+      // 2. Determine folder path
+      const folder = cloudinaryService.getStoragePath(userId, 'timeline');
+
+      // 3. Upload to Cloudinary
+      const cloudinaryResult = await cloudinaryService.uploadLargeStream(
+        [buffer],
+        mimeType,
+        originalName,
+        folder
+      );
+
+      // 4. Determine media type
+      const mediaType = getMediaTypeFromMime(mimeType);
+
+      // 5. Create the Media record
+      const mediaData: CreateMediaRequest = {
+        filename: cloudinaryResult.public_id,
+        originalName,
+        mimeType,
+        size: buffer.length,
+        url: cloudinaryResult.secure_url,
+        cloudinaryId: cloudinaryResult.public_id,
+        type: mediaType as CreateMediaRequest['type'],
+        folderId: options.folderId,
+        tags: options.tags,
+        status: MediaStatus.PROCESSING,
+        metadata: {
+          width: cloudinaryResult.width,
+          height: cloudinaryResult.height,
+          duration: cloudinaryResult.duration,
+          resolution: buildResolutionString(cloudinaryResult.width, cloudinaryResult.height),
+        }
+      };
+
+      const media = await this.createMedia(userId, mediaData);
+
+      // 6. Finalize storage usage
+      await reservation.commit();
+
+      return media;
+    } catch (error) {
+      await reservation.rollback();
+      logger.error('Failed to upload media from buffer:', error);
+      throw error;
+    }
   }
 }
 

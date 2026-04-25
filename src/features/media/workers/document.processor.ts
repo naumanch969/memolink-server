@@ -1,33 +1,49 @@
+import { Entry } from '../../entry/entry.model';
+import { EntryStatus } from '../../entry/entry.types';
 import axios from 'axios';
 import { logger } from '../../../config/logger';
 import { MediaJobData } from '../media.types';
-import { MediaSource } from '../media.enums';
+import { MediaSource, MediaStatus } from '../media.enums';
 import { mediaService } from '../media.service';
 import { Media } from '../media.model';
 import { config } from '../../../config/env';
 import { visionService } from '../../agent/services/agent.vision.service';
+import { captureService } from '../../capture/capture.service';
+import { integrationRegistry } from '../../integrations/integration.registry';
+import { IntegrationProviderIdentifier } from '../../integrations/integration.interface';
+import { WhatsAppProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
+import receptionService from '../../capture/reception.service';
 
-/**
- * Process Document Job
- * Handles text extraction, summarization, and key insight detection for PDFs/Documents.
- */
+// Handles text extraction, summarization, and key insight detection for PDFs/Documents.
 export async function processDocument(data: MediaJobData): Promise<any> {
-    const { mediaId, userId, sourceType, whatsappData } = data;
+    const { mediaId, userId, entryId, sourceType, whatsappData } = data;
+    let effectiveMediaId = mediaId;
     let documentBuffer: Buffer | null = null;
     let mimeType = 'application/pdf';
 
-    logger.info('[Document Processor] Starting document job', { mediaId, userId, source: sourceType });
+    logger.info('[Document Processor] Starting document job', { mediaId: effectiveMediaId, userId, entryId, source: sourceType });
 
     try {
         // 1. Get the document source
-        if (sourceType === MediaSource.WHATSAPP && whatsappData) {
-            logger.info('[Document Processor] Downloading WhatsApp document', { whatsappMediaId: whatsappData.mediaId });
-            documentBuffer = await downloadWhatsAppMedia(whatsappData.mediaId);
-            mimeType = whatsappData.mimeType;
-        } else {
-            const result = await mediaService.getMediaBuffer(mediaId, userId);
+        if (effectiveMediaId) {
+            // Priority: Fetch from storage
+            const result = await mediaService.getMediaBuffer(effectiveMediaId, userId);
             documentBuffer = result.buffer;
             mimeType = result.mimeType;
+        } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
+            // Fallback: Download from WhatsApp if no mediaId was provided
+            logger.info('[Document Processor] Downloading WhatsApp document as fallback', { whatsappMediaId: whatsappData.mediaId });
+            documentBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
+            mimeType = whatsappData.mimeType;
+
+            logger.info('[Document Processor] Uploading fallback WhatsApp document to Cloudinary');
+            const media = await mediaService.uploadMediaFromBuffer(
+                userId,
+                documentBuffer,
+                mimeType,
+                `whatsapp_doc_${Date.now()}`
+            );
+            effectiveMediaId = media._id.toString();
         }
 
         if (!documentBuffer) {
@@ -35,31 +51,69 @@ export async function processDocument(data: MediaJobData): Promise<any> {
         }
 
         // 2. Perform Document Analysis (Using Gemini's Multimodal PDF support)
-        logger.info('[Document Processor] Analyzing document content with AI', { mediaId });
+        logger.info('[Document Processor] Analyzing document content with AI', { mediaId: effectiveMediaId });
         const analysis = await analyzeDocument(documentBuffer, mimeType, userId);
 
         // 3. Update Media Record
-        if (mediaId) {
-            await Media.findByIdAndUpdate(mediaId, {
+        if (effectiveMediaId) {
+            await Media.findByIdAndUpdate(effectiveMediaId, {
                 $set: {
-                    status: 'ready',
+                    status: MediaStatus.READY,
                     'metadata.ocrText': analysis.extractedText,
                     'metadata.summary': analysis.summary,
-                    'metadata.aiTags': analysis.tags,
+                    'metadata.aiTags': analysis.tags.map((tag: string) => ({ tag, confidence: 1.0 })),
                     'metadata.pages': analysis.pageCount
                 }
             });
+        }
+
+        // 4. Update Entry
+        if (entryId) {
+            const entry = await Entry.findById(entryId);
+            if (entry) {
+                const originalContent = entry.content;
+                // If there's an original caption, preserve it and append AI analysis
+                if (originalContent && !originalContent.includes('WhatsApp Document')) {
+                    entry.content = `${originalContent}\n\nAI Analysis: ${analysis.summary}`;
+                } else {
+                    entry.content = analysis.summary || 'Document content processed';
+                }
+                
+                entry.status = EntryStatus.COMPLETED;
+                if (effectiveMediaId && !entry.media.includes(effectiveMediaId as any)) {
+                    entry.media.push(effectiveMediaId as any);
+                }
+                
+                // metadata.summary for search/preview
+                entry.set('metadata.summary', analysis.summary || 'Document entry');
+                
+                await entry.save(); // This will trigger pre('save') to set type = MIXED
+                logger.info('[Document Processor] Entry updated successfully', { entryId, type: entry.type });
+
+                // 5. Final WhatsApp Acknowledgment
+                if (sourceType === MediaSource.WHATSAPP && whatsappData?.from) {
+                    try {
+                        const whatsapp = integrationRegistry.get(IntegrationProviderIdentifier.WHATSAPP) as WhatsAppProvider;
+                        await whatsapp.sendMessage(
+                            whatsappData.from, 
+                            "Document analyzed! Summary and key insights are now in your vault. ✅"
+                        );
+                    } catch (err) {
+                        logger.error('Failed to send WhatsApp completion message', err);
+                    }
+                }
+            }
         }
 
         logger.info('[Document Processor] Document processing completed', { mediaId });
         return { analysis };
 
     } catch (error) {
-        logger.error('[Document Processor] Document processing failed', { mediaId, error });
-        if (mediaId) {
-            await Media.findByIdAndUpdate(mediaId, {
+        logger.error('[Document Processor] Document processing failed', { mediaId: effectiveMediaId, error });
+        if (effectiveMediaId) {
+            await Media.findByIdAndUpdate(effectiveMediaId, {
                 $set: {
-                    status: 'error',
+                    status: MediaStatus.FAILED,
                     processingError: error instanceof Error ? error.message : 'Unknown error'
                 }
             });
@@ -68,30 +122,8 @@ export async function processDocument(data: MediaJobData): Promise<any> {
     }
 }
 
-/**
- * Downloads media from WhatsApp Cloud API
- */
-async function downloadWhatsAppMedia(whatsappMediaId: string): Promise<Buffer> {
-    const apiToken = config.WHATSAPP_API_TOKEN;
-    
-    const mediaResponse = await axios.get(`https://graph.facebook.com/v21.0/${whatsappMediaId}`, {
-        headers: { Authorization: `Bearer ${apiToken}` }
-    });
 
-    const url = mediaResponse.data.url;
-    if (!url) throw new Error('Failed to get WhatsApp media URL');
-
-    const downloadResponse = await axios.get(url, {
-        headers: { Authorization: `Bearer ${apiToken}` },
-        responseType: 'arraybuffer'
-    });
-
-    return Buffer.from(downloadResponse.data);
-}
-
-/**
- * Uses Gemini to analyze document content
- */
+// Uses Gemini to analyze document content
 async function analyzeDocument(buffer: Buffer, mimeType: string, userId: string): Promise<any> {
     try {
         const prompt = `Analyze this document thoroughly. 
@@ -108,12 +140,12 @@ async function analyzeDocument(buffer: Buffer, mimeType: string, userId: string)
             "tags": ["...", "..."],
             "pageCount": 0
         }`;
-        
-        const analysis = await visionService.analyze(buffer, mimeType, prompt, { 
-            userId, 
-            workflow: 'document-processing' 
+
+        const analysis = await visionService.analyze(buffer, mimeType, prompt, {
+            userId,
+            workflow: 'document-processing'
         });
-        
+
         return {
             summary: analysis.summary || "No summary available.",
             extractedText: analysis.extractedText || "",
@@ -122,11 +154,11 @@ async function analyzeDocument(buffer: Buffer, mimeType: string, userId: string)
         };
     } catch (error) {
         logger.error('[Document Processor] Document analysis failed', error);
-        return { 
-            summary: "AI analysis failed for this document.", 
-            extractedText: "", 
-            tags: [], 
-            pageCount: 1 
+        return {
+            summary: "AI analysis failed for this document.",
+            extractedText: "",
+            tags: [],
+            pageCount: 1
         };
     }
 }

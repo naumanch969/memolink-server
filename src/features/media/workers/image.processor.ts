@@ -1,32 +1,49 @@
+import { Entry } from '../../entry/entry.model';
+import { EntryStatus } from '../../entry/entry.types';
 import sharp from 'sharp';
-import axios from 'axios';
 import { logger } from '../../../config/logger';
 import { MediaJobData } from '../media.types';
-import { MediaSource } from '../media.enums';
+import { MediaSource, MediaStatus } from '../media.enums';
 import { mediaService } from '../media.service';
 import { Media } from '../media.model';
-import { config } from '../../../config/env';
 import { visionService } from '../../agent/services/agent.vision.service';
+import { captureService } from '../../capture/capture.service';
+import { integrationRegistry } from '../../integrations/integration.registry';
+import { IntegrationProviderIdentifier } from '../../integrations/integration.interface';
+import { WhatsAppProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
+import receptionService from '../../capture/reception.service';
 
 
 // Process Image Job
 export async function processImage(data: MediaJobData): Promise<any> {
-    const { mediaId, userId, sourceType, whatsappData } = data;
+    const { mediaId, userId, entryId, sourceType, whatsappData } = data;
+    let effectiveMediaId = mediaId;
     let imageBuffer: Buffer | null = null;
     let mimeType = 'image/jpeg';
 
-    logger.info('[Image Processor] Starting image job', { mediaId, userId, source: sourceType });
+    logger.info('[Image Processor] Starting image job', { mediaId: effectiveMediaId, userId, entryId, source: sourceType });
 
     try {
         // 1. Get the image source
-        if (sourceType === MediaSource.WHATSAPP && whatsappData) {
-            logger.info('[Image Processor] Downloading WhatsApp image', { whatsappMediaId: whatsappData.mediaId });
-            imageBuffer = await downloadWhatsAppMedia(whatsappData.mediaId);
-            mimeType = whatsappData.mimeType;
-        } else {
-            const result = await mediaService.getMediaBuffer(mediaId, userId);
+        if (effectiveMediaId) {
+            // Priority: Fetch from storage
+            const result = await mediaService.getMediaBuffer(effectiveMediaId, userId);
             imageBuffer = result.buffer;
             mimeType = result.mimeType;
+        } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
+            // Fallback: Download from WhatsApp if no mediaId was provided
+            logger.info('[Image Processor] Downloading WhatsApp image as fallback', { whatsappMediaId: whatsappData.mediaId });
+            imageBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
+            mimeType = whatsappData.mimeType;
+
+            logger.info('[Image Processor] Uploading fallback WhatsApp image to Cloudinary');
+            const media = await mediaService.uploadMediaFromBuffer(
+                userId,
+                imageBuffer,
+                mimeType,
+                `whatsapp_image_${Date.now()}.jpg`
+            );
+            effectiveMediaId = media._id.toString();
         }
 
         if (!imageBuffer) {
@@ -34,37 +51,74 @@ export async function processImage(data: MediaJobData): Promise<any> {
         }
 
         // 2. Perform Image Analysis (Vision)
-        // Similar to audio transcription, we use Gemini to "see" the image
-        logger.info('[Image Processor] Analyzing image content with Vision AI', { mediaId });
+        logger.info('[Image Processor] Analyzing image content with Vision AI', { mediaId: effectiveMediaId });
         const analysis = await analyzeImage(imageBuffer, mimeType, userId);
 
         // 3. Extract EXIF / Metadata using Sharp
         const metadata = await sharp(imageBuffer).metadata();
 
         // 4. Update Media Record
-        if (mediaId) {
-            await Media.findByIdAndUpdate(mediaId, {
+        if (effectiveMediaId) {
+            await Media.findByIdAndUpdate(effectiveMediaId, {
                 $set: {
-                    status: 'ready',
+                    status: MediaStatus.READY,
                     'metadata.width': metadata.width,
                     'metadata.height': metadata.height,
                     'metadata.ocrText': analysis.ocrText,
-                    'metadata.aiTags': analysis.tags,
+                    'metadata.aiTags': analysis.tags.map((tag: string) => ({ tag, confidence: 1.0 })),
                     'metadata.colors': analysis.dominantColors,
                     'metadata.summary': analysis.description
                 }
             });
         }
 
+        // 5. Update Entry
+        if (entryId) {
+            const entry = await Entry.findById(entryId);
+            if (entry) {
+                const originalContent = entry.content;
+                // If there's an original caption, preserve it and append AI analysis
+                if (originalContent && originalContent !== 'WhatsApp Image') {
+                    entry.content = `${originalContent}\n\nAI Analysis: ${analysis.description}`;
+                } else {
+                    entry.content = analysis.description || 'Image content processed';
+                }
+                
+                entry.status = EntryStatus.COMPLETED;
+                if (effectiveMediaId && !entry.media.includes(effectiveMediaId as any)) {
+                    entry.media.push(effectiveMediaId as any);
+                }
+                
+                // metadata.summary for search/preview
+                entry.set('metadata.summary', analysis.description || 'Image entry');
+                
+                await entry.save(); // This will trigger pre('save') to set type = MIXED
+                logger.info('[Image Processor] Entry updated successfully', { entryId, type: entry.type });
+
+                // 6. Final WhatsApp Acknowledgment
+                if (sourceType === MediaSource.WHATSAPP && whatsappData?.from) {
+                    try {
+                        const whatsapp = integrationRegistry.get(IntegrationProviderIdentifier.WHATSAPP) as WhatsAppProvider;
+                        await whatsapp.sendMessage(
+                            whatsappData.from, 
+                            "Analysis complete! I've added the details to your entry. ✅"
+                        );
+                    } catch (err) {
+                        logger.error('Failed to send WhatsApp completion message', err);
+                    }
+                }
+            }
+        }
+
         logger.info('[Image Processor] Image processing completed', { mediaId });
         return { analysis, metadata: { width: metadata.width, height: metadata.height } };
 
     } catch (error) {
-        logger.error('[Image Processor] Image processing failed', { mediaId, error });
-        if (mediaId) {
-            await Media.findByIdAndUpdate(mediaId, {
+        logger.error('[Image Processor] Image processing failed', { mediaId: effectiveMediaId, error });
+        if (effectiveMediaId) {
+            await Media.findByIdAndUpdate(effectiveMediaId, {
                 $set: {
-                    status: 'error',
+                    status: MediaStatus.FAILED,
                     processingError: error instanceof Error ? error.message : 'Unknown error'
                 }
             });
@@ -74,24 +128,6 @@ export async function processImage(data: MediaJobData): Promise<any> {
 }
 
 
-// Downloads media from WhatsApp Cloud API
-async function downloadWhatsAppMedia(whatsappMediaId: string): Promise<Buffer> {
-    const apiToken = config.WHATSAPP_API_TOKEN;
-
-    const mediaResponse = await axios.get(`https://graph.facebook.com/v21.0/${whatsappMediaId}`, {
-        headers: { Authorization: `Bearer ${apiToken}` }
-    });
-
-    const url = mediaResponse.data.url;
-    if (!url) throw new Error('Failed to get WhatsApp media URL');
-
-    const downloadResponse = await axios.get(url, {
-        headers: { Authorization: `Bearer ${apiToken}` },
-        responseType: 'arraybuffer'
-    });
-
-    return Buffer.from(downloadResponse.data);
-}
 
 // Uses Gemini Vision to analyze image content
 async function analyzeImage(buffer: Buffer, mimeType: string, userId: string): Promise<any> {

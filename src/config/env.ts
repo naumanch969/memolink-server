@@ -111,6 +111,9 @@ export const config = {
   CLAUDE_CLIENT_SECRET: process.env.CLAUDE_CLIENT_SECRET || 'claude_secret_brinn_2025',
 
   CURRENT_SERVICE_KEY_VERSION: process.env.CURRENT_SERVICE_KEY_VERSION || '1',
+
+  // Media Processing
+  FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/local/bin/ffmpeg',
 } as const;
 
 export type Config = typeof config;

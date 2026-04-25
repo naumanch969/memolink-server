@@ -58,6 +58,9 @@ const mediaSchema = new Schema<IMedia>({
     // OCR
     ocrText: String,
     ocrConfidence: Number,
+    // AI Content
+    summary: String,
+    colors: [String],
     // AI tags
     aiTags: [{ tag: String, confidence: Number, }],
     // Face detection
