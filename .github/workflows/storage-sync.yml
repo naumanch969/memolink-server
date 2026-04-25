@@ -1,0 +1,38 @@
+name: Mirror Storage to Cloudflare R2
+
+on:
+  schedule:
+    # Runs at 01:00 UTC every day (1 hour after DB backup)
+    - cron: '0 1 * * *'
+  # Allows manual trigger
+  workflow_dispatch:
+
+jobs:
+  sync_storage:
+    runs-on: ubuntu-latest
+    name: Mirror Cloudinary to R2
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Storage Sync
+        env:
+          MONGODB_URI: ${{ secrets.MONGO_URI }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          NODE_ENV: production
+        run: npx ts-node src/scripts/sync-storage.ts
