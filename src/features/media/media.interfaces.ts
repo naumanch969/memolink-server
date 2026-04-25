@@ -9,6 +9,7 @@ export interface IMediaService {
   updateMedia(mediaId: string, userId: string, updateData: UpdateMediaRequest): Promise<IMedia>;
   deleteMedia(mediaId: string, userId: string): Promise<void>;
   getMediaBuffer(mediaId: string, userId: string): Promise<{ buffer: Buffer; mimeType: string }>;
+  getSignedUrl(mediaId: string, userId: string): Promise<string>;
   deleteUserData(userId: string): Promise<number>;
 }
 

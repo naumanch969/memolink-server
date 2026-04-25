@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import cloudinaryService from '../../config/cloudinary.service';
+import cloudinaryService from '../media/cloudinary/cloudinary.service';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { getMediaTypeFromMime } from '../../shared/constants';
@@ -21,7 +21,8 @@ export class CaptureController {
      * Returns the new Media document's string ID.
      */
     private async uploadFile(userId: string, file: Express.Multer.File): Promise<string> {
-        const cloudinaryResult = await cloudinaryService.uploadFile(file, 'brinn', {
+        const folder = cloudinaryService.getStoragePath(userId, 'timeline');
+        const cloudinaryResult = await cloudinaryService.uploadFile(file, folder, {
             extractExif: true,
             enableOcr: false,
             enableAiTagging: false,

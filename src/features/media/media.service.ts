@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Types } from 'mongoose';
-import cloudinaryService from '../../config/cloudinary.service';
+import cloudinaryService from './cloudinary/cloudinary.service';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
 import { Helpers } from '../../shared/helpers';
@@ -13,7 +13,11 @@ import { storageService } from './storage/storage.service';
 export class MediaService implements IMediaService {
   async createMedia(userId: string, mediaData: CreateMediaRequest): Promise<IMedia> {
     try {
-      const media = new Media({ userId: new Types.ObjectId(userId), ...mediaData });
+      const media = new Media({ 
+        userId: new Types.ObjectId(userId), 
+        storageType: 'authenticated', // Default to new pattern for all new creations
+        ...mediaData 
+      });
 
       await media.save();
       logger.info('Media created successfully', { mediaId: media._id, userId });
@@ -256,6 +260,11 @@ export class MediaService implements IMediaService {
     const mediaIds = mediaItems.map(m => m._id.toString());
     const result = await this.bulkDeleteMedia(userId, mediaIds);
     return result.deleted;
+  }
+
+  async getSignedUrl(mediaId: string, userId: string): Promise<string> {
+    const media = await this.getMediaById(mediaId, userId);
+    return cloudinaryService.getSignedUrl(media.cloudinaryId);
   }
 }
 

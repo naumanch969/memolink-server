@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { cloudinaryService } from '../../config/cloudinary.service';
+import { cloudinaryService } from '../media/cloudinary/cloudinary.service';
 import { emailService } from '../email/email.service';
 import { config } from '../../config/env';
 import { logger } from '../../config/logger';
@@ -531,7 +531,12 @@ export class AuthService implements IAuthService {
         } catch (e) { logger.warn('Old avatar delete failed', e); }
       }
 
-      const result = await cloudinaryService.uploadFile(file, 'brinn/avatars');
+      const publicId = cloudinaryService.getStoragePath(userId, 'special', { special: 'profile', assetType: 'avatar' });
+      const result = await cloudinaryService.uploadFile(file, undefined, {
+        public_id: publicId,
+        overwrite: true,
+        invalidate: true
+      });
       user.avatar = cloudinaryService.getOptimizedUrl(result.public_id, { width: 256, height: 256, crop: 'fill' });
 
       await user.save();

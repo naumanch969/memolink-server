@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { cloudinaryService } from '../../config/cloudinary.service';
+import { cloudinaryService } from './cloudinary/cloudinary.service';
 import { logger } from '../../config/logger';
 import { ResponseHelper } from '../../core/utils/response.utils';
 import { getMediaTypeFromMime } from '../../shared/constants';
@@ -56,9 +56,10 @@ export class MediaController {
       }
 
       // Upload to Cloudinary with metadata extraction options
+      const folder = cloudinaryService.getStoragePath(userId, 'timeline');
       let cloudinaryResult;
       try {
-        cloudinaryResult = await cloudinaryService.uploadFile(req.file, 'brinn', {
+        cloudinaryResult = await cloudinaryService.uploadFile(req.file, folder, {
           extractExif: false,
           enableOcr: false,
           enableAiTagging: false,
@@ -366,6 +367,18 @@ export class MediaController {
       ResponseHelper.success(res, result, `Deleted ${result.deleted} media items`);
     } catch (error) {
       ResponseHelper.error(res, 'Failed to bulk delete media', 500, error);
+    }
+  }
+
+  static async getSignedUrl(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user!._id.toString();
+      const url = await mediaService.getSignedUrl(id, userId);
+      ResponseHelper.success(res, { url });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to get signed URL';
+      ResponseHelper.error(res, msg, 500);
     }
   }
 }

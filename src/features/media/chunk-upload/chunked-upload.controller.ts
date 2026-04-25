@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { cloudinaryService } from '../../../config/cloudinary.service';
+import { cloudinaryService } from '../cloudinary/cloudinary.service';
 import { logger } from '../../../config/logger';
 import { ResponseHelper } from '../../../core/utils/response.utils';
 import { getMediaTypeFromMime } from '../../../shared/constants';
@@ -12,9 +12,7 @@ import { buildResolutionString, getFileExtension, parseCloudinaryAiTags, parseCl
 import { storageService } from '../storage/storage.service';
 
 export class ChunkedUploadController {
-  /**
-   * Initialize a chunked upload session
-   */
+  // Initialize a chunked upload session
   static async initSession(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -52,9 +50,7 @@ export class ChunkedUploadController {
     }
   }
 
-  /**
-   * Upload a chunk
-   */
+  // Upload a chunk
   static async uploadChunk(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -96,9 +92,7 @@ export class ChunkedUploadController {
     }
   }
 
-  /**
-   * Get session status
-   */
+  // Get session status
   static async getSessionStatus(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -122,9 +116,7 @@ export class ChunkedUploadController {
     }
   }
 
-  /**
-   * Complete chunked upload and create media record
-   */
+  // Complete chunked upload and create media record
   static async completeUpload(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -140,12 +132,14 @@ export class ChunkedUploadController {
       // Assemble the file (peek first, don't delete yet)
       const { chunks, session } = chunkedUploadService.peekUpload(sessionId);
 
+      const folder = cloudinaryService.getStoragePath(userId, 'timeline');
+
       // Upload to Cloudinary via stream
       const cloudinaryResult = await cloudinaryService.uploadLargeStream(
         chunks,
         session.mimeType,
         session.fileName,
-        'brinn',
+        folder,
         {
           extractExif: true,
           enableOcr: enableOcr === 'true' || enableOcr === true,
@@ -250,9 +244,7 @@ export class ChunkedUploadController {
     }
   }
 
-  /**
-   * Cancel upload session
-   */
+  // Cancel upload session
   static async cancelSession(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();
@@ -271,9 +263,7 @@ export class ChunkedUploadController {
     }
   }
 
-  /**
-   * Get user's active upload sessions
-   */
+  // Get user's active upload sessions
   static async getUserSessions(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.user!._id.toString();

@@ -12,6 +12,7 @@ router.use(AuthMiddleware.authenticate);
 // Upload with magic byte validation
 router.get('/', MediaController.getUserMedia);
 router.get('/:id', mediaIdValidation, ValidationMiddleware.validate, MediaController.getMediaById);
+router.get('/:id/url', mediaIdValidation, ValidationMiddleware.validate, MediaController.getSignedUrl);
 
 router.post('/upload', FileUploadMiddleware.uploadSingle('file'), FileUploadMiddleware.validateFileContent, MediaController.uploadMedia);
 router.post('/bulk-move', MediaController.bulkMoveMedia);

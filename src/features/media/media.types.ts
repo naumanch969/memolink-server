@@ -12,12 +12,15 @@ export interface IMedia extends BaseEntity {
     url: string;
     cloudinaryId: string;
     type: 'image' | 'video' | 'document' | 'audio' | 'archive' | 'data' | 'code';
+    signedUrl?: string; // Virtual field for signed access
     thumbnail?: string;
     tags?: string[];
     extension?: string;
     altText?: string;
     description?: string;
     status: MediaStatus;
+    storageType: 'public' | 'authenticated';
+    oldCloudinaryId?: string;
     processingError?: string;
     metadata?: {
         width?: number;
@@ -92,7 +95,9 @@ export interface CreateMediaRequest {
     altText?: string;
     description?: string;
     metadata?: MediaMetadata;
-    status?: MediaStatus
+    status?: MediaStatus;
+    storageType?: 'public' | 'authenticated';
+    oldCloudinaryId?: string;
 }
 
 export interface MediaMetadata {

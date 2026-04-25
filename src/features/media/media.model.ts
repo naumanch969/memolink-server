@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import { IMedia } from './media.types';
 import { MediaStatus } from './media.enums';
+import cloudinaryService from './cloudinary/cloudinary.service';
 
 const mediaSchema = new Schema<IMedia>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true, },
@@ -71,8 +72,31 @@ const mediaSchema = new Schema<IMedia>({
   altText: { type: String },   // Accessibility description
   description: { type: String }, // User notes
   status: { type: String, enum: Object.values(MediaStatus), default: MediaStatus.READY },
+  storageType: { type: String, enum: ['public', 'authenticated'], default: 'public' },
+  oldCloudinaryId: { type: String },
   processingError: { type: String },
-}, { timestamps: true, });
+}, { 
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Virtual for signed URL
+mediaSchema.virtual('signedUrl').get(function() {
+  if (!this.cloudinaryId) return this.url;
+  
+  // If it's a public file, the standard URL is fine
+  if (this.storageType === 'public') return this.url;
+
+  // For authenticated files, we generate a signed URL
+  // Note: Since this is a virtual, we use the service to sign it
+  // This is fast as it's just a cryptographic string generation
+  try {
+    return cloudinaryService.getSignedUrl(this.cloudinaryId);
+  } catch (error) {
+    return this.url; // Fallback to raw URL
+  }
+});
 
 mediaSchema.index({ userId: 1, type: 1 });
 mediaSchema.index({ userId: 1, folderId: 1 });
