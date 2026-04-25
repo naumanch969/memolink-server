@@ -1,18 +1,18 @@
 import { Entry } from '../../entry/entry.model';
 import { EntryStatus } from '../../entry/entry.types';
-import axios from 'axios';
 import { logger } from '../../../config/logger';
 import { MediaJobData } from '../media.types';
 import { MediaSource, MediaStatus } from '../media.enums';
 import { mediaService } from '../media.service';
 import { Media } from '../media.model';
-import { config } from '../../../config/env';
 import { visionService } from '../../agent/services/agent.vision.service';
-import { captureService } from '../../capture/capture.service';
 import { integrationRegistry } from '../../integrations/integration.registry';
 import { IntegrationProviderIdentifier } from '../../integrations/integration.interface';
 import { WhatsAppProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
-import receptionService from '../../capture/reception.service';
+import { socketService } from '../../../core/socket/socket.service';
+import { SocketEvents } from '../../../core/socket/socket.types';
+import { entryService } from '../../entry/entry.service';
+import { ProcessingStep } from '../../enrichment/enrichment.types';
 
 // Handles text extraction, summarization, and key insight detection for PDFs/Documents.
 export async function processDocument(data: MediaJobData): Promise<any> {
@@ -32,6 +32,13 @@ export async function processDocument(data: MediaJobData): Promise<any> {
             mimeType = result.mimeType;
         } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
             // Fallback: Download from WhatsApp if no mediaId was provided
+            if (entryId) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    status: EntryStatus.PROCESSING,
+                    metadata: { processingStep: ProcessingStep.DOWNLOADING_MEDIA }
+                });
+            }
             logger.info('[Document Processor] Downloading WhatsApp document as fallback', { whatsappMediaId: whatsappData.mediaId });
             documentBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
             mimeType = whatsappData.mimeType;
@@ -41,7 +48,7 @@ export async function processDocument(data: MediaJobData): Promise<any> {
                 userId,
                 documentBuffer,
                 mimeType,
-                `whatsapp_doc_${Date.now()}`
+                whatsappData.filename || `whatsapp_doc_${Date.now()}`
             );
             effectiveMediaId = media._id.toString();
         }
@@ -51,6 +58,12 @@ export async function processDocument(data: MediaJobData): Promise<any> {
         }
 
         // 2. Perform Document Analysis (Using Gemini's Multimodal PDF support)
+        if (entryId) {
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.ANALYZING_DOCUMENT }
+            });
+        }
         logger.info('[Document Processor] Analyzing document content with AI', { mediaId: effectiveMediaId });
         const analysis = await analyzeDocument(documentBuffer, mimeType, userId);
 
@@ -71,6 +84,11 @@ export async function processDocument(data: MediaJobData): Promise<any> {
         if (entryId) {
             const entry = await Entry.findById(entryId);
             if (entry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    metadata: { processingStep: ProcessingStep.TAGGING }
+                });
+
                 const originalContent = entry.content;
                 // If there's an original caption, preserve it and append AI analysis
                 if (originalContent && !originalContent.includes('WhatsApp Document')) {
@@ -89,6 +107,12 @@ export async function processDocument(data: MediaJobData): Promise<any> {
                 
                 await entry.save(); // This will trigger pre('save') to set type = MIXED
                 logger.info('[Document Processor] Entry updated successfully', { entryId, type: entry.type });
+
+                // Emit socket event with fully populated entry
+                const updatedEntry = await entryService.getEntryById(entryId.toString(), userId);
+                if (updatedEntry) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updatedEntry);
+                }
 
                 // 5. Final WhatsApp Acknowledgment
                 if (sourceType === MediaSource.WHATSAPP && whatsappData?.from) {
@@ -124,11 +148,11 @@ export async function processDocument(data: MediaJobData): Promise<any> {
 
 
 // Uses Gemini to analyze document content
-async function analyzeDocument(buffer: Buffer, mimeType: string, userId: string): Promise<any> {
+async function analyzeDocument(buffer: Buffer, mimeType: string, userId: string, originalName?: string): Promise<any> {
     try {
-        const prompt = `Analyze this document thoroughly. 
+        const prompt = `Analyze this document thoroughly. ${originalName ? `The file is named: ${originalName}` : ''}
         
-        1. Summary: Provide a 2-3 sentence executive summary of the document.
+        1. Summary: Provide a 2-3 sentence executive summary of the document. ${originalName ? `Ensure you mention the filename "${originalName}" if relevant.` : ''}
         2. Extracted Text: Extract the most important text content (up to 5000 characters).
         3. Tags: Generate 5-10 descriptive tags for this document.
         4. Page Count: Estimate or detect the total number of pages.
@@ -146,8 +170,14 @@ async function analyzeDocument(buffer: Buffer, mimeType: string, userId: string)
             workflow: 'document-processing'
         });
 
+        // Ensure the summary starts with the filename if provided, for better visibility in the timeline
+        let finalSummary = analysis.summary || "No summary available.";
+        if (originalName && !finalSummary.includes(originalName)) {
+            finalSummary = `Document: ${originalName}\n\n${finalSummary}`;
+        }
+
         return {
-            summary: analysis.summary || "No summary available.",
+            summary: finalSummary,
             extractedText: analysis.extractedText || "",
             tags: analysis.tags || [],
             pageCount: analysis.pageCount || 1

@@ -305,3 +305,13 @@ export function buildResolutionString(width?: number, height?: number): string |
   }
   return undefined;
 }
+
+// Sanitize filename for Cloudinary public_id
+export function sanitizePublicId(filename: string): string {
+  if (!filename) return `file_${Date.now()}`;
+return filename
+  .replace(/\.[^/.]+$/, "") // Remove extension
+  .replace(/[^a-z0-9_-]/gi, '_') // Replace non-alphanumeric (except _ and -) with underscore
+  .substring(0, 100) // Limit length
+  .toLowerCase();
+}

@@ -9,14 +9,14 @@ import { MediaJobData } from '../media.types';
 import { MediaSource, MediaStatus } from '../media.enums';
 import { audioTranscriptionService as geminiTranscription } from '../../agent/services/agent.audio.service'; // Direct one
 import { mediaService } from '../media.service';
-import { captureService } from '../../capture/capture.service';
 import { Media } from '../media.model';
 import { config } from '../../../config/env';
 
-import { integrationRegistry } from '../../integrations/integration.registry';
-import { IntegrationProviderIdentifier } from '../../integrations/integration.interface';
-import { WhatsAppProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
-import receptionService from '../../capture/reception.service';
+import { whatsappProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
+import { socketService } from '../../../core/socket/socket.service';
+import { SocketEvents } from '../../../core/socket/socket.types';
+import { entryService } from '../../entry/entry.service';
+import { ProcessingStep } from '../../enrichment/enrichment.types';
 
 // Set ffmpeg path
 if (config.FFMPEG_PATH) {
@@ -41,6 +41,13 @@ export async function processAudio(data: MediaJobData): Promise<any> {
             mimeType = result.mimeType;
         } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
             // Fallback: Download from WhatsApp if no mediaId was provided
+            if (entryId) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    status: EntryStatus.PROCESSING,
+                    metadata: { processingStep: ProcessingStep.DOWNLOADING_MEDIA }
+                });
+            }
             logger.info('Downloading WhatsApp media as fallback', { whatsappMediaId: whatsappData.mediaId });
             audioBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
             mimeType = whatsappData.mimeType;
@@ -63,6 +70,12 @@ export async function processAudio(data: MediaJobData): Promise<any> {
         const mp3Buffer = await transcodeToMp3(audioBuffer, mimeType);
 
         // 3. Transcribe with enrichment
+        if (entryId) {
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.TRANSCRIBING }
+            });
+        }
         logger.info('Transcribing audio with enrichment', { mediaId: effectiveMediaId, userId });
         const analysis = await geminiTranscription.transcribe(mp3Buffer, 'audio/mpeg', { userId });
 
@@ -88,6 +101,11 @@ export async function processAudio(data: MediaJobData): Promise<any> {
         if (entryId) {
             const entry = await Entry.findById(entryId);
             if (entry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    metadata: { processingStep: ProcessingStep.TAGGING }
+                });
+
                 entry.content = analysis.text || 'Audio content processed';
                 entry.status = EntryStatus.COMPLETED;
                 
@@ -101,11 +119,16 @@ export async function processAudio(data: MediaJobData): Promise<any> {
                 await entry.save(); // This will trigger pre('save') to set type = MIXED
                 logger.info('Entry updated successfully after audio processing', { entryId, type: entry.type });
 
+                // Emit socket event with fully populated entry
+                const updatedEntry = await entryService.getEntryById(entryId.toString(), userId);
+                if (updatedEntry) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updatedEntry);
+                }
+
                 // 6. Final WhatsApp Acknowledgment
                 if (sourceType === MediaSource.WHATSAPP && whatsappData?.from) {
                     try {
-                        const whatsapp = integrationRegistry.get(IntegrationProviderIdentifier.WHATSAPP) as WhatsAppProvider;
-                        await whatsapp.sendMessage(
+                        await whatsappProvider.sendMessage(
                             whatsappData.from, 
                             "Transcribed! I've updated your entry with the text. ✅"
                         );

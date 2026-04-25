@@ -30,9 +30,9 @@ export class CaptureService implements ICaptureService {
         const { tier } = entryClassifier.classify(content, payload.isImportant ?? false, isMediaOrVoice); // noise, log, signal, deep_signal
 
         // Determine type dynamically (will also be handled by pre-save hook in model)
-        let entryType = method === InputMethod.VOICE ? EntryType.MEDIA : EntryType.TEXT;
-        if (payload.media && payload.media.length > 0 && content.trim()) {
-            entryType = EntryType.MIXED;
+        let entryType = EntryType.TEXT;
+        if (isMediaOrVoice || (payload.media && payload.media.length > 0)) {
+            entryType = content.trim() ? EntryType.MIXED : EntryType.MEDIA;
         }
 
         // Create Entry synchronously
@@ -116,7 +116,7 @@ export class CaptureService implements ICaptureService {
         const isMedia = payload.isVoice || payload.isImage || payload.isVideo || payload.isDocument;
 
         const entryPayload: ICapturePayload = {
-            content: payload.body || (isMedia ? `WhatsApp ${payload.isVoice ? 'Voice Note' : payload.isImage ? 'Image' : payload.isVideo ? 'Video' : 'Document'}` : ''),
+            content: payload.body || '',
             type: isMedia ? 'media' : 'text',
             date: payload.timestamp ? new Date(payload.timestamp) : new Date(),
             media: payload.mediaUrl ? [payload.mediaUrl] : [],

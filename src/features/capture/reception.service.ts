@@ -82,12 +82,13 @@ export class ReceptionService {
       // 1. CONTEXTUAL: Entry Type / Media Type
       const metadata = entry.metadata || {};
       
-      if (metadata.isVoice || entry.type === 'media' && !metadata.isImage && !metadata.isVideo && !metadata.isDocument) {
-        return this.getRandom(this.audioPool);
-      }
       if (metadata.isImage) return this.getRandom(this.imagePool);
       if (metadata.isVideo) return this.getRandom(this.videoPool);
       if (metadata.isDocument) return this.getRandom(this.documentPool);
+      
+      if (metadata.isVoice || entry.type === 'media') {
+        return this.getRandom(this.audioPool);
+      }
 
       // 2. CONTEXTUAL: Time of Day
       const greeting = this.getTimeBasedGreeting();
@@ -97,32 +98,39 @@ export class ReceptionService {
       const stats = await entryService.getEntryStats(userId);
       const todayCount = stats.entriesToday;
 
-      if (todayCount > 1) {
-        if (todayCount === 5)  return "5 entries today. Nice.";
-        if (todayCount === 10) return "10 today. You're on a roll.";
-        if (todayCount % 5 === 0) return `${todayCount} entries today. Vault's filling up.`;
-        if (todayCount === 3)  return "Third one today. Keep going.";
+      if (todayCount === 1) {
+        return "First entry of the day. Logged.";
       }
 
-      // 4. RANDOM POOL (Fallback)
+      if (todayCount === 5) {
+        return "Five entries today. You're on a roll.";
+      }
+
+      if (todayCount === 10) {
+        return "Tenth entry today. Deep reflection mode engaged.";
+      }
+
+      // 4. RANDOM FALLBACK
       return this.getRandom(this.randomPool);
     } catch (error) {
-      logger.error('Failed to generate reception response:', error);
-      return "Got it.";
+      logger.error('Error generating reception response:', error);
+      return "Got it. Saved.";
     }
-  }
-
-  private getTimeBasedGreeting(): string | null {
-    const hour = new Date().getHours();
-    if (hour >= 5  && hour < 11) return this.getRandom(this.greetingPools.morning);
-    if (hour >= 11 && hour < 17) return this.getRandom(this.greetingPools.afternoon);
-    if (hour >= 17 && hour < 21) return this.getRandom(this.greetingPools.evening);
-    if (hour >= 21 || hour  < 5) return this.getRandom(this.greetingPools.night);
-    return null;
   }
 
   private getRandom(pool: string[]): string {
     return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  private getTimeBasedGreeting(): string | null {
+    const hour = new Date().getHours();
+    
+    if (hour >= 5 && hour < 12) return this.getRandom(this.greetingPools.morning);
+    if (hour >= 12 && hour < 17) return this.getRandom(this.greetingPools.afternoon);
+    if (hour >= 17 && hour < 22) return this.getRandom(this.greetingPools.evening);
+    if (hour >= 22 || hour < 5) return this.getRandom(this.greetingPools.night);
+    
+    return null;
   }
 }
 

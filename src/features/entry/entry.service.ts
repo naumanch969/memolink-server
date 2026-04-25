@@ -433,6 +433,10 @@ export class EntryService implements IEntryService {
         {
           $set: {
             ...updateData,
+            metadata: {
+              ...existingEntry.metadata,
+              ...(updateData.metadata || {})
+            },
             collectionId: updateData.collectionId ? new Types.ObjectId(updateData.collectionId) : existingEntry.collectionId,
             isEdited: true
           }

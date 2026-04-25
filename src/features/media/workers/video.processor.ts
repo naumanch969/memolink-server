@@ -9,6 +9,10 @@ import { visionService } from '../../agent/services/agent.vision.service';
 import { integrationRegistry } from '../../integrations/integration.registry';
 import { IntegrationProviderIdentifier } from '../../integrations/integration.interface';
 import { WhatsAppProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
+import { socketService } from '../../../core/socket/socket.service';
+import { SocketEvents } from '../../../core/socket/socket.types';
+import { entryService } from '../../entry/entry.service';
+import { ProcessingStep } from '../../enrichment/enrichment.types';
 
 // Handles metadata extraction, thumbnail generation, and video content analysis.
 export async function processVideo(data: MediaJobData): Promise<any> {
@@ -28,6 +32,13 @@ export async function processVideo(data: MediaJobData): Promise<any> {
             mimeType = result.mimeType;
         } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
             // Fallback: Download from WhatsApp if no mediaId was provided
+            if (entryId) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    status: EntryStatus.PROCESSING,
+                    metadata: { processingStep: ProcessingStep.DOWNLOADING_MEDIA }
+                });
+            }
             logger.info('[Video Processor] Downloading WhatsApp video as fallback', { whatsappMediaId: whatsappData.mediaId });
             videoBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
             mimeType = whatsappData.mimeType;
@@ -47,6 +58,12 @@ export async function processVideo(data: MediaJobData): Promise<any> {
         }
 
         // 2. Perform Video Analysis (Vision AI)
+        if (entryId) {
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.ANALYZING_VIDEO }
+            });
+        }
         logger.info('[Video Processor] Analyzing video content with AI', { mediaId: effectiveMediaId });
         const analysis = await analyzeVideo(videoBuffer, mimeType, userId);
 
@@ -67,6 +84,11 @@ export async function processVideo(data: MediaJobData): Promise<any> {
         if (entryId) {
             const entry = await Entry.findById(entryId);
             if (entry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    metadata: { processingStep: ProcessingStep.TAGGING }
+                });
+
                 const originalContent = entry.content;
                 // If there's an original caption, preserve it and append AI analysis
                 if (originalContent && originalContent !== 'WhatsApp Video') {
@@ -85,6 +107,12 @@ export async function processVideo(data: MediaJobData): Promise<any> {
                 
                 await entry.save(); // This will trigger pre('save') to set type = MIXED
                 logger.info('[Video Processor] Entry updated successfully', { entryId, type: entry.type });
+
+                // Emit socket event with fully populated entry
+                const updatedEntry = await entryService.getEntryById(entryId.toString(), userId);
+                if (updatedEntry) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updatedEntry);
+                }
 
                 // 5. Final WhatsApp Acknowledgment
                 if (sourceType === MediaSource.WHATSAPP && whatsappData?.from) {

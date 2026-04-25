@@ -38,6 +38,13 @@ export enum CognitiveLoad {
 
 export enum ProcessingStep {
     ANALYZING_INTENT = 'analyzing_intent',
+    DOWNLOADING_MEDIA = 'downloading_media',
+    ANALYZING_IMAGE = 'analyzing_image',
+    ANALYZING_VIDEO = 'analyzing_video',
+    ANALYZING_AUDIO = 'analyzing_audio',
+    ANALYZING_DOCUMENT = 'analyzing_document',
+    EXTRACTING_TEXT = 'extracting_text',
+    TRANSCRIBING = 'transcribing',
     INDEXING = 'indexing',
     RESOLVING_ENTITIES = 'resolving_entities',
     TAGGING = 'tagging',

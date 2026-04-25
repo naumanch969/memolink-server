@@ -22,6 +22,7 @@ import { logInterpreter } from './interpreters/log.interpreter';
 import { noiseInterpreter } from './interpreters/noise.interpreter';
 import { passiveInterpreter } from './interpreters/passive.interpreter';
 import { EnrichedEntry } from './models/enriched-entry.model';
+import entryService from '../entry/entry.service';
 
 export class EnrichmentService implements IEnrichmentService {
 
@@ -38,7 +39,10 @@ export class EnrichmentService implements IEnrichmentService {
             console.log('number of jobs: ', await queue.getJobCounts())
             // Set status to queued so UI can show it
             await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.QUEUED }).catch(() => { });
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, { _id: entryId, status: EntryStatus.QUEUED });
+            const queuedEntry = await entryService.getEntryById(entryId.toString(), userId);
+            if (queuedEntry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, queuedEntry);
+            }
 
             logger.info(`Enrichment Service: Enqueued task for entry ${entryId}`);
         } catch (error) {
@@ -114,8 +118,10 @@ export class EnrichmentService implements IEnrichmentService {
             if (enrichedResult) {
                 logger.info(`Enrichment Service: Data already exists for ${entryId}, synchronizing state...`);
                 
-                const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true })
-                    .populate('tags', 'name color');
+                await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED });
+                const completedEntry = await Entry.findOne({ _id: entryId, userId })
+                    .populate(['tags', 'media', 'collectionId'])
+                    .lean();
 
                 if (completedEntry) {
                     (completedEntry as any).enrichment = {
@@ -147,13 +153,11 @@ export class EnrichmentService implements IEnrichmentService {
             if (signalTier) entry.signalTier = signalTier as any;
             await entry.save();
 
-            // Let the UI know the entry is being processed
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                status: EntryStatus.PROCESSING,
-                metadata: { processingStep: ProcessingStep.ANALYZING_INTENT },
-                signalTier: entry.signalTier,
-            });
+            // Emit the first processing step with full object
+            const processingEntry = await entryService.getEntryById(entryId.toString(), userId);
+            if (processingEntry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, processingEntry);
+            }
 
             logger.info(`Enrichment Process [${entryId}]: Starting enrichment (Tier: ${entry.signalTier})`);
 
@@ -179,7 +183,7 @@ export class EnrichmentService implements IEnrichmentService {
                                 sentimentScore: 0,
                                 energyLevel: EnergyLevel.MEDIUM,
                                 cognitiveLoad: CognitiveLoad.FOCUSED,
-                            },
+                             },
                             narrative: {
                                 signal: 'Noise entry (no enrichment)',
                                 coreThought: 'Noise',
@@ -200,7 +204,8 @@ export class EnrichmentService implements IEnrichmentService {
                     { upsert: true }
                 );
 
-                const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true });
+                await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED });
+                const completedEntry = await entryService.getEntryById(entryId.toString(), userId);
                 socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, completedEntry);
                 logger.info(`Noise entry processed for ${entryId}`);
                 return;
@@ -217,10 +222,11 @@ export class EnrichmentService implements IEnrichmentService {
             }
 
             // Phase: Indexing
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                metadata: { processingStep: ProcessingStep.INDEXING },
-            });
+            await Entry.findByIdAndUpdate(entryId, { 'metadata.processingStep': ProcessingStep.INDEXING });
+            const indexingEntry = await entryService.getEntryById(entryId.toString(), userId);
+            if (indexingEntry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, indexingEntry);
+            }
 
             const [result, embedding] = await Promise.all([
                 interpreterPromise,
@@ -234,10 +240,11 @@ export class EnrichmentService implements IEnrichmentService {
             }
 
             // Phase: Entity Resolution
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                metadata: { processingStep: ProcessingStep.RESOLVING_ENTITIES },
-            });
+            await Entry.findByIdAndUpdate(entryId, { 'metadata.processingStep': ProcessingStep.RESOLVING_ENTITIES });
+            const entityEntry = await entryService.getEntryById(entryId.toString(), userId);
+            if (entityEntry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, entityEntry);
+            }
 
             logger.debug(`Enrichment Process [${entryId}]: Resolving ${result.metadata.entities?.length || 0} entities`);
 
@@ -266,10 +273,11 @@ export class EnrichmentService implements IEnrichmentService {
             );
 
             // Phase: Tagging (Absorbed from Agent Module)
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                metadata: { processingStep: ProcessingStep.TAGGING },
-            });
+            await Entry.findByIdAndUpdate(entryId, { 'metadata.processingStep': ProcessingStep.TAGGING });
+            const taggingEntry = await entryService.getEntryById(entryId.toString(), userId);
+            if (taggingEntry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, taggingEntry);
+            }
 
             logger.debug(`Enrichment Process [${entryId}]: Applying ${result.metadata.themes?.length || 0} tags`);
             const themes = result.metadata.themes || [];
@@ -286,10 +294,11 @@ export class EnrichmentService implements IEnrichmentService {
             await tagService.incrementUsage(userId, tagIds.map(id => id.toString()));
 
             // Phase: Storage
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                metadata: { processingStep: ProcessingStep.STORING_MEMORY },
-            });
+            await Entry.findByIdAndUpdate(entryId, { 'metadata.processingStep': ProcessingStep.STORING_MEMORY });
+            const storingEntry = await entryService.getEntryById(entryId.toString(), userId);
+            if (storingEntry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, storingEntry);
+            }
 
             enrichedResult = await EnrichedEntry.findOneAndUpdate(
                 { userId, referenceId: entryId },
@@ -322,9 +331,13 @@ export class EnrichmentService implements IEnrichmentService {
                 { upsert: true, new: true }
             );
 
-            // FIX: use { new: true } to skip the extra entryService.getEntryById() round-trip
-            const completedEntry = await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED }, { new: true, lean: true })
-                .populate('tags', 'name color');
+            // Update entry status to completed
+            await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED });
+
+            // Fetch fully populated entry manually to avoid circular dependency with EntryService
+            const completedEntry = await Entry.findOne({ _id: entryId, userId })
+                .populate(['tags', 'media', 'collectionId'])
+                .lean();
 
             // Attach enrichment data manually so the UI receives the full payload in the socket event
             if (completedEntry && enrichedResult) {
@@ -500,13 +513,12 @@ export class EnrichmentService implements IEnrichmentService {
         await Entry.findByIdAndUpdate(entryId, {
             status: EntryStatus.FAILED,
             'metadata.error': errorMessage,
-        }).catch(() => { });
-
-        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-            _id: entryId,
-            status: EntryStatus.FAILED,
-            metadata: { error: errorMessage },
         });
+
+        const failedEntry = await Entry.findOne({ _id: entryId, userId })
+            .populate(['tags', 'media', 'collectionId'])
+            .lean();
+        socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, failedEntry);
     }
     async cleanText(userId: string, text: string): Promise<string> {
         try {

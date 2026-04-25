@@ -4,6 +4,7 @@ import { config } from '../../../config/env';
 import { logger } from '../../../config/logger';
 import { IMAGE_SIZE_PRESETS, VIDEO_CONFIG } from '../media.constants';
 import { CloudinaryUploadResult, ICloudinaryService } from './cloudinary.types';
+import { sanitizePublicId } from '../media.utils';
 import { UploadApiResponse, v2 } from 'cloudinary';
 
 export const IMAGE_SIZES = IMAGE_SIZE_PRESETS;
@@ -36,6 +37,7 @@ export class CloudinaryService implements ICloudinaryService {
         folder,
         resource_type: 'auto' as const,
         type: 'authenticated', // Force authenticated delivery
+        public_id: options.public_id || sanitizePublicId(file.originalname),
         ...options,
       };
 
@@ -119,6 +121,7 @@ export class CloudinaryService implements ICloudinaryService {
       folder,
       resource_type: 'auto' as const,
       type: 'authenticated', // Force authenticated delivery
+      public_id: (options as any).public_id || sanitizePublicId(filename),
       ...options,
     };
 

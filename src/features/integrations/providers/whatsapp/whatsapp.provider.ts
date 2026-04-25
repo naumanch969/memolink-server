@@ -131,7 +131,7 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             } else if (message.type === 'image' && message.image) {
                 await this.handleImageMessage(user._id.toString(), from, message.image.id, message.image.mime_type, message.image.caption, recipientPhoneNumberId);
             } else if (message.type === 'document' && message.document) {
-                await this.handleDocumentMessage(user._id.toString(), from, message.document.id, message.document.mime_type, message.document.caption, recipientPhoneNumberId);
+                await this.handleDocumentMessage(user._id.toString(), from, message.document.id, message.document.mime_type, message.document.caption, message.document.filename, recipientPhoneNumberId);
             } else if (message.type === 'video' && message.video) {
                 await this.handleVideoMessage(user._id.toString(), from, message.video.id, message.video.mime_type, message.video.caption, recipientPhoneNumberId);
             } else {
@@ -161,12 +161,12 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
 
     private async handleAudioMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
-        await this.sendMessage(from, "Got your voice note! Give me a second to save it... ⏳", recipientPhoneNumberId);
+        await this.sendMessage(from, "Voice note received. Let me process that for you... ⏳", recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `whatsapp_audio_${Date.now()}.ogg`);
+            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `voice_note_${Date.now()}.ogg`);
 
             // 3. Create Entry
             const entry = await captureService.captureWhatsApp(userId, {
@@ -192,18 +192,18 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
         } catch (error) {
             logger.error('WhatsApp audio handling failed', { userId, error });
-            await this.sendMessage(from, "I'm sorry, I had trouble saving your voice note. Please try again later.", recipientPhoneNumberId);
+            await this.sendMessage(from, "I encountered an issue saving your voice note. Please try again.", recipientPhoneNumberId);
         }
     }
 
     private async handleImageMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
-        await this.sendMessage(from, "Received your image! Processing it now... ⏳", recipientPhoneNumberId);
+        await this.sendMessage(from, "Image received! Analyzing it now... ⏳", recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `whatsapp_image_${Date.now()}.jpg`);
+            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `image_${Date.now()}.jpg`);
 
             // 3. Create Entry
             const entry = await captureService.captureWhatsApp(userId, {
@@ -229,18 +229,18 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
         } catch (error) {
             logger.error('WhatsApp image handling failed', { userId, error });
-            await this.sendMessage(from, "I'm sorry, I had trouble saving your image. Please try again later.", recipientPhoneNumberId);
+            await this.sendMessage(from, "I couldn't save your image. Please try again.", recipientPhoneNumberId);
         }
     }
 
-    private async handleDocumentMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
+    private async handleDocumentMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, filename?: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
-        await this.sendMessage(from, "Got your document! Give me a moment to save it... ⏳", recipientPhoneNumberId);
+        await this.sendMessage(from, `Document received${filename ? ': ' + filename : ''}. Saving it... ⏳`, recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `whatsapp_doc_${Date.now()}`);
+            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, filename || `document_${Date.now()}`);
 
             // 3. Create Entry
             const entry = await captureService.captureWhatsApp(userId, {
@@ -262,22 +262,22 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 entryId: entry._id.toString(),
                 jobType: MediaJobType.PROCESS_DOCUMENT,
                 sourceType: MediaSource.WHATSAPP,
-                whatsappData: { from, mediaId: whatsappMediaId, mimeType }
+                whatsappData: { from, mediaId: whatsappMediaId, mimeType, filename }
             });
         } catch (error) {
             logger.error('WhatsApp document handling failed', { userId, error });
-            await this.sendMessage(from, "I'm sorry, I had trouble saving your document. Please try again later.", recipientPhoneNumberId);
+            await this.sendMessage(from, "I had trouble saving your document. Please try again.", recipientPhoneNumberId);
         }
     }
 
     private async handleVideoMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
-        await this.sendMessage(from, "Received your video! Storing it now... ⏳", recipientPhoneNumberId);
+        await this.sendMessage(from, "Video received! Storing and analyzing... ⏳", recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `whatsapp_video_${Date.now()}.mp4`);
+            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `video_${Date.now()}.mp4`);
 
             // 3. Create Entry
             const entry = await captureService.captureWhatsApp(userId, {
@@ -303,7 +303,7 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
         } catch (error) {
             logger.error('WhatsApp video handling failed', { userId, error });
-            await this.sendMessage(from, "I'm sorry, I had trouble saving your video. Please try again later.", recipientPhoneNumberId);
+            await this.sendMessage(from, "I couldn't save your video. Please try again.", recipientPhoneNumberId);
         }
     }
 

@@ -7,11 +7,13 @@ import { MediaSource, MediaStatus } from '../media.enums';
 import { mediaService } from '../media.service';
 import { Media } from '../media.model';
 import { visionService } from '../../agent/services/agent.vision.service';
-import { captureService } from '../../capture/capture.service';
 import { integrationRegistry } from '../../integrations/integration.registry';
 import { IntegrationProviderIdentifier } from '../../integrations/integration.interface';
 import { WhatsAppProvider } from '../../integrations/providers/whatsapp/whatsapp.provider';
-import receptionService from '../../capture/reception.service';
+import { socketService } from '../../../core/socket/socket.service';
+import { SocketEvents } from '../../../core/socket/socket.types';
+import { entryService } from '../../entry/entry.service';
+import { ProcessingStep } from '../../enrichment/enrichment.types';
 
 
 // Process Image Job
@@ -32,6 +34,13 @@ export async function processImage(data: MediaJobData): Promise<any> {
             mimeType = result.mimeType;
         } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
             // Fallback: Download from WhatsApp if no mediaId was provided
+            if (entryId) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    status: EntryStatus.PROCESSING,
+                    metadata: { processingStep: ProcessingStep.DOWNLOADING_MEDIA }
+                });
+            }
             logger.info('[Image Processor] Downloading WhatsApp image as fallback', { whatsappMediaId: whatsappData.mediaId });
             imageBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
             mimeType = whatsappData.mimeType;
@@ -51,6 +60,12 @@ export async function processImage(data: MediaJobData): Promise<any> {
         }
 
         // 2. Perform Image Analysis (Vision)
+        if (entryId) {
+            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                _id: entryId,
+                metadata: { processingStep: ProcessingStep.ANALYZING_IMAGE }
+            });
+        }
         logger.info('[Image Processor] Analyzing image content with Vision AI', { mediaId: effectiveMediaId });
         const analysis = await analyzeImage(imageBuffer, mimeType, userId);
 
@@ -76,6 +91,11 @@ export async function processImage(data: MediaJobData): Promise<any> {
         if (entryId) {
             const entry = await Entry.findById(entryId);
             if (entry) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
+                    _id: entryId,
+                    metadata: { processingStep: ProcessingStep.TAGGING }
+                });
+
                 const originalContent = entry.content;
                 // If there's an original caption, preserve it and append AI analysis
                 if (originalContent && originalContent !== 'WhatsApp Image') {
@@ -94,6 +114,12 @@ export async function processImage(data: MediaJobData): Promise<any> {
                 
                 await entry.save(); // This will trigger pre('save') to set type = MIXED
                 logger.info('[Image Processor] Entry updated successfully', { entryId, type: entry.type });
+
+                // Emit socket event with fully populated entry
+                const updatedEntry = await entryService.getEntryById(entryId.toString(), userId);
+                if (updatedEntry) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updatedEntry);
+                }
 
                 // 6. Final WhatsApp Acknowledgment
                 if (sourceType === MediaSource.WHATSAPP && whatsappData?.from) {

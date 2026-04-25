@@ -180,5 +180,6 @@ export interface MediaJobData {
     from: string;
     mediaId: string; // WhatsApp Cloud API media ID
     mimeType: string;
+    filename?: string;
   };
 }
