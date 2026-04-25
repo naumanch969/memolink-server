@@ -43,7 +43,7 @@ async function migrateCloudinaryShadow() {
         }
 
         // New Path Factory
-        const env = config.NODE_ENV || 'production';
+        const env = 'production';
 
         // Check if it's already in the new pattern but just missing the flag (unlikely)
         const isAlreadyNewPattern = media.cloudinaryId.startsWith(`brinn/${env}/users/`);

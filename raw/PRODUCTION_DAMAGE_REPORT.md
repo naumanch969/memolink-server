@@ -1,65 +1,68 @@
-# PRODUCTION DAMAGE REPORT
+# 🚨 Production Media Damage Report
 
-| Date | File Description | Cloudinary ID | Link |
+*Generated: 4/25/2026, 2:20:18 PM*
+
+## 📊 Executive Summary
+- **Total Affected Assets**: 42
+- **✅ Fully Restored**: 10
+- **⏳ Pending (V3 Correction)**: 8
+- **❌ Permanently Lost**: 24
+
+## ✅ Fully Restored (29 Assets)
+| Asset Name | Type | Date | Summary / Context |
 | :--- | :--- | :--- | :--- |
-| 12/6/2025 | Asset | `memolink/d2jxmyfnhjn7haapz4jr` | [View](https://brinn.app/entry/undefined) |
-| 12/10/2025 | Asset | `memolink/mpmroirzcl9jemqlpixd` | [View](https://brinn.app/entry/undefined) |
-| 12/20/2025 | Asset | `memolink/ly1xaxu4ugktmwk9ngft` | [View](https://brinn.app/entry/undefined) |
-| 12/20/2025 | Asset | `memolink/svac6kirtbaojeomrml0` | [View](https://brinn.app/entry/undefined) |
-| 12/20/2025 | Asset | `memolink/cjtwh61aexgdhxurck1q` | [View](https://brinn.app/entry/undefined) |
-| 12/22/2025 | Asset | `memolink/lbwmpv1c6fjco2jflqvt` | [View](https://brinn.app/entry/undefined) |
-| 12/23/2025 | Asset | `memolink/jh4wnqgkpxtijdgjbvz7` | [View](https://brinn.app/entry/undefined) |
-| 12/23/2025 | Asset | `memolink/fsc2h7woa3kuboixi0je` | [View](https://brinn.app/entry/undefined) |
-| 12/29/2025 | Asset | `memolink/woyxcnxypb5vu28yhy1j` | [View](https://brinn.app/entry/undefined) |
-| 12/31/2025 | Asset | `memolink/wz0nzym4sq2s7qvvzlhg` | [View](https://brinn.app/entry/undefined) |
-| 12/31/2025 | Asset | `memolink/pih2mh2ftexzqh9jmjdz` | [View](https://brinn.app/entry/undefined) |
-| 12/31/2025 | Asset | `memolink/gitokdcdndzjqinx7kpb` | [View](https://brinn.app/entry/undefined) |
-| 1/1/2026 | Asset | `memolink/qonbfsfhkyx5aflbydmg` | [View](https://brinn.app/entry/undefined) |
-| 1/2/2026 | Asset | `memolink/owzkt9z6x1ejeriov837` | [View](https://brinn.app/entry/undefined) |
-| 1/5/2026 | Asset | `memolink/eziyohmnqlu5gpnfipno` | [View](https://brinn.app/entry/undefined) |
-| 1/5/2026 | Asset | `memolink/zrlqizi9higjj6wjg59t` | [View](https://brinn.app/entry/undefined) |
-| 1/6/2026 | Asset | `memolink/jlk7igret7jwvbhtgidc` | [View](https://brinn.app/entry/undefined) |
-| 1/7/2026 | Asset | `memolink/lbf3ewwfbcjtct9vvzki` | [View](https://brinn.app/entry/undefined) |
-| 1/8/2026 | Asset | `memolink/hl9rbej2v4d0e0up8sqg` | [View](https://brinn.app/entry/undefined) |
-| 1/8/2026 | Asset | `memolink/s1fmqvnu38vw4bph8ju3` | [View](https://brinn.app/entry/undefined) |
-| 1/8/2026 | Asset | `memolink/vezb3z4wuytnrrzb7xsv` | [View](https://brinn.app/entry/undefined) |
-| 1/8/2026 | Asset | `memolink/lvvgjdpiui6t643i2k4l` | [View](https://brinn.app/entry/undefined) |
-| 1/8/2026 | Asset | `memolink/pkuz0jvqawewothzhvxu` | [View](https://brinn.app/entry/undefined) |
-| 1/8/2026 | Asset | `memolink/cx4zmuwdi1patkhzeffy` | [View](https://brinn.app/entry/undefined) |
-| 1/11/2026 | Asset | `memolink/jutoysr9gmdmmhjay7te` | [View](https://brinn.app/entry/undefined) |
-| 1/12/2026 | Asset | `memolink/vuysdsfupivbyaf26kgz` | [View](https://brinn.app/entry/undefined) |
-| 1/15/2026 | Asset | `memolink/v10ogdqmdxvmw2hhqb9p` | [View](https://brinn.app/entry/undefined) |
-| 1/16/2026 | Asset | `memolink/pic6zuu6l161l8zzd9go` | [View](https://brinn.app/entry/undefined) |
-| 1/16/2026 | Asset | `memolink/ewevppspp7kbniuseh54` | [View](https://brinn.app/entry/undefined) |
-| 1/16/2026 | Asset | `memolink/aegrtrtfx9sn7a6uy8au` | [View](https://brinn.app/entry/undefined) |
-| 1/16/2026 | Asset | `memolink/lcywprloytnhobzyposf` | [View](https://brinn.app/entry/undefined) |
-| 1/22/2026 | Asset | `memolink/o3g3a95gdagra8tkyrrh` | [View](https://brinn.app/entry/undefined) |
-| 1/22/2026 | Asset | `memolink/uqqx6gjpp2bugixmnpki` | [View](https://brinn.app/entry/undefined) |
-| 1/30/2026 | Asset | `memolink/vk8fpfedpoau0sdnwapa` | [View](https://brinn.app/entry/undefined) |
-| 1/30/2026 | Asset | `memolink/zkdmvefyi09ftluhqorf` | [View](https://brinn.app/entry/undefined) |
-| 2/2/2026 | Asset | `memolink/c1knaaqwsdubyy9ybyxd` | [View](https://brinn.app/entry/undefined) |
-| 2/4/2026 | Asset | `memolink/zjk1q8ckp2rvwueuwoq2` | [View](https://brinn.app/entry/undefined) |
-| 2/5/2026 | Asset | `memolink/etvgjfmfktl6eeixccp3` | [View](https://brinn.app/entry/undefined) |
-| 2/7/2026 | Asset | `memolink/n9enp6mgzviahr7huqnk` | [View](https://brinn.app/entry/undefined) |
-| 2/7/2026 | Asset | `memolink/mnjmfw9f4y3qdchfd77d` | [View](https://brinn.app/entry/undefined) |
-| 2/8/2026 | Asset | `memolink/y1najtt05w6zwatguzsh` | [View](https://brinn.app/entry/undefined) |
-| 2/8/2026 | Asset | `memolink/rzesedjoybbrtjxynuw9` | [View](https://brinn.app/entry/undefined) |
-| 2/8/2026 | Asset | `memolink/fajqb4jag7dtekrcz6dg` | [View](https://brinn.app/entry/undefined) |
-| 2/8/2026 | Asset | `memolink/vs97zdgndkknedosljcw` | [View](https://brinn.app/entry/undefined) |
-| 2/8/2026 | Asset | `memolink/yxugluls2hk2fhqcvbv8` | [View](https://brinn.app/entry/undefined) |
-| 2/8/2026 | Asset | `memolink/dmp41end6kiimmacdczk` | [View](https://brinn.app/entry/undefined) |
-| 2/9/2026 | Asset | `memolink/n8fokvkw10d6yph5cokj` | [View](https://brinn.app/entry/undefined) |
-| 2/12/2026 | Asset | `memolink/pulddy5s27rntnpfmgtg` | [View](https://brinn.app/entry/undefined) |
-| 2/21/2026 | Asset | `memolink/zamntueza6iqkmsb84bb` | [View](https://brinn.app/entry/undefined) |
-| 2/24/2026 | Asset | `memolink/emwx7ndmq9yi4rofmyzd` | [View](https://brinn.app/entry/undefined) |
-| 2/24/2026 | Asset | `memolink/ywxvf5x0ewqbauymtfzy` | [View](https://brinn.app/entry/undefined) |
-| 2/26/2026 | Asset | `memolink/su6rwe3wgnyoibdokmcc` | [View](https://brinn.app/entry/undefined) |
-| 2/27/2026 | Asset | `memolink/ic0r0bhoar6d5rheozqb` | [View](https://brinn.app/entry/undefined) |
-| 2/28/2026 | Asset | `memolink/jtruvbcpl2tcd2bpqytb` | [View](https://brinn.app/entry/undefined) |
-| 2/28/2026 | Asset | `memolink/xpknq5xd5kzjgaelfjad` | [View](https://brinn.app/entry/undefined) |
-| 3/3/2026 | Asset | `memolink/l2h3snqrv7549chuq51f` | [View](https://brinn.app/entry/undefined) |
-| 3/8/2026 | Asset | `memolink/umfxztrjnls2eozqhhx7` | [View](https://brinn.app/entry/undefined) |
-| 3/17/2026 | Asset | `memolink/toqyfprshhwhfg6gyayw` | [View](https://brinn.app/entry/undefined) |
-| 3/24/2026 | Asset | `memolink/lrknfe575a6luppvkbhl` | [View](https://brinn.app/entry/undefined) |
-| 4/5/2026 | Asset | `memolink/xvj49ewdegoh8sekscd3` | [View](https://brinn.app/entry/undefined) |
-| 4/5/2026 | Asset | `memolink/yk0sh1km1k6lbzoxtymr` | [View](https://brinn.app/entry/undefined) |
+| odoocms_exam.student_transcript_report2.pdf | document | 1/16/2026 | No preview text |
+| fall_2026_full_invoice.pdf | document | 2/8/2026 | No preview text |
+| fall_2026_installment_3_invoice.pdf | document | 2/8/2026 | No preview text |
+| fall_2026_installment_2_invoice.pdf | document | 2/8/2026 | No preview text |
+| Unofficial_transcript_spring_2025.pdf | document | 2/8/2026 | No preview text |
+| fall_2026_installment_1_invoice.pdf | document | 2/8/2026 | No preview text |
+| fall_2026_installment_1_invoice_paid.pdf | document | 2/8/2026 | No preview text |
+| hostel_invoice_spr_26.pdf | document | 2/24/2026 | No preview text |
+| Entrepreneurship - Value Creation.pdf | document | 2/24/2026 | No preview text |
+| Memolink Pitch.pdf | document | 2/28/2026 | No preview text |
+
+## ⏳ Pending V3 Recovery (11 Assets)
+> These assets are currently being resubmitted to Cloudinary with corrected "raw" formats.
+
+| Asset Name | Type | Date | Potential Loss Context |
+| :--- | :--- | :--- | :--- |
+| github-recovery-codes.txt | document | 2/5/2026 | No preview text |
+| dreamlist_30before30.docx | document | 2/26/2026 | No preview text |
+| 20before30.docx | document | 2/27/2026 | No preview text |
+| imwithyou.docx | document | 2/28/2026 | No preview text |
+| seecs_entrepreneur_wall.xlsx | document | 3/3/2026 | No preview text |
+| SEECS Entrepreneurs.xlsx | document | 3/8/2026 | No preview text |
+| 1768092904670.jpeg | image | 3/17/2026 | No preview text |
+| npm_recovery_codes.txt | document | 3/24/2026 | No preview text |
+
+## ❌ Permanently Lost (22 Assets)
+> Cloudinary was unable to recover these from Disaster Recovery. These are likely purged blocks.
+
+| Asset Name | Type | Date | Loss Impact (Summary) |
+| :--- | :--- | :--- | :--- |
+| qanoonmate.png | image | 12/6/2025 | No preview text |
+| Screenshot 2025-12-10 at 1.52.02â¯AM.png | image | 12/10/2025 | No preview text |
+| Add a heading.pdf | document | 12/20/2025 | No preview text |
+| congrats.png | image | 12/22/2025 | No preview text |
+| NUST Spring 2026 Fee Voucher.pdf | document | 12/23/2025 | No preview text |
+| analytics page memolink.png | image | 12/23/2025 | No preview text |
+| spring-2026 invoice.pdf | document | 12/29/2025 | No preview text |
+| Screenshot 2025-12-31 at 2.05.40â¯AM.png | image | 12/31/2025 | No preview text |
+| Screenshot 2025-12-31 at 2.26.26â¯AM.png | image | 12/31/2025 | No preview text |
+| Screenshot 2026-01-01 at 6.44.07â¯PM.png | image | 1/1/2026 | No preview text |
+| Screenshot 2026-01-02 at 1.12.42â¯AM.png | image | 1/2/2026 | No preview text |
+| Screenshot 2026-01-04 at 11.46.51â¯PM.png | image | 1/5/2026 | No preview text |
+| Screenshot 2026-01-06 at 12.22.42â¯AM.png | image | 1/6/2026 | No preview text |
+| oteogo.png | image | 1/7/2026 | No preview text |
+| Nauman Chaudhry 1.png | image | 1/8/2026 | No preview text |
+| Nauman Chaudhry -2.png | image | 1/8/2026 | No preview text |
+| Nauman Chaudhry -3.png | image | 1/8/2026 | No preview text |
+| Nauman Chaudhry.png | image | 1/8/2026 | No preview text |
+| nch2.png | image | 1/8/2026 | No preview text |
+| nch.png | image | 1/8/2026 | No preview text |
+| M. Nauman Chaudhry Resume.pdf | document | 1/11/2026 | No preview text |
+| Screenshot 2026-01-12 at 3.29.06â¯PM.png | image | 1/12/2026 | No preview text |
+| Screenshot 2026-01-15 at 4.00.41â¯PM.png | image | 1/15/2026 | No preview text |
+| audio-1775383188536.webm | audio | 4/5/2026 | No preview text |
+
