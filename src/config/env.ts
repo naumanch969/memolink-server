@@ -112,7 +112,7 @@ export const config = {
   CURRENT_SERVICE_KEY_VERSION: process.env.CURRENT_SERVICE_KEY_VERSION || '1',
 
   // Media Processing
-  FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/local/bin/ffmpeg',
+  FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
 } as const;
 
 export type Config = typeof config;
