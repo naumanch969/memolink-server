@@ -10,7 +10,13 @@ import { ErrorMiddleware } from './middleware/error.middleware';
 import { MonitoringMiddleware } from './middleware/monitoring.middleware';
 import routes from './routes/index';
 
+import path from 'path';
+
 const app = express();
+
+// Static files
+app.use('/public', express.static(path.join(process.cwd(), 'public')));
+
 
 // Security middleware
 app.use(helmet({

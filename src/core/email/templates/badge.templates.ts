@@ -1,3 +1,4 @@
+import { config } from '../../../config/env';
 
 /**
  * Badge Achievement Email Templates
@@ -101,14 +102,15 @@ export const getBadgeUnlockedEmailTemplate = (
     badgeId: string,
     rarity: string
 ) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://brinn.app';
+    const frontendUrl = config.FRONTEND_URL;
+    const backendUrl = config.BACKEND_URL;
     const content = CUSTOM_CONTENT[badgeId] || {
         headline: "A new milestone achieved.",
         subtext: "Your vault is growing. You've just unlocked a new piece of your Brinn identity.",
         accentColor: "#6366f1"
     };
 
-    const iconUrl = `${frontendUrl}/images/badges/${badgeId}.png`;
+    const iconUrl = `${backendUrl}/public/images/badges/${badgeId}.png`;
     const subject = badgeId === 'founding_customer' ? "You're one of 50." : `🎉 New Achievement: ${badgeName}`;
     const accent = content.accentColor;
 
