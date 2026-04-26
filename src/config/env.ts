@@ -11,6 +11,7 @@ export const config = {
 
   // Server Configuration
   PORT: process.env.PORT || 5001,
+  WORKER_PORT: process.env.WORKER_PORT || 5002,
   NODE_ENV: process.env.NODE_ENV,
 
   // Database Configuration

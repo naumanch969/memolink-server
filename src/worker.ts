@@ -79,7 +79,7 @@ async function startWorker() {
         logger.info('Worker service initialized. Waiting for jobs...');
 
         // 6. Start Health Check Server (Required for Render Web Services)
-        const healthPort = config.PORT;
+        const healthPort = config.WORKER_PORT;
         http.createServer(async (req, res) => {
             const url = req.url || '/';
 
