@@ -35,7 +35,7 @@ export class AgentService implements IAgentService {
 
         try {
             const queue = getAgentQueue();
-            await queue.add(type, { taskId: task._id.toString() });
+            await queue.add(type, { taskId: task._id.toString() }, { jobId: task._id.toString() });
             logger.info(`Agent Task enqueued: [${type}] ${task._id} for user ${userId}`);
 
             // Notify frontend immediately that a task is enqueued
@@ -49,6 +49,20 @@ export class AgentService implements IAgentService {
         }
 
         return task;
+    }
+
+    async cleanupTasksByEntryId(userId: string | Types.ObjectId, entryId: string): Promise<void> {
+        try {
+            const tasks = await AgentTask.find({ userId, 'inputData.entryId': entryId }).select('_id');
+            if (tasks.length === 0) return;
+
+            const queue = getAgentQueue();
+            await Promise.all(tasks.map(task => queue.remove(task._id.toString()).catch(() => {})));
+
+            logger.info(`Agent Service: Cleaned up jobs for ${tasks.length} tasks related to entry ${entryId}`);
+        } catch (error) {
+            logger.error(`Agent Service: Failed to cleanup tasks for entry ${entryId}`, error);
+        }
     }
 
     async getTask(taskId: string, userId: string): Promise<IAgentTaskDocument | null> {

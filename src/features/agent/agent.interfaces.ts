@@ -5,6 +5,7 @@ import { IUserPersonaDocument } from './memory/persona.model';
 
 export interface IAgentService {
     createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: AgentTaskInput): Promise<IAgentTaskDocument>;
+    cleanupTasksByEntryId(userId: string | Types.ObjectId, entryId: string): Promise<void>;
     getTask(taskId: string, userId: string): Promise<IAgentTaskDocument | null>;
     listUserTasks(userId: string, limit?: number): Promise<IAgentTaskDocument[]>;
     chat(userId: string, message: string): Promise<string>;

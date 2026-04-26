@@ -13,6 +13,9 @@ import { EnrichedEntry } from '../enrichment/models/enriched-entry.model';
 import { GraphEdge } from '../graph/edge.model';
 import { tagService } from '../tag/tag.service';
 import { badgeService } from '../badge/badge.service';
+import enrichmentService from '../enrichment/enrichment.service';
+import agentService from '../agent/services/agent.service';
+import { cancelMediaJobs } from '../media/media.queue';
 import { transcribeAudioEntry } from './audio-transcription.service';
 import { IEntryService } from './entry.interfaces';
 import { Entry } from './entry.model';
@@ -496,6 +499,21 @@ export class EntryService implements IEntryService {
       if (session) {
         await session.commitTransaction();
       }
+
+      // Cleanup enqueued jobs (Async)
+      setImmediate(async () => {
+        try {
+          await Promise.all([
+            enrichmentService.cleanupJobsByEntryId(entryId),
+            agentService.cleanupTasksByEntryId(userId, entryId),
+            entry.media && entry.media.length > 0 
+              ? cancelMediaJobs(entry.media.map((m: any) => (m._id || m).toString())) 
+              : Promise.resolve(),
+          ]);
+        } catch (cleanupError) {
+          logger.error(`Failed to cleanup jobs for entry ${entryId}:`, cleanupError);
+        }
+      });
 
       // Statistics updates (run after successful commit)
       try {
