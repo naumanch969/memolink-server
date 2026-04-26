@@ -16,6 +16,7 @@ User Input: "${text}"
 
 Valid themes (use ONLY these, max 2): ${ENRICHMENT_TAXONOMY.join(', ')}
 Valid entity types: ${Object.values(EntityType).join(', ')}
+- **emotions**: Extract 1-2 primary emotions as an array of objects.
 - **energyLevel**: ALWAYS set to "${EnergyLevel.MEDIUM}" for logs.
 - **cognitiveLoad**: ALWAYS set to "${CognitiveLoad.FOCUSED}" for logs.
 
@@ -23,7 +24,7 @@ Respond with ONLY a JSON object in this structure:
 {
   "metadata": {
     "themes": ["theme1"],
-    "emotions": [],
+    "emotions": [{ "label": "neutral", "intensity": 1.0 }],
     "entities": [{ "name": "Name", "type": "${EntityType.PERSON}", "confidence": 0.95, "source": "extracted" }],
     "sentimentScore": 0,
     "energyLevel": "${EnergyLevel.MEDIUM}",

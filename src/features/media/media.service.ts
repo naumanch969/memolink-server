@@ -107,7 +107,7 @@ export class MediaService implements IMediaService {
       const response = await axios.get(url, { responseType: 'arraybuffer' });
       return {
         buffer: Buffer.from(response.data),
-        mimeType: media.mimeType || response.headers['content-type']
+        mimeType: media.mimeType || String(response.headers['content-type'] || 'application/octet-stream')
       };
     } catch (error) {
       logger.error('Get media buffer failed:', error);

@@ -65,8 +65,14 @@ export class AuthMiddleware {
       }
 
       next();
-    } catch (error) {
-      logger.error('Authentication failed:', error);
+    } catch (error: any) {
+      // Don't flood logs with 'expired' or 'invalid' token errors as these are normal events
+      if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+        logger.warn('Authentication failed:', { message: error.message, url: req.url });
+      } else {
+        logger.error('Authentication system error:', error);
+      }
+      
       ResponseHelper.unauthorized(res, 'Invalid or expired token/key');
     }
   };
