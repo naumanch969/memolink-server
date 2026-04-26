@@ -95,8 +95,9 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 if (alreadyLinkedUser._id.toString() === userByCode._id.toString()) {
                     await this.sendMessage(from, `✅ Your account is already linked to this WhatsApp number.`, recipientPhoneNumberId);
                 } else {
+                    const maskedEmail = this.obfuscateEmail(alreadyLinkedUser.email);
                     logger.warn('WhatsApp number already linked to another user', { from, existingUser: alreadyLinkedUser.email });
-                    await this.sendMessage(from, `❌ This WhatsApp number is already linked to another Brinn account (${alreadyLinkedUser.email}). Please disconnect it from that account first.`, recipientPhoneNumberId);
+                    await this.sendMessage(from, `❌ This WhatsApp number is already linked to another Brinn account (${maskedEmail}). Please disconnect it from that account first.`, recipientPhoneNumberId);
                 }
                 return;
             }
@@ -393,6 +394,13 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
 
         // Invalidate profile cache
         await cacheService.del(CacheKeys.userProfile(userId.toString()));
+    }
+
+    private obfuscateEmail(email: string): string {
+        const [name, domain] = email.split('@');
+        if (!name || !domain) return email;
+        if (name.length <= 3) return `${name[0]}***@${domain}`;
+        return `${name.substring(0, 3)}***@${domain}`;
     }
 }
 

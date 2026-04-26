@@ -59,6 +59,7 @@ const knowledgeEntitySchema = new Schema<IKnowledgeEntity>(
 knowledgeEntitySchema.index({ userId: 1, name: 1 });
 knowledgeEntitySchema.index({ userId: 1, otype: 1 });
 knowledgeEntitySchema.index({ userId: 1, interactionCount: -1 });
+knowledgeEntitySchema.index({ name: 'text', aliases: 'text', jobTitle: 'text', company: 'text' });
 
 export const KnowledgeEntity: Model<IKnowledgeEntity> = mongoose.model<IKnowledgeEntity>('KnowledgeEntity', knowledgeEntitySchema);
 export default KnowledgeEntity;

@@ -42,11 +42,14 @@ export async function processAudio(data: MediaJobData): Promise<any> {
         } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
             // Fallback: Download from WhatsApp if no mediaId was provided
             if (entryId) {
-                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                    _id: entryId,
+                await Entry.findByIdAndUpdate(entryId, {
                     status: EntryStatus.PROCESSING,
-                    metadata: { processingStep: ProcessingStep.DOWNLOADING_MEDIA }
+                    'metadata.processingStep': ProcessingStep.DOWNLOADING_MEDIA
                 });
+                const updated = await entryService.getEntryById(entryId.toString(), userId);
+                if (updated) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
+                }
             }
             logger.info('Downloading WhatsApp media as fallback', { whatsappMediaId: whatsappData.mediaId });
             audioBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
@@ -71,10 +74,13 @@ export async function processAudio(data: MediaJobData): Promise<any> {
 
         // 3. Transcribe with enrichment
         if (entryId) {
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                metadata: { processingStep: ProcessingStep.TRANSCRIBING }
+            await Entry.findByIdAndUpdate(entryId, {
+                'metadata.processingStep': ProcessingStep.TRANSCRIBING
             });
+            const updated = await entryService.getEntryById(entryId.toString(), userId);
+            if (updated) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
+            }
         }
         logger.info('Transcribing audio with enrichment', { mediaId: effectiveMediaId, userId });
         const analysis = await geminiTranscription.transcribe(mp3Buffer, 'audio/mpeg', { userId });
@@ -101,10 +107,13 @@ export async function processAudio(data: MediaJobData): Promise<any> {
         if (entryId) {
             const entry = await Entry.findById(entryId);
             if (entry) {
-                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                    _id: entryId,
-                    metadata: { processingStep: ProcessingStep.TAGGING }
+                await Entry.findByIdAndUpdate(entryId, {
+                    'metadata.processingStep': ProcessingStep.TAGGING
                 });
+                const updated = await entryService.getEntryById(entryId.toString(), userId);
+                if (updated) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
+                }
 
                 entry.content = analysis.text || 'Audio content processed';
                 entry.status = EntryStatus.COMPLETED;

@@ -37,16 +37,17 @@ export class SearchService implements ISearchService {
             const goalProjection: any = {};
             let goalSort: any = { createdAt: -1 };
 
-            if (mode === 'instant' || mode === 'hybrid') {
-                goalFilter.$or = [
-                    { title: { $regex: q, $options: 'i' } },
-                    { description: { $regex: q, $options: 'i' } },
-                    { why: { $regex: q, $options: 'i' } }
-                ];
-            } else {
-                goalFilter.$text = { $search: q };
-                goalProjection.score = { $meta: 'textScore' };
-                goalSort = { score: { $meta: 'textScore' } };
+            if (q.trim()) {
+                if (mode === 'instant' && q.length < 3) {
+                    goalFilter.$or = [
+                        { title: { $regex: q, $options: 'i' } },
+                        { description: { $regex: q, $options: 'i' } }
+                    ];
+                } else {
+                    goalFilter.$text = { $search: q };
+                    goalProjection.score = { $meta: 'textScore' };
+                    goalSort = { score: { $meta: 'textScore' } };
+                }
             }
 
             searchPromises.push(
@@ -67,15 +68,17 @@ export class SearchService implements ISearchService {
             const reminderProjection: any = {};
             let reminderSort: any = { createdAt: -1 };
 
-            if (mode === 'instant' || mode === 'hybrid') {
-                reminderFilter.$or = [
-                    { title: { $regex: q, $options: 'i' } },
-                    { description: { $regex: q, $options: 'i' } }
-                ];
-            } else {
-                reminderFilter.$text = { $search: q };
-                reminderProjection.score = { $meta: 'textScore' };
-                reminderSort = { score: { $meta: 'textScore' } };
+            if (q.trim()) {
+                if (mode === 'instant' && q.length < 3) {
+                    reminderFilter.$or = [
+                        { title: { $regex: q, $options: 'i' } },
+                        { description: { $regex: q, $options: 'i' } }
+                    ];
+                } else {
+                    reminderFilter.$text = { $search: q };
+                    reminderProjection.score = { $meta: 'textScore' };
+                    reminderSort = { score: { $meta: 'textScore' } };
+                }
             }
 
             searchPromises.push(
@@ -92,17 +95,26 @@ export class SearchService implements ISearchService {
         }
 
         if (collections.includes('entities')) {
-            searchPromises.push(
-                KnowledgeEntity.find({
-                    userId: userIdObj,
-                    isDeleted: false,
-                    $or: [
+            const entityFilter: any = { userId: userIdObj, isDeleted: false };
+            const entityProjection: any = {};
+            let entitySort: any = { interactionCount: -1 };
+
+            if (q.trim()) {
+                if (mode === 'instant' && q.length < 3) {
+                    entityFilter.$or = [
                         { name: { $regex: q, $options: 'i' } },
-                        { aliases: { $regex: q, $options: 'i' } },
-                        { tags: { $regex: q, $options: 'i' } }
-                    ]
-                })
-                    .sort({ interactionCount: -1 })
+                        { aliases: { $regex: q, $options: 'i' } }
+                    ];
+                } else {
+                    entityFilter.$text = { $search: q };
+                    entityProjection.score = { $meta: 'textScore' };
+                    entitySort = { score: { $meta: 'textScore' } };
+                }
+            }
+
+            searchPromises.push(
+                KnowledgeEntity.find(entityFilter, entityProjection)
+                    .sort(entitySort)
                     .limit(limit)
                     .lean()
                     .then(res => {

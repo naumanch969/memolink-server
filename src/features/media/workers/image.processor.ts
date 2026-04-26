@@ -35,11 +35,14 @@ export async function processImage(data: MediaJobData): Promise<any> {
         } else if (sourceType === MediaSource.WHATSAPP && whatsappData) {
             // Fallback: Download from WhatsApp if no mediaId was provided
             if (entryId) {
-                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                    _id: entryId,
+                await Entry.findByIdAndUpdate(entryId, {
                     status: EntryStatus.PROCESSING,
-                    metadata: { processingStep: ProcessingStep.DOWNLOADING_MEDIA }
+                    'metadata.processingStep': ProcessingStep.DOWNLOADING_MEDIA
                 });
+                const updated = await entryService.getEntryById(entryId.toString(), userId);
+                if (updated) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
+                }
             }
             logger.info('[Image Processor] Downloading WhatsApp image as fallback', { whatsappMediaId: whatsappData.mediaId });
             imageBuffer = await mediaService.downloadWhatsAppMedia(whatsappData.mediaId);
@@ -61,10 +64,13 @@ export async function processImage(data: MediaJobData): Promise<any> {
 
         // 2. Perform Image Analysis (Vision)
         if (entryId) {
-            socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                _id: entryId,
-                metadata: { processingStep: ProcessingStep.ANALYZING_IMAGE }
+            await Entry.findByIdAndUpdate(entryId, {
+                'metadata.processingStep': ProcessingStep.ANALYZING_IMAGE
             });
+            const updated = await entryService.getEntryById(entryId.toString(), userId);
+            if (updated) {
+                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
+            }
         }
         logger.info('[Image Processor] Analyzing image content with Vision AI', { mediaId: effectiveMediaId });
         const analysis = await analyzeImage(imageBuffer, mimeType, userId);
@@ -91,10 +97,13 @@ export async function processImage(data: MediaJobData): Promise<any> {
         if (entryId) {
             const entry = await Entry.findById(entryId);
             if (entry) {
-                socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, {
-                    _id: entryId,
-                    metadata: { processingStep: ProcessingStep.TAGGING }
+                await Entry.findByIdAndUpdate(entryId, {
+                    'metadata.processingStep': ProcessingStep.TAGGING
                 });
+                const updated = await entryService.getEntryById(entryId.toString(), userId);
+                if (updated) {
+                    socketService.emitToUser(userId, SocketEvents.ENTRY_UPDATED, updated);
+                }
 
                 const originalContent = entry.content;
                 // If there's an original caption, preserve it and append AI analysis
