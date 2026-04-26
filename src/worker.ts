@@ -5,15 +5,11 @@ import { config } from './config/env';
 import { logger } from './config/logger';
 import redisConnection from './config/redis';
 import { queueService } from './core/queue/queue.service';
-import { getAgentQueue } from './features/agent/agent.queue';
 import { initAgentWorker } from './features/agent/agent.worker';
-import { getEmailQueue } from './features/email/queue/email.queue';
 import { initEmailWorker } from './features/email/queue/email.worker';
-import { getEnrichmentQueue } from './features/enrichment/enrichment.queue';
 import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
 import notificationWorker from './features/notification/notification.worker';
 import { initMediaWorker } from './features/media/media.worker';
-import { getMediaQueue } from './features/media/media.queue';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -26,81 +22,64 @@ if (!config.REDIS_URL) {
     process.exit(1);
 }
 
-async function startWorker() {
+
+// TODO: see if you need to flush queues in dev
+export async function startWorker(isStandalone: boolean = true) {
     try {
-        logger.info('Starting Worker Process...');
+        logger.info(`Starting Worker Process (${isStandalone ? 'Standalone' : 'Integrated'})...`);
 
-        // 1. Connect to MongoDB
-        await mongoose.connect(config.MONGODB_URI);
-        logger.info('Worker connected to MongoDB');
+        if (isStandalone) {
+            // 1. Connect to MongoDB (only if standalone, otherwise server handles it)
+            await mongoose.connect(config.MONGODB_URI);
+            logger.info('Worker connected to MongoDB');
 
-        // 2. Ensure Redis connection
-        // The singleton connects automatically, but we can check status
-        redisConnection.on('ready', () => {
-            logger.info('Redis connection ready for workers');
-        });
-
-        // 3. DEV ONLY: Clear queues on startup to prevent zombie jobs
-        if (config.NODE_ENV === 'development') {
-            logger.info('Development mode detected: Cleaning queues...');
-
-            const emailQueue = getEmailQueue();
-            const agentQueue = getAgentQueue();
-            const enrichmentQueue = getEnrichmentQueue();
-            const mediaQueue = getMediaQueue();
-
-            // Clear statistics
-            const counts = await enrichmentQueue.getJobCounts();
-            logger.info('Enrichment Queue Status Before Clear:', counts);
-
-            // drain() clears wait, delayed, and paused
-            await emailQueue.drain();
-            await agentQueue.drain();
-            await mediaQueue.drain();
-            
-            // For enrichment, we want a clean slate in dev to fix lock errors
-            // DISABLED: obliterate is too destructive and wipes valid waiting jobs on restart
-            // await enrichmentQueue.obliterate({ force: true });
-            // logger.info('Enrichment Queue cleanup skipped for safety');
+            // 2. Ensure Redis connection
+            redisConnection.on('ready', () => {
+                logger.info('Redis connection ready for workers');
+            });
         }
 
-        // 4. Register Workers Here
+        // 3. Register Workers
         initAgentWorker();
         initEmailWorker();
         initEnrichmentWorker();
         initMediaWorker();
 
-        // 5. Workers handle their own internal startup protocols (including healing)
-        // graphWorker.start();
+        // 4. Start active workers
         notificationWorker.start();
 
         logger.info('Worker service initialized. Waiting for jobs...');
 
-        // Graceful Shutdown
-        const shutdown = async (signal: string) => {
-            logger.info(`${signal} received. Shutting down worker...`);
-            try {
-                await notificationWorker.stop();
+        if (isStandalone) {
+            // Graceful Shutdown (only if standalone)
+            const shutdown = async (signal: string) => {
+                logger.info(`${signal} received. Shutting down worker...`);
+                try {
+                    await notificationWorker.stop();
+                    await queueService.close();
+                    await mongoose.disconnect();
+                    redisConnection.disconnect();
+                    logger.info('Worker shutdown complete');
+                    process.exit(0);
+                } catch (err) {
+                    logger.error('Error during shutdown:', err);
+                    process.exit(1);
+                }
+            };
 
-                await queueService.close();
-                await mongoose.disconnect();
-                // Redis connection is shared, but we can disconnect it last
-                redisConnection.disconnect();
-                logger.info('Worker shutdown complete');
-                process.exit(0);
-            } catch (err) {
-                logger.error('Error during shutdown:', err);
-                process.exit(1);
-            }
-        };
-
-        process.on('SIGTERM', () => shutdown('SIGTERM'));
-        process.on('SIGINT', () => shutdown('SIGINT'));
+            process.on('SIGTERM', () => shutdown('SIGTERM'));
+            process.on('SIGINT', () => shutdown('SIGINT'));
+        }
 
     } catch (error) {
         logger.error('Failed to start worker:', error);
-        process.exit(1);
+        if (isStandalone) process.exit(1);
+        throw error;
     }
 }
 
-startWorker();
+// Only auto-start if this file is run directly (standalone mode)
+if (require.main === module) {
+    startWorker(true);
+}
+

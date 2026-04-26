@@ -7,6 +7,7 @@ import Server from './core/server';
 import { logger } from './config/logger';
 import { initAgentQueue } from './features/agent/agent.queue';
 import { initEmailQueue } from './features/email/queue/email.queue';
+import { startWorker } from './worker';
 
 
 
@@ -24,11 +25,21 @@ if (config.SENTRY_DSN_URL) {
 // Identifying log for the AI agent
 logger.info('--- BRINN SERVER STARTING WITH AGENT EDITS ---');
 
+
 const server = new Server();
 initCronJobs();
 initAgentQueue();
 initEmailQueue();
+
+// Start background workers integrated with the server process in production
+if (config.NODE_ENV === 'production') {
+  startWorker(false).catch(err => {
+    logger.error('Failed to start integrated workers:', err);
+  });
+}
+
 server.start().catch((error) => {
   console.error('Failed to start server:', error);
   process.exit(1);
 });
+
