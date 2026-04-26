@@ -12,6 +12,11 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV="production"
 
+# Install runtime dependencies (ffmpeg)
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y ffmpeg ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 
 # Development stage
 FROM base as development
@@ -48,11 +53,6 @@ RUN npm prune --omit=dev
 
 # Final stage for app image
 FROM base
-
-# Install runtime dependencies (ffmpeg)
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ffmpeg ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
 
 # Copy built application
 COPY --from=build /app /app

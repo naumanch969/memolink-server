@@ -82,7 +82,7 @@ describe('EnrichmentService', () => {
             await enrichmentService.evaluatePassiveGate(userId, date);
 
             const [, , options] = (mockQueue.add as jest.Mock).mock.calls[0];
-            expect(options.jobId).toMatch(`passive:${userId}:`);
+            expect(options.jobId).toMatch(`passive-${userId}-`);
         });
     });
 });

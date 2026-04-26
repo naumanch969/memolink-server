@@ -119,25 +119,29 @@ export class TagService implements ITagService {
   async findOrCreateTag(userId: string | Types.ObjectId, name: string): Promise<ITag> {
     try {
       const uppercasedName = name.toUpperCase();
-      // Try to find existing tag
-      let tag = await Tag.findOne({
-        userId,
-        name: uppercasedName
-      });
+      
+      // Use findOneAndUpdate with upsert to handle race conditions
+      // This is atomic and prevents E11000 duplicate key errors
+      const tag = await Tag.findOneAndUpdate(
+        { userId, name: uppercasedName },
+        { 
+          $setOnInsert: { 
+            userId: new Types.ObjectId(userId),
+            name: uppercasedName,
+            color: Helpers.generateRandomHexColor(),
+            usageCount: 0
+          } 
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
-      if (!tag) {
-        // Create new tag
-        tag = new Tag({
-          userId: new Types.ObjectId(userId),
-          name: uppercasedName,
-          color: Helpers.generateRandomHexColor()
-        });
-        await tag.save();
-        logger.info('Tag auto-created', { tagId: tag._id, userId, name: uppercasedName });
-      }
-
-      return tag;
+      return tag as ITag;
     } catch (error) {
+      // If E11000 happens despite findOneAndUpdate (rare race), try one last find
+      if ((error as any).code === 11000) {
+        const tag = await Tag.findOne({ userId, name: name.toUpperCase() });
+        if (tag) return tag;
+      }
       logger.error('Find or create tag failed:', error);
       throw error;
     }

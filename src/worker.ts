@@ -1,5 +1,6 @@
 import './features/integrations/init';
 import 'apminsight';
+import http from 'http';
 import mongoose from 'mongoose';
 import { config } from './config/env';
 import { logger } from './config/logger';
@@ -75,6 +76,20 @@ async function startWorker() {
         notificationWorker.start();
 
         logger.info('Worker service initialized. Waiting for jobs...');
+
+        // 6. Start Health Check Server (Required for Render Web Services)
+        const healthPort = config.PORT;
+        http.createServer((req, res) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                status: 'healthy',
+                service: 'brinn-worker',
+                timestamp: new Date().toISOString(),
+                version: config.npm_package_version || '1.1.0'
+            }));
+        }).listen(healthPort, () => {
+            logger.info(`Health check server listening on port ${healthPort}`);
+        });
 
         // Graceful Shutdown
         const shutdown = async (signal: string) => {

@@ -32,7 +32,7 @@ export const addMediaJob = async (data: MediaJobData) => {
     const jobName = `${MEDIA_JOB_PROCESS}:${data.jobType}:${data.mediaId || 'background'}`;
 
     // Use a fixed jobId to allow targeted deletion and deduplication
-    const jobId = data.mediaId ? `${data.jobType}:${data.mediaId}` : undefined;
+    const jobId = data.mediaId ? `${data.jobType}-${data.mediaId}` : undefined;
 
     const job = await queue.add(jobName, data, { jobId });
 
@@ -49,7 +49,7 @@ export const cancelMediaJobs = async (mediaIds: string[]) => {
         const removePromises: Promise<any>[] = [];
         for (const mediaId of mediaIds) {
             for (const jobType of jobTypes) {
-                removePromises.push(queue.remove(`${jobType}:${mediaId}`).catch(() => {}));
+                removePromises.push(queue.remove(`${jobType}-${mediaId}`).catch(() => {}));
             }
         }
         

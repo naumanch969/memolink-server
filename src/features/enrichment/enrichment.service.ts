@@ -36,7 +36,7 @@ export class EnrichmentService implements IEnrichmentService {
                 referenceId: entryId,
                 signalTier: signalTier as any,
             }, {
-                jobId: `active:${entryId}`, // Deduplicate and allow targeted deletion
+                jobId: `active-${entryId}`, // Deduplicate and allow targeted deletion
             });
             console.log('number of jobs: ', await queue.getJobCounts())
             // Set status to queued so UI can show it
@@ -61,8 +61,8 @@ export class EnrichmentService implements IEnrichmentService {
 
             // BullMQ .remove() takes jobId
             await Promise.all([
-                enrichmentQueue.remove(`active:${entryId}`).catch(() => {}),
-                healingQueue.remove(`healing:${entryId}`).catch(() => {}),
+                enrichmentQueue.remove(`active-${entryId}`).catch(() => {}),
+                healingQueue.remove(`healing-${entryId}`).catch(() => {}),
             ]);
 
             logger.info(`Enrichment Service: Cleaned up enqueued jobs for entry ${entryId}`);
@@ -81,7 +81,7 @@ export class EnrichmentService implements IEnrichmentService {
                 referenceId: entryId,
                 signalTier: signalTier as any,
             }, {
-                jobId: `healing:${entryId}`, // Deduplicate healing jobs for the same entry
+                jobId: `healing-${entryId}`, // Deduplicate healing jobs for the same entry
             });
 
             logger.info(`Enrichment Service: Enqueued HEALING task for entry ${entryId}`);
@@ -122,7 +122,7 @@ export class EnrichmentService implements IEnrichmentService {
                 sourceType: SourceType.PASSIVE,
                 sessionId,
             }, {
-                jobId: `passive:${userId}:${sessionId}`,
+                jobId: `passive-${userId}-${sessionId}`,
             });
             logger.info(`Enrichment Service: Enqueued passive enrichment for session ${sessionId}`);
         } catch (error) {
