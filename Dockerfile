@@ -52,6 +52,7 @@ FROM base
 # Copy built application
 COPY --from=build /app /app
 
-# Start the server by default, this can be overwritten at runtime
+# Start the server by default, can be overridden by START_SCRIPT env var
 EXPOSE 3000
-CMD [ "npm", "run", "start" ]
+ENV START_SCRIPT="start"
+CMD ["sh", "-c", "npm run ${START_SCRIPT}"]
