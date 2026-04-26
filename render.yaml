@@ -10,3 +10,13 @@ services:
         value: production
       - key: PORT
         value: 5001
+
+  - type: worker
+    name: brinn-worker
+    env: node
+    plan: standard
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:worker
+    envVars:
+      - key: NODE_ENV
+        value: production
