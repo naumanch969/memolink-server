@@ -15,6 +15,7 @@ import { initEnrichmentWorker } from './features/enrichment/enrichment.worker';
 import notificationWorker from './features/notification/notification.worker';
 import { initMediaWorker } from './features/media/media.worker';
 import { getMediaQueue } from './features/media/media.queue';
+import { monitoringService } from './features/monitoring/monitoring.service';
 
 // Validate environment variables
 if (!config.MONGODB_URI) {
@@ -79,16 +80,53 @@ async function startWorker() {
 
         // 6. Start Health Check Server (Required for Render Web Services)
         const healthPort = config.PORT;
-        http.createServer((req, res) => {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                status: 'healthy',
-                service: 'brinn-worker',
-                timestamp: new Date().toISOString(),
-                version: config.npm_package_version || '1.1.0'
-            }));
+        http.createServer(async (req, res) => {
+            const url = req.url || '/';
+
+            // CORS-like headers for easier browser debugging
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+
+            try {
+                if (url === '/' || url === '/status') {
+                    res.writeHead(200);
+                    res.end(JSON.stringify({
+                        message: 'Brinn Worker Service',
+                        version: config.npm_package_version || '1.1.0',
+                        status: 'running',
+                        timestamp: new Date().toISOString(),
+                        endpoints: {
+                            health: '/health',
+                            queues: '/queues'
+                        }
+                    }));
+                } 
+                else if (url === '/health') {
+                    const health = await monitoringService.getFullHealth();
+                    const statusCode = health.status === 'unhealthy' ? 503 : 200;
+                    res.writeHead(statusCode);
+                    res.end(JSON.stringify(health));
+                }
+                else if (url === '/queues') {
+                    const queueStats = await monitoringService.getJobQueues();
+                    res.writeHead(200);
+                    res.end(JSON.stringify({
+                        status: 'success',
+                        timestamp: new Date().toISOString(),
+                        queues: queueStats
+                    }));
+                }
+                else {
+                    res.writeHead(404);
+                    res.end(JSON.stringify({ error: 'Not Found' }));
+                }
+            } catch (err) {
+                logger.error('Health server error:', err);
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: 'Internal Server Error' }));
+            }
         }).listen(healthPort, () => {
-            logger.info(`Health check server listening on port ${healthPort}`);
+            logger.info(`Worker monitoring server listening on port ${healthPort}`);
         });
 
         // Graceful Shutdown

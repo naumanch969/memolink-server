@@ -15,6 +15,7 @@ ENV NODE_ENV="production"
 # Install runtime dependencies (ffmpeg)
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y ffmpeg ca-certificates && \
+    ln -s /usr/bin/ffmpeg /usr/local/bin/ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 

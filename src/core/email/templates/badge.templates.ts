@@ -83,6 +83,21 @@ const CUSTOM_CONTENT: Record<string, CustomBadgeContent> = {
         subtext: "25 voice notes. Your mind moves faster than fingers, and Brinn is keeping up.",
         accentColor: "#10B981",
     },
+    thought_weaver: {
+        headline: "Weaving your<br><em>story.</em>",
+        subtext: "50 memories captured. You're no longer just taking notes; you're weaving the fabric of your own history.",
+        accentColor: "#10B981",
+    },
+    deca_thought: {
+        headline: "The power of<br><em>ten.</em>",
+        subtext: "10 entries in. You've officially moved past 'trying' and started 'being' a thinker with Brinn.",
+        accentColor: "#94A3B8",
+    },
+    monthly_mindset: {
+        headline: "A month of<br><em>momentum.</em>",
+        subtext: "30 consecutive days. Your brain and Brinn are now in perfect sync.",
+        accentColor: "#3B82F6",
+    },
     network_builder: {
         headline: "Graph of<br><em>connection.</em>",
         subtext: "10 people tracked. You're building a network of how others shape your perspective.",
@@ -102,8 +117,8 @@ export const getBadgeUnlockedEmailTemplate = (
     badgeId: string,
     rarity: string
 ) => {
-    const frontendUrl = config.FRONTEND_URL;
-    const backendUrl = config.BACKEND_URL;
+    const frontendUrl = config.FRONTEND_URL.replace(/\/$/, '');
+    const backendUrl = config.BACKEND_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
     const content = CUSTOM_CONTENT[badgeId] || {
         headline: "A new milestone achieved.",
         subtext: "Your vault is growing. You've just unlocked a new piece of your Brinn identity.",

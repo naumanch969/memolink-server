@@ -5,12 +5,12 @@ export const config = {
 
   // URLS
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
-  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:3001',
+  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5001',
 
   npm_package_version: process.env.npm_package_version,
 
   // Server Configuration
-  PORT: process.env.PORT || 3001,
+  PORT: process.env.PORT || 5001,
   NODE_ENV: process.env.NODE_ENV,
 
   // Database Configuration
