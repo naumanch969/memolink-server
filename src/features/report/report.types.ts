@@ -59,7 +59,10 @@ export enum ReportType {
 
 export enum ReportStatus {
     DRAFT = 'DRAFT',
-    PUBLISHED = 'PUBLISHED'
+    PUBLISHED = 'PUBLISHED',
+    GENERATING = 'GENERATING',
+    FAILED = 'FAILED',
+    NOT_GENERATED = 'NOT_GENERATED'
 }
 
 export enum EnergyArc {

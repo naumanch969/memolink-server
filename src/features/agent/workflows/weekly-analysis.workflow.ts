@@ -14,10 +14,10 @@ const WeeklyAnalysisOutputSchema = z.object({
     // Narrative
     headline: z
         .string()
-        .describe("One punchy sentence that names the week. E.g. 'A week of momentum interrupted by avoidance.'"),
+        .describe("One direct sentence that names the week. E.g. 'A week focused on project development with some evening fatigue.'"),
     periodNarrative: z
         .string()
-        .describe('3-4 sentences telling the story of the week honestly.'),
+        .describe('3-4 sentences telling the story of the week honestly and directly.'),
 
     // Scores
     alignmentScore: z
@@ -29,7 +29,7 @@ const WeeklyAnalysisOutputSchema = z.object({
 
     // Mood intelligence
     moodInsight: z.object({
-        dominantState: z.string().describe("The dominant emotional state, e.g. 'driven but anxious'."),
+        dominantState: z.string().describe("The dominant emotional state, e.g. 'productive but stressed'."),
         peakDay: z.string().describe('ISO date of the best mood day this week.'),
         lowestDay: z.string().describe('ISO date of the lowest mood day this week.'),
         triggerPattern: z.string().describe("Observable trigger: 'Your mood drops when...'"),
@@ -78,6 +78,8 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
         const { userId, inputData } = task;
         try {
             const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate);
+            console.log('result', result);
+
             return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
             logger.error(`Weekly Analysis failed for user ${userId}`, error);
@@ -111,7 +113,7 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
             : '';
 
         const prompt = `
-You are Brinn — a data-driven personal analyst and uncompromising coach. 
+You are Brinn — a data-driven personal analyst and direct coach. 
 Perform a Weekly Analysis for the user.
 
 ${personaContext}
@@ -127,18 +129,47 @@ TOP TAGS THIS WEEK: ${ctx.topTags.slice(0, 10).join(', ') || 'None'}
 ${entityContext}
 
 CRITICAL INSTRUCTIONS:
+- TONE: Use plain, direct English. Avoid being "hypersensational", "poetic", or "philosophical". No flowery metaphors or dramatic storytelling.
 - Speak directly to the user as "you".
-- Be insightful. Detect non-obvious links between mood, tags, goal logs, and time of day.
-- The "patterns" array should surface connections the user themselves might not have noticed.
-- "goalPulse" must reference the actual periodLogs numbers — do not generalize.
-- "moodInsight.peakDay" and "lowestDay" must be real dates from the mood data above.
-- If persona data is present, use it to make your language and tone resonate with who this person is.
+- Be insightful. Detect non-obvious links between mood, tags, and time of day.
+- "patterns" array should surface connections the user themselves might not have noticed.
+- "moodInsight.peakDay" and "lowestDay" must be real dates in YYYY-MM-DD format.
+- "headline": Must be a direct, objective summary of the week. No "clickbait" style.
 - Do NOT sugarcoat stagnation. Do NOT over-praise minimal effort.
 - stats.totalEntries = ${ctx.totalEntries}, stats.totalWords = ${ctx.totalWords}, stats.avgMoodScore = ${ctx.avgMoodScore}
-- IMPORTANT: Populate stats.moodTimeSeries with exactly 7 numbers corresponding to the mood trajectory of the week. If data is missing for a day, use the avgMoodScore or interpolate.
-- stats.goalsActive = 0 (Goals module is currently disabled)
+- Populate stats.moodTimeSeries with exactly 7 numbers (daily averages).
 
-Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
+OUTPUT FORMAT:
+Return ONLY valid JSON matching this structure EXACTLY:
+{
+  "headline": "Direct sentence naming the week",
+  "periodNarrative": "3-4 sentences telling the story of the week directly",
+  "alignmentScore": number (1-100),
+  "energyArc": "ascending" | "descending" | "volatile" | "flat",
+  "moodInsight": {
+    "dominantState": "e.g. driven but anxious",
+    "peakDay": "YYYY-MM-DD",
+    "lowestDay": "YYYY-MM-DD",
+    "triggerPattern": "Your mood drops when...",
+    "moodEntryCorrelation": "Relationship between frequency and mood"
+  },
+  "patterns": [
+    { "observation": "data point", "implication": "meaning", "confidence": "strong" | "emerging" | "tentative" }
+  ],
+  "socialSignal": "people/entities mentioned (optional string)",
+  "singleBestBet": "one high-leverage focus for next week",
+  "specificMicroAction": "concrete, schedulable action",
+  "stats": {
+    "totalEntries": number,
+    "totalWords": number,
+    "avgMoodScore": number,
+    "topTags": ["tag1", "tag2"],
+    "moodTimeSeries": [number, number, number, number, number, number, number],
+    "goalsActive": 0
+  }
+}
+
+Return ONLY the JSON. No markdown blocks.
 `;
 
         return LLMService.generateJSON(prompt, WeeklyAnalysisOutputSchema, {
@@ -150,12 +181,12 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
 
     private emptyWeekFallback(ctx: { topTags: string[] }): WeeklyAnalysisOutput {
         return {
-            headline: "A silent week — the journal waits.",
-            periodNarrative: "No entries were logged this week. Reflection is the first step toward growth; without it, patterns go undetected and progress stalls.",
+            headline: "No data recorded this week.",
+            periodNarrative: "No entries were logged this week. Reflection is necessary for tracking patterns and progress.",
             alignmentScore: 1,
             energyArc: EnergyArc.FLAT,
             moodInsight: {
-                dominantState: "Unknown — no data logged",
+                dominantState: "No data logged",
                 peakDay: "",
                 lowestDay: "",
                 triggerPattern: "Cannot determine without entries.",

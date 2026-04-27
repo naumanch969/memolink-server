@@ -8,6 +8,8 @@ import { entityService } from '../entity/entity.service';
 import { agentService } from '../agent/services/agent.service';
 import { reportService } from './report.service';
 import { REPORT_CONSTANTS } from './report.constants';
+import { ArrayUtil } from '../../shared/utils/array.utils';
+import { MathUtil } from '../../shared/utils/math.utils';
 
 // ReportContextBuilder aggregates data from multiple features to provide a comprehensive context for LLM-based analysis.
 export class ReportContextBuilder implements IReportContextBuilder {
@@ -115,15 +117,8 @@ export class ReportContextBuilder implements IReportContextBuilder {
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private aggregateTopTags(entries: any[]): string[] {
-        const freq: Record<string, number> = {};
-        for (const entry of entries) {
-            for (const tag of (entry.tags ?? [])) {
-                const key = tag.toString();
-                freq[key] = (freq[key] ?? 0) + 1;
-            }
-        }
-        return Object.entries(freq)
-            .sort((a, b) => b[1] - a[1])
+        const allTags = entries.flatMap(e => e.tags ?? []);
+        return ArrayUtil.sortByFrequency(allTags)
             .slice(0, REPORT_CONSTANTS.TOP_TAGS_COUNT)
             .map(([tag, count]) => `${tag} (${count}x)`);
     }
@@ -131,15 +126,15 @@ export class ReportContextBuilder implements IReportContextBuilder {
     private computeAvgMood(moodPoints: DailyMoodPoint[], entries: any[]): number {
         // Prefer dedicated Mood model data
         if (moodPoints.length > 0) {
-            const total = moodPoints.reduce((s, p) => s + p.score, 0);
-            return Math.round((total / moodPoints.length) * 10) / 10;
+            return MathUtil.average(moodPoints.map(p => p.score));
         }
 
         // Fall back to entry-level mood scores
-        const scored = entries.filter(e => typeof e.moodMetadata?.score === 'number');
-        if (scored.length === 0) return 0;
-        const total = scored.reduce((s, e) => s + e.moodMetadata.score, 0);
-        return Math.round((total / scored.length) * 10) / 10;
+        const entryScores = entries
+            .filter(e => typeof e.moodMetadata?.score === 'number')
+            .map(e => e.moodMetadata.score);
+
+        return MathUtil.average(entryScores);
     }
 
     private buildEntryNarrative(entries: any[]): string {

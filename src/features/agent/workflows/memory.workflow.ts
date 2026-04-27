@@ -57,11 +57,29 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
         Conversation:
         ${historyText}
 
-        Instructions:
-        - Only extract things that are worth remembering for weeks or months.
-        - Be concise.
-        - For Associations: Capture how entities relate (e.g., "User works at Opstin", "Alice is Bob's wife").
-        - If no new long-term info is found, return empty arrays.
+        OUTPUT FORMAT:
+        Return ONLY valid JSON matching this structure EXACTLY:
+        {
+          "observations": [
+            {
+              "target": "Entity name or 'USER'",
+              "content": "natural language description",
+              "importance": number (1-5),
+              "type": "fact" | "preference" | "pattern" | "context"
+            }
+          ],
+          "associations": [
+            {
+              "source": "Subject entity or 'USER'",
+              "target": "Object entity or 'USER'",
+              "relation": "e.g. WORKS_AT, KNOWS, BELONGS_TO, PROJECT_LEAD",
+              "metadata": {} 
+            }
+          ]
+        }
+
+        If no new long-term info is found, return empty arrays.
+        Return ONLY the JSON. No markdown blocks.
         `;
 
         try {

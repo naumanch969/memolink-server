@@ -14,10 +14,10 @@ const MonthlyAnalysisOutputSchema = z.object({
     // The Big Picture
     monthTitle: z
         .string()
-        .describe("One memorable sentence naming the month. E.g. 'The Month You Rebuilt The Foundation.'"),
+        .describe("One direct sentence naming the month. E.g. 'Foundational growth and system building.'"),
     executiveSummary: z
         .string()
-        .describe('4-5 sentences. The month in full honesty — no sugarcoating.'),
+        .describe('4-5 sentences. The month in full honesty — direct and objective.'),
     overallScore: z
         .number().min(1).max(100)
         .describe('Overall alignment score for the month. 1-100.'),
@@ -31,7 +31,7 @@ const MonthlyAnalysisOutputSchema = z.object({
         hardestWeek: z.string().describe('Date label for the most difficult week.'),
         dominantEmotionalTheme: z
             .string()
-            .describe("The emotional theme that ran through the whole month, e.g. 'Strategic anxiety.'"),
+            .describe("The emotional theme that ran through the whole month, e.g. 'Consistent focus.'"),
         sustainedPattern: z
             .string()
             .describe('A pattern only visible at 30-day view that would be invisible week-to-week.'),
@@ -54,24 +54,24 @@ const MonthlyAnalysisOutputSchema = z.object({
     // Documented Wins
     documentedWins: z.array(z.object({
         win: z.string(),
-        evidence: z.string().describe("Concrete backing: 'You logged gym 18/30 days — a personal best.'"),
+        evidence: z.string().describe("Concrete backing: 'You logged gym 18/30 days.'"),
     })).describe('Only include wins that have verifiable data backing.'),
 
     // Month-over-month comparison
     comparedToLastMonth: z.object({
         scoreChange: z.number().describe('Change in overall score vs previous month. Positive = improvement.'),
-        narrative: z.string().describe("E.g. 'Up 12 points — strongest month in 3.'"),
+        narrative: z.string().describe("E.g. 'Improved by 12 points compared to last month.'"),
         breakoutArea: z.string().optional().describe('The area that improved most vs last month.'),
         regressionArea: z.string().optional().describe('The area that declined most vs last month.'),
     }).optional().describe('Omit if no previous month report exists.'),
 
     // Forward Contract
     nextMonthContract: z.object({
-        themeSentence: z.string().describe("E.g. 'March is about depth, not volume.'"),
+        themeSentence: z.string().describe("E.g. 'The next month focus is depth and technical execution.'"),
         topThreePriorities: z.array(z.string()).length(3),
         oneThingToStop: z.string(),
         oneThingToStart: z.string(),
-        successDefinition: z.string().describe("'You'll know March worked if...'"),
+        successDefinition: z.string().describe("'You'll know this month worked if...'"),
     }),
 
     // Raw stats for UI
@@ -138,8 +138,8 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
 
 
         const prompt = `
-You are Brinn — an uncompromising life coach and data-driven personal analyst.
-Perform the Monthly Analysis for the user. This is the most important report they receive.
+You are Brinn — a direct and data-driven personal analyst.
+Perform the Monthly Analysis for the user. 
 
 ${personaContext}
 
@@ -158,22 +158,64 @@ ${entityContext}
 ${previousContext}
 
 CRITICAL INSTRUCTIONS:
-- monthTitle: Make it memorable. It should name the month in a way that sticks.
-- moodStory.sustainedPattern: This must be something only detectable at 30 days, NOT visible in a single week.
-- behavioralInsights: Root cause + leverage. This is the persona-aware layer. Use persona context to make it resonate.
-- hardTruths: Max 4. These must reference observable data, not moral judgements.
-- documentedWins: Only include wins with hard numbers. No participation awards.
+- TONE: Use plain, direct English. Avoid being "hypersensational", "poetic", or "philosophical". No flowery metaphors or dramatic storytelling. Speak like an objective analyst.
+- monthTitle: A direct, objective name for the month.
+- moodStory.sustainedPattern: This must be something only detectable at 30 days.
+- behavioralInsights: Root cause + leverage. Use persona context to make it resonate.
+- hardTruths: Max 4 blunt, data-backed truths.
+- documentedWins: Only include wins with hard numbers.
 - comparedToLastMonth: ${ctx.previousReport ? 'REQUIRED — a previous month report exists above.' : 'OMIT — no previous report available.'}
-- nextMonthContract: Make it a real contract. Specific numbers and actions, not platitudes.
-- Do NOT sugarcoat stagnation, excuses, or low-effort weeks.
-- If the user is genuinely thriving, acknowledge it — but raise the bar.
+- nextMonthContract: Specific numbers and actions, not platitudes.
+- Do NOT sugarcoat stagnation.
+- stats.totalEntries = ${ctx.totalEntries}, stats.totalWords = ${ctx.totalWords}, stats.avgDailyMood = ${ctx.avgMoodScore}
+- Populate stats.moodTimeSeries with daily averages (approx 30 numbers).
 
-STATS- stats.totalEntries = ${ctx.totalEntries}, stats.totalWords = ${ctx.totalWords}, stats.avgDailyMood = ${ctx.avgMoodScore}, 
-- moodDataDays = ${ctx.moodTimeSeries.length}, goalsActive = 0
-- IMPORTANT: Populate stats.moodTimeSeries with daily averages for the month (approx 30 numbers). If data is missing for a day, use the avgDailyMood or interpolate.
-- stats.goalsActive = 0 (Goals module is currently disabled)
+OUTPUT FORMAT:
+Return ONLY valid JSON matching this structure EXACTLY:
+{
+  "monthTitle": "Direct sentence naming the month",
+  "executiveSummary": "4-5 sentences. The month in objective detail",
+  "overallScore": number (1-100),
+  "moodStory": {
+    "arc": "growth" | "decline" | "recovery" | "plateau" | "turbulent",
+    "bestWeek": "Date range e.g. Feb 10-16",
+    "hardestWeek": "Date range",
+    "dominantEmotionalTheme": "theme of the month",
+    "sustainedPattern": "pattern visible at 30-day view"
+  },
+  "behavioralInsights": [
+    { "pattern": "string", "root": "string", "leverage": "string" }
+  ],
+  "hardTruths": ["truth 1", "truth 2"],
+  "documentedWins": [
+    { "win": "string", "evidence": "string" }
+  ],
+  "comparedToLastMonth": {
+    "scoreChange": number,
+    "narrative": "string",
+    "breakoutArea": "string",
+    "regressionArea": "string"
+  },
+  "nextMonthContract": {
+    "themeSentence": "string",
+    "topThreePriorities": ["string", "string", "string"],
+    "oneThingToStop": "string",
+    "oneThingToStart": "string",
+    "successDefinition": "string"
+  },
+  "stats": {
+    "totalEntries": number,
+    "totalWords": number,
+    "avgDailyMood": number,
+    "moodDataDays": number,
+    "goalsActive": 0,
+    "topTags": ["tag1", "tag2"],
+    "topEntities": ["entity1", "entity2"],
+    "moodTimeSeries": [number]
+  }
+}
 
-Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
+Return ONLY the JSON. No markdown blocks.
 `;
 
         return LLMService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
@@ -185,32 +227,32 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
 
     private emptyMonthFallback(): MonthlyAnalysisOutput {
         return {
-            monthTitle: "The Month That Left No Trace.",
-            executiveSummary: "No entries, no goal logs, no mood data. A month lived entirely off the record. Growth cannot be tracked — or accelerated — in the dark. This month is a baseline. The only direction is up.",
+            monthTitle: "No data recorded this month.",
+            executiveSummary: "No entries, goals, or mood data were logged. Without tracking, growth and patterns cannot be identified.",
             overallScore: 1,
             moodStory: {
                 arc: MoodArc.PLATEAU,
                 bestWeek: 'Unknown',
                 hardestWeek: 'Unknown',
-                dominantEmotionalTheme: 'Invisible — no data logged.',
-                sustainedPattern: 'The only sustained pattern is silence. Start logging.',
+                dominantEmotionalTheme: 'No data logged.',
+                sustainedPattern: 'No pattern visible due to lack of data.',
             },
             behavioralInsights: [{
-                pattern: 'Consistent non-logging.',
-                root: 'Possibly friction in the capture habit or low perceived value of journaling.',
-                leverage: 'Start with voice entries — 30 seconds at day-end. Lower the bar until the habit is automatic.',
+                pattern: 'No logging activity.',
+                root: 'Capture habit not established.',
+                leverage: 'Start with brief daily entries to build the habit.',
             }],
             hardTruths: [
-                "You cannot improve what you don't measure. This month was unmeasured.",
-                "Reflection is not optional for someone serious about growth.",
+                "Growth requires consistent measurement.",
+                "Lack of data prevents analysis and improvement.",
             ],
             documentedWins: [],
             nextMonthContract: {
-                themeSentence: "Next month is about one thing: showing up.",
+                themeSentence: "Establish a daily logging habit.",
                 topThreePriorities: ['Daily entry consistency', 'Activate at least one goal', 'Log mood every evening'],
                 oneThingToStop: 'Letting days pass unrecorded.',
-                oneThingToStart: 'A 9pm daily reflection ritual — even one sentence.',
-                successDefinition: "You'll know next month worked if you have at least 20 entries and 14 mood logs.",
+                oneThingToStart: 'A brief daily reflection.',
+                successDefinition: "Establishment of a consistent capture routine.",
             },
             stats: {
                 totalEntries: 0,

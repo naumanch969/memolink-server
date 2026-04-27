@@ -57,7 +57,7 @@ export class AgentService implements IAgentService {
             if (tasks.length === 0) return;
 
             const queue = getAgentQueue();
-            await Promise.all(tasks.map(task => queue.remove(task._id.toString()).catch(() => {})));
+            await Promise.all(tasks.map(task => queue.remove(task._id.toString()).catch(() => { })));
 
             logger.info(`Agent Service: Cleaned up jobs for ${tasks.length} tasks related to entry ${entryId}`);
         } catch (error) {

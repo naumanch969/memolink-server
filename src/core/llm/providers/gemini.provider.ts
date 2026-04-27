@@ -129,7 +129,11 @@ export class GeminiProvider implements ILLMProvider {
                     // we treat it as a retryable "hallucination" error for this operation.
                     const isValidationError = error instanceof SyntaxError || error.name === 'ZodError';
                     if (isValidationError) {
-                        logger.warn('Gemini JSON validation failed, will retry...', { error: error.message });
+                        logger.warn('Gemini JSON validation failed, will retry...', { 
+                            error: error.message,
+                            zodIssues: error.issues,
+                            // rawJson: cleanJson.substring(0, 500) + (cleanJson.length > 500 ? '...' : '')
+                        });
                         // We throw a custom property to help withRetry identify it
                         (error as any).isTransientValidation = true;
                     }

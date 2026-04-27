@@ -13,7 +13,7 @@ import { emailService } from '../email/email.service';
 import { User } from '../auth/auth.model';
 import { IReportService } from "./report.interfaces";
 import Report from './report.model';
-import { IReport, ReportSearchRequest, ReportType } from './report.types';
+import { IReport, ReportSearchRequest, ReportStatus, ReportType } from './report.types';
 import { REPORT_CONSTANTS } from './report.constants';
 
 export class ReportService implements IReportService {
@@ -25,32 +25,15 @@ export class ReportService implements IReportService {
             throw ApiError.badRequest('Task not found or not completed');
         }
 
-        let type: ReportType;
-        let startDate: Date;
-        let endDate: Date;
+        const { type, startDate, endDate } = this.getPeriodFromTask(task);
 
-        // Determine period
-        const standardizedDate = new Date(task.completedAt || task.updatedAt);
-        standardizedDate.setHours(standardizedDate.getHours() - REPORT_CONSTANTS.CRON_LOOKBACK_HOURS);
-
-        if (task.type === AgentTaskType.WEEKLY_ANALYSIS) {
-            type = ReportType.WEEKLY;
-            startDate = startOfWeek(standardizedDate, { weekStartsOn: 1 });
-            endDate = endOfWeek(standardizedDate, { weekStartsOn: 1 });
-        } else if (task.type === AgentTaskType.MONTHLY_ANALYSIS) {
-            type = ReportType.MONTHLY;
-            startDate = startOfMonth(standardizedDate);
-            endDate = endOfMonth(standardizedDate);
-        } else {
-            throw ApiError.badRequest('Invalid task type for report generation');
-        }
-
+        logger.info(`Creating ${type} report from task`, { type, startDate, endDate, userId, taskId });
         const report = await this.upsertReport({
             userId: new Types.ObjectId(userId),
             type,
             startDate,
             endDate,
-            content: task.outputData,
+            content: task.outputData?.result || task.outputData,
             taskId: task._id as Types.ObjectId
         });
 
@@ -58,11 +41,41 @@ export class ReportService implements IReportService {
         socketService.emitToUser(userId, SocketEvents.REPORT_UPDATED, report);
 
         // Fire email non-blocking
-        this.sendNotification(report).catch(err =>
-            logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
-        );
+        // TODO: uncomment it when required
+        // this.sendNotification(report).catch(err =>
+        //     logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
+        // );
 
         return report;
+    }
+
+    private getPeriodFromTask(task: any): { type: ReportType, startDate: Date, endDate: Date } {
+        let type: ReportType;
+        let startDate: Date;
+        let endDate: Date;
+
+        // Determine period
+        // If task input has explicit dates, use them. Otherwise, apply lookback shift for cron tasks.
+        const baseDate = new Date(task.completedAt || task.updatedAt || task.createdAt);
+        if (!task.inputData?.startDate) {
+            baseDate.setHours(baseDate.getHours() - REPORT_CONSTANTS.CRON_LOOKBACK_HOURS);
+        }
+
+        const referenceDate = task.inputData?.startDate ? new Date(task.inputData.startDate) : baseDate;
+
+        if (task.type === AgentTaskType.WEEKLY_ANALYSIS) {
+            type = ReportType.WEEKLY;
+            startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
+            endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
+        } else if (task.type === AgentTaskType.MONTHLY_ANALYSIS) {
+            type = ReportType.MONTHLY;
+            startDate = startOfMonth(referenceDate);
+            endDate = endOfMonth(referenceDate);
+        } else {
+            throw ApiError.badRequest('Invalid task type for report generation');
+        }
+
+        return { type, startDate, endDate };
     }
 
     private async upsertReport(params: { userId: Types.ObjectId; type: ReportType; startDate: Date; endDate: Date; content: any; taskId: Types.ObjectId; }): Promise<IReport> {
@@ -82,14 +95,13 @@ export class ReportService implements IReportService {
                 { upsert: true, new: true, setDefaultsOnInsert: true }
             );
         } catch (error: any) {
-            // Handle race condition for unique index { userId, type, startDate, endDate }
             if (error.code === 11000) {
-                logger.warn(`Duplicate report race condition detected for user ${userId}. Retrying update.`);
-                return await Report.findOneAndUpdate(
+                logger.warn(`Duplicate report race condition for user ${userId}. Retrying.`);
+                return Report.findOneAndUpdate(
                     { userId, type, startDate, endDate },
                     update,
                     { new: true }
-                ) as IReport;
+                ).lean() as unknown as IReport;
             }
             throw error;
         }
@@ -125,7 +137,31 @@ export class ReportService implements IReportService {
     // Get a specific report by ID
     async getReportById(reportId: string, userId: string): Promise<IReport> {
         const report = await Report.findOne({ _id: reportId, userId: new Types.ObjectId(userId) });
+        
         if (!report) {
+            // Check if it's a virtual report from an active task
+            const task = await AgentTask.findOne({ 
+                _id: reportId, 
+                userId: new Types.ObjectId(userId),
+                status: { $in: [AgentTaskStatus.PENDING, AgentTaskStatus.RUNNING] }
+            }).lean();
+
+            if (task) {
+                const { type, startDate, endDate } = this.getPeriodFromTask(task);
+                return {
+                    _id: task._id.toString(),
+                    userId: task.userId,
+                    type,
+                    status: ReportStatus.GENERATING,
+                    startDate,
+                    endDate,
+                    content: {},
+                    metadata: { generatedByTaskId: task._id },
+                    createdAt: task.createdAt,
+                    updatedAt: task.updatedAt
+                } as unknown as IReport;
+            }
+
             throw ApiError.notFound('Report not found');
         }
 
@@ -140,24 +176,129 @@ export class ReportService implements IReportService {
         return report;
     }
 
-    // List reports with pagination and filtering
+    // List reports with pagination and filtering, filling gaps with NOT_GENERATED placeholders
     async listReports(userId: string, searchParams?: ReportSearchRequest): Promise<{ reports: IReport[]; total: number; page: number; limit: number }> {
-        const { type, startDate, endDate, page = REPORT_CONSTANTS.DEFAULT_PAGE, limit = REPORT_CONSTANTS.DEFAULT_LIMIT } = searchParams || {};
-        const skip = (page - 1) * limit;
+        const { type, page = REPORT_CONSTANTS.DEFAULT_PAGE, limit = REPORT_CONSTANTS.DEFAULT_LIMIT } = searchParams || {};
+        
+        // 1. Get user's join date to determine the beginning of time
+        const user = await User.findById(userId).select('createdAt').lean();
+        if (!user) throw ApiError.notFound('User not found');
+        
+        const joinDate = user.createdAt;
+        const now = new Date();
+        
+        // 2. Generate all potential periods from today back to joinDate
+        const periods: { startDate: Date; endDate: Date }[] = [];
+        const current = type === ReportType.MONTHLY 
+            ? startOfMonth(now) 
+            : startOfWeek(now, { weekStartsOn: 1 });
+            
+        const minDate = type === ReportType.MONTHLY
+            ? startOfMonth(joinDate)
+            : startOfWeek(joinDate, { weekStartsOn: 1 });
 
-        const query: any = { userId: new Types.ObjectId(userId) };
-        if (type) query.type = type;
-        if (startDate && endDate) {
-            query.startDate = { $gte: new Date(startDate) };
-            query.endDate = { $lte: new Date(endDate) };
+        while (current >= minDate) {
+            const startDate = new Date(current);
+            const endDate = type === ReportType.MONTHLY 
+                ? endOfMonth(current) 
+                : endOfWeek(current, { weekStartsOn: 1 });
+            
+            periods.push({ startDate, endDate });
+            
+            // Move back
+            if (type === ReportType.MONTHLY) {
+                current.setMonth(current.getMonth() - 1);
+            } else {
+                current.setDate(current.getDate() - 7);
+            }
         }
 
-        const [reports, total] = await Promise.all([
-            Report.find(query).sort({ startDate: -1 }).skip(skip).limit(limit).lean(),
-            Report.countDocuments(query)
+        // 3. Paginate the periods
+        const total = periods.length;
+        const skip = (page - 1) * limit;
+        const paginatedPeriods = periods.slice(skip, skip + limit);
+
+        if (paginatedPeriods.length === 0) {
+            return { reports: [], total, page, limit };
+        }
+
+        // 4. Fetch existing reports and active tasks for these periods
+        const periodRange = {
+            $or: paginatedPeriods.map(p => ({
+                startDate: { $gte: p.startDate, $lte: p.endDate }
+            }))
+        };
+
+        const [dbReports, activeTasks] = await Promise.all([
+            Report.find({ userId: new Types.ObjectId(userId), type, ...periodRange }).lean(),
+            AgentTask.find({
+                userId: new Types.ObjectId(userId),
+                type: type === ReportType.WEEKLY ? AgentTaskType.WEEKLY_ANALYSIS : AgentTaskType.MONTHLY_ANALYSIS,
+                status: { $in: [AgentTaskStatus.PENDING, AgentTaskStatus.RUNNING] }
+            }).lean()
         ]);
 
-        return { reports: reports as IReport[], total, page, limit };
+        // 5. Merge existing data into the paginated periods
+        const finalReports = paginatedPeriods.map(period => {
+            // Check for existing report that falls within this period
+            const existingReport = dbReports.find(r => {
+                const reportStart = new Date(r.startDate);
+                return reportStart >= period.startDate && reportStart <= period.endDate;
+            });
+
+            if (existingReport) {
+                // Check if there's an active task for this same period (regeneration)
+                const isRegenerating = activeTasks.some(task => {
+                    try {
+                        const { startDate: sDate } = this.getPeriodFromTask(task);
+                        return sDate >= period.startDate && sDate <= period.endDate;
+                    } catch (e) { return false; }
+                });
+
+                if (isRegenerating) {
+                    return { ...existingReport, status: ReportStatus.GENERATING } as unknown as IReport;
+                }
+                return existingReport as unknown as IReport;
+            }
+
+            // Check for active task (new generation)
+            const activeTask = activeTasks.find(task => {
+                try {
+                    const { startDate: sDate } = this.getPeriodFromTask(task);
+                    return sDate >= period.startDate && sDate <= period.endDate;
+                } catch (e) { return false; }
+            });
+
+            if (activeTask) {
+                return {
+                    _id: activeTask._id.toString(),
+                    userId: activeTask.userId,
+                    type,
+                    status: ReportStatus.GENERATING,
+                    startDate: period.startDate,
+                    endDate: period.endDate,
+                    content: {},
+                    metadata: { generatedByTaskId: activeTask._id },
+                    createdAt: activeTask.createdAt,
+                    updatedAt: activeTask.updatedAt
+                } as unknown as IReport;
+            }
+
+            // Fallback: Not Generated Placeholder
+            return {
+                _id: `not-gen-${type}-${period.startDate.getTime()}`,
+                userId: new Types.ObjectId(userId),
+                type,
+                status: ReportStatus.NOT_GENERATED,
+                startDate: period.startDate,
+                endDate: period.endDate,
+                content: {},
+                createdAt: period.startDate,
+                updatedAt: period.startDate
+            } as unknown as IReport;
+        });
+
+        return { reports: finalReports, total, page, limit };
     }
 
     private async sendNotification(report: IReport): Promise<void> {
