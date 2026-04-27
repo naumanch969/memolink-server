@@ -1,5 +1,6 @@
 import { Entry } from './entry.model';
 import { EntryService } from './entry.service';
+import { EntryType } from './entry.types';
 
 
 // Mock the Mongoose Model
@@ -18,7 +19,7 @@ jest.mock('./entry.model', () => {
     };
 });
 
-jest.mock('../enrichment/enrichment.model', () => {
+jest.mock('../enrichment/models/enriched-entry.model', () => {
     return {
         EnrichedEntry: {
             find: jest.fn().mockImplementation(() => ({
@@ -63,7 +64,7 @@ describe('EntryService', () => {
         it('should create an entry correctly', async () => {
             const mockEntryData = {
                 content: 'Test entry content',
-                type: 'text',
+                type: EntryType.TEXT,
             };
             const userId = 'user123';
 

@@ -1,8 +1,7 @@
 import { Types } from 'mongoose';
 import { UserPersona } from '../agent/memory/persona.model';
-import KnowledgeEntity from '../entity/entity.model';
+import { KnowledgeEntity } from '../entity/entity.model';
 import { Entry } from '../entry/entry.model';
-import Goal from '../goal/goal.model';
 import { Mood } from '../mood/mood.model';
 import { WebActivity } from '../web-activity/web-activity.model';
 import { ReportContextBuilder } from './report.context-builder';
@@ -11,7 +10,6 @@ import { ReportType } from './report.types';
 
 jest.mock('../entry/entry.model');
 jest.mock('../mood/mood.model');
-jest.mock('../goal/goal.model');
 jest.mock('../entity/entity.model');
 jest.mock('../agent/memory/persona.model');
 jest.mock('../web-activity/web-activity.model');
@@ -65,23 +63,6 @@ describe('ReportContextBuilder', () => {
             { date: makeDate('2026-02-10'), score: 2, note: undefined },
         ];
 
-        const mockGoals = [
-            {
-                title: 'Exercise Daily',
-                description: 'Gym 5x per week',
-                why: 'Health is the foundation',
-                progress: { streakCurrent: 5, streakLongest: 12, totalCompletions: 20 },
-                progressLogs: [
-                    { date: makeDate('2026-02-03'), value: 1 },
-                    { date: makeDate('2026-02-05'), value: 1 },
-                ],
-                milestones: [
-                    { title: '10 workouts', completed: true, completedAt: makeDate('2026-02-15') },
-                ],
-                deadline: undefined,
-            },
-        ];
-
         const mockPersona = { rawMarkdown: '# User Persona\nGoal-oriented, introvert.' };
 
         const mockWebActivity = [
@@ -102,8 +83,6 @@ describe('ReportContextBuilder', () => {
             distinct: jest.fn().mockResolvedValue(mockEntries[0].mentions),
         };
         (Entry.find as jest.Mock).mockReturnValue(entryFindMock);
-        (Entry.find as jest.Mock).mockReturnValueOnce(entryFindMock)   // fetchEntries
-            .mockReturnValueOnce({ distinct: jest.fn().mockResolvedValue(mockEntries[0].mentions) }); // fetchTopEntities
 
         const moodFindMock = {
             select: jest.fn().mockReturnThis(),
@@ -111,12 +90,6 @@ describe('ReportContextBuilder', () => {
             lean: jest.fn().mockResolvedValue(mockMood),
         };
         (Mood.find as jest.Mock).mockReturnValue(moodFindMock);
-
-        const goalFindMock = {
-            select: jest.fn().mockReturnThis(),
-            lean: jest.fn().mockResolvedValue(mockGoals),
-        };
-        (Goal.find as jest.Mock).mockReturnValue(goalFindMock);
 
         (UserPersona.findOne as jest.Mock).mockReturnValue({
             select: jest.fn().mockReturnThis(),
@@ -127,7 +100,7 @@ describe('ReportContextBuilder', () => {
             select: jest.fn().mockReturnThis(),
             sort: jest.fn().mockReturnThis(),
             limit: jest.fn().mockReturnThis(),
-            lean: jest.fn().mockResolvedValue([{ name: 'Alice', otype: 'person' }]),
+            lean: jest.fn().mockResolvedValue([{ _id: mockEntries[0].mentions[0], name: 'Alice', otype: 'person' }]),
         });
 
         (WebActivity.find as jest.Mock).mockReturnValue({
@@ -146,11 +119,8 @@ describe('ReportContextBuilder', () => {
         expect(ctx.totalEntries).toBe(2);
         expect(ctx.moodTimeSeries).toHaveLength(2);
         expect(ctx.moodTimeSeries[0].score).toBe(4);
-        expect(ctx.goalSnapshots).toHaveLength(1);
-        expect(ctx.goalSnapshots[0].periodLogs).toBe(2);  // Feb 3 + Feb 5 within range
-        expect(ctx.goalSnapshots[0].milestonesHit).toBe(1); // Completed Feb 15
         expect(ctx.personaMarkdown).toContain('Goal-oriented');
-        expect(ctx.topEntities).toContain('Alice');
+        expect(ctx.topEntities[0]).toContain('Alice');
         expect(ctx.webActivitySummary).toContain('github.com');
         expect(ctx.previousReport).toBeUndefined();
     });
@@ -160,12 +130,10 @@ describe('ReportContextBuilder', () => {
             select: jest.fn().mockReturnThis(),
             sort: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue([]),
-            distinct: jest.fn().mockResolvedValue([]),
         };
 
         (Entry.find as jest.Mock).mockReturnValue(emptyFindMock);
         (Mood.find as jest.Mock).mockReturnValue(emptyFindMock);
-        (Goal.find as jest.Mock).mockReturnValue(emptyFindMock);
         (UserPersona.findOne as jest.Mock).mockReturnValue({
             select: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue(null),
@@ -202,12 +170,10 @@ describe('ReportContextBuilder', () => {
             select: jest.fn().mockReturnThis(),
             sort: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue([]),
-            distinct: jest.fn().mockResolvedValue([]),
         };
 
         (Entry.find as jest.Mock).mockReturnValue(emptyFindMock);
         (Mood.find as jest.Mock).mockReturnValue(emptyFindMock);
-        (Goal.find as jest.Mock).mockReturnValue(emptyFindMock);
         (UserPersona.findOne as jest.Mock).mockReturnValue({
             select: jest.fn().mockReturnThis(),
             lean: jest.fn().mockResolvedValue(null),

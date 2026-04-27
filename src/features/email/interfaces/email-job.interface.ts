@@ -7,6 +7,8 @@ export type EmailJobType =
     | 'WAITLIST_CONFIRMATION' 
     | 'WAITLIST_ADMIN_ALERT' 
     | 'BADGE_UNLOCKED'
+    | 'WEEKLY_REPORT'
+    | 'MONTHLY_REPORT'
     | 'TEMPLATED';
 
 export interface BaseEmailJobData {
@@ -57,6 +59,18 @@ export interface BadgeUnlockedEmailJobData extends BaseEmailJobData {
     rarity: string;
 }
 
+export interface WeeklyReportEmailJobData extends BaseEmailJobData {
+    period: string;
+    reportContent: any;
+    frontendUrl: string;
+}
+
+export interface MonthlyReportEmailJobData extends BaseEmailJobData {
+    period: string;
+    reportContent: any;
+    frontendUrl: string;
+}
+
 export interface TemplatedEmailJobData extends BaseEmailJobData {
     templateName: string;
     templateData: Record<string, any>;
@@ -74,5 +88,7 @@ export interface EmailJob {
         | WaitlistConfirmationEmailJobData 
         | WaitlistAdminAlertEmailJobData 
         | BadgeUnlockedEmailJobData
+        | WeeklyReportEmailJobData
+        | MonthlyReportEmailJobData
         | TemplatedEmailJobData;
 }

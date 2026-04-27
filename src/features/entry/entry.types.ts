@@ -12,7 +12,8 @@ export enum EntryStatus {
 export enum EntryType {
     TEXT = 'text',
     MEDIA = 'media',
-    MIXED = 'mixed'
+    MIXED = 'mixed',
+    VOICE = 'voice'
 }
 
 export enum SearchMode {

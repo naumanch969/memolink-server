@@ -252,13 +252,13 @@ export class EntryService implements IEntryService {
         }
       },
       { $unwind: "$entry" },
-      { 
-        $replaceRoot: { 
-          newRoot: { 
+      {
+        $replaceRoot: {
+          newRoot: {
             $mergeObjects: [
-              "$entry", 
+              "$entry",
               { score: { $meta: "vectorSearchScore" } },
-              { 
+              {
                 enrichment: {
                   narrative: "$narrative",
                   extraction: "$extraction",
@@ -266,9 +266,9 @@ export class EntryService implements IEntryService {
                   signalTier: "$signalTier"
                 }
               }
-            ] 
-          } 
-        } 
+            ]
+          }
+        }
       }
     ];
 
@@ -280,10 +280,10 @@ export class EntryService implements IEntryService {
     pipeline.push({ $limit: limit });
 
     const results = await EnrichedEntry.aggregate(pipeline);
-    
+
     // We need to populate the resulting entry documents
     const entries = results.map(r => r); // r matches what were previously entries in the pipeline
-    
+
     await Entry.populate(entries, {
       path: 'tags media collectionId',
     });
@@ -506,8 +506,8 @@ export class EntryService implements IEntryService {
           await Promise.all([
             enrichmentService.cleanupJobsByEntryId(entryId),
             agentService.cleanupTasksByEntryId(userId, entryId),
-            entry.media && entry.media.length > 0 
-              ? cancelMediaJobs(entry.media.map((m: any) => (m._id || m).toString())) 
+            entry.media && entry.media.length > 0
+              ? cancelMediaJobs(entry.media.map((m: any) => (m._id || m).toString()))
               : Promise.resolve(),
           ]);
         } catch (cleanupError) {
@@ -602,6 +602,13 @@ export class EntryService implements IEntryService {
       logger.error('Self-healing entries failed', error);
       return 0;
     }
+  }
+
+  async getEntriesForReport(userId: string | Types.ObjectId, startDate: Date, endDate: Date): Promise<any[]> {
+    return Entry.find({ userId, createdAt: { $gte: startDate, $lte: endDate }, })
+      .select('content mood moodMetadata tags mentions createdAt isImportant isFavorite location')
+      .sort({ createdAt: 1 })
+      .lean();
   }
 }
 

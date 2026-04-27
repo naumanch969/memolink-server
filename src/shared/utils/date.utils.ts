@@ -134,6 +134,13 @@ export class DateUtil {
         const dateKey = this.formatDate(date);
         return `${dateKey}-s${sessionIndex}`;
     }
+
+    /**
+     * Formats a date range for display (e.g., "Jan 1 – Jan 7, 2024")
+     */
+    static formatPeriod(start: Date, end: Date): string {
+        return `${format(start, 'MMM d')} – ${format(end, 'MMM d, yyyy')}`;
+    }
 }
 
 export default DateUtil;

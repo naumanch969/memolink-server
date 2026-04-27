@@ -4,11 +4,12 @@ import { EmailProvider } from '../../../core/email/email.provider';
 import { getPasswordResetEmailTemplate, getSecurityAlertTemplate, getVerificationEmailTemplate, getWelcomeEmailTemplate } from '../../../core/email/templates/auth.templates';
 import { getWaitlistConfirmationEmailTemplate, getWaitlistAdminEmailTemplate } from '../../../core/email/templates/waitlist.templates';
 import { getBadgeUnlockedEmailTemplate } from '../../../core/email/templates/badge.templates';
+import { getWeeklyReportEmailTemplate, getMonthlyReportEmailTemplate } from '../../../core/email/templates/report.templates';
 import { EMAIL_QUEUE_NAME, EMAIL_WORKER_CONFIG } from '../../../core/queue/queue.constants';
 import { queueService } from '../../../core/queue/queue.service';
 import { validateEmailOrThrow } from '../../../shared/email-validator';
 import { getEmailDLQ } from './email.queue';
-import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData, WaitlistConfirmationEmailJobData, WaitlistAdminAlertEmailJobData, BadgeUnlockedEmailJobData, TemplatedEmailJobData } from '../interfaces/email-job.interface';
+import { EmailJob, GenericEmailJobData, PasswordResetEmailJobData, SecurityAlertEmailJobData, VerificationEmailJobData, WelcomeEmailJobData, WaitlistConfirmationEmailJobData, WaitlistAdminAlertEmailJobData, BadgeUnlockedEmailJobData, TemplatedEmailJobData, WeeklyReportEmailJobData, MonthlyReportEmailJobData } from '../interfaces/email-job.interface';
 import { EmailStatus } from '../interfaces/email-log.interface';
 import { EmailLog } from '../models/email-log.model';
 import { EmailTemplate } from '../models/email-template.model';
@@ -33,7 +34,7 @@ const processEmailJob = async (job: Job<EmailJob>) => {
 
     logger.info(`Processing email job ${job.id} [${type}] for log ${logId} to ${data.to}`);
 
-    let log = logId ? await EmailLog.findById(logId) : null;
+    const log = logId ? await EmailLog.findById(logId) : null;
 
     try {
         if (log) {
@@ -100,6 +101,16 @@ const processEmailJob = async (job: Job<EmailJob>) => {
             case 'BADGE_UNLOCKED': {
                 const d = data as BadgeUnlockedEmailJobData;
                 emailContent = getBadgeUnlockedEmailTemplate(d.userName, d.badgeName, d.badgeDescription, d.badgeId, d.rarity);
+                break;
+            }
+            case 'WEEKLY_REPORT': {
+                const d = data as WeeklyReportEmailJobData;
+                emailContent = getWeeklyReportEmailTemplate(d.reportContent, d.period, d.frontendUrl);
+                break;
+            }
+            case 'MONTHLY_REPORT': {
+                const d = data as MonthlyReportEmailJobData;
+                emailContent = getMonthlyReportEmailTemplate(d.reportContent, d.period, d.frontendUrl);
                 break;
             }
             default:

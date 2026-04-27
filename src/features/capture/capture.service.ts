@@ -22,7 +22,7 @@ export class CaptureService implements ICaptureService {
         const content = payload.content || '';
 
         // Determine input method
-        const isMediaOrVoice = payload.type === 'media' || payload.type === 'voice' || payload.metadata?.isVoice;
+        const isMediaOrVoice = payload.type === EntryType.MEDIA || payload.type === EntryType.VOICE || payload.metadata?.isVoice;
         const method = isMediaOrVoice ? InputMethod.VOICE : InputMethod.TEXT;
         const inputMethodValue = payload.metadata?.source === 'whatsapp' ? InputMethod.WHATSAPP : method;
 
@@ -117,7 +117,7 @@ export class CaptureService implements ICaptureService {
 
         const entryPayload: ICapturePayload = {
             content: payload.body || '',
-            type: isMedia ? 'media' : 'text',
+            type: isMedia ? EntryType.MEDIA : EntryType.TEXT,
             date: payload.timestamp ? new Date(payload.timestamp) : new Date(),
             media: payload.mediaUrl ? [payload.mediaUrl] : [],
             metadata

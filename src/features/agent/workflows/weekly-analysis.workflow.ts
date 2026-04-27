@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
-import { ReportType } from '../../report/report.types';
+import { EnergyArc, PatternConfidence, ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 
@@ -24,7 +24,7 @@ const WeeklyAnalysisOutputSchema = z.object({
         .number().min(1).max(100)
         .describe('How well did this week\'s actions match the user\'s stated goals? 1-100.'),
     energyArc: z
-        .enum(['ascending', 'descending', 'volatile', 'flat'])
+        .nativeEnum(EnergyArc)
         .describe('The overall energy trajectory of the week based on mood and entry data.'),
 
     // Mood intelligence
@@ -36,21 +36,11 @@ const WeeklyAnalysisOutputSchema = z.object({
         moodEntryCorrelation: z.string().describe("How logging frequency related to mood, e.g. 'Days with 3+ entries averaged mood 4.1 vs 2.8 on silent days'."),
     }),
 
-    // Goal intelligence
-    goalPulse: z.array(z.object({
-        goalTitle: z.string(),
-        periodLogs: z.number().describe('How many times this goal was logged this week.'),
-        momentumSignal: z
-            .enum(['accelerating', 'steady', 'decelerating', 'stalled'])
-            .describe('Directional signal for this goal this week.'),
-        oneLineReality: z.string().describe("Direct: '4/7 days logged — on track.' or '0 logs — goal is stalling.'"),
-    })),
-
     // Pattern layer (the magic)
     patterns: z.array(z.object({
         observation: z.string().describe("An observable data point: 'You logged gym 4x — all before 8am.'"),
         implication: z.string().describe("What it means: 'Morning is your activation window. Protect it.'"),
-        confidence: z.enum(['strong', 'emerging', 'tentative']),
+        confidence: z.nativeEnum(PatternConfidence),
     })).describe('1-3 patterns. Only include confident ones.'),
 
     // Relationship signal
@@ -72,6 +62,8 @@ const WeeklyAnalysisOutputSchema = z.object({
         totalWords: z.number(),
         avgMoodScore: z.number(),
         topTags: z.array(z.string()),
+        moodTimeSeries: z.array(z.number()).describe('Daily mood scores for sparkline.'),
+        goalsActive: z.number().describe('Number of active goals this week.'),
     }),
 });
 
@@ -83,9 +75,9 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.WEEKLY_ANALYSIS;
 
     async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
-        const { userId } = task;
+        const { userId, inputData } = task;
         try {
-            const result = await this.runWeeklyAnalysis(userId);
+            const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate);
             return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
             logger.error(`Weekly Analysis failed for user ${userId}`, error);
@@ -93,12 +85,12 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
         }
     }
 
-    private async runWeeklyAnalysis(userId: string | Types.ObjectId): Promise<WeeklyAnalysisOutput> {
+    private async runWeeklyAnalysis(userId: string | Types.ObjectId, customStart?: string | Date, customEnd?: string | Date): Promise<WeeklyAnalysisOutput> {
         logger.info(`Running Weekly Analysis for user ${userId}`);
 
         const now = new Date();
-        const start = startOfWeek(now, { weekStartsOn: 1 });
-        const end = endOfWeek(now, { weekStartsOn: 1 });
+        const start = customStart ? new Date(customStart) : startOfWeek(now, { weekStartsOn: 1 });
+        const end = customEnd ? new Date(customEnd) : endOfWeek(now, { weekStartsOn: 1 });
 
         const ctx = await reportContextBuilder.build(userId, start, end, ReportType.WEEKLY);
 
@@ -110,20 +102,12 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
             ? ctx.moodTimeSeries.map(p => `${p.date}: ${p.score}/5${p.note ? ` (${p.note})` : ''}`).join('\n')
             : 'No dedicated mood logs this week. Use entry moodMetadata for approximation.';
 
-        const goalContext = ctx.goalSnapshots.map(g =>
-            `- ${g.title} | Streak: ${g.streakCurrent} days | This-week logs: ${g.periodLogs} | Milestones hit: ${g.milestonesHit}${g.why ? ` | Motivation: "${g.why}"` : ''}`
-        ).join('\n') || 'No active goals.';
-
         const personaContext = ctx.personaMarkdown
             ? `USER PERSONA (who this person fundamentally is):\n${ctx.personaMarkdown.substring(0, 1500)}`
             : '';
 
         const entityContext = ctx.topEntities.length > 0
-            ? `People/Places mentioned this week: ${ctx.topEntities.join(', ')}`
-            : '';
-
-        const webContext = ctx.webActivitySummary
-            ? `Web Activity: ${ctx.webActivitySummary}`
+            ? `PEOPLE/ENTITIES MENTIONED (with context from entries):\n${ctx.topEntities.join('\n')}`
             : '';
 
         const prompt = `
@@ -138,14 +122,9 @@ ${ctx.entryNarrative || 'No entries this week.'}
 DEDICATED MOOD SCORES (1-5 scale, from Mood tracker):
 ${moodTimelineText}
 
-ACTIVE GOALS:
-${goalContext}
-
 TOP TAGS THIS WEEK: ${ctx.topTags.slice(0, 10).join(', ') || 'None'}
 
 ${entityContext}
-
-${webContext}
 
 CRITICAL INSTRUCTIONS:
 - Speak directly to the user as "you".
@@ -156,6 +135,8 @@ CRITICAL INSTRUCTIONS:
 - If persona data is present, use it to make your language and tone resonate with who this person is.
 - Do NOT sugarcoat stagnation. Do NOT over-praise minimal effort.
 - stats.totalEntries = ${ctx.totalEntries}, stats.totalWords = ${ctx.totalWords}, stats.avgMoodScore = ${ctx.avgMoodScore}
+- IMPORTANT: Populate stats.moodTimeSeries with exactly 7 numbers corresponding to the mood trajectory of the week. If data is missing for a day, use the avgMoodScore or interpolate.
+- stats.goalsActive = 0 (Goals module is currently disabled)
 
 Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
 `;
@@ -167,12 +148,12 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
         });
     }
 
-    private emptyWeekFallback(ctx: { goalSnapshots: any[]; topTags: string[] }): WeeklyAnalysisOutput {
+    private emptyWeekFallback(ctx: { topTags: string[] }): WeeklyAnalysisOutput {
         return {
             headline: "A silent week — the journal waits.",
             periodNarrative: "No entries were logged this week. Reflection is the first step toward growth; without it, patterns go undetected and progress stalls.",
             alignmentScore: 1,
-            energyArc: 'flat',
+            energyArc: EnergyArc.FLAT,
             moodInsight: {
                 dominantState: "Unknown — no data logged",
                 peakDay: "",
@@ -180,12 +161,7 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
                 triggerPattern: "Cannot determine without entries.",
                 moodEntryCorrelation: "Start logging daily to unlock this insight.",
             },
-            goalPulse: ctx.goalSnapshots.map(g => ({
-                goalTitle: g.title,
-                periodLogs: 0,
-                momentumSignal: 'stalled' as const,
-                oneLineReality: "0 logs this week — goal is invisible without action.",
-            })),
+
             patterns: [],
             socialSignal: undefined,
             singleBestBet: "Log one entry every day for 7 days straight.",
@@ -195,6 +171,8 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
                 totalWords: 0,
                 avgMoodScore: 0,
                 topTags: ctx.topTags.slice(0, 5),
+                moodTimeSeries: [0, 0, 0, 0, 0, 0, 0],
+                goalsActive: 0,
             },
         };
     }

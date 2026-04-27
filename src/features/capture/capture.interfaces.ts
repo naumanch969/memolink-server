@@ -1,4 +1,4 @@
-import { IEntry } from '../entry/entry.types';
+import { EntryType, IEntry } from '../entry/entry.types';
 import { ActivitySyncBatch } from '../web-activity/web-activity.types';
 
 export interface WhatsAppPayload {
@@ -15,7 +15,7 @@ export interface WhatsAppPayload {
 
 export interface ICapturePayload {
     content?: string;
-    type?: 'text' | 'media' | 'mixed' | 'voice';
+    type?: EntryType;
     date?: string | Date;
     startDate?: string | Date;
     endDate?: string | Date;

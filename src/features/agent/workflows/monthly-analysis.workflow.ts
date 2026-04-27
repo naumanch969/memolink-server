@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
-import { ReportType } from '../../report/report.types';
+import { MoodArc, ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
 
@@ -25,7 +25,7 @@ const MonthlyAnalysisOutputSchema = z.object({
     // Longitudinal Mood Story
     moodStory: z.object({
         arc: z
-            .enum(['growth', 'decline', 'recovery', 'plateau', 'turbulent'])
+            .nativeEnum(MoodArc)
             .describe('The emotional arc across the 30-day period.'),
         bestWeek: z.string().describe('Date label for the highest-energy week (e.g. "Feb 10–16").'),
         hardestWeek: z.string().describe('Date label for the most difficult week.'),
@@ -37,17 +37,7 @@ const MonthlyAnalysisOutputSchema = z.object({
             .describe('A pattern only visible at 30-day view that would be invisible week-to-week.'),
     }),
 
-    // Goal Reckoning (deep, quantified)
-    goalReckoning: z.array(z.object({
-        goalTitle: z.string(),
-        periodLogs: z.number().describe('Total logs during this month.'),
-        streakHighWater: z.number().describe('Longest streak achieved.'),
-        streakCurrentEnd: z.number().describe('Streak at end of month.'),
-        milestonesHit: z.number(),
-        verdict: z.enum(['thriving', 'coasting', 'struggling', 'abandoned']),
-        hardTruth: z.string().describe('One blunt, specific, data-backed sentence about this goal.'),
-        nextMonthTarget: z.string().describe('A concrete, measurable target for next month.'),
-    })),
+
 
     // Behavioral Fingerprint (persona-aware)
     behavioralInsights: z.array(z.object({
@@ -91,9 +81,9 @@ const MonthlyAnalysisOutputSchema = z.object({
         avgDailyMood: z.number(),
         moodDataDays: z.number(),
         goalsActive: z.number(),
-        milestonesCompleted: z.number(),
         topTags: z.array(z.string()),
         topEntities: z.array(z.string()),
+        moodTimeSeries: z.array(z.number()).describe('Daily mood scores for sparkline (usually 30 points).'),
     }),
 });
 
@@ -105,9 +95,9 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.MONTHLY_ANALYSIS;
 
     async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
-        const { userId } = task;
+        const { userId, inputData } = task;
         try {
-            const result = await this.runMonthlyAnalysis(userId);
+            const result = await this.runMonthlyAnalysis(userId, inputData?.startDate, inputData?.endDate);
             return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
             logger.error(`Monthly Analysis failed for user ${userId}`, error);
@@ -115,31 +105,22 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
         }
     }
 
-    private async runMonthlyAnalysis(userId: string | Types.ObjectId): Promise<MonthlyAnalysisOutput> {
+    private async runMonthlyAnalysis(userId: string | Types.ObjectId, customStart?: string | Date, customEnd?: string | Date): Promise<MonthlyAnalysisOutput> {
         logger.info(`Running Monthly Analysis for user ${userId}`);
 
         const now = new Date();
-        const start = startOfMonth(now);
-        const end = endOfMonth(now);
+        const start = customStart ? new Date(customStart) : startOfMonth(now);
+        const end = customEnd ? new Date(customEnd) : endOfMonth(now);
 
         const ctx = await reportContextBuilder.build(userId, start, end, ReportType.MONTHLY);
 
-        if (ctx.totalEntries === 0 && ctx.goalSnapshots.length === 0) {
+        if (ctx.totalEntries === 0) {
             return this.emptyMonthFallback();
         }
 
         const moodTimelineText = ctx.moodTimeSeries.length > 0
             ? ctx.moodTimeSeries.map(p => `${p.date}: ${p.score}/5`).join(', ')
             : 'No dedicated mood records. Use entry moodMetadata for approximation.';
-
-        const goalContext = ctx.goalSnapshots.map(g => [
-            `Goal: ${g.title}`,
-            `  Logs this month: ${g.periodLogs}`,
-            `  Current streak: ${g.streakCurrent} | Longest streak: ${g.streakLongest}`,
-            `  Milestones hit this month: ${g.milestonesHit}`,
-            g.why ? `  Motivation: "${g.why}"` : '',
-            g.deadline ? `  Deadline: ${new Date(g.deadline).toISOString().split('T')[0]}` : '',
-        ].filter(Boolean).join('\n')).join('\n\n') || 'No active goals.';
 
         const personaContext = ctx.personaMarkdown
             ? `USER PERSONA (identity document — who this person fundamentally is):\n${ctx.personaMarkdown.substring(0, 2000)}`
@@ -150,14 +131,11 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
             : '';
 
         const entityContext = ctx.topEntities.length > 0
-            ? `People/Places most mentioned this month: ${ctx.topEntities.join(', ')}`
+            ? `PEOPLE/ENTITIES MENTIONED (with context from entries):\n${ctx.topEntities.join('\n')}`
             : '';
 
-        const webContext = ctx.webActivitySummary
-            ? `Web Activity Summary: ${ctx.webActivitySummary}`
-            : '';
 
-        const totalMilestonesCompleted = ctx.goalSnapshots.reduce((s, g) => s + g.milestonesHit, 0);
+
 
         const prompt = `
 You are Brinn — an uncompromising life coach and data-driven personal analyst.
@@ -173,21 +151,15 @@ ${ctx.entryNarrative || 'No entries recorded.'}
 MOOD TIME-SERIES (dedicated tracker, 1-5 scale):
 ${moodTimelineText}
 
-ACTIVE GOALS (with quantified progress):
-${goalContext}
-
 TOP TAGS THIS MONTH: ${ctx.topTags.slice(0, 15).join(', ') || 'None'}
 
 ${entityContext}
-
-${webContext}
 
 ${previousContext}
 
 CRITICAL INSTRUCTIONS:
 - monthTitle: Make it memorable. It should name the month in a way that sticks.
 - moodStory.sustainedPattern: This must be something only detectable at 30 days, NOT visible in a single week.
-- goalReckoning: Reference actual numbers (periodLogs, streakCurrent, milestonesHit). No vague language.
 - behavioralInsights: Root cause + leverage. This is the persona-aware layer. Use persona context to make it resonate.
 - hardTruths: Max 4. These must reference observable data, not moral judgements.
 - documentedWins: Only include wins with hard numbers. No participation awards.
@@ -196,10 +168,10 @@ CRITICAL INSTRUCTIONS:
 - Do NOT sugarcoat stagnation, excuses, or low-effort weeks.
 - If the user is genuinely thriving, acknowledge it — but raise the bar.
 
-STATS FOR RENDERING (use exactly): 
-totalEntries=${ctx.totalEntries}, totalWords=${ctx.totalWords}, avgDailyMood=${ctx.avgMoodScore}, 
-moodDataDays=${ctx.moodTimeSeries.length}, goalsActive=${ctx.goalSnapshots.length}, 
-milestonesCompleted=${totalMilestonesCompleted}
+STATS- stats.totalEntries = ${ctx.totalEntries}, stats.totalWords = ${ctx.totalWords}, stats.avgDailyMood = ${ctx.avgMoodScore}, 
+- moodDataDays = ${ctx.moodTimeSeries.length}, goalsActive = 0
+- IMPORTANT: Populate stats.moodTimeSeries with daily averages for the month (approx 30 numbers). If data is missing for a day, use the avgDailyMood or interpolate.
+- stats.goalsActive = 0 (Goals module is currently disabled)
 
 Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
 `;
@@ -217,13 +189,12 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
             executiveSummary: "No entries, no goal logs, no mood data. A month lived entirely off the record. Growth cannot be tracked — or accelerated — in the dark. This month is a baseline. The only direction is up.",
             overallScore: 1,
             moodStory: {
-                arc: 'plateau',
+                arc: MoodArc.PLATEAU,
                 bestWeek: 'Unknown',
                 hardestWeek: 'Unknown',
                 dominantEmotionalTheme: 'Invisible — no data logged.',
                 sustainedPattern: 'The only sustained pattern is silence. Start logging.',
             },
-            goalReckoning: [],
             behavioralInsights: [{
                 pattern: 'Consistent non-logging.',
                 root: 'Possibly friction in the capture habit or low perceived value of journaling.',
@@ -247,9 +218,9 @@ Return ONLY valid JSON matching the schema exactly. No markdown, no extra text.
                 avgDailyMood: 0,
                 moodDataDays: 0,
                 goalsActive: 0,
-                milestonesCompleted: 0,
                 topTags: [],
                 topEntities: [],
+                moodTimeSeries: Array(30).fill(0),
             },
         };
     }

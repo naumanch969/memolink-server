@@ -10,4 +10,5 @@ export interface IEntryService {
   deleteUserData(userId: string): Promise<number>;
   toggleFavorite(entryId: string, userId: string): Promise<IEntry>;
   getCalendarEntries(userId: string, startDate: string, endDate: string): Promise<any[]>;
+  getEntriesForReport(userId: string, startDate: Date, endDate: Date): Promise<any[]>;
 }

@@ -32,30 +32,24 @@ export class ReportController {
     static async generateOnDemand(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();
-            const { type } = req.body;
+            const userRole = req.user!.role;
+
+            // Strict check for Admin only
+            if (userRole !== 'admin') {
+                ResponseHelper.error(res, 'Access denied. Admin only.', 403);
+                return;
+            }
+
+            const { type, startDate, endDate } = req.body;
             if (!type) {
                 ResponseHelper.badRequest(res, 'Report type is required (WEEKLY or MONTHLY)');
                 return;
             }
-            const result = await reportService.generateOnDemand(userId, type);
+            const result = await reportService.generateOnDemand(userId, type, startDate, endDate);
             ResponseHelper.success(res, result, 'Report generation started');
         } catch (error) {
             ResponseHelper.error(res, 'Failed to start report generation', 500, error);
         }
     }
 
-    static async createFromTask(req: AuthenticatedRequest, res: Response) {
-        try {
-            const userId = req.user!._id.toString();
-            const { taskId } = req.body;
-            if (!taskId) {
-                ResponseHelper.badRequest(res, 'Task ID is required');
-                return;
-            }
-            const report = await reportService.createFromTask(userId, taskId);
-            ResponseHelper.created(res, report, 'Report created successfully');
-        } catch (error) {
-            ResponseHelper.error(res, 'Failed to create report from task', 500, error);
-        }
-    }
 }

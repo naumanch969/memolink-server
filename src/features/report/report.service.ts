@@ -1,4 +1,5 @@
-import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from 'date-fns';
+import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from 'date-fns';
+import { DateUtil } from '../../shared/utils/date.utils';
 import { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
@@ -7,10 +8,13 @@ import { SocketEvents } from '../../core/socket/socket.types';
 import { AgentTask } from '../agent/agent.model';
 import { AgentTaskStatus, AgentTaskType } from '../agent/agent.types';
 import { agentService } from '../agent/services/agent.service';
-import { reportEmailService } from './report.email.service';
+import { config } from '../../config/env';
+import { emailService } from '../email/email.service';
+import { User } from '../auth/auth.model';
 import { IReportService } from "./report.interfaces";
 import Report from './report.model';
 import { IReport, ReportSearchRequest, ReportType } from './report.types';
+import { REPORT_CONSTANTS } from './report.constants';
 
 export class ReportService implements IReportService {
 
@@ -25,14 +29,12 @@ export class ReportService implements IReportService {
         let startDate: Date;
         let endDate: Date;
 
-        // Use a 4-hour lookback to handle late-night cron jobs (e.g. 1 AM triggers for previous period)
-        const completionDate = new Date(task.completedAt || task.updatedAt);
-        const standardizedDate = new Date(completionDate);
-        standardizedDate.setHours(standardizedDate.getHours() - 4);
+        // Determine period
+        const standardizedDate = new Date(task.completedAt || task.updatedAt);
+        standardizedDate.setHours(standardizedDate.getHours() - REPORT_CONSTANTS.CRON_LOOKBACK_HOURS);
 
         if (task.type === AgentTaskType.WEEKLY_ANALYSIS) {
             type = ReportType.WEEKLY;
-            // Standardize to Monday-Sunday week for consistency between manual and cron triggers
             startDate = startOfWeek(standardizedDate, { weekStartsOn: 1 });
             endDate = endOfWeek(standardizedDate, { weekStartsOn: 1 });
         } else if (task.type === AgentTaskType.MONTHLY_ANALYSIS) {
@@ -43,53 +45,58 @@ export class ReportService implements IReportService {
             throw ApiError.badRequest('Invalid task type for report generation');
         }
 
-        // Check if report already exists for this exact period to avoid duplicates
+        const report = await this.upsertReport({
+            userId: new Types.ObjectId(userId),
+            type,
+            startDate,
+            endDate,
+            content: task.outputData,
+            taskId: task._id as Types.ObjectId
+        });
+
+        // Broadcast realtime update
+        socketService.emitToUser(userId, SocketEvents.REPORT_UPDATED, report);
+
+        // Fire email non-blocking
+        this.sendNotification(report).catch(err =>
+            logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
+        );
+
+        return report;
+    }
+
+    private async upsertReport(params: { userId: Types.ObjectId; type: ReportType; startDate: Date; endDate: Date; content: any; taskId: Types.ObjectId; }): Promise<IReport> {
+        const { userId, type, startDate, endDate, content, taskId } = params;
+
+        const update = {
+            $set: {
+                content,
+                'metadata.generatedByTaskId': taskId
+            }
+        };
+
         try {
-            const report = await Report.findOneAndUpdate(
-                { userId: new Types.ObjectId(userId), type, startDate, endDate },
-                {
-                    $set: {
-                        content: task.outputData,
-                        'metadata.generatedByTaskId': task._id as Types.ObjectId
-                    }
-                },
+            return await Report.findOneAndUpdate(
+                { userId, type, startDate, endDate },
+                update,
                 { upsert: true, new: true, setDefaultsOnInsert: true }
             );
-
-            logger.info(`Report [${type}] ${report.isNew ? 'created' : 'updated'} for user ${userId} for period ${startDate.toISOString()}`);
-
-            // Broadcast realtime update
-            socketService.emitToUser(userId, SocketEvents.REPORT_UPDATED, report);
-
-            // Fire email non-blocking — a failure here must never block report persistence
-            reportEmailService.sendReportReadyEmail(report).catch(err =>
-                logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
-            );
-
-            return report;
         } catch (error: any) {
-            // Handle race condition where two tasks try to upsert at the exact same time
+            // Handle race condition for unique index { userId, type, startDate, endDate }
             if (error.code === 11000) {
                 logger.warn(`Duplicate report race condition detected for user ${userId}. Retrying update.`);
-                const report = await Report.findOneAndUpdate(
-                    { userId: new Types.ObjectId(userId), type, startDate, endDate },
-                    {
-                        $set: {
-                            content: task.outputData,
-                            'metadata.generatedByTaskId': task._id as Types.ObjectId
-                        }
-                    },
+                return await Report.findOneAndUpdate(
+                    { userId, type, startDate, endDate },
+                    update,
                     { new: true }
-                );
-                return report!;
+                ) as IReport;
             }
             throw error;
         }
     }
 
-
-    // Manually triggers a report generation task
-    async generateOnDemand(userId: string, type: ReportType): Promise<{ taskId: string }> {
+    // Manually triggers a report generation task (Admin Only)
+    async generateOnDemand(userId: string, type: ReportType, startDate?: string, endDate?: string): Promise<{ taskId: string }> {
 
         const taskType = type === ReportType.WEEKLY
             ? AgentTaskType.WEEKLY_ANALYSIS
@@ -107,10 +114,13 @@ export class ReportService implements IReportService {
             return { taskId: existingTask._id.toString() };
         }
 
-        const task = await agentService.createTask(userId, taskType, { onDemand: true });
+        const task = await agentService.createTask(userId, taskType, {
+            onDemand: true,
+            startDate,
+            endDate
+        });
         return { taskId: task._id.toString() };
     }
-
 
     // Get a specific report by ID
     async getReportById(reportId: string, userId: string): Promise<IReport> {
@@ -130,37 +140,48 @@ export class ReportService implements IReportService {
         return report;
     }
 
-
     // List reports with pagination and filtering
-    async listReports(userId: string, searchParams: ReportSearchRequest = {}): Promise<{ reports: IReport[]; total: number; page: number; limit: number; }> {
-        const { type, startDate, endDate, page = 1, limit = 10 } = searchParams;
-        const query: any = { userId: new Types.ObjectId(userId) };
+    async listReports(userId: string, searchParams?: ReportSearchRequest): Promise<{ reports: IReport[]; total: number; page: number; limit: number }> {
+        const { type, startDate, endDate, page = REPORT_CONSTANTS.DEFAULT_PAGE, limit = REPORT_CONSTANTS.DEFAULT_LIMIT } = searchParams || {};
+        const skip = (page - 1) * limit;
 
+        const query: any = { userId: new Types.ObjectId(userId) };
         if (type) query.type = type;
-        if (startDate || endDate) {
-            query.startDate = {};
-            if (startDate) query.startDate.$gte = new Date(startDate);
-            if (endDate) query.startDate.$lte = new Date(endDate);
+        if (startDate && endDate) {
+            query.startDate = { $gte: new Date(startDate) };
+            query.endDate = { $lte: new Date(endDate) };
         }
 
         const [reports, total] = await Promise.all([
-            Report.find(query)
-                .sort({ startDate: -1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean(),
+            Report.find(query).sort({ startDate: -1 }).skip(skip).limit(limit).lean(),
             Report.countDocuments(query)
         ]);
 
-        return {
-            reports: reports as IReport[],
-            total,
-            page,
-            limit
-        };
+        return { reports: reports as IReport[], total, page, limit };
     }
 
+    private async sendNotification(report: IReport): Promise<void> {
+        const userId = report.userId.toString();
+        const user = await User.findById(userId).select('email preferences').lean();
 
+        if (!user?.email || user.preferences?.notifications === false) return;
+
+        const frontendUrl = config.FRONTEND_URL ?? 'https://app.brinn.ai';
+        const period = DateUtil.formatPeriod(report.startDate, report.endDate);
+
+        if (report.type === ReportType.WEEKLY) {
+            await emailService.sendWeeklyReportEmail(user.email, period, report.content, frontendUrl, userId);
+        } else {
+            await emailService.sendMonthlyReportEmail(user.email, period, report.content, frontendUrl, userId);
+        }
+    }
+
+    async getLatestReportBefore(userId: string | Types.ObjectId, type: ReportType, date: Date): Promise<IReport | null> {
+        return await Report.findOne({ userId, type, startDate: { $lt: date } })
+            .sort({ startDate: -1 })
+            .select('content startDate endDate')
+            .lean();
+    }
 }
 
 export const reportService = new ReportService();

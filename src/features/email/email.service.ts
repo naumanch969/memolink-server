@@ -28,6 +28,17 @@ export class EmailService {
     }
 
     /**
+     * Report Emails
+     */
+    async sendWeeklyReportEmail(to: string, period: string, reportContent: any, frontendUrl: string, userId?: string): Promise<string> {
+        return this.sendSystemEmail('WEEKLY_REPORT', { to, period, reportContent, frontendUrl }, userId);
+    }
+
+    async sendMonthlyReportEmail(to: string, period: string, reportContent: any, frontendUrl: string, userId?: string): Promise<string> {
+        return this.sendSystemEmail('MONTHLY_REPORT', { to, period, reportContent, frontendUrl }, userId);
+    }
+
+    /**
      * Waitlist Emails
      */
     async sendWaitlistConfirmationEmail(to: string): Promise<string> {
