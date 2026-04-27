@@ -7,6 +7,7 @@ export interface LLMGenerativeOptions {
     jsonMode?: boolean;
     systemInstruction?: string;
     tools?: any[];  // Generic tool/function definitions for the provider
+    signal?: AbortSignal;
 
     // Usage tracking context (not sent to the model)
     userId?: string | Types.ObjectId;

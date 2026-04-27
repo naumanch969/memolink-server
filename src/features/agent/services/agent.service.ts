@@ -15,6 +15,7 @@ import { IAgentService } from '../agent.interfaces';
 import { AgentTask, IAgentTaskDocument } from '../agent.model';
 import { getAgentQueue } from '../agent.queue';
 import { AgentTaskInput, AgentTaskStatus, AgentTaskType, MessageRole } from '../agent.types';
+import { cancelActiveTask } from '../agent.worker';
 import { agentMemoryService } from '../memory/agent.memory';
 import { IUserPersonaDocument, UserPersona } from '../memory/persona.model';
 import { chatOrchestrator } from '../orchestrators/chat.orchestrator';
@@ -25,17 +26,21 @@ export class AgentService implements IAgentService {
      * ==========================================
      */
 
-    async createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: AgentTaskInput): Promise<IAgentTaskDocument> {
+    async createTask(userId: string | Types.ObjectId, type: AgentTaskType, inputData: AgentTaskInput, priority?: number): Promise<IAgentTaskDocument> {
         const task = await AgentTask.create({
             userId,
             type,
             status: AgentTaskStatus.PENDING,
             inputData,
+            priority: priority || 10
         });
 
         try {
             const queue = getAgentQueue();
-            await queue.add(type, { taskId: task._id.toString() }, { jobId: task._id.toString() });
+            await queue.add(type, { taskId: task._id.toString() }, { 
+                jobId: task._id.toString(),
+                priority: task.priority
+            });
             logger.info(`Agent Task enqueued: [${type}] ${task._id} for user ${userId}`);
 
             // Notify frontend immediately that a task is enqueued
@@ -71,6 +76,40 @@ export class AgentService implements IAgentService {
 
     async listUserTasks(userId: string, limit = 20): Promise<IAgentTaskDocument[]> {
         return AgentTask.find({ userId }).sort({ createdAt: -1 }).limit(limit);
+    }
+
+    async cancelTask(taskId: string, userId: string): Promise<boolean> {
+        const task = await AgentTask.findOne({ _id: taskId, userId });
+        if (!task) return false;
+
+        // If it's already finished, do nothing
+        const terminalStatuses = [AgentTaskStatus.COMPLETED, AgentTaskStatus.FAILED, AgentTaskStatus.CANCELLED];
+        if (terminalStatuses.includes(task.status)) {
+            return false;
+        }
+
+        try {
+            const queue = getAgentQueue();
+            const job = await queue.getJob(taskId);
+
+            if (job) {
+                await job.remove();
+            }
+
+            // Signal the worker to abort if it's currently running on this node
+            cancelActiveTask(taskId);
+
+            task.status = AgentTaskStatus.CANCELLED;
+            task.completedAt = new Date();
+            await task.save();
+
+            socketService.emitToUser(userId, SocketEvents.AGENT_TASK_UPDATED, task);
+            logger.info(`Agent Task Cancelled: ${taskId} for user ${userId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Failed to cancel task ${taskId}`, error);
+            return false;
+        }
     }
 
     /**

@@ -8,6 +8,7 @@ export interface IAgentService {
     cleanupTasksByEntryId(userId: string | Types.ObjectId, entryId: string): Promise<void>;
     getTask(taskId: string, userId: string): Promise<IAgentTaskDocument | null>;
     listUserTasks(userId: string, limit?: number): Promise<IAgentTaskDocument[]>;
+    cancelTask(taskId: string, userId: string): Promise<boolean>;
     chat(userId: string, message: string): Promise<string>;
     chatStream(userId: string, message: string, onChunk: (chunk: string) => void): Promise<string>;
     goalArchitect(userId: string, message: string, history: Array<{ role: MessageRole, content: string }>): Promise<string>;

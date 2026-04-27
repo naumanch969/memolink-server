@@ -5,13 +5,13 @@ import { tagService } from '../../tag/tag.service';
 import { PassiveSession } from '../../web-activity/passive-session.model';
 import { WebActivity } from '../../web-activity/web-activity.model';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 import { EntryType } from '../../entry/entry.types';
 
 export class WebActivityWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.WEB_ACTIVITY_SUMMARY;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId, inputData } = task;
         const { date } = (inputData as any) || {};
 
@@ -83,6 +83,7 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             const summary = await LLMService.generateText(prompt, {
                 workflow: 'web_activity_summary',
                 userId,
+                signal
             });
 
             // 4. Resolve Tags first
@@ -116,6 +117,10 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             return { status: WorkflowStatus.COMPLETED, result: { summaryCreated: true } };
 
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`WebActivityWorkflow aborted for user ${userId} on ${date}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`Web activity summary failed for user ${userId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }

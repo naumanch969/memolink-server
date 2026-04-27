@@ -3,7 +3,7 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
 
@@ -27,7 +27,7 @@ const cognitiveSchema = z.object({
 export class EntityConsolidationWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.ENTITY_CONSOLIDATION;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { entityId, userId } = (task.inputData as any) || {};
 
         if (!entityId || !userId) {
@@ -60,7 +60,11 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
             5. **Distinction**: Keep critical historical facts but summarize fleeting contexts.
             `;
 
-            const synthesis = await LLMService.generateJSON(prompt, consolidationSchema, { workflow: 'entity_consolidation', userId });
+            const synthesis = await LLMService.generateJSON(prompt, consolidationSchema, { 
+                workflow: 'entity_consolidation', 
+                userId,
+                signal
+            });
 
             // 3. Update Entity
             await entityService.updateEntity(entityId, userId, {
@@ -81,6 +85,10 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
             };
 
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`EntityConsolidation aborted for entity ${entityId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`EntityConsolidation: Workflow failed for entity ${entityId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }
@@ -95,7 +103,7 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
 export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.COGNITIVE_CONSOLIDATION;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId } = task;
         const { messageCount = 10 } = (task.inputData as any) || {};
 
@@ -132,6 +140,7 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
             const update = await LLMService.generateJSON(prompt, cognitiveSchema, {
                 workflow: 'cognitive_consolidation',
                 userId,
+                signal
             });
 
             // 3. Update Persona
@@ -151,6 +160,10 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
             };
 
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`CognitiveConsolidation aborted for user ${userId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`CognitiveConsolidation: Workflow failed for user ${userId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }

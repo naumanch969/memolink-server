@@ -7,7 +7,7 @@ import { NodeType } from '../../graph/edge.model';
 import graphService from '../../graph/graph.service';
 import { AGENT_CONSTANTS } from '../agent.constants';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 import { agentMemoryService } from '../memory/agent.memory';
 import agentService from '../services/agent.service';
 
@@ -29,7 +29,7 @@ const flushSchema = z.object({
 export class MemoryFlushWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.MEMORY_FLUSH;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId } = task;
         const { count = AGENT_CONSTANTS.FLUSH_COUNT } = (task.inputData as any) || {};
 
@@ -86,6 +86,7 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
             const result = await LLMService.generateJSON(prompt, flushSchema, {
                 workflow: 'memory_flush',
                 userId,
+                signal
             });
             const { observations } = result;
 
@@ -181,6 +182,10 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
             };
 
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`MemoryFlush aborted for user ${userId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error('Memory Flush failed', error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }

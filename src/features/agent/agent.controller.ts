@@ -46,11 +46,29 @@ export class AgentController {
         try {
             const userId = (req as any).user._id;
             const tasks = await agentService.listUserTasks(userId);
-
             ResponseHelper.success(res, tasks, 'Agent tasks retrieved');
         } catch (error) {
             logger.error('Error listing agent tasks', error);
             ResponseHelper.error(res, 'Error listing agent tasks', 500, error);
+        }
+    }
+
+    static async cancelTask(req: Request, res: Response): Promise<void> {
+        try {
+            const { taskId } = req.params;
+            const userId = (req as any).user._id;
+
+            const success = await agentService.cancelTask(taskId, userId);
+
+            if (!success) {
+                ResponseHelper.badRequest(res, 'Task not found or already in terminal state');
+                return;
+            }
+
+            ResponseHelper.success(res, null, 'Agent task cancellation requested');
+        } catch (error) {
+            logger.error('Error cancelling agent task', error);
+            ResponseHelper.error(res, 'Error cancelling agent task', 500, error);
         }
     }
 

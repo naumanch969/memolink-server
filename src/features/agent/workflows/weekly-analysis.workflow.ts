@@ -6,7 +6,7 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
 import { EnergyArc, PatternConfidence, ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 
 // ─── Output Schema ────────────────────────────────────────────────────────────
 
@@ -74,20 +74,29 @@ export type WeeklyAnalysisOutput = z.infer<typeof WeeklyAnalysisOutputSchema>;
 export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.WEEKLY_ANALYSIS;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId, inputData } = task;
         try {
-            const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate);
+            const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate, signal);
             console.log('result', result);
 
             return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`Weekly Analysis aborted for user ${userId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`Weekly Analysis failed for user ${userId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 
-    private async runWeeklyAnalysis(userId: string | Types.ObjectId, customStart?: string | Date, customEnd?: string | Date): Promise<WeeklyAnalysisOutput> {
+    private async runWeeklyAnalysis(
+        userId: string | Types.ObjectId, 
+        customStart?: string | Date, 
+        customEnd?: string | Date,
+        signal?: AbortSignal
+    ): Promise<WeeklyAnalysisOutput> {
         logger.info(`Running Weekly Analysis for user ${userId}`);
 
         const now = new Date();
@@ -176,6 +185,7 @@ Return ONLY the JSON. No markdown blocks.
             temperature: 0.25,
             workflow: 'weekly_analysis',
             userId,
+            signal
         });
     }
 

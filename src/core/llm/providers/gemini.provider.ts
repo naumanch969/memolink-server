@@ -38,6 +38,8 @@ export class GeminiProvider implements ILLMProvider {
     }
 
     async generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string> {
+        if (options?.signal?.aborted) throw new Error('Gemini.generateText aborted');
+
         try {
             // Configure model if options provided
             const modelToUse = options?.systemInstruction
@@ -63,7 +65,8 @@ export class GeminiProvider implements ILLMProvider {
                     operationName: 'Gemini.generateText',
                     maxAttempts: 5,
                     initialDelay: 2000,
-                    maxDelay: 60000 // up to 1 minute for rate limits
+                    maxDelay: 60000, // up to 1 minute for rate limits
+                    signal: options?.signal
                 }
             );
 
@@ -78,6 +81,8 @@ export class GeminiProvider implements ILLMProvider {
     }
 
     async generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T> {
+        if (options?.signal?.aborted) throw new Error('Gemini.generateJSON aborted');
+
         return withRetry(
             async () => {
                 try {
@@ -145,12 +150,15 @@ export class GeminiProvider implements ILLMProvider {
                 initialDelay: 3000,
                 maxDelay: 60000,
                 shouldRetry: (err) => err.status === 429 || err.status >= 500 || err?.isTransientValidation,
-                operationName: 'Gemini.generateJSON'
+                operationName: 'Gemini.generateJSON',
+                signal: options?.signal
             }
         );
     }
 
     async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
+        if (options?.signal?.aborted) throw new Error('Gemini.generateWithTools aborted');
+
         try {
             // Configure model if options provided
             const modelParams: any = {
@@ -182,7 +190,10 @@ export class GeminiProvider implements ILLMProvider {
                     });
                     return result.response;
                 },
-                { operationName: 'Gemini.generateWithTools' }
+                { 
+                    operationName: 'Gemini.generateWithTools',
+                    signal: options?.signal
+                }
             );
 
             this.logUsage(response, AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, startTime, options);

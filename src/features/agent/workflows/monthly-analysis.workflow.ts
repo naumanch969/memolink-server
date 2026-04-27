@@ -6,12 +6,11 @@ import { LLMService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
 import { MoodArc, ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 
 // ─── Output Schema ────────────────────────────────────────────────────────────
 
 const MonthlyAnalysisOutputSchema = z.object({
-    // The Big Picture
     monthTitle: z
         .string()
         .describe("One direct sentence naming the month. E.g. 'Foundational growth and system building.'"),
@@ -21,8 +20,6 @@ const MonthlyAnalysisOutputSchema = z.object({
     overallScore: z
         .number().min(1).max(100)
         .describe('Overall alignment score for the month. 1-100.'),
-
-    // Longitudinal Mood Story
     moodStory: z.object({
         arc: z
             .nativeEnum(MoodArc)
@@ -36,36 +33,24 @@ const MonthlyAnalysisOutputSchema = z.object({
             .string()
             .describe('A pattern only visible at 30-day view that would be invisible week-to-week.'),
     }),
-
-
-
-    // Behavioral Fingerprint (persona-aware)
     behavioralInsights: z.array(z.object({
         pattern: z.string().describe('The observable behavior pattern from the data.'),
         root: z.string().describe('Possible psychological or situational root cause.'),
         leverage: z.string().describe('How to flip this pattern into an advantage next month.'),
     })).describe('2-4 behavioral insights. Only include if evidence is strong.'),
-
-    // Hard Truths (max 4, unfiltered)
     hardTruths: z.array(z.string())
         .max(4)
         .describe('Blunt, uncomfortable, data-backed truths. Not mean — just honest.'),
-
-    // Documented Wins
     documentedWins: z.array(z.object({
         win: z.string(),
         evidence: z.string().describe("Concrete backing: 'You logged gym 18/30 days.'"),
     })).describe('Only include wins that have verifiable data backing.'),
-
-    // Month-over-month comparison
     comparedToLastMonth: z.object({
         scoreChange: z.number().describe('Change in overall score vs previous month. Positive = improvement.'),
         narrative: z.string().describe("E.g. 'Improved by 12 points compared to last month.'"),
         breakoutArea: z.string().optional().describe('The area that improved most vs last month.'),
         regressionArea: z.string().optional().describe('The area that declined most vs last month.'),
     }).optional().describe('Omit if no previous month report exists.'),
-
-    // Forward Contract
     nextMonthContract: z.object({
         themeSentence: z.string().describe("E.g. 'The next month focus is depth and technical execution.'"),
         topThreePriorities: z.array(z.string()).length(3),
@@ -73,8 +58,6 @@ const MonthlyAnalysisOutputSchema = z.object({
         oneThingToStart: z.string(),
         successDefinition: z.string().describe("'You'll know this month worked if...'"),
     }),
-
-    // Raw stats for UI
     stats: z.object({
         totalEntries: z.number(),
         totalWords: z.number(),
@@ -94,18 +77,29 @@ export type MonthlyAnalysisOutput = z.infer<typeof MonthlyAnalysisOutputSchema>;
 export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.MONTHLY_ANALYSIS;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId, inputData } = task;
         try {
-            const result = await this.runMonthlyAnalysis(userId, inputData?.startDate, inputData?.endDate);
+            await emitProgress('Building monthly context...');
+            const result = await this.runMonthlyAnalysis(userId, inputData?.startDate, inputData?.endDate, emitProgress, signal);
             return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`Monthly Analysis aborted for user ${userId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`Monthly Analysis failed for user ${userId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }
     }
 
-    private async runMonthlyAnalysis(userId: string | Types.ObjectId, customStart?: string | Date, customEnd?: string | Date): Promise<MonthlyAnalysisOutput> {
+    private async runMonthlyAnalysis(
+        userId: string | Types.ObjectId,
+        customStart?: string | Date,
+        customEnd?: string | Date,
+        emitProgress?: ProgressCallback,
+        signal?: AbortSignal
+    ): Promise<MonthlyAnalysisOutput> {
         logger.info(`Running Monthly Analysis for user ${userId}`);
 
         const now = new Date();
@@ -117,6 +111,8 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
         if (ctx.totalEntries === 0) {
             return this.emptyMonthFallback();
         }
+
+        if (emitProgress) await emitProgress('Analyzing monthly patterns...');
 
         const moodTimelineText = ctx.moodTimeSeries.length > 0
             ? ctx.moodTimeSeries.map(p => `${p.date}: ${p.score}/5`).join(', ')
@@ -133,9 +129,6 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
         const entityContext = ctx.topEntities.length > 0
             ? `PEOPLE/ENTITIES MENTIONED (with context from entries):\n${ctx.topEntities.join('\n')}`
             : '';
-
-
-
 
         const prompt = `
 You are Brinn — a direct and data-driven personal analyst.
@@ -218,10 +211,13 @@ Return ONLY valid JSON matching this structure EXACTLY:
 Return ONLY the JSON. No markdown blocks.
 `;
 
+        if (emitProgress) await emitProgress('Synthesizing final analysis...');
+
         return LLMService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
             temperature: 0.3,
             workflow: 'monthly_analysis',
             userId,
+            signal
         });
     }
 

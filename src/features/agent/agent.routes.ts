@@ -14,6 +14,7 @@ router.use(AuthMiddleware.authenticate);
 router.post('/tasks', createTaskValidation, ValidationMiddleware.validate, AgentController.createTask);
 router.get('/tasks', AgentController.listTasks);
 router.get('/tasks/:taskId', taskIdValidation, ValidationMiddleware.validate, AgentController.getTask);
+router.post('/tasks/:taskId/cancel', taskIdValidation, ValidationMiddleware.validate, AgentController.cancelTask);
 
 // Expensive AI & Processing operations - restricted to 50 requests per hour per user (approx)
 // or more loosely 10 requests per minute

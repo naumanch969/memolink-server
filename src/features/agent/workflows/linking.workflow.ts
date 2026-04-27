@@ -4,12 +4,12 @@ import Entry from '../../entry/entry.model';
 import { EdgeType, NodeType } from '../../graph/edge.model';
 import { graphService } from '../../graph/graph.service';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 
 export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.RETROACTIVE_LINKING;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { entityId, userId, name, aliases = [] } = (task.inputData as any) || {};
 
         if (!entityId || !name) {
@@ -17,6 +17,7 @@ export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
         }
 
         try {
+            await emitProgress('searching_entries');
             // 1. Build search regex for name and aliases
             const terms = [name, ...aliases].map(t => typeof t === 'string' ? t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '');
             const combinedRegex = new RegExp(`\\b(${terms.filter(t => t).join('|')})\\b`, 'i');
@@ -30,6 +31,13 @@ export class RetroactiveLinkingWorkflow implements IAgentWorkflow {
 
             let linkedCount = 0;
             for (const entry of entries) {
+                if (signal.aborted) {
+                    logger.warn(`Retroactive linking aborted for ${name}`);
+                    return { status: WorkflowStatus.FAILED, error: 'Task aborted', result: { linkedCount } };
+                }
+
+                await emitProgress('linking_entry', { entryId: entry._id, current: linkedCount, total: entries.length });
+                
                 // Create Graph Association
                 await graphService.createAssociation({
                     fromId: entityId,

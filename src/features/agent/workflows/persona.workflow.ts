@@ -3,7 +3,7 @@ import { logger } from '../../../config/logger';
 import { LLMService } from '../../../core/llm/llm.service';
 import Entry from '../../entry/entry.model';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 import { UserPersona } from '../memory/persona.model';
 
 const PersonaSynthesisSchema = z.object({
@@ -14,7 +14,7 @@ const PersonaSynthesisSchema = z.object({
 export class PersonaWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.PERSONA_SYNTHESIS;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId } = task;
         try {
             logger.info(`Starting deep persona synthesis for user ${userId}`);
@@ -66,6 +66,7 @@ export class PersonaWorkflow implements IAgentWorkflow {
             const synthesis = await LLMService.generateJSON(prompt, PersonaSynthesisSchema, {
                 workflow: 'persona_synthesis',
                 userId,
+                signal
             });
 
             // 3. Update Database
@@ -87,6 +88,10 @@ export class PersonaWorkflow implements IAgentWorkflow {
             return { status: WorkflowStatus.COMPLETED, result: synthesis };
 
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`PersonaWorkflow aborted for user ${userId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`Persona synthesis failed for user ${userId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }

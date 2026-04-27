@@ -19,6 +19,8 @@ export enum AgentTaskType {
     WEEKLY_ANALYSIS = 'WEEKLY_ANALYSIS',
     MONTHLY_ANALYSIS = 'MONTHLY_ANALYSIS',
     DAILY_REFLECTION = 'DAILY_REFLECTION',
+    ENRICHMENT = 'ENRICHMENT',
+    MEDIA_PROCESSING = 'MEDIA_PROCESSING',
 }
 
 export enum AgentTaskStatus {
@@ -26,6 +28,7 @@ export enum AgentTaskStatus {
     RUNNING = 'RUNNING',
     COMPLETED = 'COMPLETED',
     FAILED = 'FAILED',
+    CANCELLED = 'CANCELLED',
 }
 
 export enum WorkflowStatus {
@@ -67,20 +70,55 @@ export interface ConsolidationInput {
     entityId?: string;
 }
 
-export type AgentTaskInput =
-    | PersonaSynthesisInput
-    | SyncInput
-    | WebActivityInput
-    | MemoryFlushInput
-    | ConsolidationInput
-    | any; // Fallback for legacy
+export interface EnrichmentInput {
+    entryId: string;
+    userId: string;
+    signalTier?: string;
+}
 
-export interface IAgentTask {
+export interface MediaProcessingInput {
+    entryId: string;
+    userId: string;
+    mediaType: 'image' | 'video' | 'audio';
+    url: string;
+}
+
+/**
+ * Type Mapping for strict safety
+ */
+export interface AgentTaskPayloads {
+    [AgentTaskType.LINKEDIN_PROFILE_PARSE]: { input: { profileUrl: string }; output: any };
+    [AgentTaskType.SYNC]: { input: SyncInput; output: { syncedCount: number } };
+    [AgentTaskType.PERSONA_SYNTHESIS]: { input: PersonaSynthesisInput; output: any };
+    [AgentTaskType.WEB_ACTIVITY_SUMMARY]: { input: WebActivityInput; output: any };
+    [AgentTaskType.MEMORY_FLUSH]: { input: MemoryFlushInput; output: { flushedCount: number } };
+    [AgentTaskType.ENTITY_CONSOLIDATION]: { input: ConsolidationInput; output: any };
+    [AgentTaskType.COGNITIVE_CONSOLIDATION]: { input: ConsolidationInput; output: any };
+    [AgentTaskType.RETROACTIVE_LINKING]: { input: any; output: any };
+    [AgentTaskType.WEEKLY_ANALYSIS]: { input: any; output: any };
+    [AgentTaskType.MONTHLY_ANALYSIS]: { input: any; output: any };
+    [AgentTaskType.ENRICHMENT]: { input: EnrichmentInput; output: any };
+    [AgentTaskType.MEDIA_PROCESSING]: { input: MediaProcessingInput; output: any };
+    // Default fallback for others
+    [key: string]: { input: any; output: any };
+}
+
+export type AgentTaskInput<T extends AgentTaskType = AgentTaskType> = AgentTaskPayloads[T]['input'];
+export type AgentTaskOutput<T extends AgentTaskType = AgentTaskType> = AgentTaskPayloads[T]['output'];
+
+export interface IAgentTask<T extends AgentTaskType = AgentTaskType> {
     userId: Types.ObjectId;
-    type: AgentTaskType;
+    type: T;
     status: AgentTaskStatus;
-    inputData: AgentTaskInput;
-    outputData?: any;
+    inputData: AgentTaskInput<T>;
+    outputData?: AgentTaskOutput<T>;
+    currentStep?: string;
+    priority?: number; // 1 = high, 10 = low
+    stats?: {
+        tokens?: number;
+        stepsCount?: number;
+        [key: string]: any;
+    };
     error?: string;
     createdAt: Date;
     updatedAt: Date;
@@ -94,15 +132,19 @@ export type AgentWorkflowResult = {
     error?: string;
 };
 
-export type AgentWorkflow = (task: IAgentTask) => Promise<AgentWorkflowResult>;
-
 export interface IChatMessage {
     role: MessageRole;
     content: string;
     timestamp: number;
 }
 
+export type ProgressCallback = (step: string, meta?: any) => Promise<void>;
+
 export interface IAgentWorkflow {
-    type: string;
-    execute(task: IAgentTaskDocument): Promise<any>;
+    type: AgentTaskType;
+    execute(
+        task: IAgentTaskDocument, 
+        emitProgress: ProgressCallback, 
+        signal: AbortSignal
+    ): Promise<any>;
 }

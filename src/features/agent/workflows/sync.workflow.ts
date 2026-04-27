@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
 import { Entry } from '../../entry/entry.model';
 import { IAgentTaskDocument } from '../agent.model';
-import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, WorkflowStatus } from '../agent.types';
+import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
 import enrichmentService from '../../enrichment/enrichment.service';
 import { EntryStatus } from '../../entry/entry.types';
 import { SignalTier } from '../../enrichment/enrichment.types';
@@ -10,7 +10,7 @@ import { SignalTier } from '../../enrichment/enrichment.types';
 export class SyncWorkflow implements IAgentWorkflow {
     public readonly type = AgentTaskType.SYNC;
 
-    async execute(task: IAgentTaskDocument): Promise<AgentWorkflowResult> {
+    async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId, inputData } = task;
         const { entryId } = (inputData as any) || {};
         let processed = 0;
@@ -31,6 +31,7 @@ export class SyncWorkflow implements IAgentWorkflow {
             }).limit(batchSize);
 
             for (const entry of entries) {
+                if (signal.aborted) throw new Error('aborted');
                 await this.enqueueEntryTasks(userId, entry._id.toString());
                 processed++;
             }
@@ -46,6 +47,10 @@ export class SyncWorkflow implements IAgentWorkflow {
 
             return { status: WorkflowStatus.COMPLETED, result: { processed, remaining } };
         } catch (error: any) {
+            if (error.message.includes('aborted')) {
+                logger.warn(`SyncWorkflow aborted for user ${userId}`);
+                return { status: WorkflowStatus.FAILED, error: 'Task aborted' };
+            }
             logger.error(`Sync workflow failed for user ${userId}`, error);
             return { status: WorkflowStatus.FAILED, error: error.message };
         }

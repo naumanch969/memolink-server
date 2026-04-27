@@ -6,6 +6,7 @@ interface RetryOptions {
     maxDelay?: number;
     shouldRetry?: (error: any) => boolean;
     operationName?: string;
+    signal?: AbortSignal;
 }
 
 /**
@@ -38,12 +39,18 @@ export async function withRetry<T>(operation: () => Promise<T>, options: RetryOp
 
             return transientKeywords.some(keyword => message.includes(keyword));
         },
-        operationName = 'Operation'
+        operationName = 'Operation',
+        signal
     } = options;
 
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        // Immediate check for abortion
+        if (signal?.aborted) {
+            throw new Error(`${operationName} aborted`);
+        }
+
         try {
             return await operation();
         } catch (error: any) {
@@ -51,11 +58,11 @@ export async function withRetry<T>(operation: () => Promise<T>, options: RetryOp
 
             const canRetry = attempt < maxAttempts && shouldRetry(error);
 
-            if (!canRetry) {
-                if (attempt > 1) {
-                    logger.error(`${operationName} failed after ${attempt} attempts:`, error);
+            if (!canRetry || signal?.aborted) {
+                if (attempt > 1 || signal?.aborted) {
+                    logger.error(`${operationName} ${signal?.aborted ? 'aborted' : 'failed'} after ${attempt} attempts:`, error);
                 }
-                throw error;
+                throw signal?.aborted ? new Error(`${operationName} aborted`) : error;
             }
 
             // Exponential backoff with jitter
@@ -71,7 +78,14 @@ export async function withRetry<T>(operation: () => Promise<T>, options: RetryOp
                 message: error.message
             });
 
-            await new Promise(resolve => setTimeout(resolve, delay));
+            // Wait with abort support
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(resolve, delay);
+                signal?.addEventListener('abort', () => {
+                    clearTimeout(timeout);
+                    reject(new Error(`${operationName} aborted during backoff`));
+                }, { once: true });
+            });
         }
     }
 

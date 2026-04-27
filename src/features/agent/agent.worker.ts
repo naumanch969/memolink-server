@@ -6,7 +6,7 @@ import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import reportService from '../report/report.service';
 import { AgentTask, IAgentTaskDocument } from './agent.model';
-import { AgentTaskStatus, AgentTaskType } from './agent.types';
+import { AgentTaskStatus, AgentTaskType, AgentWorkflowResult, WorkflowStatus } from './agent.types';
 import { agentWorkflowRegistry } from './agent.workflow.registry';
 import { cognitiveConsolidationWorkflow, entityConsolidationWorkflow } from './workflows/consolidation.workflow';
 import { retroactiveLinkingWorkflow } from './workflows/linking.workflow';
@@ -16,6 +16,23 @@ import { personaWorkflow } from './workflows/persona.workflow';
 import { syncWorkflow } from './workflows/sync.workflow';
 import { webActivityWorkflow } from './workflows/web-activity.workflow';
 import { weeklyAnalysisWorkflow } from './workflows/weekly-analysis.workflow';
+
+/**
+ * Tracks active tasks to allow for external cancellation.
+ */
+const activeControllers = new Map<string, AbortController>();
+
+/**
+ * Cancels a running task locally if it exists in this worker's active map.
+ */
+export const cancelActiveTask = (taskId: string): boolean => {
+    const controller = activeControllers.get(taskId);
+    if (controller) {
+        controller.abort('Task cancelled by user');
+        return true;
+    }
+    return false;
+};
 
 /**
  * AGENT WORKFLOW REGISTRATION
@@ -28,59 +45,59 @@ const registerWorkflows = () => {
     // To generate weekly analysis
     registry.register({
         type: AgentTaskType.WEEKLY_ANALYSIS,
-        execute: (task) => weeklyAnalysisWorkflow.execute(task)
+        execute: (task, emit, signal) => weeklyAnalysisWorkflow.execute(task, emit, signal)
     });
 
     // To generate monthly analysis
     registry.register({
         type: AgentTaskType.MONTHLY_ANALYSIS,
-        execute: (task) => monthlyAnalysisWorkflow.execute(task)
+        execute: (task, emit, signal) => monthlyAnalysisWorkflow.execute(task, emit, signal)
     });
 
     // To generate web activity summary
     registry.register({
         type: AgentTaskType.WEB_ACTIVITY_SUMMARY,
-        execute: (task) => webActivityWorkflow.execute(task)
+        execute: (task, emit, signal) => webActivityWorkflow.execute(task, emit, signal)
     });
 
     // To sync entries, execute all pending AgentTasks (retrieved from DB)
     registry.register({
         type: AgentTaskType.SYNC,
-        execute: (task) => syncWorkflow.execute(task)
+        execute: (task, emit, signal) => syncWorkflow.execute(task, emit, signal)
     });
 
     // To update user persona
     registry.register({
         type: AgentTaskType.PERSONA_SYNTHESIS,
-        execute: (task) => personaWorkflow.execute(task)
+        execute: (task, emit, signal) => personaWorkflow.execute(task, emit, signal)
     });
 
-    // 
+    // Memory Flush
     registry.register({
         type: AgentTaskType.MEMORY_FLUSH,
-        execute: (task) => memoryFlushWorkflow.execute(task)
+        execute: (task, emit, signal) => memoryFlushWorkflow.execute(task, emit, signal)
     });
 
     // To update entity (people, places, organizations, etc.) summaries 
     registry.register({
         type: AgentTaskType.ENTITY_CONSOLIDATION,
-        execute: (task) => entityConsolidationWorkflow.execute(task)
+        execute: (task, emit, signal) => entityConsolidationWorkflow.execute(task, emit, signal)
     });
 
-    // TODO: check if this is needed
+    // Retroactive linking
     registry.register({
         type: AgentTaskType.RETROACTIVE_LINKING,
-        execute: (task) => retroactiveLinkingWorkflow.execute(task)
+        execute: (task, emit, signal) => retroactiveLinkingWorkflow.execute(task, emit, signal)
     });
 
-    // To update user persona
+    // Cognitive consolidation
     registry.register({
         type: AgentTaskType.COGNITIVE_CONSOLIDATION,
-        execute: (task) => cognitiveConsolidationWorkflow.execute(task)
+        execute: (task, emit, signal) => cognitiveConsolidationWorkflow.execute(task, emit, signal)
     });
 
     // Simple / Sync tasks that don't need a formal workflow file yet
-    const syncNoOp = async () => ({ processed: true, sync: true });
+    const syncNoOp = async () => ({ status: WorkflowStatus.COMPLETED, result: { processed: true, sync: true } } as AgentWorkflowResult);
     [
         AgentTaskType.REMINDER_CREATE,
         AgentTaskType.GOAL_CREATE,
@@ -106,6 +123,9 @@ export const initAgentWorker = () => {
             return;
         }
 
+        const controller = new AbortController();
+        activeControllers.set(taskId, controller);
+
         try {
             await updateTaskStatus(task, AgentTaskStatus.RUNNING);
 
@@ -114,7 +134,18 @@ export const initAgentWorker = () => {
             }
 
             const workflow = agentWorkflowRegistry.getWorkflow(task.type);
-            const result = await workflow.execute(task);
+
+            // Progress Emitter for high-fidelity updates
+            const emitProgress = async (step: string, meta?: any) => {
+                task.currentStep = step;
+                if (meta) {
+                    task.stats = { ...task.stats, ...meta };
+                }
+                await task.save();
+                socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
+            };
+
+            const result = await workflow.execute(task, emitProgress, controller.signal);
 
             await finalizeTask(task, result);
             await postProcessTask(task);
@@ -122,6 +153,8 @@ export const initAgentWorker = () => {
         } catch (error: any) {
             await handleTaskFailure(task, error);
             throw error;
+        } finally {
+            activeControllers.delete(taskId);
         }
     }, AGENT_WORKER_CONFIG);
 };
@@ -141,9 +174,10 @@ async function finalizeTask(task: IAgentTaskDocument, result: any) {
     task.outputData = result;
     task.status = AgentTaskStatus.COMPLETED;
     task.completedAt = new Date();
+
     await task.save();
     logger.info(`Agent Task Completed: ${task._id} [${task.type}]`);
-    socketService.emitToUser(task.userId, SocketEvents.AGENT_TASK_UPDATED, task);
+    socketService.emitToUser(task.userId.toString(), SocketEvents.AGENT_TASK_UPDATED, task);
 }
 
 async function handleTaskFailure(task: IAgentTaskDocument, error: any) {
