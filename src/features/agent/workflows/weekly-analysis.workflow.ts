@@ -77,7 +77,8 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
     async execute(task: IAgentTaskDocument, emitProgress: ProgressCallback, signal: AbortSignal): Promise<AgentWorkflowResult> {
         const { userId, inputData } = task;
         try {
-            const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate, signal);
+            await emitProgress('Gathering data for weekly analysis...');
+            const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate, signal, emitProgress);
             console.log('result', result);
 
             return { status: WorkflowStatus.COMPLETED, result };
@@ -95,7 +96,8 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
         userId: string | Types.ObjectId, 
         customStart?: string | Date, 
         customEnd?: string | Date,
-        signal?: AbortSignal
+        signal?: AbortSignal,
+        emitProgress?: ProgressCallback
     ): Promise<WeeklyAnalysisOutput> {
         logger.info(`Running Weekly Analysis for user ${userId}`);
 
@@ -103,11 +105,15 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
         const start = customStart ? new Date(customStart) : startOfWeek(now, { weekStartsOn: 1 });
         const end = customEnd ? new Date(customEnd) : endOfWeek(now, { weekStartsOn: 1 });
 
+        if (emitProgress) await emitProgress('Building context from weekly entries...');
         const ctx = await reportContextBuilder.build(userId, start, end, ReportType.WEEKLY);
 
         if (ctx.totalEntries === 0) {
+            if (emitProgress) await emitProgress('No entries found. Generating empty report fallback.');
             return this.emptyWeekFallback(ctx);
         }
+
+        if (emitProgress) await emitProgress('Structuring context for language model...', { tokens: ctx.totalWords });
 
         const moodTimelineText = ctx.moodTimeSeries.length > 0
             ? ctx.moodTimeSeries.map(p => `${p.date}: ${p.score}/5${p.note ? ` (${p.note})` : ''}`).join('\n')
@@ -181,6 +187,7 @@ Return ONLY valid JSON matching this structure EXACTLY:
 Return ONLY the JSON. No markdown blocks.
 `;
 
+        if (emitProgress) await emitProgress('Analyzing entries and synthesizing report...');
         return LLMService.generateJSON(prompt, WeeklyAnalysisOutputSchema, {
             temperature: 0.25,
             workflow: 'weekly_analysis',

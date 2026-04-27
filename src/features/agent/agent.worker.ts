@@ -147,8 +147,12 @@ export const initAgentWorker = () => {
 
             const result = await workflow.execute(task, emitProgress, controller.signal);
 
-            await finalizeTask(task, result);
-            await postProcessTask(task);
+            if (result.status === WorkflowStatus.FAILED) {
+                await handleTaskFailure(task, new Error(result.error || 'Workflow failed'));
+            } else {
+                await finalizeTask(task, result.result);
+                await postProcessTask(task);
+            }
 
         } catch (error: any) {
             await handleTaskFailure(task, error);

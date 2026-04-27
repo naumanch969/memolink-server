@@ -88,23 +88,11 @@ export class ReportService implements IReportService {
             }
         };
 
-        try {
-            return await Report.findOneAndUpdate(
-                { userId, type, startDate, endDate },
-                update,
-                { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
-        } catch (error: any) {
-            if (error.code === 11000) {
-                logger.warn(`Duplicate report race condition for user ${userId}. Retrying.`);
-                return Report.findOneAndUpdate(
-                    { userId, type, startDate, endDate },
-                    update,
-                    { new: true }
-                ).lean() as unknown as IReport;
-            }
-            throw error;
-        }
+        return await Report.findOneAndUpdate(
+            { userId, type, startDate, endDate },
+            update,
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
     }
 
     // Manually triggers a report generation task (Admin Only)
@@ -137,11 +125,11 @@ export class ReportService implements IReportService {
     // Get a specific report by ID
     async getReportById(reportId: string, userId: string): Promise<IReport> {
         const report = await Report.findOne({ _id: reportId, userId: new Types.ObjectId(userId) });
-        
+
         if (!report) {
             // Check if it's a virtual report from an active task
-            const task = await AgentTask.findOne({ 
-                _id: reportId, 
+            const task = await AgentTask.findOne({
+                _id: reportId,
                 userId: new Types.ObjectId(userId),
                 status: { $in: [AgentTaskStatus.PENDING, AgentTaskStatus.RUNNING] }
             }).lean();
@@ -179,32 +167,32 @@ export class ReportService implements IReportService {
     // List reports with pagination and filtering, filling gaps with NOT_GENERATED placeholders
     async listReports(userId: string, searchParams?: ReportSearchRequest): Promise<{ reports: IReport[]; total: number; page: number; limit: number }> {
         const { type, page = REPORT_CONSTANTS.DEFAULT_PAGE, limit = REPORT_CONSTANTS.DEFAULT_LIMIT } = searchParams || {};
-        
+
         // 1. Get user's join date to determine the beginning of time
         const user = await User.findById(userId).select('createdAt').lean();
         if (!user) throw ApiError.notFound('User not found');
-        
+
         const joinDate = user.createdAt;
         const now = new Date();
-        
+
         // 2. Generate all potential periods from today back to joinDate
         const periods: { startDate: Date; endDate: Date }[] = [];
-        const current = type === ReportType.MONTHLY 
-            ? startOfMonth(now) 
+        const current = type === ReportType.MONTHLY
+            ? startOfMonth(now)
             : startOfWeek(now, { weekStartsOn: 1 });
-            
+
         const minDate = type === ReportType.MONTHLY
             ? startOfMonth(joinDate)
             : startOfWeek(joinDate, { weekStartsOn: 1 });
 
         while (current >= minDate) {
             const startDate = new Date(current);
-            const endDate = type === ReportType.MONTHLY 
-                ? endOfMonth(current) 
+            const endDate = type === ReportType.MONTHLY
+                ? endOfMonth(current)
                 : endOfWeek(current, { weekStartsOn: 1 });
-            
+
             periods.push({ startDate, endDate });
-            
+
             // Move back
             if (type === ReportType.MONTHLY) {
                 current.setMonth(current.getMonth() - 1);
