@@ -49,7 +49,8 @@ describe('ReportService Tier and Eligibility', () => {
             // Mock eligibility to pass
             jest.spyOn(reportService, 'checkEligibility').mockResolvedValue({
                 isEligible: true,
-                metrics: { entryCount: 10, wordCount: 1000, uniqueDays: 4 },
+                message: 'Eligible',
+                metrics: { entryCount: 10, wordCount: 1000, uniqueDays: 4, coveredDates: [] },
                 thresholds: { minEntries: 3, minWords: 300, minDays: 3 }
             });
 
@@ -81,7 +82,8 @@ describe('ReportService Tier and Eligibility', () => {
             // Mock eligibility to pass
             jest.spyOn(reportService, 'checkEligibility').mockResolvedValue({
                 isEligible: true,
-                metrics: { entryCount: 10, wordCount: 1000, uniqueDays: 4 },
+                message: 'Eligible',
+                metrics: { entryCount: 10, wordCount: 1000, uniqueDays: 4, coveredDates: [] },
                 thresholds: { minEntries: 3, minWords: 300, minDays: 3 }
             });
 
@@ -100,7 +102,8 @@ describe('ReportService Tier and Eligibility', () => {
             // Mock eligibility to pass
             jest.spyOn(reportService, 'checkEligibility').mockResolvedValue({
                 isEligible: true,
-                metrics: { entryCount: 10, wordCount: 1000, uniqueDays: 4 },
+                message: 'Eligible',
+                metrics: { entryCount: 10, wordCount: 1000, uniqueDays: 4, coveredDates: [] },
                 thresholds: { minEntries: 3, minWords: 300, minDays: 3 }
             });
 
@@ -119,7 +122,8 @@ describe('ReportService Tier and Eligibility', () => {
             // Mock eligibility to fail
             jest.spyOn(reportService, 'checkEligibility').mockResolvedValue({
                 isEligible: false,
-                metrics: { entryCount: 1, wordCount: 10, uniqueDays: 1 },
+                message: 'Not enough data',
+                metrics: { entryCount: 1, wordCount: 10, uniqueDays: 1, coveredDates: [] },
                 thresholds: { minEntries: 3, minWords: 300, minDays: 3 }
             });
 

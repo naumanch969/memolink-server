@@ -19,5 +19,12 @@ export const AGENT_CONSTANTS = {
 
 
     DEFAULT_TEXT_MODEL: 'gemini-2.5-flash',
+    TEXT_MODEL_FALLBACKS: [
+        'gemini-2.5-flash',
+        'gemini-2.5-pro',
+        'gemini-2.0-flash',
+        'gemini-flash-latest',
+        'gemini-pro-latest'
+    ],
     DEFAULT_EMBEDDING_MODEL: 'gemini-embedding-001',
 };

@@ -99,7 +99,7 @@ export const INITIAL_BADGES: RegistryBadge[] = [
     {
         badgeId: 'mind_vault',
         name: 'Mind Vault',
-        description: '1,000 thoughts. Brinn knows you better than most people ever will.',
+        description: '1,000 thoughts. You\'ve built an incredible library of your own wisdom and growth.',
         icon: 'Vault',
         rarity: BadgeRarity.EPIC,
         category: BadgeCategory.MILESTONE,
@@ -131,7 +131,7 @@ export const INITIAL_BADGES: RegistryBadge[] = [
     {
         badgeId: 'self_aware',
         name: 'Self Aware',
-        description: 'Brinn has built a complete mental model of who you are. You\'ve been understood.',
+        description: 'Brinn helps you see yourself more clearly. You\'ve gained deep self-insight.',
         icon: 'BrainCircuit',
         rarity: BadgeRarity.EPIC,
         category: BadgeCategory.INSIGHT,
@@ -153,7 +153,7 @@ export const INITIAL_BADGES: RegistryBadge[] = [
     {
         badgeId: 'loyal_mind',
         name: 'Loyal Mind',
-        description: '30 days with Brinn. Your memory is no longer just yours — it\'s growing.',
+        description: '30 days with Brinn. You\'ve created a lasting home for your thoughts and memories.',
         icon: 'CalendarCheck',
         rarity: BadgeRarity.RARE,
         category: BadgeCategory.LOYALTY,
@@ -163,7 +163,7 @@ export const INITIAL_BADGES: RegistryBadge[] = [
     {
         badgeId: 'monthly_mindset',
         name: 'Monthly Mindset',
-        description: '30 days straight of capturing thoughts. Your brain is now powered by Brinn.',
+        description: '30 days straight of capturing thoughts. You\'ve mastered the art of mindful reflection.',
         icon: 'Zap',
         rarity: BadgeRarity.RARE,
         category: BadgeCategory.LOYALTY,
@@ -173,7 +173,7 @@ export const INITIAL_BADGES: RegistryBadge[] = [
     {
         badgeId: 'devoted_mind',
         name: 'Devoted Mind',
-        description: '90 days. Brinn has become part of how you think.',
+        description: '90 days. You\'ve developed a deep, intuitive rhythm of self-reflection.',
         icon: 'Hourglass',
         rarity: BadgeRarity.EPIC,
         category: BadgeCategory.LOYALTY,

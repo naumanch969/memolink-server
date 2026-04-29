@@ -14,8 +14,8 @@ export class ReportController {
                 total: result.total,
                 totalPages: Math.ceil(result.total / result.limit)
             }, 'Reports retrieved successfully');
-        } catch (error) {
-            ResponseHelper.error(res, 'Failed to retrieve reports', 500, error);
+        } catch (error: any) {
+            ResponseHelper.error(res, error.message || 'Failed to retrieve reports', error.statusCode || 500, error);
         }
     }
 
@@ -24,8 +24,8 @@ export class ReportController {
             const userId = req.user!._id.toString();
             const report = await reportService.getReportById(req.params.id, userId);
             ResponseHelper.success(res, report, 'Report retrieved successfully');
-        } catch (error) {
-            ResponseHelper.error(res, 'Failed to retrieve report', 500, error);
+        } catch (error: any) {
+            ResponseHelper.error(res, error.message || 'Failed to retrieve report', error.statusCode || 500, error);
         }
     }
 
@@ -40,8 +40,8 @@ export class ReportController {
             }
             const result = await reportService.generateOnDemand(userId, type, startDate, endDate);
             ResponseHelper.success(res, result, 'Report generation started');
-        } catch (error) {
-            ResponseHelper.error(res, 'Failed to start report generation', 500, error);
+        } catch (error: any) {
+            ResponseHelper.error(res, error.message || 'Failed to start report generation', error.statusCode || 500, error);
         }
     }
     static async checkEligibility(req: AuthenticatedRequest, res: Response) {
@@ -56,8 +56,8 @@ export class ReportController {
 
             const result = await reportService.checkEligibility(userId, type, new Date(startDate), new Date(endDate));
             ResponseHelper.success(res, result, 'Eligibility checked successfully');
-        } catch (error) {
-            ResponseHelper.error(res, 'Failed to check eligibility', 500, error);
+        } catch (error: any) {
+            ResponseHelper.error(res, error.message || 'Failed to check eligibility', error.statusCode || 500, error);
         }
     }
 

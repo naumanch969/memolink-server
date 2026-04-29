@@ -44,6 +44,7 @@ export class ResponseHelper {
       success: false,
       message,
       error: error?.message || error,
+      errorCode: error?.errorCode || undefined,
     };
 
     return res.status(statusCode).json(response);

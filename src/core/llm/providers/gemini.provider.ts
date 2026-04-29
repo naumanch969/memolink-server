@@ -8,16 +8,14 @@ import { ILLMProvider, LLMGenerativeOptions } from '../llm.types';
 import { config } from '../../../config/env';
 
 export class GeminiProvider implements ILLMProvider {
-    public name = AGENT_CONSTANTS.DEFAULT_TEXT_MODEL;
+    public name = 'Gemini';
     private client: GoogleGenerativeAI;
-    private model: GenerativeModel;
 
     constructor() {
         if (!config.GEMINI_API_KEY) {
             throw new Error('GEMINI_API_KEY is not defined');
         }
         this.client = new GoogleGenerativeAI(config.GEMINI_API_KEY);
-        this.model = this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL });
     }
 
 
@@ -37,15 +35,47 @@ export class GeminiProvider implements ILLMProvider {
         });
     }
 
+    /**
+     * Internal helper to execute a Gemini operation with automatic model fallback on 429 errors.
+     * Iterates through TEXT_MODEL_FALLBACKS if a quota limit is hit.
+     */
+    private async callWithFallback<T>(
+        operation: (model: GenerativeModel, modelName: string) => Promise<T>,
+        options?: LLMGenerativeOptions
+    ): Promise<T> {
+        let lastError: any;
+        
+        for (const modelName of AGENT_CONSTANTS.TEXT_MODEL_FALLBACKS) {
+            try {
+                const model = this.client.getGenerativeModel({ 
+                    model: modelName,
+                    systemInstruction: options?.systemInstruction 
+                });
+
+                return await operation(model, modelName);
+            } catch (error: any) {
+                lastError = error;
+                const status = error.status || error.response?.status || error.statusCode;
+                
+                // If 429 (Too Many Requests / Quota Exceeded), attempt fallback to next model
+                if (status === 429) {
+                    logger.warn(`Gemini Model [${modelName}] quota exceeded (429). Attempting fallback to next priority model...`);
+                    continue;
+                }
+
+                // For other errors (500s, validation, etc.), let the caller's withRetry handle it
+                throw error;
+            }
+        }
+
+        // If we exhausted all models, throw the last 429 error
+        throw lastError;
+    }
+
     async generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string> {
         if (options?.signal?.aborted) throw new Error('Gemini.generateText aborted');
 
-        try {
-            // Configure model if options provided
-            const modelToUse = options?.systemInstruction
-                ? this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, systemInstruction: options.systemInstruction })
-                : this.model;
-
+        return this.callWithFallback(async (modelToUse, modelName) => {
             const generationConfig = {
                 temperature: options?.temperature ?? 0.7,
                 maxOutputTokens: options?.maxOutputTokens,
@@ -62,22 +92,21 @@ export class GeminiProvider implements ILLMProvider {
                     return result.response;
                 },
                 {
-                    operationName: 'Gemini.generateText',
-                    maxAttempts: 5,
+                    operationName: `Gemini.generateText[${modelName}]`,
+                    maxAttempts: 3, // Reduced per-model attempts since we have fallbacks
                     initialDelay: 2000,
-                    maxDelay: 60000, // up to 1 minute for rate limits
+                    maxDelay: 30000,
+                    shouldRetry: (err) => {
+                        const status = err.status || err.response?.status || err.statusCode;
+                        return status !== 429 && (status >= 500 || err?.isTransientValidation);
+                    },
                     signal: options?.signal
                 }
             );
 
-            this.logUsage(response, AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, startTime, options);
+            this.logUsage(response, modelName, startTime, options);
             return response.text();
-        } catch (error) {
-            // Error is already logged by withRetry if it exhausts attempts, 
-            // but we keep this for immediate visibility and backward compatibility
-            logger.error('Gemini generateText error:', error);
-            throw error;
-        }
+        }, options);
     }
 
     async generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T> {
@@ -149,7 +178,10 @@ export class GeminiProvider implements ILLMProvider {
                 maxAttempts: 6, // Increased attempts for heavy load
                 initialDelay: 3000,
                 maxDelay: 60000,
-                shouldRetry: (err) => err.status === 429 || err.status >= 500 || err?.isTransientValidation,
+                shouldRetry: (err) => {
+                    const status = err.status || err.response?.status || err.statusCode;
+                    return status !== 429 && (status >= 500 || err?.isTransientValidation);
+                },
                 operationName: 'Gemini.generateJSON',
                 signal: options?.signal
             }
@@ -159,23 +191,7 @@ export class GeminiProvider implements ILLMProvider {
     async generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any> {
         if (options?.signal?.aborted) throw new Error('Gemini.generateWithTools aborted');
 
-        try {
-            // Configure model if options provided
-            const modelParams: any = {
-                model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL,
-            };
-
-            if (options?.systemInstruction) {
-                modelParams.systemInstruction = options.systemInstruction;
-            }
-
-            if (options?.tools) {
-                // Formatting for Google Gemini API: tools must be an array of Tool objects, each containing functionDeclarations.
-                modelParams.tools = [{ functionDeclarations: options.tools }];
-            }
-
-            const modelToUse = this.client.getGenerativeModel(modelParams);
-
+        return this.callWithFallback(async (modelToUse, modelName) => {
             const generationConfig = {
                 temperature: options?.temperature ?? 0.7,
                 maxOutputTokens: options?.maxOutputTokens,
@@ -187,41 +203,38 @@ export class GeminiProvider implements ILLMProvider {
                     const result = await modelToUse.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig,
+                        tools: options?.tools ? [{ functionDeclarations: options.tools }] : undefined,
                     });
                     return result.response;
                 },
                 { 
-                    operationName: 'Gemini.generateWithTools',
+                    operationName: `Gemini.generateWithTools[${modelName}]`,
+                    maxAttempts: 3,
+                    shouldRetry: (err) => {
+                        const status = err.status || err.response?.status || err.statusCode;
+                        return status !== 429 && status >= 500;
+                    },
                     signal: options?.signal
                 }
             );
 
-            this.logUsage(response, AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, startTime, options);
+            this.logUsage(response, modelName, startTime, options);
 
             // Check for function calls
             const functionCalls = response.functionCalls();
             if (functionCalls && functionCalls.length > 0) {
                 return {
-                    text: response.text(), // Might be empty if it's just a function call
+                    text: response.text(),
                     functionCalls: functionCalls
                 };
             }
 
-            return {
-                text: response.text()
-            };
-        } catch (error) {
-            logger.error('Gemini generateWithTools error:', error);
-            throw error;
-        }
+            return { text: response.text() };
+        }, options);
     }
 
     async generateStream(prompt: string, options?: LLMGenerativeOptions): Promise<AsyncIterable<string>> {
-        try {
-            const modelToUse = options?.systemInstruction
-                ? this.client.getGenerativeModel({ model: AGENT_CONSTANTS.DEFAULT_TEXT_MODEL, systemInstruction: options.systemInstruction })
-                : this.model;
-
+        return this.callWithFallback(async (modelToUse) => {
             const generationConfig = {
                 temperature: options?.temperature ?? 0.7,
                 maxOutputTokens: options?.maxOutputTokens,
@@ -241,10 +254,7 @@ export class GeminiProvider implements ILLMProvider {
                     }
                 }
             })();
-        } catch (error) {
-            logger.error('Gemini generateStream error:', error);
-            throw error;
-        }
+        }, options);
     }
 
     async generateEmbeddings(text: string, options?: LLMGenerativeOptions): Promise<number[]> {

@@ -163,6 +163,7 @@ export class ReportService implements IReportService {
 
         return {
             isEligible,
+            message: isEligible ? 'Success' : 'Low data signal. Add more entries or write more detail to unlock this report.',
             metrics: {
                 entryCount,
                 wordCount,

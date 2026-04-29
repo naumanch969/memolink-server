@@ -88,6 +88,7 @@ export enum MoodArc {
 
 export interface ReportEligibility {
     isEligible: boolean;
+    message: string;
     metrics: {
         entryCount: number;
         wordCount: number;
