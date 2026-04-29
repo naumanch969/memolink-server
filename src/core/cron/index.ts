@@ -1,17 +1,13 @@
-
 import cron from 'node-cron';
 import { logger } from '../../config/logger';
-import { AgentTaskType } from '../../features/agent/agent.types';
 import { agentAccountabilityService } from '../../features/agent/services/agent.accountability.service';
-import { agentService } from '../../features/agent/services/agent.service';
 import { User } from '../../features/auth/auth.model';
 import { enrichmentService } from '../../features/enrichment/enrichment.service';
 import { entryService } from '../../features/entry/entry.service';
 import { storageService } from '../../features/media/storage/storage.service';
 import { initNotificationProcessor } from '../../features/notification/notification.cron';
 import { notificationService } from '../../features/notification/notification.service';
-import { WebActivity } from '../../features/web-activity/web-activity.model';
-import DateUtil from '../../shared/utils/date.utils';
+import { initReportCron } from '../../features/report/report.cron';
 
 export const initCronJobs = () => {
 
@@ -90,59 +86,37 @@ export const initCronJobs = () => {
     });
 
     // Web Activity Summarizer: Daily at 12:05 AM
-    cron.schedule('5 0 * * *', async () => {
-        logger.info('Running web activity summarizer cron job...');
-        try {
-            const dateStr = DateUtil.getYesterdayDateKey();
+    // cron.schedule('5 0 * * *', async () => {
+    //     logger.info('Running web activity summarizer cron job...');
+    //     try {
+    //         const dateStr = DateUtil.getYesterdayDateKey();
 
-            // Find unique users with activity yesterday who haven't been summarized
-            const activities = await WebActivity.find({
-                date: dateStr,
-                summaryCreated: { $ne: true },
-                totalSeconds: { $gt: 60 } // Only summarize if they spent at least a minute
-            }).select('userId');
+    //         // Find unique users with activity yesterday who haven't been summarized
+    //         const activities = await WebActivity.find({
+    //             date: dateStr,
+    //             summaryCreated: { $ne: true },
+    //             totalSeconds: { $gt: 60 } // Only summarize if they spent at least a minute
+    //         }).select('userId');
 
-            for (const activity of activities) {
-                try {
-                    await agentService.createTask(activity.userId.toString(), AgentTaskType.WEB_ACTIVITY_SUMMARY, {
-                        date: dateStr
-                    });
-                } catch (err) {
-                    logger.error(`Failed to enqueue summary for user ${activity.userId}`, err);
-                }
-            }
+    //         for (const activity of activities) {
+    //             try {
+    //                 await agentService.createTask(activity.userId.toString(), AgentTaskType.WEB_ACTIVITY_SUMMARY, {
+    //                     date: dateStr
+    //                 });
+    //             } catch (err) {
+    //                 logger.error(`Failed to enqueue summary for user ${activity.userId}`, err);
+    //             }
+    //         }
 
-            logger.info(`Enqueued ${activities.length} activity summary tasks.`);
-        } catch (error) {
-            logger.error('Web activity summarizer cron job failed:', error);
-        }
-    });
+    //         logger.info(`Enqueued ${activities.length} activity summary tasks.`);
+    //     } catch (error) {
+    //         logger.error('Web activity summarizer cron job failed:', error);
+    //     }
+    // });
 
     // Weekly Analysis Trigger: Every Sunday at 11 PM
-    cron.schedule('0 23 * * 0', async () => {
-        logger.info('Running weekly analysis cron job...');
-        try {
-            const users = await User.find({}).select('_id');
-            for (const user of users) {
-                await agentService.createTask(user._id.toString(), AgentTaskType.WEEKLY_ANALYSIS, {});
-            }
-        } catch (error) {
-            logger.error('Weekly analysis cron job failed:', error);
-        }
-    });
 
-    // Monthly Analysis Trigger: 1st of every month at 1 AM
-    cron.schedule('0 1 1 * *', async () => {
-        logger.info('Running monthly analysis cron job...');
-        try {
-            const users = await User.find({}).select('_id');
-            for (const user of users) {
-                await agentService.createTask(user._id.toString(), AgentTaskType.MONTHLY_ANALYSIS, {});
-            }
-        } catch (error) {
-            logger.error('Monthly analysis cron job failed:', error);
-        }
-    });
+    initReportCron();
 
     logger.info('Cron jobs initialized');
 };

@@ -27,6 +27,7 @@ export const COLLECTIONS = {
 // User Roles
 export const USER_ROLES = {
   USER: 'user',
+  PRO: 'pro',
   ADMIN: 'admin',
   BETA_TESTER: 'beta_tester',
 } as const;

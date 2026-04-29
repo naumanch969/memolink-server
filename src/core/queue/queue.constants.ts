@@ -63,10 +63,10 @@ export const MEDIA_JOB_OPTIONS = {
 // ─── WORKER CONFIG ────────────────────────────────────────────────────────────
 
 export const ENRICHMENT_WORKER_CONFIG = {
-    concurrency: 10,
+    concurrency: 5,
     lockDuration: 300_000,  // 5m — increased to prevent lock errors during long LLM tasks
     lockRenewTime: 15_000,  // renew every 15s to prevent stale-lock eviction
-    // limiter: { max: 20, duration: 60_000 }, // Throttling disabled for faster response
+    limiter: { max: 10, duration: 60_000 }, // Throttled to prevent Gemini 429s
 };
 
 export const ENRICHMENT_HEALING_WORKER_CONFIG = {

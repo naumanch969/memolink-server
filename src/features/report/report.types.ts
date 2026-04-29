@@ -18,7 +18,7 @@ export interface ReportContext {
     topEntities: string[];          // top mentioned people/places with context
     personaMarkdown: string;        // UserPersona.rawMarkdown or empty
     webActivitySummary: string;     // Aggregated web-activity string or empty
-    previousReport?: any;           // Last period's content for comparison
+    previousReport?: IReport | null;           // Last period's content for comparison
 }
 
 export interface IReport extends BaseEntity {
@@ -84,4 +84,19 @@ export enum MoodArc {
     RECOVERY = 'recovery',
     PLATEAU = 'plateau',
     TURBULENT = 'turbulent',
+}
+
+export interface ReportEligibility {
+    isEligible: boolean;
+    metrics: {
+        entryCount: number;
+        wordCount: number;
+        uniqueDays: number;
+        coveredDates: string[];
+    };
+    thresholds: {
+        minEntries: number;
+        minWords: number;
+        minDays: number;
+    };
 }

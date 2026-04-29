@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { StringUtil } from '../../shared/utils/string.utils';
 import { IReportContextBuilder } from './report.interfaces';
-import { DailyMoodPoint, ReportContext, ReportType } from './report.types';
+import { DailyMoodPoint, IReport, ReportContext, ReportType } from './report.types';
 import { entryService } from '../entry/entry.service';
 import { moodService } from '../mood/mood.service';
 import { entityService } from '../entity/entity.service';
@@ -61,42 +61,48 @@ export class ReportContextBuilder implements IReportContextBuilder {
         }));
     }
 
-    /**
-     * Optimized entity extraction: $O(N)$ pass over entries to build context mapping.
-     */
+    // Optimized entity extraction: $O(N)$ pass over entries to build context mapping.
     private async fetchTopEntities(userId: string | Types.ObjectId, entries: any[]): Promise<string[]> {
-        // Build a map of mentionId -> first available context snippet in one pass
-        const mentionContextMap = new Map<string, string>();
-        const mentionIdsSet = new Set<string>();
-
+        // 1. Count mention frequencies
+        const counts = new Map<string, number>();
         for (const entry of entries) {
-            if (!entry.mentions || entry.mentions.length === 0) continue;
-
+            if (!entry.mentions) continue;
             for (const mention of entry.mentions) {
-                const mentionId = mention.toString();
-                mentionIdsSet.add(mentionId);
-
-                // If we don't have a context for this entity yet, extract it
-                if (!mentionContextMap.has(mentionId)) {
-                    mentionContextMap.set(mentionId, entry.content || '');
-                }
+                const id = mention.toString();
+                counts.set(id, (counts.get(id) || 0) + 1);
             }
         }
 
-        const mentionIds = Array.from(mentionIdsSet);
-        if (mentionIds.length === 0) return [];
+        if (counts.size === 0) return [];
 
-        const entities = await entityService.getEntitiesByIds(mentionIds, userId);
-
-        // Take up to limit and format with context
-        return entities
+        // 2. Sort by frequency and take top X
+        const topMentionIds = Array.from(counts.entries())
+            .sort((a, b) => b[1] - a[1])
             .slice(0, REPORT_CONSTANTS.TOP_ENTITIES_COUNT)
-            .map(entity => {
-                const mentionId = entity._id.toString();
-                const rawContent = mentionContextMap.get(mentionId) || '';
-                const context = rawContent ? StringUtil.extractSnippet(rawContent, entity.name, REPORT_CONSTANTS.CONTEXT_SNIPPET_PADDING) : '';
-                return `${entity.name}${context ? ` (Context: "${context}")` : ''}`;
-            });
+            .map(([id]) => id);
+
+        const entities = await entityService.getEntitiesByIds(topMentionIds, userId);
+
+        // 3. Extract snippets only for the top entities
+        // Re-pass entries once to find first available context for these specific IDs
+        const topEntityContexts = new Map<string, string>();
+        for (const entry of entries) {
+            if (!entry.mentions) continue;
+            for (const mention of entry.mentions) {
+                const id = mention.toString();
+                if (topMentionIds.includes(id) && !topEntityContexts.has(id)) {
+                    topEntityContexts.set(id, entry.content || '');
+                }
+            }
+            if (topEntityContexts.size === topMentionIds.length) break;
+        }
+
+        return entities.map(entity => {
+            const id = entity._id.toString();
+            const rawContent = topEntityContexts.get(id) || '';
+            const context = rawContent ? StringUtil.extractSnippet(rawContent, entity.name, REPORT_CONSTANTS.CONTEXT_SNIPPET_PADDING) : '';
+            return `${entity.name}${context ? ` (Context: "${context}")` : ''}`;
+        });
     }
 
 
@@ -105,13 +111,8 @@ export class ReportContextBuilder implements IReportContextBuilder {
         return persona?.rawMarkdown ?? '';
     }
 
-    private async fetchPreviousReport(
-        userId: string | Types.ObjectId,
-        type: ReportType,
-        currentStart: Date
-    ): Promise<string | undefined> {
-        const report = await reportService.getLatestReportBefore(userId, type, currentStart);
-        return report?.content?.text || report?.content?.analysis || undefined;
+    private async fetchPreviousReport(userId: string | Types.ObjectId, type: ReportType, currentStart: Date): Promise<IReport | null> {
+        return reportService.getLatestReportBefore(userId, type, currentStart);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

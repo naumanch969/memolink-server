@@ -12,9 +12,12 @@ import { config } from '../../config/env';
 import { emailService } from '../email/email.service';
 import { User } from '../auth/auth.model';
 import { IReportService } from "./report.interfaces";
-import Report from './report.model';
-import { IReport, ReportSearchRequest, ReportStatus, ReportType } from './report.types';
+import { IReport, ReportEligibility, ReportSearchRequest, ReportStatus, ReportType } from './report.types';
 import { REPORT_CONSTANTS } from './report.constants';
+import { USER_ROLES } from '../../shared/constants';
+import Report from './report.model';
+import { Entry } from '../entry/entry.model';
+import { EntryStatus } from '../entry/entry.types';
 
 export class ReportService implements IReportService {
 
@@ -50,10 +53,6 @@ export class ReportService implements IReportService {
     }
 
     private getPeriodFromTask(task: any): { type: ReportType, startDate: Date, endDate: Date } {
-        let type: ReportType;
-        let startDate: Date;
-        let endDate: Date;
-
         // Determine period
         // If task input has explicit dates, use them. Otherwise, apply lookback shift for cron tasks.
         const baseDate = new Date(task.completedAt || task.updatedAt || task.createdAt);
@@ -62,20 +61,11 @@ export class ReportService implements IReportService {
         }
 
         const referenceDate = task.inputData?.startDate ? new Date(task.inputData.startDate) : baseDate;
+        const type = task.type === AgentTaskType.WEEKLY_ANALYSIS ? ReportType.WEEKLY : ReportType.MONTHLY;
 
-        if (task.type === AgentTaskType.WEEKLY_ANALYSIS) {
-            type = ReportType.WEEKLY;
-            startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
-            endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
-        } else if (task.type === AgentTaskType.MONTHLY_ANALYSIS) {
-            type = ReportType.MONTHLY;
-            startDate = startOfMonth(referenceDate);
-            endDate = endOfMonth(referenceDate);
-        } else {
-            throw ApiError.badRequest('Invalid task type for report generation');
-        }
+        const { start, end } = DateUtil.getPeriod(type as any, referenceDate);
 
-        return { type, startDate, endDate };
+        return { type, startDate: start, endDate: end };
     }
 
     private async upsertReport(params: { userId: Types.ObjectId; type: ReportType; startDate: Date; endDate: Date; content: any; taskId: Types.ObjectId; }): Promise<IReport> {
@@ -95,8 +85,35 @@ export class ReportService implements IReportService {
         );
     }
 
-    // Manually triggers a report generation task (Admin Only)
+    // Manually triggers a report generation task
     async generateOnDemand(userId: string, type: ReportType, startDate?: string, endDate?: string): Promise<{ taskId: string }> {
+        const user = await User.findById(userId).select('role').lean();
+        if (!user) throw ApiError.notFound('User not found');
+
+        const isPro = user.role === USER_ROLES.ADMIN || user.role === USER_ROLES.PRO;
+
+        // 1. Resolve period dates
+        const referenceDate = startDate ? new Date(startDate) : new Date();
+        const { start: sDate, end: eDate } = DateUtil.getPeriod(type as any, referenceDate);
+
+        // 2. Check if report already exists (Regeneration Check)
+        const existingReport = await Report.findOne({
+            userId,
+            type,
+            startDate: sDate,
+            endDate: eDate,
+            status: ReportStatus.PUBLISHED
+        });
+
+        if (existingReport && !isPro) {
+            throw ApiError.forbidden('Regeneration is a Pro-only feature. Upgrade to unlock multiple syntheses.');
+        }
+
+        // 3. Signal Threshold Check
+        const eligibility = await this.checkEligibility(userId, type, sDate, eDate);
+        if (!eligibility.isEligible) {
+            throw ApiError.badRequest('Low data signal. Add more entries or write more detail to unlock this report.', JSON.stringify(eligibility));
+        }
 
         const taskType = type === ReportType.WEEKLY
             ? AgentTaskType.WEEKLY_ANALYSIS
@@ -116,14 +133,72 @@ export class ReportService implements IReportService {
 
         const task = await agentService.createTask(userId, taskType, {
             onDemand: true,
-            startDate,
-            endDate
+            startDate: sDate.toISOString(),
+            endDate: eDate.toISOString()
         });
         return { taskId: task._id.toString() };
     }
 
+    async checkEligibility(userId: string | Types.ObjectId, type: ReportType, startDate: Date, endDate: Date): Promise<ReportEligibility> {
+        const entries = await Entry.find({
+            userId: new Types.ObjectId(userId),
+            date: { $gte: startDate, $lte: endDate },
+            status: EntryStatus.COMPLETED
+        }).select('content date').lean();
+
+        const entryCount = entries.length;
+        const wordCount = entries.reduce((acc, entry) => {
+            return acc + (entry.content?.split(/\s+/).filter(word => word.length > 0).length || 0);
+        }, 0);
+
+        const coveredDates = Array.from(new Set(entries.map(e => format(new Date(e.date), 'yyyy-MM-dd'))));
+        const uniqueDays = coveredDates.length;
+
+        const thresholds = REPORT_CONSTANTS.THRESHOLDS[type as keyof typeof REPORT_CONSTANTS.THRESHOLDS];
+
+        const isEligible =
+            entryCount >= thresholds.MIN_ENTRIES &&
+            wordCount >= thresholds.MIN_WORDS &&
+            uniqueDays >= thresholds.MIN_DAYS;
+
+        return {
+            isEligible,
+            metrics: {
+                entryCount,
+                wordCount,
+                uniqueDays,
+                coveredDates
+            },
+            thresholds: {
+                minEntries: thresholds.MIN_ENTRIES,
+                minWords: thresholds.MIN_WORDS,
+                minDays: thresholds.MIN_DAYS
+            }
+        };
+    }
+
     // Get a specific report by ID
     async getReportById(reportId: string, userId: string): Promise<IReport> {
+        // Handle NOT_GENERATED placeholders
+        if (reportId.startsWith('not-gen-')) {
+            const parts = reportId.split('-');
+            const type = parts[2] as ReportType;
+            const timestamp = parseInt(parts[3], 10);
+            const startDate = new Date(timestamp);
+
+            return {
+                _id: reportId,
+                userId: new Types.ObjectId(userId),
+                type,
+                status: ReportStatus.NOT_GENERATED,
+                startDate,
+                endDate: type === ReportType.MONTHLY ? endOfMonth(startDate) : endOfWeek(startDate, { weekStartsOn: 1 }),
+                content: {},
+                createdAt: startDate,
+                updatedAt: startDate
+            } as unknown as IReport;
+        }
+
         const report = await Report.findOne({ _id: reportId, userId: new Types.ObjectId(userId) });
 
         if (!report) {
@@ -310,6 +385,71 @@ export class ReportService implements IReportService {
             .sort({ startDate: -1 })
             .select('content startDate endDate')
             .lean();
+    }
+
+    /**
+     * Staggers the creation of agent tasks across the user base to prevent load spikes.
+     * Processes users in batches with a delay between each batch.
+     */
+    async triggerStaggeredReports(taskType: AgentTaskType): Promise<void> {
+        try {
+            const batchSize = 20;
+            const delayBetweenBatchesMs = 5000; // 5 seconds
+
+            let lastId = null;
+            let processedCount = 0;
+            let enqueuedCount = 0;
+
+            const reportType = taskType === AgentTaskType.WEEKLY_ANALYSIS ? ReportType.WEEKLY : ReportType.MONTHLY;
+
+            // Match lookback logic to ensure we trigger for the correct period
+            const referenceDate = new Date();
+            referenceDate.setHours(referenceDate.getHours() - REPORT_CONSTANTS.CRON_LOOKBACK_HOURS);
+
+            const { start, end } = DateUtil.getPeriod(reportType as any, referenceDate);
+
+            logger.info(`Cron [${taskType}]: Starting trigger for period ${start.toISOString()} to ${end.toISOString()}`);
+
+            while (true) {
+                const query: any = {};
+                if (lastId) query._id = { $gt: lastId };
+
+                const users = await User.find(query)
+                    .sort({ _id: 1 })
+                    .limit(batchSize)
+                    .select('_id')
+                    .lean();
+
+                if (users.length === 0) break;
+
+                for (const user of users) {
+                    const eligibility = await this.checkEligibility(user._id, reportType, start, end);
+
+                    if (eligibility.isEligible) {
+                        await agentService.createTask(user._id.toString(), taskType, {
+                            startDate: start,
+                            endDate: end
+                        });
+                        enqueuedCount++;
+                    }
+                }
+
+                processedCount += users.length;
+                lastId = users[users.length - 1]._id;
+
+                logger.info(`Cron [${taskType}]: Processed ${users.length} users (Enqueued: ${enqueuedCount}/${processedCount})`);
+
+                if (users.length === batchSize) {
+                    await new Promise(resolve => setTimeout(resolve, delayBetweenBatchesMs));
+                } else {
+                    break;
+                }
+            }
+
+            logger.info(`Cron [${taskType}]: Completed. Users scanned: ${processedCount}, Tasks enqueued: ${enqueuedCount}`);
+        } catch (error) {
+            logger.error(`Staggered trigger failed for ${taskType}:`, error);
+        }
     }
 }
 

@@ -123,7 +123,7 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
             : '';
 
         const previousContext = ctx.previousReport
-            ? `PREVIOUS MONTH REPORT (for comparison):\nScore: ${ctx.previousReport.overallScore ?? ctx.previousReport.score ?? 'N/A'}/100\nSummary: ${ctx.previousReport.executiveSummary ?? ctx.previousReport.monthOverview ?? 'No summary'}`
+            ? `PREVIOUS MONTH REPORT (for comparison):\nScore: ${ctx.previousReport.content?.overallScore ?? ctx.previousReport.content?.score ?? 'N/A'}/100\nSummary: ${ctx.previousReport.content?.executiveSummary ?? ctx.previousReport.content?.monthOverview ?? 'No summary'}`
             : '';
 
         const entityContext = ctx.topEntities.length > 0

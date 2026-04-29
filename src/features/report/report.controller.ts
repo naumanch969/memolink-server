@@ -32,13 +32,6 @@ export class ReportController {
     static async generateOnDemand(req: AuthenticatedRequest, res: Response) {
         try {
             const userId = req.user!._id.toString();
-            const userRole = req.user!.role;
-
-            // Strict check for Admin only
-            if (userRole !== 'admin') {
-                ResponseHelper.error(res, 'Access denied. Admin only.', 403);
-                return;
-            }
 
             const { type, startDate, endDate } = req.body;
             if (!type) {
@@ -49,6 +42,22 @@ export class ReportController {
             ResponseHelper.success(res, result, 'Report generation started');
         } catch (error) {
             ResponseHelper.error(res, 'Failed to start report generation', 500, error);
+        }
+    }
+    static async checkEligibility(req: AuthenticatedRequest, res: Response) {
+        try {
+            const userId = req.user!._id.toString();
+            const { type, startDate, endDate } = req.query as any;
+            
+            if (!type || !startDate || !endDate) {
+                ResponseHelper.badRequest(res, 'Type, startDate, and endDate are required');
+                return;
+            }
+
+            const result = await reportService.checkEligibility(userId, type, new Date(startDate), new Date(endDate));
+            ResponseHelper.success(res, result, 'Eligibility checked successfully');
+        } catch (error) {
+            ResponseHelper.error(res, 'Failed to check eligibility', 500, error);
         }
     }
 

@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(AuthMiddleware.authenticate);
 
 router.get('/', ReportController.getReports);
+router.get('/eligibility', ReportController.checkEligibility);
 router.get('/:id', ReportController.getReport);
 router.post('/generate', ReportController.generateOnDemand);
 

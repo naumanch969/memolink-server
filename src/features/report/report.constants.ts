@@ -1,6 +1,6 @@
 export const REPORT_CONSTANTS = {
     // Timing
-    CRON_LOOKBACK_HOURS: 4,
+    CRON_LOOKBACK_HOURS: 4, // This is the lookback for the cron job that generates weekly and monthly reports
     
     // Limits
     TOP_TAGS_COUNT: 15,
@@ -14,4 +14,18 @@ export const REPORT_CONSTANTS = {
     
     // Narrative
     MAX_ENTRY_NARRATIVE_LENGTH: 10000, // Safety cap for context window
+
+    // Thresholds for report generation
+    THRESHOLDS: {
+        WEEKLY: {
+            MIN_ENTRIES: 3,
+            MIN_WORDS: 200,
+            MIN_DAYS: 3
+        },
+        MONTHLY: {
+            MIN_ENTRIES: 10,
+            MIN_WORDS: 800,
+            MIN_DAYS: 7
+        }
+    }
 };

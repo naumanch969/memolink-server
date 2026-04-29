@@ -1,4 +1,4 @@
-import { format, parseISO, startOfDay, subDays } from 'date-fns';
+import { endOfMonth, endOfWeek, format, parseISO, startOfDay, startOfMonth, startOfWeek, subDays } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 export class DateUtil {
@@ -140,6 +140,24 @@ export class DateUtil {
      */
     static formatPeriod(start: Date, end: Date): string {
         return `${format(start, 'MMM d')} – ${format(end, 'MMM d, yyyy')}`;
+    }
+    /**
+     * Centralized logic for report periods (weekly/monthly)
+     * Weekly: Starts on Monday, ends on Sunday
+     * Monthly: Starts on 1st, ends on last day
+     */
+    static getPeriod(type: 'WEEKLY' | 'MONTHLY', referenceDate: Date = new Date()) {
+        if (type === 'WEEKLY') {
+            return {
+                start: startOfWeek(referenceDate, { weekStartsOn: 1 }),
+                end: endOfWeek(referenceDate, { weekStartsOn: 1 })
+            };
+        } else {
+            return {
+                start: startOfMonth(referenceDate),
+                end: endOfMonth(referenceDate)
+            };
+        }
     }
 }
 

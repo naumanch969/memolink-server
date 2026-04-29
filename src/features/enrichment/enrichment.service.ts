@@ -36,7 +36,7 @@ export class EnrichmentService implements IEnrichmentService {
                 referenceId: entryId,
                 signalTier: signalTier as any,
             }, {
-                jobId: `active-${entryId}`, // Deduplicate and allow targeted deletion
+                jobId: `enrich-${entryId}`, // Unified ID for enrichment jobs
             });
             console.log('number of jobs: ', await queue.getJobCounts())
             // Set status to queued so UI can show it
@@ -61,8 +61,8 @@ export class EnrichmentService implements IEnrichmentService {
 
             // BullMQ .remove() takes jobId
             await Promise.all([
-                enrichmentQueue.remove(`active-${entryId}`).catch(() => {}),
-                healingQueue.remove(`healing-${entryId}`).catch(() => {}),
+                enrichmentQueue.remove(`enrich-${entryId}`).catch(() => {}),
+                healingQueue.remove(`enrich-${entryId}`).catch(() => {}),
             ]);
 
             logger.info(`Enrichment Service: Cleaned up enqueued jobs for entry ${entryId}`);
@@ -81,7 +81,7 @@ export class EnrichmentService implements IEnrichmentService {
                 referenceId: entryId,
                 signalTier: signalTier as any,
             }, {
-                jobId: `healing-${entryId}`, // Deduplicate healing jobs for the same entry
+                jobId: `enrich-${entryId}`, // Unified ID for enrichment jobs
             });
 
             logger.info(`Enrichment Service: Enqueued HEALING task for entry ${entryId}`);
@@ -455,8 +455,19 @@ export class EnrichmentService implements IEnrichmentService {
             }).limit(limit);
 
             if (stuckEntries.length > 0) {
-                logger.info(`Enrichment Healing: Found ${stuckEntries.length} stuck entries to re-enqueue`);
+                logger.info(`Enrichment Healing: Found ${stuckEntries.length} stuck entries. Checking queue status...`);
                 for (const entry of stuckEntries) {
+                    const jobId = `enrich-${entry._id}`;
+                    const existingJob = await (getEnrichmentQueue().getJob(jobId)) || await (getEnrichmentHealingQueue().getJob(jobId));
+                    
+                    if (existingJob) {
+                        const state = await existingJob.getState();
+                        if (state === 'active' || state === 'waiting' || state === 'delayed') {
+                            logger.debug(`Enrichment Healing: Job ${jobId} already in ${state} state, skipping re-enqueue.`);
+                            continue;
+                        }
+                    }
+
                     await this.enqueueHealingEnrichment(
                         entry.userId.toString(),
                         entry._id.toString(),
