@@ -1,10 +1,17 @@
 
-
-// Connect to a test database in-memory logic or dedicated test DB
-// For smoke tests not using a real DB, we might mock specific calls or just assume
-// the service logic is pure enough for unit-testing.
-// But since we want to test "Features", we should ideally mock Mongoose models or use mongodb-memory-server.
-// Given constraints, I will create basic unit tests that mock the Mongoose models' generic behavior
+// Mock Redis globally to avoid connection errors during tests
+jest.mock('ioredis', () => {
+    return jest.fn().mockImplementation(() => ({
+        on: jest.fn(),
+        defineCommand: jest.fn(),
+        get: jest.fn(),
+        set: jest.fn(),
+        del: jest.fn(),
+        incr: jest.fn(),
+        expire: jest.fn(),
+        quit: jest.fn(),
+    }));
+});
 
 export const mockMongooseModel = () => ({
     find: jest.fn().mockReturnThis(),

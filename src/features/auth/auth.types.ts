@@ -81,6 +81,8 @@ export interface JWTPayload {
     userId: string;
     email: string;
     role: string;
+    gid?: string; // Grant ID for OAuth tokens
+    ks?: string;  // Key Secret for Token-bound Vault
     iat?: number;
     exp?: number;
 }

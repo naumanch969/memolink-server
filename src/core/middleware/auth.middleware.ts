@@ -19,10 +19,12 @@ export class AuthMiddleware {
       }
 
       let authUserId: string;
+      let grantId: string | undefined;
+      let grantSecret: string | undefined;
 
       // Check if it's an API Key or a JWT Token
       const IS_API_KEY = token.startsWith('mclk_');
-      
+
       if (IS_API_KEY) {
         logger.info('Handling as Persistent API Key');
         // Handle persistent API Key
@@ -38,6 +40,8 @@ export class AuthMiddleware {
         // Handle traditional JWT
         const decoded = cryptoService.verifyToken(token);
         authUserId = decoded.userId;
+        grantId = decoded.gid;
+        grantSecret = decoded.ks;
       }
 
       // Fetch full profile from cache or database
@@ -52,6 +56,29 @@ export class AuthMiddleware {
         },
         15 * 60 // 15 minutes TTL
       );
+
+      // If it's an OAuth token with a grant secret, automatically unseal the vault
+      if (grantId && grantSecret) {
+        const mdkInSession = await encryptionSessionService.getMDK(authUserId);
+        if (!mdkInSession) {
+          const { OAuthGrant } = await import('../../features/oauth/oauth-grant.model');
+          const { vaultService } = await import('../../features/auth/vault.service');
+
+          const grant = await OAuthGrant.findById(grantId);
+          if (grant && !grant.revokedAt) {
+            try {
+              const mdk = await vaultService.unwrapMDKFromGrant(grant.wrappedMDK, grant.vaultSalt, grantSecret);
+              const isLockEnabled = (userProfile as any).securityConfig?.isEnabled ?? true;
+              await encryptionSessionService.storeMDK(authUserId, mdk, isLockEnabled);
+
+              // Update last used (async, don't block)
+              OAuthGrant.updateOne({ _id: grantId }, { lastUsedAt: new Date() }).catch(err => logger.error('Grant update error', err));
+            } catch (err) {
+              logger.warn('Failed to unseal vault using OAuth grant secret', { grantId });
+            }
+          }
+        }
+      }
 
       // Add user info to request object
       req.user = userProfile as any;
@@ -72,7 +99,7 @@ export class AuthMiddleware {
       } else {
         logger.error('Authentication system error:', error);
       }
-      
+
       ResponseHelper.unauthorized(res, 'Invalid or expired token/key');
     }
   };

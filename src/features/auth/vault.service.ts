@@ -164,6 +164,19 @@ export class VaultService implements IVaultService {
             throw ApiError.unauthorized('Invalid recovery phrase');
         }
     }
+
+    /**
+     * OAuth Grant Wrapping
+     */
+    async generateGrantSnapshot(mdk: Buffer, secret: string): Promise<{ salt: string; wrapped: string }> {
+        return this.generateWrapper(secret, mdk);
+    }
+
+    async unwrapMDKFromGrant(wrappedMDK: string, salt: string, secret: string): Promise<Buffer> {
+        const normalizedSecret = secret.trim().toLowerCase();
+        const kek = await encryptionService.deriveKEK(normalizedSecret, salt);
+        return encryptionService.unwrapKey(wrappedMDK, kek);
+    }
 }
 
 export const vaultService = new VaultService();

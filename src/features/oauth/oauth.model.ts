@@ -1,14 +1,5 @@
-import mongoose, { Document, Schema } from 'mongoose';
-
-export interface IOAuthClient extends Document {
-  clientId: string;
-  clientSecret: string;
-  name: string;
-  logo?: string;
-  description?: string;
-  redirectUris: string[];
-  grants: string[];
-}
+import mongoose, { Schema } from 'mongoose';
+import { IOAuthClient, IOAuthCode } from './oauth.interfaces';
 
 const oauthClientSchema = new Schema<IOAuthClient>({
   clientId: { type: String, required: true, unique: true },
@@ -20,15 +11,6 @@ const oauthClientSchema = new Schema<IOAuthClient>({
   grants: [{ type: String, enum: ['authorization_code', 'refresh_token'], default: ['authorization_code', 'refresh_token'] }],
 }, { timestamps: true });
 
-export interface IOAuthCode extends Document {
-  code: string;
-  clientId: string;
-  userId: string;
-  expiresAt: Date;
-  redirectUri: string;
-  scope: string[];
-}
-
 const oauthCodeSchema = new Schema<IOAuthCode>({
   code: { type: String, required: true, unique: true },
   clientId: { type: String, required: true },
@@ -36,6 +18,7 @@ const oauthCodeSchema = new Schema<IOAuthCode>({
   expiresAt: { type: Date, required: true },
   redirectUri: { type: String, required: true },
   scope: [{ type: String }],
+  grantSecret: { type: String },
 }, { timestamps: true });
 
 oauthCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

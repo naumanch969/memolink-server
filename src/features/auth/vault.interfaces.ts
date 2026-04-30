@@ -6,4 +6,6 @@ export interface IVaultService {
     unlockVault(userId: string, data: { securityAnswer?: string; password?: string }): Promise<void>;
     getVaultStatus(userId: string): Promise<{ isLocked: boolean; securityQuestion?: string }>;
     recoverWithPhrase(email: string, recoveryPhrase: string, newPassword: string): Promise<void>;
+    generateGrantSnapshot(mdk: Buffer, secret: string): Promise<{ salt: string; wrapped: string }>;
+    unwrapMDKFromGrant(wrappedMDK: string, salt: string, secret: string): Promise<Buffer>;
 }
