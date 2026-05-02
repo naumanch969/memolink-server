@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
 import { redisConnection } from '../../../config/redis';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { NodeType } from '../../graph/edge.model';
 import graphService from '../../graph/graph.service';
@@ -83,7 +83,7 @@ export class MemoryFlushWorkflow implements IAgentWorkflow {
         `;
 
         try {
-            const result = await LLMService.generateJSON(prompt, flushSchema, {
+            const result = await llmService.generateJSON(prompt, flushSchema, {
                 workflow: 'memory_flush',
                 userId,
                 signal

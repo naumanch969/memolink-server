@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import Entry from '../../entry/entry.model';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
@@ -63,7 +63,7 @@ export class PersonaWorkflow implements IAgentWorkflow {
             Format the output as JSON matching the schema provided.
         `;
 
-            const synthesis = await LLMService.generateJSON(prompt, PersonaSynthesisSchema, {
+            const synthesis = await llmService.generateJSON(prompt, PersonaSynthesisSchema, {
                 workflow: 'persona_synthesis',
                 userId,
                 signal

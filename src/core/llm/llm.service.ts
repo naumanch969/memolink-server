@@ -1,9 +1,9 @@
 import { ZodSchema } from 'zod';
 import { cacheService } from '../cache/cache.service';
-import { ILLMProvider, ILLMService, LLMGenerativeOptions } from './llm.types';
+import { ILLMProvider, IllmService, LLMGenerativeOptions } from './llm.types';
 import { GeminiProvider } from './providers/gemini.provider';
 
-class LLMServiceClass implements ILLMService {
+class LLMServiceClass implements IllmService {
     private provider: ILLMProvider;
 
     constructor() {
@@ -66,4 +66,4 @@ class LLMServiceClass implements ILLMService {
 }
 
 
-export const LLMService = new LLMServiceClass();
+export const llmService = new LLMServiceClass();

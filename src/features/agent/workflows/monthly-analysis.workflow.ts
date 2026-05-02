@@ -2,7 +2,7 @@ import { endOfMonth, startOfMonth } from 'date-fns';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
 import { MoodArc, ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
@@ -213,7 +213,7 @@ Return ONLY the JSON. No markdown blocks.
 
         if (emitProgress) await emitProgress('Synthesizing final analysis...');
 
-        return LLMService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
+        return llmService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
             temperature: 0.3,
             workflow: 'monthly_analysis',
             userId,

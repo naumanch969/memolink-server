@@ -1,5 +1,5 @@
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { entryService } from '../../entry/entry.service';
 import { graphService } from '../../graph/graph.service';
 import { agentMemoryService } from '../memory/agent.memory';
@@ -109,7 +109,7 @@ Target: Provide a deep, thoughtful, and human response. No boilerplate.
 `;
 
             // 5. Execute Streaming LLM
-            const stream = await LLMService.generateStream(message, {
+            const stream = await llmService.generateStream(message, {
                 userId,
                 workflow: 'partner_chat',
                 systemInstruction,

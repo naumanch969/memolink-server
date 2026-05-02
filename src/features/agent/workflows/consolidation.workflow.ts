@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { entityService } from '../../entity/entity.service';
 import { IAgentTaskDocument } from '../agent.model';
 import { AgentTaskType, AgentWorkflowResult, IAgentWorkflow, ProgressCallback, WorkflowStatus } from '../agent.types';
@@ -60,8 +60,8 @@ export class EntityConsolidationWorkflow implements IAgentWorkflow {
             5. **Distinction**: Keep critical historical facts but summarize fleeting contexts.
             `;
 
-            const synthesis = await LLMService.generateJSON(prompt, consolidationSchema, { 
-                workflow: 'entity_consolidation', 
+            const synthesis = await llmService.generateJSON(prompt, consolidationSchema, {
+                workflow: 'entity_consolidation',
                 userId,
                 signal
             });
@@ -137,7 +137,7 @@ export class CognitiveConsolidationWorkflow implements IAgentWorkflow {
             4. **Maintain Depth**: Keep the persona nuanced and multi-dimensional.
             `;
 
-            const update = await LLMService.generateJSON(prompt, cognitiveSchema, {
+            const update = await llmService.generateJSON(prompt, cognitiveSchema, {
                 workflow: 'cognitive_consolidation',
                 userId,
                 signal

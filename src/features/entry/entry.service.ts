@@ -1,7 +1,7 @@
 import mongoose, { Types } from 'mongoose';
 import { logger } from '../../config/logger';
 import { ApiError } from '../../core/errors/api.error';
-import { LLMService } from '../../core/llm/llm.service';
+import { llmService } from '../../core/llm/llm.service';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import { MongoUtil } from '../../shared/utils/mongo.utils';
@@ -229,7 +229,7 @@ export class EntryService implements IEntryService {
   // Internal helper for semantic lookup
   private async performVectorSearch(userId: string | Types.ObjectId, options: GetEntriesRequest): Promise<any> {
     const { limit, skip } = PaginationUtil.getPaginationParams(options);
-    const queryVector = await LLMService.generateEmbeddings(options.q!, { workflow: 'search', userId });
+    const queryVector = await llmService.generateEmbeddings(options.q!, { workflow: 'search', userId });
 
     const pipeline: any[] = [
       {

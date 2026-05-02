@@ -371,7 +371,7 @@ export class ReportService implements IReportService {
 
         if (!user?.email || user.preferences?.notifications === false) return;
 
-        const frontendUrl = config.FRONTEND_URL ?? 'https://app.brinn.ai';
+        const frontendUrl = config.FRONTEND_URL ?? 'https://app.brinn.app';
         const period = DateUtil.formatPeriod(report.startDate, report.endDate);
 
         if (report.type === ReportType.WEEKLY) {

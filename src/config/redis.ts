@@ -7,7 +7,10 @@ import { logger } from './logger';
 export const redisConnection = new IORedis(config.REDIS_URL, {
     maxRetriesPerRequest: null, // Required by BullMQ
     enableReadyCheck: false,
+    lazyConnect: true, // Don't connect until first command
     retryStrategy(times) {
+        // If we've failed more than 3 times and we're in a script, stop retrying so aggressively
+        if (times > 3 && process.env.IS_SCRIPT === 'true') return null;
         const delay = Math.min(times * 50, 2000);
         return delay;
     },

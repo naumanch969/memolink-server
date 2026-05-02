@@ -1,5 +1,5 @@
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { entryService } from '../../entry/entry.service';
 import { tagService } from '../../tag/tag.service';
 import { PassiveSession } from '../../web-activity/passive-session.model';
@@ -80,7 +80,7 @@ export class WebActivityWorkflow implements IAgentWorkflow {
             - Use the first person "You".
           `;
 
-            const summary = await LLMService.generateText(prompt, {
+            const summary = await llmService.generateText(prompt, {
                 workflow: 'web_activity_summary',
                 userId,
                 signal

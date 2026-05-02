@@ -1,11 +1,11 @@
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { ENRICHMENT_TAXONOMY, SYSTEM_PERSONAS } from '../enrichment.constants';
 import { CognitiveLoad, EnergyLevel, EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
 export class PassiveInterpreter implements IEnrichmentInterpreter<string, IEnrichmentResult> {
-    async process(logs: string): Promise<IEnrichmentResult> {
-        const prompt = `${SYSTEM_PERSONAS.passive}
+  async process(logs: string): Promise<IEnrichmentResult> {
+    const prompt = `${SYSTEM_PERSONAS.passive}
 
 Behavioral Logs:
 "${logs}"
@@ -50,14 +50,14 @@ Respond with ONLY a JSON object in this structure:
   }
 }`;
 
-        try {
-            const result = await LLMService.generateJSON(prompt, EnrichmentResultSchema);
-            return result;
-        } catch (error) {
-            logger.error('Passive Interpreter failed', error);
-            throw error;
-        }
+    try {
+      const result = await llmService.generateJSON(prompt, EnrichmentResultSchema);
+      return result;
+    } catch (error) {
+      logger.error('Passive Interpreter failed', error);
+      throw error;
     }
+  }
 }
 
 export const passiveInterpreter: IEnrichmentInterpreter<string, IEnrichmentResult> = new PassiveInterpreter();

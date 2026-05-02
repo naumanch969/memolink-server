@@ -17,14 +17,10 @@ export const AGENT_CONSTANTS = {
     // Semantic Context
     ENTITY_NOTES_SLICE: 1500,  // Max chars for entity notes in prompt
 
-
-    DEFAULT_TEXT_MODEL: 'gemini-2.5-flash',
+    DEFAULT_TEXT_MODEL: 'models/gemini-3.1-flash-lite-preview',
     TEXT_MODEL_FALLBACKS: [
-        'gemini-2.5-flash',
-        'gemini-2.5-pro',
-        'gemini-2.0-flash',
-        'gemini-flash-latest',
-        'gemini-pro-latest'
+        'models/gemini-3.1-flash-lite-preview',
+        'models/gemini-2.5-flash',
     ],
     DEFAULT_EMBEDDING_MODEL: 'gemini-embedding-001',
 };

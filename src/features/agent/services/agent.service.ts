@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { socketService } from '../../../core/socket/socket.service';
 import { SocketEvents } from '../../../core/socket/socket.types';
 import DateUtil from '../../../shared/utils/date.utils';
@@ -37,7 +37,7 @@ export class AgentService implements IAgentService {
 
         try {
             const queue = getAgentQueue();
-            await queue.add(type, { taskId: task._id.toString() }, { 
+            await queue.add(type, { taskId: task._id.toString() }, {
                 jobId: task._id.toString(),
                 priority: task.priority
             });
@@ -147,7 +147,7 @@ export class AgentService implements IAgentService {
     async goalArchitect(userId: string, message: string, history: Array<{ role: MessageRole, content: string }>): Promise<string> {
         const historyText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
         const prompt = `You are a Goal Architect AI. Help the user operationalize ambitions into Goals.\nHistory: ${historyText}\nUSER: ${message}`;
-        return await LLMService.generateText(prompt, { workflow: 'goal_architect', userId });
+        return await llmService.generateText(prompt, { workflow: 'goal_architect', userId });
     }
 
     async clearHistory(userId: string): Promise<void> {
@@ -198,7 +198,7 @@ export class AgentService implements IAgentService {
             const entries = entriesData.entries || [];
             const prompt = `You are a Chief of Staff AI. provide a structured daily briefing.\nDATA: \nLogs: ${entries.length}\nReminders: ${upcoming.length}\nGoals: ${goals.length}\nWeb Activity: ${webActivity?.totalSeconds || 0}s`;
 
-            const briefingText = await LLMService.generateText(prompt, { workflow: 'daily_briefing', userId });
+            const briefingText = await llmService.generateText(prompt, { workflow: 'daily_briefing', userId });
 
             await AgentTask.create({
                 userId, type: AgentTaskType.DAILY_BRIEFING, status: AgentTaskStatus.COMPLETED,

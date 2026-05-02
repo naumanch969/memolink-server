@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import logger from '../../config/logger';
-import { LLMService } from '../../core/llm/llm.service';
+import { llmService } from '../../core/llm/llm.service';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
 import DateUtil from '../../shared/utils/date.utils';
@@ -61,8 +61,8 @@ export class EnrichmentService implements IEnrichmentService {
 
             // BullMQ .remove() takes jobId
             await Promise.all([
-                enrichmentQueue.remove(`enrich-${entryId}`).catch(() => {}),
-                healingQueue.remove(`enrich-${entryId}`).catch(() => {}),
+                enrichmentQueue.remove(`enrich-${entryId}`).catch(() => { }),
+                healingQueue.remove(`enrich-${entryId}`).catch(() => { }),
             ]);
 
             logger.info(`Enrichment Service: Cleaned up enqueued jobs for entry ${entryId}`);
@@ -136,7 +136,7 @@ export class EnrichmentService implements IEnrichmentService {
             let enrichedResult = await EnrichedEntry.findOne({ referenceId: new Types.ObjectId(entryId), processingStatus: ProcessingStatus.COMPLETED, }).lean();
             if (enrichedResult) {
                 logger.info(`Enrichment Service: Data already exists for ${entryId}, synchronizing state...`);
-                
+
                 await Entry.findByIdAndUpdate(entryId, { status: EntryStatus.COMPLETED });
                 const completedEntry = await Entry.findOne({ _id: entryId, userId })
                     .populate(['tags', 'media', 'collectionId'])
@@ -202,7 +202,7 @@ export class EnrichmentService implements IEnrichmentService {
                                 sentimentScore: 0,
                                 energyLevel: EnergyLevel.MEDIUM,
                                 cognitiveLoad: CognitiveLoad.FOCUSED,
-                             },
+                            },
                             narrative: {
                                 signal: 'Noise entry (no enrichment)',
                                 coreThought: 'Noise',
@@ -249,7 +249,7 @@ export class EnrichmentService implements IEnrichmentService {
 
             const [result, embedding] = await Promise.all([
                 interpreterPromise,
-                LLMService.generateEmbeddings(entry.content),
+                llmService.generateEmbeddings(entry.content),
             ]);
 
             logger.info(`Enrichment Process [${entryId}]: Interpreter & Embeddings complete`);
@@ -399,7 +399,7 @@ export class EnrichmentService implements IEnrichmentService {
             // FIX: run interpreter + embeddings in parallel
             const [result, embedding] = await Promise.all([
                 passiveInterpreter.process(behavioralLog),
-                LLMService.generateEmbeddings(behavioralLog),
+                llmService.generateEmbeddings(behavioralLog),
             ]);
 
             const score = session.signalTier === SignalTier.DEEP_SIGNAL ? 85 : session.signalTier === SignalTier.SIGNAL ? 65 : 40;
@@ -459,7 +459,7 @@ export class EnrichmentService implements IEnrichmentService {
                 for (const entry of stuckEntries) {
                     const jobId = `enrich-${entry._id}`;
                     const existingJob = await (getEnrichmentQueue().getJob(jobId)) || await (getEnrichmentHealingQueue().getJob(jobId));
-                    
+
                     if (existingJob) {
                         const state = await existingJob.getState();
                         if (state === 'active' || state === 'waiting' || state === 'delayed') {
@@ -553,7 +553,7 @@ export class EnrichmentService implements IEnrichmentService {
     async cleanText(userId: string, text: string): Promise<string> {
         try {
             const prompt = `Clean raw/fragmented text into polished format while preserving meaning, tone, tags, and mentions. Dont add any extra text/information. \nInput: "${text}"\nCleaned Text:`;
-            return (await LLMService.generateText(prompt, { workflow: 'text_cleaning', userId, temperature: 0.3 })).trim();
+            return (await llmService.generateText(prompt, { workflow: 'text_cleaning', userId, temperature: 0.3 })).trim();
         } catch (error) {
             logger.error('Text cleaning failed', error);
             return text;

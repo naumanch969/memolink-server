@@ -94,6 +94,9 @@ export const config = {
 
   // AI Configuration
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_API_KEY_2: process.env.GEMINI_API_KEY_2 || '',
+  GEMINI_API_KEY_3: process.env.GEMINI_API_KEY_3 || '',
+  PAID_GEMINI_API_KEY: process.env.PAID_GEMINI_API_KEY || '',
 
   // Auth Configuration
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',

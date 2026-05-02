@@ -14,7 +14,7 @@ export interface LLMGenerativeOptions {
     workflow?: string;
 }
 
-export interface ILLMService {
+export interface IllmService {
     generateText(prompt: string, options?: LLMGenerativeOptions): Promise<string>
     generateJSON<T>(prompt: string, schema: ZodSchema<T>, options?: LLMGenerativeOptions): Promise<T>
     generateWithTools(prompt: string, options?: LLMGenerativeOptions): Promise<any>

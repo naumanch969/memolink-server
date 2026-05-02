@@ -1,4 +1,4 @@
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { passiveInterpreter } from './passive.interpreter';
 
 jest.mock('../../../core/llm/llm.service');
@@ -28,13 +28,13 @@ describe('PassiveInterpreter', () => {
             }
         };
 
-        (LLMService.generateJSON as unknown as jest.Mock).mockResolvedValue(mockLLMResult);
+        (llmService.generateJSON as unknown as jest.Mock).mockResolvedValue(mockLLMResult);
 
         const result = await passiveInterpreter.process('Duration: 60m. Activity: github.com: 40m');
 
         expect(result.narrative.signal).toBe('Behavioral summary of session.');
         expect(result.metadata.themes).toContain('work');
         expect(result.extraction.flags).toContain('passive_inference');
-        expect(LLMService.generateJSON).toHaveBeenCalled();
+        expect(llmService.generateJSON).toHaveBeenCalled();
     });
 });

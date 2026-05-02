@@ -1,5 +1,5 @@
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { ENRICHMENT_TAXONOMY, SYSTEM_PERSONAS } from '../enrichment.constants';
 import { CognitiveLoad, EnergyLevel, EntityType, EnrichmentResultSchema, IEnrichmentInterpreter, IEnrichmentResult } from '../enrichment.types';
 
@@ -36,7 +36,7 @@ Respond with ONLY a JSON object in this structure:
     "contradictions": [],
     "openLoops": [],
     "selfPerception": "",
-    "desires": [],
+    "desires": [], 
     "fears": []
   },
   "extraction": {
@@ -46,7 +46,7 @@ Respond with ONLY a JSON object in this structure:
 }`;
 
     try {
-      const result = await LLMService.generateJSON(prompt, EnrichmentResultSchema);
+      const result = await llmService.generateJSON(prompt, EnrichmentResultSchema);
       return result;
     } catch (error) {
       logger.error('Active Interpreter failed', error);

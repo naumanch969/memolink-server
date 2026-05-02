@@ -2,7 +2,7 @@ import { endOfWeek, startOfWeek } from 'date-fns';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { logger } from '../../../config/logger';
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { reportContextBuilder } from '../../report/report.context-builder';
 import { EnergyArc, PatternConfidence, ReportType } from '../../report/report.types';
 import { IAgentTaskDocument } from '../agent.model';
@@ -93,8 +93,8 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
     }
 
     private async runWeeklyAnalysis(
-        userId: string | Types.ObjectId, 
-        customStart?: string | Date, 
+        userId: string | Types.ObjectId,
+        customStart?: string | Date,
         customEnd?: string | Date,
         signal?: AbortSignal,
         emitProgress?: ProgressCallback
@@ -188,7 +188,7 @@ Return ONLY the JSON. No markdown blocks.
 `;
 
         if (emitProgress) await emitProgress('Analyzing entries and synthesizing report...');
-        return LLMService.generateJSON(prompt, WeeklyAnalysisOutputSchema, {
+        return llmService.generateJSON(prompt, WeeklyAnalysisOutputSchema, {
             temperature: 0.25,
             workflow: 'weekly_analysis',
             userId,

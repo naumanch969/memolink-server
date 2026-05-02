@@ -1,10 +1,10 @@
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 
 export class NoiseInterpreter {
 
     // Minimal path: just generate embeddings for global searchability.
     async process(content: string): Promise<{ embedding: number[] }> {
-        const embedding = await LLMService.generateEmbeddings(content);
+        const embedding = await llmService.generateEmbeddings(content);
         return { embedding };
     }
 }

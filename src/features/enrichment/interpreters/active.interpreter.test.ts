@@ -1,4 +1,4 @@
-import { LLMService } from '../../../core/llm/llm.service';
+import { llmService } from '../../../core/llm/llm.service';
 import { activeInterpreter } from './active.interpreter';
 
 jest.mock('../../../core/llm/llm.service');
@@ -29,12 +29,12 @@ describe('ActiveInterpreter', () => {
             }
         };
 
-        (LLMService.generateJSON as unknown as jest.Mock).mockResolvedValue(mockLLMResult);
+        (llmService.generateJSON as unknown as jest.Mock).mockResolvedValue(mockLLMResult);
 
         const result = await activeInterpreter.process('My raw thought');
 
         expect(result.narrative.signal).toBe('Psychological interpretation');
         expect(result.metadata.themes).toContain('identity');
-        expect(LLMService.generateJSON).toHaveBeenCalled();
+        expect(llmService.generateJSON).toHaveBeenCalled();
     });
 });

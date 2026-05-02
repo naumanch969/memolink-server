@@ -79,7 +79,6 @@ export class VaultService implements IVaultService {
     async unlockVault(userId: string, data: { securityAnswer?: string; password?: string }): Promise<void> {
         const { securityAnswer, password } = data;
 
-        console.log('data', data)
         const isPasswordUnlock = !!password;
 
         // Universal normalization: Baseline match
