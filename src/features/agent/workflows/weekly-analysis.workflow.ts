@@ -79,8 +79,6 @@ export class WeeklyAnalysisWorkflow implements IAgentWorkflow {
         try {
             await emitProgress('Gathering data for weekly analysis...');
             const result = await this.runWeeklyAnalysis(userId, inputData?.startDate, inputData?.endDate, signal, emitProgress);
-            console.log('result', result);
-
             return { status: WorkflowStatus.COMPLETED, result };
         } catch (error: any) {
             if (error.message.includes('aborted')) {

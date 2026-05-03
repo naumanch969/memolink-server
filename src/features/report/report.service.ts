@@ -44,10 +44,9 @@ export class ReportService implements IReportService {
         socketService.emitToUser(userId, SocketEvents.REPORT_UPDATED, report);
 
         // Fire email non-blocking
-        // TODO: uncomment it when required
-        // this.sendNotification(report).catch(err =>
-        //     logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
-        // );
+        this.sendNotification(report).catch(err =>
+            logger.error(`[ReportService] Email delivery failed for user ${userId}`, err)
+        );
 
         return report;
     }
@@ -186,6 +185,15 @@ export class ReportService implements IReportService {
             const type = parts[2] as ReportType;
             const timestamp = parseInt(parts[3], 10);
             const startDate = new Date(timestamp);
+
+            // Validate the timestamp is within [user.createdAt, now] to prevent phantom reports
+            const user = await User.findById(userId).select('createdAt').lean();
+            if (!user) throw ApiError.notFound('User not found');
+
+            const now = new Date();
+            if (startDate < user.createdAt || startDate > now) {
+                throw ApiError.notFound('Report not found');
+            }
 
             return {
                 _id: reportId,
@@ -382,9 +390,10 @@ export class ReportService implements IReportService {
     }
 
     async getLatestReportBefore(userId: string | Types.ObjectId, type: ReportType, date: Date): Promise<IReport | null> {
-        return await Report.findOne({ userId, type, startDate: { $lt: date } })
+        // L4: select all fields needed by MonthlyAnalysisWorkflow for comparedToLastMonth context
+        return await Report.findOne({ userId, type, startDate: { $lt: date }, status: ReportStatus.PUBLISHED })
             .sort({ startDate: -1 })
-            .select('content startDate endDate')
+            .select('content startDate endDate status')
             .lean();
     }
 
@@ -394,8 +403,8 @@ export class ReportService implements IReportService {
      */
     async triggerStaggeredReports(taskType: AgentTaskType): Promise<void> {
         try {
-            const batchSize = 20;
-            const delayBetweenBatchesMs = 5000; // 5 seconds
+            const batchSize = REPORT_CONSTANTS.CRON_BATCH_SIZE;
+            const delayBetweenBatchesMs = REPORT_CONSTANTS.CRON_BATCH_DELAY_MS;
 
             let lastId = null;
             let processedCount = 0;

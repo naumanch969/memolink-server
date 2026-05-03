@@ -122,8 +122,9 @@ export class MonthlyAnalysisWorkflow implements IAgentWorkflow {
             ? `USER PERSONA (identity document — who this person fundamentally is):\n${ctx.personaMarkdown.substring(0, 2000)}`
             : '';
 
+        // defensive read — support both current schema (overallScore/executiveSummary) and any legacy field names
         const previousContext = ctx.previousReport
-            ? `PREVIOUS MONTH REPORT (for comparison):\nScore: ${ctx.previousReport.content?.overallScore ?? ctx.previousReport.content?.score ?? 'N/A'}/100\nSummary: ${ctx.previousReport.content?.executiveSummary ?? ctx.previousReport.content?.monthOverview ?? 'No summary'}`
+            ? `PREVIOUS MONTH REPORT (for comparison):\nScore: ${ctx.previousReport.content?.overallScore ?? (ctx.previousReport.content as any)?.score ?? 'N/A'}/100\nSummary: ${ctx.previousReport.content?.executiveSummary ?? (ctx.previousReport.content as any)?.monthOverview ?? 'No summary'}`
             : '';
 
         const entityContext = ctx.topEntities.length > 0
@@ -211,6 +212,7 @@ Return ONLY valid JSON matching this structure EXACTLY:
 Return ONLY the JSON. No markdown blocks.
 `;
 
+        if (emitProgress) await emitProgress('Structuring context for language model...', { tokens: ctx.totalWords });
         if (emitProgress) await emitProgress('Synthesizing final analysis...');
 
         return llmService.generateJSON(prompt, MonthlyAnalysisOutputSchema, {
