@@ -148,19 +148,28 @@ export class OAuthController {
 
   // RFC 9470: Discovery for Protected Resource (MCP)
   static async getProtectedResourceMetadata(req: Request, res: Response) {
-    const authServerUrl = config.BACKEND_URL; // Issuer is at the root
-    const mcpUrl = `${config.BACKEND_URL}/api/mcp`;
+    // Force HTTPS for production
+    const protocol = req.secure || config.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = req.get('host') || 'api.brinn.app';
+    const baseUrl = `${protocol}://${host}`;
+    
+    // The MCP server is actually at the worker URL, but we can provide our own if we proxy
+    const mcpUrl = `${baseUrl}/api/mcp`;
 
     res.json({
       mcp_endpoint: mcpUrl,
-      authorization_servers: [authServerUrl]
+      authorization_servers: [baseUrl]
     });
   }
 
   // RFC 8414: OAuth 2.0 Authorization Server Metadata
   static async getAuthorizationServerMetadata(req: Request, res: Response) {
-    const issuer = config.BACKEND_URL;
-    const authBase = `${config.BACKEND_URL}/api/oauth`;
+    const protocol = req.secure || config.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = req.get('host') || 'api.brinn.app';
+    const baseUrl = `${protocol}://${host}`;
+    
+    const issuer = baseUrl;
+    const authBase = `${baseUrl}/api/oauth`;
 
     res.json({
       issuer: issuer,
