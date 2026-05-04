@@ -128,7 +128,7 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async googleLogin(token: string): Promise<AuthResponse> {
+  async googleLogin(token: string, timezone?: string): Promise<AuthResponse> {
     try {
       let payload: any;
 
@@ -177,6 +177,8 @@ export class AuthService implements IAuthService {
           googleId,
           avatar: picture,
           isEmailVerified: true,
+          timezone: timezone || 'UTC',
+          timezoneUpdatedAt: timezone ? new Date() : undefined,
         });
         await user.save();
 

@@ -57,6 +57,8 @@ export interface IUser extends BaseEntity {
         unlockAttempts?: number;
         unlockLockedUntil?: Date;
     };
+    timezone: string;
+    timezoneUpdatedAt?: Date;
 }
 
 export interface IUserModel extends Model<IUser> {
@@ -103,6 +105,7 @@ export interface RegisterResponse {
 
 export interface GoogleLoginRequest {
     idToken: string;
+    timezone?: string;
 }
 
 export interface LoginRequest {

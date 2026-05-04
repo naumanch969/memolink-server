@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../../config/logger';
 import { IEntry } from '../entry/entry.types';
 import { entryService } from '../entry/entry.service';
@@ -77,7 +78,7 @@ export class ReceptionService {
     "Safe with me.",
   ];
 
-  async generateResponse(userId: string | Types.ObjectId, entry: IEntry): Promise<string> {
+  async generateResponse(userId: string | Types.ObjectId, entry: IEntry, userContext?: { timezone: string; timezoneUpdatedAt?: Date }): Promise<string> {
     try {
       // 1. CONTEXTUAL: Entry Type / Media Type
       const metadata = entry.metadata || {};
@@ -91,7 +92,7 @@ export class ReceptionService {
       }
 
       // 2. CONTEXTUAL: Time of Day
-      const greeting = this.getTimeBasedGreeting();
+      const greeting = this.getTimeBasedGreeting(userContext?.timezone, userContext?.timezoneUpdatedAt);
       if (greeting) return greeting;
 
       // 3. STREAK / COUNT
@@ -122,13 +123,28 @@ export class ReceptionService {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  private getTimeBasedGreeting(): string | null {
-    const hour = new Date().getHours();
-    
-    if (hour >= 5 && hour < 12) return this.getRandom(this.greetingPools.morning);
-    if (hour >= 12 && hour < 17) return this.getRandom(this.greetingPools.afternoon);
-    if (hour >= 17 && hour < 22) return this.getRandom(this.greetingPools.evening);
-    if (hour >= 22 || hour < 5) return this.getRandom(this.greetingPools.night);
+  private getTimeBasedGreeting(timezone: string = 'UTC', timezoneUpdatedAt?: Date): string | null {
+    // Safety Valve: If timezone is stale (e.g. > 48h), return null to avoid wrong greetings
+    // This happens if a traveler hasn't opened the app to "pulse" their new timezone.
+    if (timezoneUpdatedAt) {
+      const isStale = (Date.now() - new Date(timezoneUpdatedAt).getTime()) > 48 * 60 * 60 * 1000;
+      if (isStale) {
+        logger.debug('Timezone stale, skipping time-based greeting', { timezone });
+        return null; 
+      }
+    }
+
+    try {
+      const zonedDate = toZonedTime(new Date(), timezone);
+      const hour = zonedDate.getHours();
+
+      if (hour >= 5 && hour < 12) return this.getRandom(this.greetingPools.morning);
+      if (hour >= 12 && hour < 17) return this.getRandom(this.greetingPools.afternoon);
+      if (hour >= 17 && hour < 22) return this.getRandom(this.greetingPools.evening);
+      if (hour >= 22 || hour < 5) return this.getRandom(this.greetingPools.night);
+    } catch (error) {
+      logger.error('Error calculating localized hour for reception:', error);
+    }
     
     return null;
   }

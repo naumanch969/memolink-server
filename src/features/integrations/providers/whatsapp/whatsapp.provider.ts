@@ -17,6 +17,7 @@ import { MediaJobType } from '../../../media/media.types';
 import { addMediaJob } from '../../../media/media.queue';
 import { MediaSource } from '../../../media/media.enums';
 import { mediaService } from '../../../media/media.service';
+import { IUser } from '../../../auth/auth.types';
 
 // TODO: check if we need to remvoe the audio handling by agent module
 export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider {
@@ -126,15 +127,15 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
 
         try {
             if (message.type === 'text' && message.text) {
-                await this.handleTextMessage(user._id.toString(), from, message.text.body, recipientPhoneNumberId);
+                await this.handleTextMessage(user, from, message.text.body, recipientPhoneNumberId);
             } else if (message.type === 'audio' && message.audio) {
-                await this.handleAudioMessage(user._id.toString(), from, message.audio.id, message.audio.mime_type, recipientPhoneNumberId);
+                await this.handleAudioMessage(user, from, message.audio.id, message.audio.mime_type, recipientPhoneNumberId);
             } else if (message.type === 'image' && message.image) {
-                await this.handleImageMessage(user._id.toString(), from, message.image.id, message.image.mime_type, message.image.caption, recipientPhoneNumberId);
+                await this.handleImageMessage(user, from, message.image.id, message.image.mime_type, message.image.caption, recipientPhoneNumberId);
             } else if (message.type === 'document' && message.document) {
-                await this.handleDocumentMessage(user._id.toString(), from, message.document.id, message.document.mime_type, message.document.caption, message.document.filename, recipientPhoneNumberId);
+                await this.handleDocumentMessage(user, from, message.document.id, message.document.mime_type, message.document.caption, message.document.filename, recipientPhoneNumberId);
             } else if (message.type === 'video' && message.video) {
-                await this.handleVideoMessage(user._id.toString(), from, message.video.id, message.video.mime_type, message.video.caption, recipientPhoneNumberId);
+                await this.handleVideoMessage(user, from, message.video.id, message.video.mime_type, message.video.caption, recipientPhoneNumberId);
             } else {
                 logger.debug('Unsupported WhatsApp message type', { type: message.type, from });
             }
@@ -144,9 +145,9 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         }
     }
 
-    private async handleTextMessage(userId: string, from: string, text: string, recipientPhoneNumberId?: string) {
+    private async handleTextMessage(user: IUser, from: string, text: string, recipientPhoneNumberId?: string) {
         // 1. Create Entry
-        const entry = await captureService.captureWhatsApp(userId, {
+        const entry = await captureService.captureWhatsApp(user._id.toString(), {
             from,
             body: text,
             isVoice: false,
@@ -154,23 +155,26 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         });
 
         // 2. Respond via Receptionist (Dynamic acknowledgment)
-        const response = await receptionService.generateResponse(userId, entry);
+        const response = await receptionService.generateResponse(user._id.toString(), entry, {
+            timezone: user.timezone,
+            timezoneUpdatedAt: user.timezoneUpdatedAt
+        });
         if (response) {
             await this.sendMessage(from, response, recipientPhoneNumberId);
         }
     }
 
-    private async handleAudioMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
+    private async handleAudioMessage(user: IUser, from: string, whatsappMediaId: string, mimeType: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
         await this.sendMessage(from, "Voice note received. Let me process that for you... ⏳", recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `voice_note_${Date.now()}.ogg`);
+            const media = await mediaService.uploadMediaFromBuffer(user._id.toString(), buffer, mimeType, `voice_note_${Date.now()}.ogg`);
 
             // 3. Create Entry
-            const entry = await captureService.captureWhatsApp(userId, {
+            const entry = await captureService.captureWhatsApp(user._id.toString(), {
                 from,
                 body: '',
                 isVoice: true,
@@ -179,12 +183,15 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
 
             // 4. Final acknowledgment
-            const response = await receptionService.generateResponse(userId, entry);
+            const response = await receptionService.generateResponse(user._id.toString(), entry, {
+                timezone: user.timezone,
+                timezoneUpdatedAt: user.timezoneUpdatedAt
+            });
             await this.sendMessage(from, response, recipientPhoneNumberId);
 
             // 5. Enqueue job for transcription
             await addMediaJob({
-                userId,
+                userId: user._id.toString(),
                 mediaId: media._id.toString(),
                 entryId: entry._id.toString(),
                 jobType: MediaJobType.PROCESS_AUDIO,
@@ -192,22 +199,22 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 whatsappData: { from, mediaId: whatsappMediaId, mimeType }
             });
         } catch (error) {
-            logger.error('WhatsApp audio handling failed', { userId, error });
+            logger.error('WhatsApp audio handling failed', { userId: user?._id, error });
             await this.sendMessage(from, "I encountered an issue saving your voice note. Please try again.", recipientPhoneNumberId);
         }
     }
 
-    private async handleImageMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
+    private async handleImageMessage(user: IUser, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
         await this.sendMessage(from, "Image received! Analyzing it now... ⏳", recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `image_${Date.now()}.jpg`);
+            const media = await mediaService.uploadMediaFromBuffer(user._id.toString(), buffer, mimeType, `image_${Date.now()}.jpg`);
 
             // 3. Create Entry
-            const entry = await captureService.captureWhatsApp(userId, {
+            const entry = await captureService.captureWhatsApp(user._id.toString(), {
                 from,
                 body: caption || '',
                 isImage: true,
@@ -216,12 +223,15 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
 
             // 4. Final acknowledgment
-            const response = await receptionService.generateResponse(userId, entry);
+            const response = await receptionService.generateResponse(user._id.toString(), entry, {
+                timezone: user.timezone,
+                timezoneUpdatedAt: user.timezoneUpdatedAt
+            });
             await this.sendMessage(from, response, recipientPhoneNumberId);
 
             // 5. Enqueue job for analysis
             await addMediaJob({
-                userId,
+                userId: user._id.toString(),
                 mediaId: media._id.toString(),
                 entryId: entry._id.toString(),
                 jobType: MediaJobType.PROCESS_IMAGE,
@@ -229,22 +239,22 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 whatsappData: { from, mediaId: whatsappMediaId, mimeType }
             });
         } catch (error) {
-            logger.error('WhatsApp image handling failed', { userId, error });
+            logger.error('WhatsApp image handling failed', { userId: user._id, error });
             await this.sendMessage(from, "I couldn't save your image. Please try again.", recipientPhoneNumberId);
         }
     }
 
-    private async handleDocumentMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, filename?: string, recipientPhoneNumberId?: string) {
+    private async handleDocumentMessage(user: IUser, from: string, whatsappMediaId: string, mimeType: string, caption?: string, filename?: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
         await this.sendMessage(from, `Document received${filename ? ': ' + filename : ''}. Saving it... ⏳`, recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, filename || `document_${Date.now()}`);
+            const media = await mediaService.uploadMediaFromBuffer(user._id.toString(), buffer, mimeType, filename || `document_${Date.now()}`);
 
             // 3. Create Entry
-            const entry = await captureService.captureWhatsApp(userId, {
+            const entry = await captureService.captureWhatsApp(user._id.toString(), {
                 from,
                 body: caption || '',
                 isDocument: true,
@@ -253,12 +263,15 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
 
             // 4. Final acknowledgment
-            const response = await receptionService.generateResponse(userId, entry);
+            const response = await receptionService.generateResponse(user._id.toString(), entry, {
+                timezone: user.timezone,
+                timezoneUpdatedAt: user.timezoneUpdatedAt
+            });
             await this.sendMessage(from, response, recipientPhoneNumberId);
 
             // 5. Enqueue job for analysis
             await addMediaJob({
-                userId,
+                userId: user._id.toString(),
                 mediaId: media._id.toString(),
                 entryId: entry._id.toString(),
                 jobType: MediaJobType.PROCESS_DOCUMENT,
@@ -266,22 +279,22 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 whatsappData: { from, mediaId: whatsappMediaId, mimeType, filename }
             });
         } catch (error) {
-            logger.error('WhatsApp document handling failed', { userId, error });
+            logger.error('WhatsApp document handling failed', { userId: user._id, error });
             await this.sendMessage(from, "I had trouble saving your document. Please try again.", recipientPhoneNumberId);
         }
     }
 
-    private async handleVideoMessage(userId: string, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
+    private async handleVideoMessage(user: IUser, from: string, whatsappMediaId: string, mimeType: string, caption?: string, recipientPhoneNumberId?: string) {
         // 1. Initial acknowledgment
         await this.sendMessage(from, "Video received! Storing and analyzing... ⏳", recipientPhoneNumberId);
 
         try {
             // 2. Download and Upload
             const buffer = await mediaService.downloadWhatsAppMedia(whatsappMediaId);
-            const media = await mediaService.uploadMediaFromBuffer(userId, buffer, mimeType, `video_${Date.now()}.mp4`);
+            const media = await mediaService.uploadMediaFromBuffer(user._id.toString(), buffer, mimeType, `video_${Date.now()}.mp4`);
 
             // 3. Create Entry
-            const entry = await captureService.captureWhatsApp(userId, {
+            const entry = await captureService.captureWhatsApp(user._id.toString(), {
                 from,
                 body: caption || '',
                 isVideo: true,
@@ -290,12 +303,15 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             });
 
             // 4. Final acknowledgment
-            const response = await receptionService.generateResponse(userId, entry);
+            const response = await receptionService.generateResponse(user._id.toString(), entry, {
+                timezone: user.timezone,
+                timezoneUpdatedAt: user.timezoneUpdatedAt
+            });
             await this.sendMessage(from, response, recipientPhoneNumberId);
 
             // 5. Enqueue job for analysis
             await addMediaJob({
-                userId,
+                userId: user._id.toString(),
                 mediaId: media._id.toString(),
                 entryId: entry._id.toString(),
                 jobType: MediaJobType.PROCESS_VIDEO,
@@ -303,7 +319,7 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
                 whatsappData: { from, mediaId: whatsappMediaId, mimeType }
             });
         } catch (error) {
-            logger.error('WhatsApp video handling failed', { userId, error });
+            logger.error('WhatsApp video handling failed', { userId: user._id, error });
             await this.sendMessage(from, "I couldn't save your video. Please try again.", recipientPhoneNumberId);
         }
     }

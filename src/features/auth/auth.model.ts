@@ -63,6 +63,8 @@ const userSchema = new Schema<IUser>({
     unlockAttempts: { type: Number, default: 0 },
     unlockLockedUntil: { type: Date },
   },
+  timezone: { type: String, default: 'UTC' },
+  timezoneUpdatedAt: { type: Date },
 }, {
   timestamps: true,
   toJSON: {

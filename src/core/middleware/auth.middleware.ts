@@ -8,6 +8,7 @@ import { cryptoService } from '../crypto/crypto.service';
 import encryptionSessionService from '../encryption/encryption-session.service';
 import { ApiError } from '../errors/api.error';
 import { ResponseHelper } from '../utils/response.utils';
+import { IUser } from '../../features/auth/auth.types';
 
 export class AuthMiddleware {
   static authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -91,6 +92,9 @@ export class AuthMiddleware {
         await encryptionSessionService.refreshMDK(authUserId, isLockEnabled);
       }
 
+      // Sync timezone from headers (background pulse)
+      this.syncTimezone(req, userProfile as any).catch(err => logger.error('Timezone sync error', err));
+
       next();
     } catch (error: any) {
       // Don't flood logs with 'expired' or 'invalid' token errors as these are normal events
@@ -143,6 +147,42 @@ export class AuthMiddleware {
       }
     }
   };
+
+  /**
+   * Passive background sync for user timezone.
+   * Updates DB and cache if timezone header is different or stale (>24h).
+   */
+  private static async syncTimezone(req: AuthenticatedRequest, user: IUser): Promise<void> {
+    const headerTimezone = req.headers['x-timezone'] as string;
+    if (!headerTimezone || !user) return;
+
+    // Normalize and validate
+    const currentTz = user.timezone || 'UTC';
+    const lastUpdate = user.timezoneUpdatedAt ? new Date(user.timezoneUpdatedAt).getTime() : 0;
+    const now = Date.now();
+
+    const isDifferent = currentTz !== headerTimezone;
+    const isStale = (now - lastUpdate) > 24 * 60 * 60 * 1000; // 24 hours heartbeat
+
+    if (isDifferent || isStale) {
+      // Background update
+      User.updateOne(
+        { _id: user._id },
+        { 
+          $set: { 
+            timezone: headerTimezone, 
+            timezoneUpdatedAt: new Date() 
+          } 
+        }
+      ).then(async () => {
+        // Invalidate cache
+        await cacheService.del(CacheKeys.userProfile(user._id.toString()));
+        logger.debug('Timezone synced successfully', { userId: user._id, timezone: headerTimezone });
+      }).catch(err => {
+        logger.error('Failed to update user timezone pulse', { userId: user._id, error: err.message });
+      });
+    }
+  }
 }
 
 
