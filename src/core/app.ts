@@ -1,81 +1,25 @@
-import * as Sentry from '@sentry/node';
+import path from 'path';
 import compression from 'compression';
-import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import * as Sentry from '@sentry/node';
+
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 import { ErrorMiddleware } from './middleware/error.middleware';
 import { MonitoringMiddleware } from './middleware/monitoring.middleware';
+import { corsMiddleware } from './middleware/cors.middleware';
 import routes from './routes/index';
-
-import path from 'path';
 import OAuthController from '../features/oauth/oauth.controller';
 
 const app = express();
 
-// CORS configuration - Moved higher to cover all endpoints including static/well-known
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, or some redirected requests)
-    if (!origin || origin === 'null') return callback(null, true);
+// 1. Pre-middleware (CORS & Security)
+app.use(corsMiddleware());
 
-    const allowedOrigins = config.CORS_ORIGIN;
-    const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
-    
-    // Check against allowed list, subdomains, and specific patterns
-    const isAllowed = allowedOrigins.some(ao => {
-      const normalizedAo = ao.toLowerCase().replace(/\/$/, '');
-      return normalizedAo && normalizedOrigin === normalizedAo;
-    }) || 
-    // Flexible checks for production and dev environments
-    normalizedOrigin.includes('brinn.app') ||
-    normalizedOrigin.includes('opstintechnologies.com') ||
-    normalizedOrigin.includes('localhost') ||
-    normalizedOrigin.includes('127.0.0.1') ||
-    origin.startsWith('chrome-extension://') ||
-    origin.startsWith('tauri://') ||
-    origin.startsWith('capacitor://') ||
-    origin.startsWith('http://tauri.localhost');
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      logger.warn('CORS blocked origin:', { 
-        origin, 
-        normalizedOrigin,
-        allowedOrigins
-      });
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'Accept', 
-    'Origin',
-    'sentry-trace',
-    'baggage',
-    'x-client-id',
-    'x-client-version',
-    'x-platform',
-    'x-device-id',
-    'x-timezone',
-    'id-token'
-  ],
-  exposedHeaders: ['sentry-trace', 'baggage', 'Content-Disposition', 'X-Request-ID'],
-  maxAge: 86400,
-}));
-
-// Static files
-app.use('/public', express.static(path.join(process.cwd(), 'public')));
-
-// Security middleware
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -88,7 +32,9 @@ app.use(helmet({
         "https://*.brinn.app", 
         "https://brinn.app",
         "https://*.sentry.io",
-        "https://*.cloudinary.com"
+        "https://*.cloudinary.com",
+        "https://*.google-analytics.com",
+        "https://*.analytics.google.com"
       ],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
@@ -97,11 +43,10 @@ app.use(helmet({
   },
 }));
 
-console.log('ALLOWED_CORS_ORIGINS', config.CORS_ORIGIN)
+// Static files
+app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
-
-
-// Compression middleware
+// 2. Performance & Logging
 app.use(compression());
 
 // Logging middleware
