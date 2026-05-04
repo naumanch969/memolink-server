@@ -34,6 +34,7 @@ export const corsOptions: cors.CorsOptions = {
     // Secure domain patterns
     const isBrinnDomain = /^https?:\/\/([a-z0-9-]+\.)*brinn\.app$/.test(normalizedOrigin);
     const isOpstinDomain = /^https?:\/\/([a-z0-9-]+\.)*brinn\.opstintechnologies\.com$/.test(normalizedOrigin);
+    const isClaudeDomain = /^https?:\/\/([a-z0-9-]+\.)*(claude\.ai|anthropic\.com)$/.test(normalizedOrigin);
     const isLocalhost = /^http:\/\/localhost(:\d+)?$/.test(normalizedOrigin) || 
                        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(normalizedOrigin);
     const isTauri = normalizedOrigin === 'tauri://localhost' || 
@@ -41,7 +42,7 @@ export const corsOptions: cors.CorsOptions = {
     const isExtension = normalizedOrigin.startsWith('chrome-extension://');
     const isCapacitor = normalizedOrigin.startsWith('capacitor://');
 
-    if (isBrinnDomain || isOpstinDomain || isLocalhost || isTauri || isExtension || isCapacitor) {
+    if (isBrinnDomain || isOpstinDomain || isClaudeDomain || isLocalhost || isTauri || isExtension || isCapacitor) {
       return callback(null, true);
     }
 
