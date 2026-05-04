@@ -18,17 +18,36 @@ const app = express();
 // CORS configuration - Moved higher to cover all endpoints including static/well-known
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl, or some redirected requests)
+    if (!origin || origin === 'null') return callback(null, true);
 
     const allowedOrigins = config.CORS_ORIGIN;
-    const isAllowed = allowedOrigins.some(ao => origin === ao) || origin.startsWith('chrome-extension://');
+    const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
+    
+    // Check against allowed list, subdomains, and specific patterns
+    const isAllowed = allowedOrigins.some(ao => {
+      const normalizedAo = ao.toLowerCase().replace(/\/$/, '');
+      return normalizedAo && normalizedOrigin === normalizedAo;
+    }) || 
+    // Flexible checks for production and dev environments
+    normalizedOrigin.includes('brinn.app') ||
+    normalizedOrigin.includes('opstintechnologies.com') ||
+    normalizedOrigin.includes('localhost') ||
+    normalizedOrigin.includes('127.0.0.1') ||
+    origin.startsWith('chrome-extension://') ||
+    origin.startsWith('tauri://') ||
+    origin.startsWith('capacitor://') ||
+    origin.startsWith('http://tauri.localhost');
 
     if (isAllowed) {
       callback(null, true);
     } else {
-      logger.warn('CORS blocked origin:', { origin, allowedOrigins });
-      callback(new Error('Not allowed by CORS'));
+      logger.warn('CORS blocked origin:', { 
+        origin, 
+        normalizedOrigin,
+        allowedOrigins
+      });
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
     }
   },
   credentials: true,
@@ -41,13 +60,19 @@ app.use(cors({
     'Origin',
     'sentry-trace',
     'baggage',
-    'x-client-id'
+    'x-client-id',
+    'x-client-version',
+    'x-platform',
+    'x-device-id',
+    'x-timezone',
+    'id-token'
   ],
+  exposedHeaders: ['sentry-trace', 'baggage', 'Content-Disposition', 'X-Request-ID'],
+  maxAge: 86400,
 }));
 
 // Static files
 app.use('/public', express.static(path.join(process.cwd(), 'public')));
-
 
 // Security middleware
 app.use(helmet({
@@ -56,8 +81,15 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "https://validator.swagger.io"],
-      connectSrc: ["'self'", "https://validator.swagger.io"],
+      imgSrc: ["'self'", "data:", "https://validator.swagger.io", "https://*.cloudinary.com"],
+      connectSrc: [
+        "'self'", 
+        "https://validator.swagger.io", 
+        "https://*.brinn.app", 
+        "https://brinn.app",
+        "https://*.sentry.io",
+        "https://*.cloudinary.com"
+      ],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],

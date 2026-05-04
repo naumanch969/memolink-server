@@ -49,7 +49,7 @@ export const config = {
   ],
 
   // CORS Configuration
-  CORS_ORIGIN: process.env.CORS_ORIGIN?.split(',') || [
+  CORS_ORIGIN: process.env.CORS_ORIGIN?.split(/[\s,]+/).map(s => s.trim()).filter(Boolean) || [
     'http://localhost:3000',
     'http://localhost:5000',
     'https://brinn.app',
