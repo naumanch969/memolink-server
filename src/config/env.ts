@@ -52,6 +52,8 @@ export const config = {
   CORS_ORIGIN: process.env.CORS_ORIGIN?.split(',') || [
     'http://localhost:3000',
     'http://localhost:5000',
+    'https://brinn.app',
+    'https://www.brinn.app',
     'https://brinn-server.fly.dev',
     'http://localhost:1420',
     'tauri://localhost',

@@ -15,6 +15,36 @@ import OAuthController from '../features/oauth/oauth.controller';
 
 const app = express();
 
+// CORS configuration - Moved higher to cover all endpoints including static/well-known
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = config.CORS_ORIGIN;
+    const isAllowed = allowedOrigins.some(ao => origin === ao) || origin.startsWith('chrome-extension://');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS blocked origin:', { origin, allowedOrigins });
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'sentry-trace',
+    'baggage',
+    'x-client-id'
+  ],
+}));
+
 // Static files
 app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
@@ -35,26 +65,9 @@ app.use(helmet({
   },
 }));
 
-// CORS configuration
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+console.log('ALLOWED_CORS_ORIGINS', config.CORS_ORIGIN)
 
-    const allowedOrigins = config.CORS_ORIGIN;
-    const isAllowed = allowedOrigins.some(ao => origin === ao) || origin.startsWith('chrome-extension://');
 
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      logger.warn('CORS blocked origin:', { origin, allowedOrigins });
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-}));
 
 // Compression middleware
 app.use(compression());
