@@ -11,6 +11,7 @@ import { SystemMetric } from './metric.model';
 import { IMonitoringService } from './monitoring.interfaces';
 import { SystemHealth } from "./monitoring.types";
 import { config } from '../../config/env';
+import { v2 as cloudinary } from 'cloudinary'
 
 export class MonitoringService implements IMonitoringService {
     /**
@@ -319,7 +320,6 @@ export class MonitoringService implements IMonitoringService {
     private async getCloudinaryUsage() {
         try {
             // Lazy load to avoid startup issues if not configured
-            const { v2: cloudinary } = await import('cloudinary');
             cloudinary.config({
                 cloud_name: config.CLOUDINARY_CLOUD_NAME,
                 api_key: config.CLOUDINARY_API_KEY,

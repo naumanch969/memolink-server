@@ -8,6 +8,7 @@ import notificationService from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.types';
 import { socketService } from '../../core/socket/socket.service';
 import { SocketEvents } from '../../core/socket/socket.types';
+import { getEnrichmentQueue } from '../enrichment/enrichment.queue';
 
 // Idle gap > 5 minutes splits a session
 const SESSION_SPLIT_THRESHOLD_MS = 5 * 60 * 1000;
@@ -148,7 +149,6 @@ export class PassiveAnalysisService {
         if (signalTier === 'signal' || signalTier === 'deep_signal') {
             try {
                 logger.info(`Triaging passive session ${session._id} for LLM Enrichment (Tier: ${signalTier})`);
-                const { getEnrichmentQueue } = await import('../enrichment/enrichment.queue');
                 const enrichmentQueue = getEnrichmentQueue();
                 if (enrichmentQueue) {
                     await enrichmentQueue.add(

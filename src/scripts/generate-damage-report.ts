@@ -19,7 +19,7 @@ async function run() {
 
     const resultsMap = new Map();
     for (const line of lines) {
-        const [publicId, format, resourceType, type, result, info] = line.split(',');
+        const [publicId, format, resourceType, result, info] = line.split(',');
         resultsMap.set(publicId, { result, info, format, resourceType });
     }
 
@@ -29,7 +29,7 @@ async function run() {
 
     let md = '# 🚨 Production Media Damage Report\n\n';
     md += `*Generated: ${new Date().toLocaleString()}*\n\n`;
-    
+
     const restored = [];
     const pendingV3 = [];
     const lost = [];

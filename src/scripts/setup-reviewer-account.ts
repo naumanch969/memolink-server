@@ -1,7 +1,6 @@
 import database from '../config/database';
 import User from '../features/auth/auth.model';
 import { vaultService } from '../features/auth/vault.service';
-import { apiKeyService } from '../features/api-key/api-key.service';
 import { encryptionSessionService } from '../core/encryption/encryption-session.service';
 import { encryptionService } from '../core/encryption/encryption.service';
 import Entry from '../features/entry/entry.model';

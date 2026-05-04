@@ -5,7 +5,6 @@ import { config } from '../config/env';
 import { User } from '../features/auth/auth.model';
 import { Entry } from '../features/entry/entry.model';
 import { badgeService } from '../features/badge/badge.service';
-import { logger } from '../config/logger';
 
 dotenv.config();
 

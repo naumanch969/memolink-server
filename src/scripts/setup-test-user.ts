@@ -1,8 +1,6 @@
 import database from '../config/database';
 import User from '../features/auth/auth.model';
 import { vaultService } from '../features/auth/vault.service';
-import { encryptionSessionService } from '../core/encryption/encryption-session.service';
-import { cryptoService } from '../core/crypto/crypto.service';
 
 async function setupTestUser() {
   await database.connect();

@@ -5,6 +5,7 @@ import reminderService from '../reminder/reminder.service';
 import { RecurrenceFrequency } from '../reminder/reminder.types';
 
 import { IGoalReminderService } from './goal.interfaces';
+import Reminder from '../reminder/reminder.model';
 
 export class GoalReminderService implements IGoalReminderService {
     /**
@@ -14,7 +15,6 @@ export class GoalReminderService implements IGoalReminderService {
     async manageReminders(userId: string | Types.ObjectId, goal: any): Promise<void> {
         try {
             // 1. Delete existing linked reminders
-            const { Reminder } = await import('../reminder/reminder.model');
             await Reminder.deleteMany({ linkedGoalId: goal._id });
 
             // If goal is finished or archived, don't create new reminders

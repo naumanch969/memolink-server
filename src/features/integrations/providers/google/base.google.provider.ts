@@ -21,7 +21,7 @@ export abstract class BaseGoogleProvider implements IIntegrationProvider {
         );
     }
 
-    getAuthUrl(userId: string): Promise<{ url: string }> {
+    getAuthUrl(userId: string): Promise<{ url: string; [key: string]: unknown }> {
         const client = this.createOAuthClient();
 
         // Secure state to track both provider and user (prevents CSRF and auth loss on redirect)

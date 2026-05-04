@@ -12,7 +12,7 @@ export interface IIntegrationProvider {
     readonly description: string; // e.g. 'Read and create events'
     
     // Returns the connection URL (OAuth or direct link) and optional metadata
-    getAuthUrl(userId: string): Promise<{ url: string; [key: string]: any }>;
+    getAuthUrl(userId: string): Promise<{ url: string; [key: string]: unknown }>;
     
     // Processes the returning OAuth code & saves credentials for this provider
     handleCallback(code: string, userId: string): Promise<IIntegrationTokenDocument>;

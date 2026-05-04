@@ -349,23 +349,30 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
             logger.info('WhatsApp message sent', { to, messageId, fromId: fromId || this.config.phoneNumberId });
             return messageId;
 
-        } catch (error: any) {
-            logger.error('Failed to send WhatsApp message', {
-                error: error.response?.data || error.message,
-                to,
-                fromId: fromId || this.config.phoneNumberId
-            });
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error)) {
+                logger.error('Failed to send WhatsApp message', {
+                    error: error.response?.data || error.message,
+                    to,
+                    fromId: fromId || this.config.phoneNumberId
+                });
+            } else {
+                logger.error('Failed to send WhatsApp message', {
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    to
+                });
+            }
             return undefined;
         }
     }
 
     // Webhook verification (GET request from Meta)
-    verifyWebhook(query: any): string | null {
+    verifyWebhook(query: Record<string, string | undefined>): string | null {
         const mode = query['hub.mode'];
         const token = query['hub.verify_token'];
         const challenge = query['hub.challenge'];
 
-        if (mode === 'subscribe' && token === this.config.verifyToken) {
+        if (mode === 'subscribe' && challenge && token === this.config.verifyToken) {
             logger.info('WhatsApp Webhook verified');
             return challenge;
         }
@@ -373,7 +380,7 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
     }
 
     // IIntegrationProvider Methods
-    async getAuthUrl(userId: string): Promise<{ url: string;[key: string]: any }> {
+    async getAuthUrl(userId: string): Promise<{ url: string; [key: string]: unknown }> {
         // Generate 6-digit code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
@@ -390,8 +397,8 @@ export class WhatsAppProvider implements IWhatsAppProvider, IIntegrationProvider
         return { url: link };
     }
 
-    async handleCallback(_code: string, _userId: string): Promise<IIntegrationTokenDocument> {
-        throw new Error('WhatsApp does not support OAuth callback flow');
+    async handleCallback(code: string, userId: string): Promise<IIntegrationTokenDocument> {
+        throw new Error(`WhatsApp does not support OAuth callback flow. Attempted by user ${userId} with code ${code.substring(0, 3)}...`);
     }
 
     async verifyConnection(userId: string): Promise<boolean> {

@@ -4,6 +4,7 @@ import { ApiError } from '../../core/errors/api.error';
 import { INotificationService } from "./notification.interfaces";
 import { Notification } from './notification.model';
 import { CreateNotificationDTO, INotificationDocument } from './notification.types';
+import User from '../auth/auth.model';
 
 export class NotificationService implements INotificationService {
 
@@ -135,7 +136,6 @@ export class NotificationService implements INotificationService {
     // Register push token
     async registerPushToken(userId: string, token: string, platform: string): Promise<void> {
         try {
-            const { User } = await import('../auth/auth.model');
 
             // Find user and check if token already exists to avoid duplicates
             const user = await User.findById(userId);

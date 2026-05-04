@@ -2,7 +2,6 @@
 import mongoose from 'mongoose';
 import { BadgeDefinition } from '../features/badge/badge.model';
 import { INITIAL_BADGES } from '../features/badge/badge.registry';
-import { logger } from '../config/logger';
 
 async function seed() {
     try {

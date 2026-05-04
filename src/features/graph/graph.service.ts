@@ -4,6 +4,8 @@ import Helpers from '../../shared/helpers';
 import { EdgeStatus, EdgeType, GraphEdge, NodeType } from './edge.model';
 import { IGraphService } from "./graph.interfaces";
 import { IGraphEdge } from './graph.types';
+import KnowledgeEntity from '../entity/entity.model';
+import Entry from '../entry/entry.model';
 
 /**
  * Strict Ontology: Defines which source nodes can have which relations to which target nodes.
@@ -427,7 +429,6 @@ export class GraphService implements IGraphService {
         const entryIds = edges.map(edge => edge.to.id);
 
         // 2. Fetch Entry details
-        const { default: Entry } = await import('../entry/entry.model');
         const entries = await Entry.find({
             _id: { $in: entryIds },
             userId: new Types.ObjectId(userId)
@@ -456,7 +457,6 @@ export class GraphService implements IGraphService {
         const connectedIds = new Set(userEdges.map(e => e.to.id.toString()));
 
         // 2. Find Entities that are NOT in this set
-        const { KnowledgeEntity } = await import('../entity/entity.model');
         const orphans = await KnowledgeEntity.find({
             userId: new Types.ObjectId(userId),
             _id: { $nin: Array.from(connectedIds) },

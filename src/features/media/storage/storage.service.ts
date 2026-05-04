@@ -335,7 +335,7 @@ export class StorageService implements IStorageService {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const { Entry } = await import('../../entry/entry.model');
+    // TODO: DIP violation
     const recentEntryMedia = await Entry.find({ userId }).select('media');
     const recentMediaIds = new Set(
       recentEntryMedia.flatMap((e) => e.media.map((m: { toString: () => string }) => m.toString()))

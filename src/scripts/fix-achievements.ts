@@ -2,7 +2,6 @@
 import mongoose from 'mongoose';
 import { User } from '../features/auth/auth.model';
 import { badgeService } from '../features/badge/badge.service';
-import { logger } from '../config/logger';
 
 async function run() {
     try {

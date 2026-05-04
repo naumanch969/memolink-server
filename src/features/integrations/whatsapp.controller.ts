@@ -8,7 +8,7 @@ export class WhatsAppController {
 
     // Meta Cloud API Webhook Verification
     static async verify(req: Request, res: Response): Promise<void> {
-        const challenge = whatsappProvider.verifyWebhook(req.query);
+        const challenge = whatsappProvider.verifyWebhook(req.query as Record<string, string>);
         if (challenge) {
             res.status(200).send(challenge);
         } else {

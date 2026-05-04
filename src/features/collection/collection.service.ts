@@ -62,6 +62,7 @@ export class CollectionService implements ICollectionService {
 
             // Cleanup: remove collectionId from all entries previously in this collection
             // We use the model directly to avoid circular service dependencies
+            // TODO: DIP violation
             const { Entry } = await import('../entry/entry.model');
             await Entry.updateMany(
                 { userId: new Types.ObjectId(userId), collectionId },

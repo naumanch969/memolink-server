@@ -9,6 +9,8 @@ import encryptionSessionService from '../encryption/encryption-session.service';
 import { ApiError } from '../errors/api.error';
 import { ResponseHelper } from '../utils/response.utils';
 import { IUser } from '../../features/auth/auth.types';
+import { OAuthGrant } from '../../features/oauth/oauth-grant.model';
+import vaultService from '../../features/auth/vault.service';
 
 export class AuthMiddleware {
   static authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -46,14 +48,14 @@ export class AuthMiddleware {
       }
 
       // Fetch full profile from cache or database
-      const userProfile = await cacheService.getOrSet(
+      const userProfile = await cacheService.getOrSet<IUser>(
         CacheKeys.userProfile(authUserId),
         async () => {
           const user = await User.findById(authUserId);
           if (!user) {
             throw ApiError.unauthorized('User not found');
           }
-          return user.toJSON();
+          return user.toJSON() as IUser;
         },
         15 * 60 // 15 minutes TTL
       );
@@ -62,19 +64,17 @@ export class AuthMiddleware {
       if (grantId && grantSecret) {
         const mdkInSession = await encryptionSessionService.getMDK(authUserId);
         if (!mdkInSession) {
-          const { OAuthGrant } = await import('../../features/oauth/oauth-grant.model');
-          const { vaultService } = await import('../../features/auth/vault.service');
 
           const grant = await OAuthGrant.findById(grantId);
           if (grant && !grant.revokedAt) {
             try {
               const mdk = await vaultService.unwrapMDKFromGrant(grant.wrappedMDK, grant.vaultSalt, grantSecret);
-              const isLockEnabled = (userProfile as any).securityConfig?.isEnabled ?? true;
+              const isLockEnabled = userProfile.securityConfig?.isEnabled ?? true;
               await encryptionSessionService.storeMDK(authUserId, mdk, isLockEnabled);
 
               // Update last used (async, don't block)
               OAuthGrant.updateOne({ _id: grantId }, { lastUsedAt: new Date() }).catch(err => logger.error('Grant update error', err));
-            } catch (err) {
+            } catch {
               logger.warn('Failed to unseal vault using OAuth grant secret', { grantId });
             }
           }
@@ -82,23 +82,23 @@ export class AuthMiddleware {
       }
 
       // Add user info to request object
-      req.user = userProfile as any;
+      req.user = userProfile;
 
       logger.debug('User authenticated:', { userId: authUserId });
 
       // Refresh Vault TTL (sliding window)
       if (authUserId) {
-        const isLockEnabled = (userProfile as any).securityConfig?.isEnabled ?? true;
+        const isLockEnabled = userProfile.securityConfig?.isEnabled ?? true;
         await encryptionSessionService.refreshMDK(authUserId, isLockEnabled);
       }
 
       // Sync timezone from headers (background pulse)
-      this.syncTimezone(req, userProfile as any).catch(err => logger.error('Timezone sync error', err));
+      this.syncTimezone(req, userProfile).catch(err => logger.error('Timezone sync error', err));
 
       next();
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Don't flood logs with 'expired' or 'invalid' token errors as these are normal events
-      if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+      if (error instanceof Error && (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError')) {
         logger.warn('Authentication failed:', { message: error.message, url: req.url });
       } else {
         logger.error('Authentication system error:', error);

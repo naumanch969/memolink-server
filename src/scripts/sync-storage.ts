@@ -3,7 +3,6 @@ import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s
 import axios from 'axios';
 import { Media } from '../features/media/media.model';
 import { config } from '../config/env';
-import { logger } from '../config/logger';
 
 // Initialize S3 Client for Cloudflare R2
 const s3Client = new S3Client({

@@ -11,6 +11,7 @@ import { Notification } from './notification.model';
 import notificationService from './notification.service';
 import { NotificationTemplates } from './notification.templates';
 import { CreateNotificationDTO, INotificationDocument, NotificationType } from './notification.types';
+import expoPushService from './push/expo-push.service';
 
 export class NotificationDispatcher {
     /**
@@ -85,7 +86,6 @@ export class NotificationDispatcher {
         // 6. Mobile Push Notifications via Expo
         if (user.preferences?.notifications && user.pushTokens?.length) {
             const tokens = user.pushTokens.map(pt => pt.token);
-            const { expoPushService } = await import('./push/expo-push.service');
             await expoPushService.sendNotification(
                 tokens,
                 data.title,

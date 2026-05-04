@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 import { User } from '../features/auth/auth.model';
 import { Entry } from '../features/entry/entry.model';
 import { Tag } from '../features/tag/tag.model';
-import { logger } from '../config/logger';
 
 async function run() {
     try {

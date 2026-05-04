@@ -113,7 +113,6 @@ export class EntityController {
             const { page: pageNum, limit: limitNum } = Helpers.getPaginationParams({ page, limit });
 
             // This would typically use the GraphService to find MENTIONED_IN edges to entries
-            const { graphService } = await import('../graph/graph.service');
             const result = await graphService.getEntityInteractions(id, userId, { page: pageNum, limit: limitNum });
 
             ResponseHelper.paginated(res, result.entries, {

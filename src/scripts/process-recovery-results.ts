@@ -21,12 +21,12 @@ async function run() {
     let succeededCount = 0;
     let failedDRCount = 0;
     let recoverableCount = 0;
-    
+
     // Header for V3
     let v3Csv = 'public_id,format,resource_type,type\n';
 
     for (const line of lines) {
-        const [publicId, format, resourceType, type, result, info] = line.split(',');
+        const [publicId, format, type, result, info] = line.split(',');
 
         if (result === 'succeeded') {
             // Update DB
@@ -41,9 +41,9 @@ async function run() {
                 v3Csv += `${publicId},${format},raw,${type}\n`;
                 recoverableCount++;
             } else if (info && info.includes('Format jpeg is not supported')) {
-                 // Fix jpeg to jpg or use raw? jpeg should be image. Maybe use jpg.
-                 v3Csv += `${publicId},jpg,image,${type}\n`;
-                 recoverableCount++;
+                // Fix jpeg to jpg or use raw? jpeg should be image. Maybe use jpg.
+                v3Csv += `${publicId},jpg,image,${type}\n`;
+                recoverableCount++;
             } else {
                 failedDRCount++;
                 // Mark as truly failed in DB if you want, but maybe wait for V3
