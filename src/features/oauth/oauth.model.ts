@@ -19,6 +19,8 @@ const oauthCodeSchema = new Schema<IOAuthCode>({
   redirectUri: { type: String, required: true },
   scope: [{ type: String }],
   grantSecret: { type: String },
+  codeChallenge: { type: String },
+  codeChallengeMethod: { type: String },
 }, { timestamps: true });
 
 oauthCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

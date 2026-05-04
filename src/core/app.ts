@@ -11,6 +11,7 @@ import { MonitoringMiddleware } from './middleware/monitoring.middleware';
 import routes from './routes/index';
 
 import path from 'path';
+import OAuthController from '../features/oauth/oauth.controller';
 
 const app = express();
 
@@ -88,6 +89,16 @@ app.use((req, res, next) => {
 
 // API routes
 app.use('/api', routes);
+
+// RFC 9470: Discovery for Protected Resource (MCP) - For Claude
+app.get('/.well-known/oauth-protected-resource/mcp', (req, res) => {
+  OAuthController.getProtectedResourceMetadata(req, res);
+});
+
+// RFC 8414: OAuth 2.0 Authorization Server Metadata - For Claude
+app.get(['/.well-known/oauth-authorization-server', '/api/oauth/.well-known/oauth-authorization-server'], (req, res) => {
+  OAuthController.getAuthorizationServerMetadata(req, res);
+});
 
 // Root endpoint
 app.get('/', (req, res) => {

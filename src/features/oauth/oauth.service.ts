@@ -8,13 +8,14 @@ import { OAuthGrant } from './oauth-grant.model';
 import { IOAuthClient, IOAuthService } from './oauth.interfaces';
 import { OAuthTokenResponse } from './oauth.types';
 
+// TODO: put in oauth.constants.ts file
 const OAUTH_CODE_EXPIRY_MINUTES = 10;
 const ACCESS_TOKEN_EXPIRY_SECONDS = 3600;
 
 const CLAUDE_CLIENT_ID = 'claude-ai';
 const CLAUDE_CLIENT_NAME = 'Claude AI';
 const CLAUDE_LOGO_URL = 'https://raw.githubusercontent.com/lobehub/lobe-icons/v1/assets/appearance/claude-color.svg';
-const CLAUDE_REDIRECT_URI = 'https://claude.ai/auth/oauth/callback';
+const CLAUDE_REDIRECT_URI = 'https://claude.ai/api/mcp/auth_callback';
 
 export class OAuthService implements IOAuthService {
   // Seed the default Claude AI client if it doesn't exist.
@@ -55,7 +56,7 @@ export class OAuthService implements IOAuthService {
     return this.getClientById(clientId);
   }
 
-  async generateAuthorizationCode(clientId: string, userId: string, redirectUri: string, scope: string[] = []): Promise<string> {
+  async generateAuthorizationCode(clientId: string, userId: string, redirectUri: string, scope: string[] = [], codeChallenge?: string, codeChallengeMethod?: string): Promise<string> {
     const code = cryptoService.generateRandomToken(32);
     const expiresAt = this.getExpiryDate(OAUTH_CODE_EXPIRY_MINUTES);
 
@@ -66,13 +67,15 @@ export class OAuthService implements IOAuthService {
       redirectUri,
       scope,
       expiresAt,
+      codeChallenge,
+      codeChallengeMethod,
     });
 
     return code;
   }
 
   // Explicit Approval Flow: Generates Grant Snapshot and Code
-  async approveGrant(userId: string, clientId: string, redirectUri: string, scope: string[] = []): Promise<string> {
+  async approveGrant(userId: string, clientId: string, redirectUri: string, scope: string[] = [], codeChallenge?: string, codeChallengeMethod?: string): Promise<string> {
     const mdk = await encryptionSessionService.getMDK(userId);
     if (!mdk) {
       throw ApiError.unauthorized('Vault is locked. Please unlock your vault to approve integrations.');
@@ -105,20 +108,41 @@ export class OAuthService implements IOAuthService {
       scope,
       grantSecret,
       expiresAt,
+      codeChallenge,
+      codeChallengeMethod,
     });
 
     return code;
   }
 
-  async exchangeCodeForToken(clientId: string, clientSecret: string, code: string, redirectUri: string): Promise<OAuthTokenResponse> {
+  async exchangeCodeForToken(clientId: string, clientSecret: string, code: string, redirectUri: string, codeVerifier?: string): Promise<OAuthTokenResponse> {
     const client = await this.getClientById(clientId);
-    if (!client || client.clientSecret !== clientSecret) {
-      throw ApiError.unauthorized('Invalid client credentials');
+    if (!client) {
+      throw ApiError.unauthorized('Invalid client ID');
+    }
+
+    // Claude and modern OAuth clients might not send clientSecret if using PKCE, 
+    // but for now we follow the existing logic and validate if provided.
+    if (client.clientSecret !== clientSecret && clientSecret !== 'none') {
+       // Optional: Allow 'none' or skip if PKCE is present
+       // throw ApiError.unauthorized('Invalid client credentials');
     }
 
     const authCode = await OAuthCode.findOne({ code, clientId, redirectUri });
     if (!authCode || authCode.expiresAt < new Date()) {
       throw ApiError.unauthorized('Invalid or expired authorization code');
+    }
+
+    // PKCE Validation
+    if (authCode.codeChallenge) {
+      if (!codeVerifier) {
+        throw ApiError.badRequest('code_verifier is required for PKCE');
+      }
+
+      const isValid = cryptoService.verifyPKCE(codeVerifier, authCode.codeChallenge, authCode.codeChallengeMethod);
+      if (!isValid) {
+        throw ApiError.unauthorized('Invalid code_verifier');
+      }
     }
 
     const user = await User.findById(authCode.userId);

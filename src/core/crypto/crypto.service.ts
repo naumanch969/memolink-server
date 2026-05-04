@@ -77,6 +77,24 @@ export class CryptoService implements ICryptoService {
   hashSensitiveData(data: string): string {
     return crypto.createHash('sha256').update(data).digest('hex').substring(0, 8);
   }
+
+  // PKCE verification
+  verifyPKCE(codeVerifier: string, codeChallenge: string, method: string = 'S256'): boolean {
+    if (method === 'plain') {
+      return codeVerifier === codeChallenge;
+    }
+
+    if (method === 'S256') {
+      const hash = crypto.createHash('sha256').update(codeVerifier).digest();
+      const base64Url = hash.toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+      return base64Url === codeChallenge;
+    }
+
+    return false;
+  }
 }
 
 export const cryptoService = new CryptoService();

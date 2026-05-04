@@ -10,24 +10,29 @@ export class OAuthController {
   // If logged in, redirects to the client's redirect_uri with the code.
   static async authorize(req: any, res: Response) {
     try {
-      const data: OAuthAuthorizeRequest = { ...req.query, ...req.body };
-
-      const { clientId, redirectUri, responseType = 'code', state = '', scope = '' } = data;
+      const data = { ...req.query, ...req.body };
+      
+      const clientId = data.clientId || data.client_id;
+      const redirectUri = data.redirectUri || data.redirect_uri;
+      const responseType = data.responseType || data.response_type || 'code';
+      const state = data.state || '';
+      const scope = data.scope || '';
+      const codeChallenge = data.codeChallenge || data.code_challenge;
+      const codeChallengeMethod = data.codeChallengeMethod || data.code_challenge_method || 'S256';
 
       if (!clientId) {
-        return ResponseHelper.badRequest(res, 'clientId is required');
+        return ResponseHelper.badRequest(res, 'client_id is required');
       }
 
       const client = await oauthService.getClientById(clientId);
       if (!client) {
-        return ResponseHelper.badRequest(res, `Invalid clientId: ${clientId}`);
-      }
-
-      if (redirectUri && !client.redirectUris.includes(redirectUri)) {
-        return ResponseHelper.badRequest(res, `Invalid redirectUri: ${redirectUri}`);
+        return ResponseHelper.badRequest(res, `Invalid client_id: ${clientId}`);
       }
 
       const effectiveRedirectUri = redirectUri || client.redirectUris[0];
+      if (effectiveRedirectUri && !client.redirectUris.includes(effectiveRedirectUri)) {
+        return ResponseHelper.badRequest(res, `Invalid redirect_uri: ${effectiveRedirectUri}`);
+      }
 
       // If user is not logged in
       if (!req.user) {
@@ -46,9 +51,14 @@ export class OAuthController {
         responseType: responseType,
         state: state,
         scope: scope
-      }).toString();
+      });
 
-      const consentUrl = `${config.FRONTEND_URL}/oauth/consent?${query}`;
+      if (codeChallenge) {
+        query.append('codeChallenge', codeChallenge);
+        query.append('codeChallengeMethod', codeChallengeMethod);
+      }
+
+      const consentUrl = `${config.FRONTEND_URL}/oauth/consent?${query.toString()}`;
 
       if (req.headers.accept?.includes('application/json')) {
         return ResponseHelper.success(res, { redirectUrl: consentUrl });
@@ -63,7 +73,7 @@ export class OAuthController {
   // Explicit approval from the consent screen.
   static async approve(req: any, res: Response) {
     try {
-      const { clientId, redirectUri, scope, state }: OAuthApproveRequest = req.body;
+      const { clientId, redirectUri, scope, state, codeChallenge, codeChallengeMethod }: OAuthApproveRequest = req.body;
       const userId = req.user._id.toString();
 
       if (!clientId || !redirectUri) {
@@ -76,7 +86,9 @@ export class OAuthController {
         userId,
         clientId,
         redirectUri,
-        normalizedScope
+        normalizedScope,
+        codeChallenge,
+        codeChallengeMethod
       );
 
       return ResponseHelper.success(res, { code, state });
@@ -89,22 +101,29 @@ export class OAuthController {
   // Called by the client (Claude) using the authorization code.
   static async token(req: Request, res: Response) {
     try {
-      const { grantType, code, redirectUri, clientId, clientSecret }: OAuthTokenRequest = req.body;
+      const body = req.body;
+      const grantType = body.grantType || body.grant_type;
+      const code = body.code;
+      const redirectUri = body.redirectUri || body.redirect_uri;
+      const clientId = body.clientId || body.client_id;
+      const clientSecret = body.clientSecret || body.client_secret;
+      const codeVerifier = body.codeVerifier || body.code_verifier;
 
       if (grantType !== 'authorization_code') {
-        return ResponseHelper.badRequest(res, 'Only grantType=authorization_code is supported');
+        return ResponseHelper.badRequest(res, 'Only grant_type=authorization_code is supported');
       }
 
       const result = await oauthService.exchangeCodeForToken(
         clientId,
         clientSecret,
         code,
-        redirectUri
+        redirectUri,
+        codeVerifier
       );
 
       return res.json(result);
-    } catch (error) {
-      ResponseHelper.error(res, 'Token exchange failed', 401, error);
+    } catch (error: any) {
+      ResponseHelper.error(res, error.message || 'Token exchange failed', error.statusCode || 401, error);
     }
   }
 
@@ -125,6 +144,34 @@ export class OAuthController {
     } catch (error) {
       ResponseHelper.error(res, 'Failed to get client info', 500, error);
     }
+  }
+
+  // RFC 9470: Discovery for Protected Resource (MCP)
+  static async getProtectedResourceMetadata(req: Request, res: Response) {
+    const authServerUrl = config.BACKEND_URL; // Issuer is at the root
+    const mcpUrl = `${config.BACKEND_URL}/api/mcp`;
+
+    res.json({
+      mcp_endpoint: mcpUrl,
+      authorization_servers: [authServerUrl]
+    });
+  }
+
+  // RFC 8414: OAuth 2.0 Authorization Server Metadata
+  static async getAuthorizationServerMetadata(req: Request, res: Response) {
+    const issuer = config.BACKEND_URL;
+    const authBase = `${config.BACKEND_URL}/api/oauth`;
+
+    res.json({
+      issuer: issuer,
+      authorization_endpoint: `${authBase}/authorize`,
+      token_endpoint: `${authBase}/token`,
+      response_types_supported: ['code'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      code_challenge_methods_supported: ['S256', 'plain'],
+      scopes_supported: ['mcp:read', 'mcp:write', 'profile'],
+      token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'none']
+    });
   }
 }
 

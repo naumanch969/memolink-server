@@ -55,7 +55,12 @@ export const config = {
     'https://brinn-server.fly.dev',
     'http://localhost:1420',
     'tauri://localhost',
-    'http://tauri.localhost'
+    'http://tauri.localhost',
+    'https://claude.ai',
+    'https://claude.com',
+    'https://cursor.com',
+    'https://cursor.sh',
+    'https://windsurf.ai'
   ],
 
   // Logging Configuration

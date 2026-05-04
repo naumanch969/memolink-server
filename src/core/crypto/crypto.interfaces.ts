@@ -12,4 +12,5 @@ export interface ICryptoService {
     generateSecureRandomString(length?: number): string;
     generateVerificationCode(length?: number): string;
     hashSensitiveData(data: string): string;
+    verifyPKCE(codeVerifier: string, codeChallenge: string, method?: string): boolean;
 }

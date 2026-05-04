@@ -11,6 +11,12 @@ const router = Router();
 router.get('/client/:clientId', OAuthController.getClientInfo);
 
 /**
+ * Discovery endpoints
+ */
+router.get('/.well-known/oauth-protected-resource/mcp', OAuthController.getProtectedResourceMetadata);
+router.get('/.well-known/oauth-authorization-server', OAuthController.getAuthorizationServerMetadata);
+
+/**
  * Endpoint to exchange authorization code for access token.
  * Authenticated by clientId and clientSecret in body.
  */

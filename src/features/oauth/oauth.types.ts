@@ -4,6 +4,8 @@ export interface OAuthAuthorizeRequest {
   responseType: string;
   state?: string;
   scope?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 }
 
 export interface OAuthTokenRequest {
@@ -12,6 +14,7 @@ export interface OAuthTokenRequest {
   redirectUri: string;
   clientId: string;
   clientSecret: string;
+  codeVerifier?: string;
 }
 
 export interface OAuthApproveRequest {
@@ -19,6 +22,8 @@ export interface OAuthApproveRequest {
   redirectUri: string;
   scope?: string | string[];
   state?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 }
 
 export interface OAuthTokenResponse {

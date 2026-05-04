@@ -19,6 +19,8 @@ export interface IOAuthCode extends Document {
   redirectUri: string;
   scope: string[];
   grantSecret?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 }
 
 export interface IOAuthGrant extends Document {
@@ -35,8 +37,8 @@ export interface IOAuthService {
   seedClaudeClient(clientSecret?: string): Promise<void>;
   validateClient(clientId: string, clientSecret: string, redirectUri: string): Promise<boolean>;
   getClient(clientId: string): Promise<IOAuthClient | null>;
-  generateAuthorizationCode(clientId: string, userId: string, redirectUri: string, scope?: string[]): Promise<string>;
-  approveGrant(userId: string, clientId: string, redirectUri: string, scope?: string[]): Promise<string>;
-  exchangeCodeForToken(clientId: string, clientSecret: string, code: string, redirectUri: string): Promise<OAuthTokenResponse>;
+  generateAuthorizationCode(clientId: string, userId: string, redirectUri: string, scope?: string[], codeChallenge?: string, codeChallengeMethod?: string): Promise<string>;
+  approveGrant(userId: string, clientId: string, redirectUri: string, scope?: string[], codeChallenge?: string, codeChallengeMethod?: string): Promise<string>;
+  exchangeCodeForToken(clientId: string, clientSecret: string, code: string, redirectUri: string, codeVerifier?: string): Promise<OAuthTokenResponse>;
   getClientById(clientId: string): Promise<IOAuthClient | null>;
 }
