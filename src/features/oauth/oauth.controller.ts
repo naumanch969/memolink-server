@@ -3,6 +3,8 @@ import { ResponseHelper } from '../../core/utils/response.utils';
 import { oauthService } from './oauth.service';
 import { config } from '../../config/env';
 import { OAuthApproveRequest, OAuthAuthorizeRequest, OAuthTokenRequest } from './oauth.types';
+import { cryptoService } from '../../core/crypto/crypto.service';
+import { User } from '../auth/auth.model';
 
 export class OAuthController {
   // Initial authorization request.
@@ -32,6 +34,22 @@ export class OAuthController {
       const effectiveRedirectUri = redirectUri || client.redirectUris[0];
       if (effectiveRedirectUri && !client.redirectUris.includes(effectiveRedirectUri)) {
         return ResponseHelper.badRequest(res, `Invalid redirect_uri: ${effectiveRedirectUri}`);
+      }
+
+      // If user is not already authenticated (e.g. via middleware), 
+      // check if a token was provided in the query/body (typical after login redirect)
+      if (!req.user && data.token) {
+        try {
+          const decoded = cryptoService.verifyToken(data.token);
+          if (decoded && decoded.userId) {
+            const user = await User.findById(decoded.userId);
+            if (user) {
+              req.user = user.toJSON();
+            }
+          }
+        } catch (err) {
+          console.error('[OAuth] Token verification failed in authorize:', err);
+        }
       }
 
       // If user is not logged in

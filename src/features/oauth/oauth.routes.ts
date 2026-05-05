@@ -22,14 +22,10 @@ router.get('/.well-known/oauth-authorization-server', OAuthController.getAuthori
  */
 router.post('/token', OAuthController.token);
 
-router.use(AuthMiddleware.authenticate);
-
-/**
- * Endpoint to request an authorization code.
- * Requires user to be authenticated.
- */
 router.get('/authorize', OAuthController.authorize);
 router.post('/authorize', OAuthController.authorize);
+
+router.use(AuthMiddleware.authenticate);
 
 /**
  * Explicit consent approval endpoint.
